@@ -1,0 +1,199 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.titlebar {
+  height: 32px;
+  background: var(--sg-titlebar-bg);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  -webkit-app-region: drag;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.titlebarTitle {
+  font-size: 12px;
+  color: var(--sg-foreground-muted);
+}
+
+.titlebarNav {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.themeToggle,
+.langToggle {
+  background: none;
+  border: none;
+  color: var(--sg-foreground-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  -webkit-app-region: no-drag;
+  transition: all var(--sg-transition);
+  font-weight: 600;
+}
+
+.themeToggle { font-size: 14px; }
+
+.themeToggle:hover,
+.langToggle:hover {
+  background: rgba(128, 128, 128, 0.15);
+  color: var(--sg-foreground);
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
+  min-width: 180px;
+  background: var(--sg-sidebar-bg);
+  border-right: 1px solid var(--sg-border);
+}
+
+.content {
+  width: 100%;
+  height: 100%;
+  min-width: 300px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Commits view: graph top, details+diff bottom */
+.commitsLayout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.graphPane {
+  flex: 6;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.commitBottomPane {
+  flex: 4;
+  min-height: 160px;
+  display: flex;
+  border-top: 1px solid var(--sg-border);
+  overflow: hidden;
+}
+
+.detailPane {
+  width: 360px;
+  min-width: 260px;
+  max-width: 500px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+  border-right: 1px solid var(--sg-border);
+}
+
+.commitDiffPane {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+/* Changes view: file list left, diff right */
+.changesLayout {
+  display: flex;
+  height: 100%;
+}
+
+.changesFileList {
+  width: 360px;
+  min-width: 260px;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-right: 1px solid var(--sg-border);
+  flex-shrink: 0;
+  height: 100%;
+}
+
+.changesDiff {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--sg-foreground-muted);
+}
+
+.welcome h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--sg-foreground);
+}
+
+.statusbar {
+  height: 24px;
+  background: var(--sg-statusbar-bg);
+  color: var(--sg-statusbar-fg);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 12px;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.overlayContent {
+  width: 700px;
+  max-width: 90vw;
+  height: 500px;
+  max-height: 80vh;
+  background: var(--sg-background);
+  border: 1px solid var(--sg-border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.emptyDiff {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--sg-foreground-muted);
+  font-size: 13px;
+}

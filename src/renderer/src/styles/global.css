@@ -1,0 +1,56 @@
+@import './theme.css';
+@import './ui-kit.css';
+@import './showcase.css';
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--sg-font-family);
+  font-size: var(--sg-font-size);
+  color: var(--sg-foreground);
+  background: var(--sg-background);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--sg-selection);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--sg-scrollbar-thumb);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sg-scrollbar-thumb-hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--sg-primary);
+  outline-offset: -2px;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--sg-primary);
+  outline-offset: 1px;
+}
+

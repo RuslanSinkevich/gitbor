@@ -1,0 +1,60 @@
+.root {
+  display: flex;
+  height: 38px;
+  background: var(--sg-surface-raised);
+  border-bottom: 1px solid var(--sg-border);
+  align-items: center;
+  padding: 0 12px;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.separator {
+  width: 1px;
+  height: 18px;
+  background: var(--sg-border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.action {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: none;
+  border: none;
+  color: var(--sg-foreground);
+  cursor: pointer;
+  border-radius: var(--sg-radius-sm);
+  font-size: 12px;
+  font-family: inherit;
+  transition: background var(--sg-transition);
+}
+
+.action:hover {
+  background: rgba(128, 128, 128, 0.15);
+}
+
+.action:active {
+  background: rgba(128, 128, 128, 0.25);
+}
+
+.action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.action svg {
+  flex-shrink: 0;
+}
+
+.actionLabel {
+  white-space: nowrap;
+}

@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+src/renderer/node_modules/
+
+# Build output
+dist/
+
+# Vite cache
+src/renderer/.vite/
+src/renderer/node_modules/.vite/
+
+# TypeScript
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Electron
+out/
+release/
+
+# Bundled git (downloaded at build time)
+resources/git/

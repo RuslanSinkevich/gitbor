@@ -1,0 +1,1 @@
+export { BlameView } from './BlameView';

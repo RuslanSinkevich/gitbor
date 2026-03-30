@@ -1,0 +1,243 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--sg-foreground-muted);
+  font-size: 13px;
+}
+
+/* Conflict banner */
+.conflictBanner {
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--sg-file-conflict) 15%, transparent);
+  color: var(--sg-file-conflict);
+  font-size: 12px;
+  font-weight: 500;
+  border-bottom: 1px solid var(--sg-border);
+  flex-shrink: 0;
+}
+
+/* Section (staged / unstaged) */
+.section {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 80px;
+  overflow: hidden;
+}
+
+.section + .section {
+  border-top: 1px solid var(--sg-border);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--sg-surface-raised);
+  border-bottom: 1px solid var(--sg-border);
+  flex-shrink: 0;
+}
+
+.sectionTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sg-foreground);
+}
+
+.sectionActions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.sectionAction {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  background: none;
+  color: var(--sg-foreground-muted);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 1;
+  transition: all var(--sg-transition);
+  margin-left: auto;
+}
+
+.sectionAction:hover {
+  background: rgba(128, 128, 128, 0.15);
+  color: var(--sg-foreground);
+}
+
+.sectionActionDanger:hover {
+  background: color-mix(in srgb, var(--sg-danger) 15%, transparent);
+  color: var(--sg-danger);
+}
+
+/* File list */
+.fileList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2px 0;
+}
+
+.fileItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background var(--sg-transition);
+}
+
+.fileItem:hover {
+  background: var(--sg-surface-hover);
+}
+
+.fileItemConflict {
+  background: color-mix(in srgb, var(--sg-file-conflict) 5%, transparent);
+}
+
+.fileItemActive {
+  background: color-mix(in srgb, var(--sg-primary) 15%, transparent);
+}
+
+.fileItemActive:hover {
+  background: color-mix(in srgb, var(--sg-primary) 22%, transparent);
+}
+
+/* Tree folder */
+.treeFolder {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--sg-foreground);
+  user-select: none;
+  transition: background var(--sg-transition);
+}
+
+.treeFolder:hover {
+  background: var(--sg-surface-hover);
+}
+
+.treeArrow {
+  font-size: 8px;
+  width: 12px;
+  text-align: center;
+  color: var(--sg-foreground-muted);
+  flex-shrink: 0;
+  display: inline-block;
+  transition: transform 0.12s;
+}
+
+.treeArrowExpanded {
+  transform: rotate(90deg);
+}
+
+.treeFolderIcon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.treeFolderName {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Status icon */
+.statusIcon {
+  font-family: var(--sg-font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.statusModified { color: var(--sg-file-modified); background: color-mix(in srgb, var(--sg-file-modified) 12%, transparent); }
+.statusAdded { color: var(--sg-file-added); background: color-mix(in srgb, var(--sg-file-added) 12%, transparent); }
+.statusDeleted { color: var(--sg-file-deleted); background: color-mix(in srgb, var(--sg-file-deleted) 12%, transparent); }
+.statusRenamed { color: var(--sg-file-renamed); background: color-mix(in srgb, var(--sg-file-renamed) 12%, transparent); }
+.statusConflict { color: var(--sg-file-conflict); background: color-mix(in srgb, var(--sg-file-conflict) 12%, transparent); }
+.statusUntracked { color: var(--sg-file-added); background: color-mix(in srgb, var(--sg-file-added) 8%, transparent); }
+
+/* File name with dir */
+.fileDir {
+  color: var(--sg-foreground-muted);
+  font-family: var(--sg-font-mono);
+  font-size: 11px;
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileName {
+  color: var(--sg-foreground);
+  font-family: var(--sg-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Action buttons on each file row */
+.fileActions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: opacity var(--sg-transition);
+}
+
+.fileItem:hover .fileActions {
+  opacity: 1;
+}
+
+.fileAction {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--sg-foreground-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1;
+  transition: all var(--sg-transition);
+}
+
+.fileAction:hover {
+  background: rgba(128, 128, 128, 0.2);
+  color: var(--sg-foreground);
+}
+
+.fileActionDanger:hover {
+  background: color-mix(in srgb, var(--sg-danger) 20%, transparent);
+  color: var(--sg-danger);
+}

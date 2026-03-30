@@ -1,0 +1,323 @@
+/* ─── Overlay / Dialog base ─── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog {
+  width: 520px;
+  max-width: 90vw;
+  background: var(--sg-background);
+  border: 1px solid var(--sg-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.dialogHeader {
+  padding: 16px 20px 8px;
+}
+
+.dialogTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--sg-foreground);
+}
+
+.dialogSubtitle {
+  font-size: 12px;
+  color: var(--sg-foreground-muted);
+}
+
+.dialogBody {
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dialogFooter {
+  padding: 12px 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--sg-border);
+}
+
+/* ─── Fields ─── */
+.field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.label {
+  width: 100px;
+  flex-shrink: 0;
+  color: var(--sg-foreground-muted);
+  font-weight: 500;
+  text-align: right;
+}
+
+.branchName {
+  font-family: var(--sg-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sg-primary);
+}
+
+.select {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--sg-input-bg);
+  color: var(--sg-foreground);
+  border: 1px solid var(--sg-border);
+  border-radius: var(--sg-radius-sm);
+}
+
+/* ─── Warning ─── */
+.warning {
+  padding: 8px 12px;
+  background: color-mix(in srgb, #d29922 15%, transparent);
+  color: #d29922;
+  border-radius: var(--sg-radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ─── Buttons ─── */
+.btnPrimary {
+  padding: 6px 20px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  background: var(--sg-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--sg-radius-sm);
+  cursor: pointer;
+  transition: opacity var(--sg-transition);
+}
+
+.btnPrimary:hover { opacity: 0.85; }
+.btnPrimary:disabled { opacity: 0.5; cursor: default; }
+
+.btnSecondary {
+  padding: 6px 20px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  background: transparent;
+  color: var(--sg-foreground);
+  border: 1px solid var(--sg-border);
+  border-radius: var(--sg-radius-sm);
+  cursor: pointer;
+  transition: background var(--sg-transition);
+}
+
+.btnSecondary:hover { background: var(--sg-surface-hover); }
+
+/* ─── Merge Banner ─── */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: color-mix(in srgb, #d29922 20%, var(--sg-background));
+  border-bottom: 1px solid color-mix(in srgb, #d29922 40%, transparent);
+  font-size: 12px;
+  color: var(--sg-foreground);
+  flex-shrink: 0;
+}
+
+.bannerIcon {
+  color: #d29922;
+  font-size: 14px;
+}
+
+.bannerText {
+  flex: 1;
+}
+
+.bannerBranch {
+  font-weight: 600;
+  font-family: var(--sg-font-mono);
+}
+
+.bannerAbort {
+  padding: 2px 10px;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 600;
+  background: transparent;
+  color: var(--sg-danger);
+  border: 1px solid var(--sg-danger);
+  border-radius: var(--sg-radius-sm);
+  cursor: pointer;
+  transition: all var(--sg-transition);
+}
+
+.bannerAbort:hover {
+  background: color-mix(in srgb, var(--sg-danger) 15%, transparent);
+}
+
+/* ─── Conflict Notify Dialog ─── */
+.conflictOutput {
+  background: var(--sg-input-bg);
+  border: 1px solid var(--sg-border);
+  border-radius: var(--sg-radius-sm);
+  padding: 10px 12px;
+  font-family: var(--sg-font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  color: var(--sg-foreground-muted);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ─── Merge Editor ─── */
+.mergeEditor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.mergeToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--sg-surface-raised);
+  border-bottom: 1px solid var(--sg-border);
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.mergeToolbarFile {
+  font-family: var(--sg-font-mono);
+  font-weight: 600;
+  flex: 1;
+}
+
+.mergeColumns {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.mergeCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mergeCol + .mergeCol {
+  border-left: 1px solid var(--sg-border);
+}
+
+.mergeColHeader {
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sg-foreground-muted);
+  background: var(--sg-surface-raised);
+  border-bottom: 1px solid var(--sg-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mergeColBranch {
+  font-family: var(--sg-font-mono);
+  color: var(--sg-primary);
+}
+
+.mergeColBody {
+  flex: 1;
+  overflow-y: auto;
+  font-family: var(--sg-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.mergeBlock {
+  padding: 0 8px;
+  cursor: default;
+}
+
+.mergeBlockConflict {
+  cursor: pointer;
+  position: relative;
+}
+
+.mergeBlockOurs {
+  background: color-mix(in srgb, #f85149 12%, transparent);
+}
+
+.mergeBlockTheirs {
+  background: color-mix(in srgb, #3fb950 12%, transparent);
+}
+
+.mergeBlockSelected {
+  outline: 2px solid var(--sg-primary);
+  outline-offset: -2px;
+}
+
+.mergeBlockLabel {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--sg-primary);
+  color: #fff;
+  font-weight: 700;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.mergeLine {
+  white-space: pre;
+  min-height: 1.5em;
+}
+
+.mergeLineNo {
+  display: inline-block;
+  width: 40px;
+  text-align: right;
+  padding-right: 8px;
+  color: var(--sg-foreground-muted);
+  opacity: 0.5;
+  user-select: none;
+}
+
+.mergeFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--sg-border);
+  background: var(--sg-surface-raised);
+  flex-shrink: 0;
+}
+
+.mergeFooterStatus {
+  flex: 1;
+  font-size: 11px;
+  color: var(--sg-foreground-muted);
+}

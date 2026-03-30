@@ -1,0 +1,248 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--sg-surface);
+}
+
+/* Nav items (Local Changes / All Commits) */
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background var(--sg-transition);
+  border-left: 2px solid transparent;
+}
+
+.navItem:hover {
+  background: var(--sg-surface-hover);
+}
+
+.navItemActive {
+  background: rgba(128, 128, 128, 0.1);
+  border-left-color: var(--sg-primary);
+}
+
+.navIcon {
+  font-size: 12px;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+  color: var(--sg-foreground-muted);
+}
+
+.navLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sg-foreground);
+  flex: 1;
+}
+
+.navBadge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sg-primary-foreground);
+  background: var(--sg-warning);
+  padding: 0 6px;
+  border-radius: 8px;
+  min-width: 18px;
+  text-align: center;
+  line-height: 18px;
+}
+
+.navDivider {
+  height: 1px;
+  background: var(--sg-border);
+  margin: 2px 0;
+}
+
+/* Filter */
+.filter {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--sg-border);
+}
+
+.filterInput {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--sg-input-bg);
+  color: var(--sg-foreground);
+  border: 1px solid var(--sg-border);
+  border-radius: var(--sg-radius-sm);
+  outline: none;
+  transition: border-color var(--sg-transition);
+}
+
+.filterInput:focus {
+  border-color: var(--sg-primary);
+}
+
+.filterInput::placeholder {
+  color: var(--sg-foreground-muted);
+}
+
+/* Sections */
+.section {
+  border-bottom: 1px solid rgba(128, 128, 128, 0.08);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  cursor: pointer;
+  user-select: none;
+  gap: 4px;
+  transition: background var(--sg-transition);
+}
+
+.sectionHeader:hover {
+  background: var(--sg-surface-hover);
+}
+
+.arrow {
+  font-size: 8px;
+  width: 14px;
+  text-align: center;
+  color: var(--sg-foreground-muted);
+  flex-shrink: 0;
+  transition: transform 0.15s;
+  display: inline-block;
+}
+
+.arrowExpanded {
+  transform: rotate(90deg);
+}
+
+.sectionIcon {
+  font-size: 12px;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--sg-foreground);
+}
+
+.sectionCount {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--sg-foreground-muted);
+  background: rgba(128, 128, 128, 0.12);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.sectionBody {
+  padding: 2px 0;
+}
+
+.emptySection {
+  padding: 8px 28px;
+  font-size: 11px;
+  color: var(--sg-foreground-muted);
+  font-style: italic;
+}
+
+/* Items */
+.item {
+  display: flex;
+  align-items: center;
+  padding: 3px 10px 3px 28px;
+  cursor: pointer;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--sg-foreground);
+  transition: background var(--sg-transition);
+}
+
+.item:hover {
+  background: var(--sg-surface-hover);
+}
+
+.itemCurrent {
+  font-weight: 600;
+}
+
+.itemRemoteName {
+  padding-left: 20px;
+  font-weight: 500;
+  color: var(--sg-foreground-muted);
+}
+
+.itemRemoteBranch {
+  padding-left: 40px;
+}
+
+.itemName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.itemBadge {
+  font-size: 10px;
+  color: var(--sg-ref-branch);
+  background: rgba(78, 201, 176, 0.12);
+  padding: 1px 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.itemUpstream {
+  font-size: 10px;
+  color: var(--sg-ref-remote);
+  flex-shrink: 0;
+}
+
+/* Tree folders */
+.treeFolder {
+  display: flex;
+  align-items: center;
+  padding: 3px 10px;
+  cursor: pointer;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--sg-foreground-muted);
+  transition: background var(--sg-transition);
+  user-select: none;
+}
+
+.treeFolder:hover {
+  background: var(--sg-surface-hover);
+}
+
+.treeFolderIcon {
+  font-size: 11px;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.treeFolderName {
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.treeFolderCount {
+  font-size: 10px;
+  color: var(--sg-foreground-muted);
+  opacity: 0.6;
+  flex-shrink: 0;
+}

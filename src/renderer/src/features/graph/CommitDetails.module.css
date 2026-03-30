@@ -1,0 +1,257 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--sg-surface);
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--sg-foreground-muted);
+  font-size: 13px;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--sg-border);
+  flex-shrink: 0;
+  background: var(--sg-surface-raised);
+}
+
+.tab {
+  padding: 6px 16px;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--sg-foreground-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--sg-transition);
+}
+
+.tab:hover {
+  color: var(--sg-foreground);
+}
+
+.tabActive {
+  color: var(--sg-foreground);
+  border-bottom-color: var(--sg-primary);
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Commit tab */
+.commitTab {
+  padding: 12px 16px;
+}
+
+.subject {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sg-foreground);
+  margin: 0 0 6px;
+  line-height: 1.4;
+}
+
+.body {
+  margin: 6px 0;
+  padding: 8px 10px;
+  background: var(--sg-input-bg);
+  border-radius: var(--sg-radius-sm);
+  border: 1px solid var(--sg-border);
+  font-size: 12px;
+  font-family: var(--sg-font-mono);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: var(--sg-foreground-muted);
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.metaRow {
+  display: flex;
+  font-size: 12px;
+  line-height: 1.6;
+  gap: 8px;
+}
+
+.label {
+  width: 55px;
+  flex-shrink: 0;
+  color: var(--sg-foreground-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.sha {
+  font-family: var(--sg-font-mono);
+  font-size: 11px;
+  color: var(--sg-primary);
+  cursor: pointer;
+  user-select: all;
+  transition: opacity var(--sg-transition);
+}
+
+.sha:hover {
+  opacity: 0.7;
+}
+
+.parents {
+  display: flex;
+  gap: 6px;
+}
+
+.parentLink {
+  font-family: var(--sg-font-mono);
+  font-size: 11px;
+  color: var(--sg-primary);
+  cursor: pointer;
+  transition: opacity var(--sg-transition);
+}
+
+.parentLink:hover {
+  opacity: 0.7;
+  text-decoration: underline;
+}
+
+/* Changes tab (flat list) */
+.changesTab {
+  padding: 8px;
+}
+
+.fileListItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 12px;
+  transition: background var(--sg-transition);
+}
+
+.fileListItem:hover {
+  background: var(--sg-surface-hover);
+}
+
+.fileListItemActive {
+  background: color-mix(in srgb, var(--sg-primary) 15%, transparent);
+}
+
+.fileListItemActive:hover {
+  background: color-mix(in srgb, var(--sg-primary) 22%, transparent);
+}
+
+.fileStatus {
+  font-family: var(--sg-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.filePath {
+  font-family: var(--sg-font-mono);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sg-foreground);
+}
+
+.emptyFiles {
+  padding: 16px;
+  text-align: center;
+  color: var(--sg-foreground-muted);
+  font-size: 12px;
+}
+
+/* Tree tab */
+.treeTab {
+  padding: 8px;
+}
+
+.fileTreeRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 12px;
+  transition: background var(--sg-transition);
+}
+
+.fileTreeRow:hover {
+  background: var(--sg-surface-hover);
+}
+
+.fileTreeRowActive {
+  background: color-mix(in srgb, var(--sg-primary) 15%, transparent);
+}
+
+.fileTreeRowActive:hover {
+  background: color-mix(in srgb, var(--sg-primary) 22%, transparent);
+}
+
+.fileTreeArrow {
+  font-size: 8px;
+  width: 14px;
+  text-align: center;
+  color: var(--sg-foreground-muted);
+  flex-shrink: 0;
+  display: inline-block;
+  transition: transform 0.12s;
+}
+
+.fileTreeArrowExpanded {
+  transform: rotate(90deg);
+}
+
+.fileTreeArrowPlaceholder {
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.fileTreeName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sg-foreground);
+}
+
+.fileTreeStatus {
+  margin-left: auto;
+  font-family: var(--sg-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Status colors — using CSS variables */
+.statusModified { color: var(--sg-file-modified); background: color-mix(in srgb, var(--sg-file-modified) 12%, transparent); }
+.statusAdded { color: var(--sg-file-added); background: color-mix(in srgb, var(--sg-file-added) 12%, transparent); }
+.statusDeleted { color: var(--sg-file-deleted); background: color-mix(in srgb, var(--sg-file-deleted) 12%, transparent); }
+.statusRenamed { color: var(--sg-file-renamed); background: color-mix(in srgb, var(--sg-file-renamed) 12%, transparent); }
+.statusUnknown { color: var(--sg-foreground-muted); }
