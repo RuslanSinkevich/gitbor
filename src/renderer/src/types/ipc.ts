@@ -61,7 +61,7 @@ export type RendererCommand =
   | { type: 'completeMerge'; message?: string }
   | { type: 'abortMerge' }
   | { type: 'getConflictContent'; file: string }
-  | { type: 'resolveConflict'; file: string; resolutions: ('ours' | 'theirs')[] }
+  | { type: 'resolveConflict'; file: string; resolutions: ('ours' | 'theirs' | 'both-ours-first' | 'both-theirs-first')[] }
   | { type: 'getMergeState' }
   | { type: 'predictConflicts'; source: string; target: string }
   | { type: 'openRepo'; path: string }

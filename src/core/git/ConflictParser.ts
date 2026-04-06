@@ -107,7 +107,9 @@ export function readConflictFile(repoPath: string, file: string): ConflictConten
   };
 }
 
-export function buildResolvedContent(blocks: ConflictBlock[], resolutions: ('ours' | 'theirs')[]): string {
+export type ConflictResolution = 'ours' | 'theirs' | 'both-ours-first' | 'both-theirs-first';
+
+export function buildResolvedContent(blocks: ConflictBlock[], resolutions: ConflictResolution[]): string {
   const parts: string[] = [];
   let conflictIdx = 0;
 
@@ -116,7 +118,20 @@ export function buildResolvedContent(blocks: ConflictBlock[], resolutions: ('our
       parts.push(block.content);
     } else {
       const choice = resolutions[conflictIdx] ?? 'ours';
-      parts.push(choice === 'ours' ? block.ours : block.theirs);
+      switch (choice) {
+        case 'ours':
+          parts.push(block.ours);
+          break;
+        case 'theirs':
+          parts.push(block.theirs);
+          break;
+        case 'both-ours-first':
+          parts.push(block.ours + (block.ours && block.theirs ? '\n' : '') + block.theirs);
+          break;
+        case 'both-theirs-first':
+          parts.push(block.theirs + (block.ours && block.theirs ? '\n' : '') + block.ours);
+          break;
+      }
       conflictIdx++;
     }
   }

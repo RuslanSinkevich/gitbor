@@ -213,7 +213,7 @@ export class CommandHandler {
     return readConflictFile(repoPath, file);
   }
 
-  async resolveConflict(file: string, resolutions: ('ours' | 'theirs')[]): Promise<void> {
+  async resolveConflict(file: string, resolutions: ('ours' | 'theirs' | 'both-ours-first' | 'both-theirs-first')[]): Promise<void> {
     const repoPath = this.state.getState().repoPath;
     const parsed = readConflictFile(repoPath, file);
     const resolved = buildResolvedContent(parsed.blocks, resolutions);

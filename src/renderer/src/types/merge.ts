@@ -21,6 +21,8 @@ export interface MergeState {
   conflictFiles: ConflictFile[];
 }
 
+export type ConflictResolution = 'ours' | 'theirs' | 'both-ours-first' | 'both-theirs-first';
+
 export interface ConflictBlock {
   type: 'clean' | 'conflict';
   content: string;

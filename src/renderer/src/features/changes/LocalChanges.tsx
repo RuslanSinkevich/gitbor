@@ -88,10 +88,16 @@ function collapseSingleChild(nodes: FileTreeNode[]): FileTreeNode[] {
   });
 }
 
-function FileTreeItem({ node, depth, activePath, onClickFile, onDoubleClickFile, onContextMenu }: {
+function collectFiles(node: FileTreeNode): FileStatus[] {
+  if (node.file) return [node.file];
+  return node.children.flatMap(collectFiles);
+}
+
+function FileTreeItem({ node, depth, activePath, onClickFile, onDoubleClickFile, onDoubleClickFolder, onContextMenu }: {
   node: FileTreeNode; depth: number; activePath?: string;
   onClickFile: (file: FileStatus) => void;
   onDoubleClickFile?: (file: FileStatus) => void;
+  onDoubleClickFolder?: (files: FileStatus[]) => void;
   onContextMenu: (e: React.MouseEvent, file: FileStatus) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
@@ -101,13 +107,21 @@ function FileTreeItem({ node, depth, activePath, onClickFile, onDoubleClickFile,
   if (isDir) {
     return (
       <>
-        <div className={s.treeFolder} style={{ paddingLeft }} onClick={() => setExpanded(e => !e)}>
-          <span className={`${s.treeArrow} ${expanded ? s.treeArrowExpanded : ''}`}>&#9656;</span>
-          <span className={s.treeFolderIcon}>📁</span>
-          <span className={s.treeFolderName}>{node.name}</span>
+        <div className={s.treeFolder} style={{ paddingLeft }}>
+          <span
+            className={`${s.treeArrow} ${expanded ? s.treeArrowExpanded : ''}`}
+            onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+          >&#9656;</span>
+          <span
+            className={s.treeFolderBody}
+            onDoubleClick={() => onDoubleClickFolder?.(collectFiles(node))}
+          >
+            <span className={s.treeFolderIcon}>📁</span>
+            <span className={s.treeFolderName}>{node.name}</span>
+          </span>
         </div>
         {expanded && node.children.map(child => (
-          <FileTreeItem key={child.path} node={child} depth={depth + 1} activePath={activePath} onClickFile={onClickFile} onDoubleClickFile={onDoubleClickFile} onContextMenu={onContextMenu} />
+          <FileTreeItem key={child.path} node={child} depth={depth + 1} activePath={activePath} onClickFile={onClickFile} onDoubleClickFile={onDoubleClickFile} onDoubleClickFolder={onDoubleClickFolder} onContextMenu={onContextMenu} />
         ))}
       </>
     );
@@ -235,6 +249,7 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
               activePath={activePath}
               onClickFile={handleUnstagedClick}
               onDoubleClickFile={(file) => postCommand({ type: 'stageFile', file: file.path })}
+              onDoubleClickFolder={(files) => postCommand({ type: 'stageAll', files: files.map(f => f.path) })}
               onContextMenu={(e, file) => onContextMenu(e, getUnstagedMenuItems(file))}
             />
           ))}
@@ -258,6 +273,7 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
               activePath={activePath}
               onClickFile={handleStagedClick}
               onDoubleClickFile={(file) => postCommand({ type: 'unstageFile', file: file.path })}
+              onDoubleClickFolder={(files) => postCommand({ type: 'unstageAll', files: files.map(f => f.path) })}
               onContextMenu={(e, file) => onContextMenu(e, getStagedMenuItems(file))}
             />
           ))}

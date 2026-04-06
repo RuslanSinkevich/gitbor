@@ -193,6 +193,11 @@
   overflow: hidden;
 }
 
+.mergeLoading {
+  padding: 24px;
+  color: var(--sg-foreground-muted);
+}
+
 .mergeToolbar {
   display: flex;
   align-items: center;
@@ -204,13 +209,135 @@
   font-size: 12px;
 }
 
+.mergeToolbarLabel {
+  font-weight: 600;
+  color: var(--sg-foreground-muted);
+}
+
 .mergeToolbarFile {
   font-family: var(--sg-font-mono);
   font-weight: 600;
   flex: 1;
 }
 
-.mergeColumns {
+.mergeToolbarActions {
+  display: flex;
+  gap: 4px;
+}
+
+/* ─── Conflict navigation bar ─── */
+.conflictNav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: var(--sg-surface);
+  border-bottom: 1px solid var(--sg-border);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.conflictBadges {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  overflow-x: auto;
+}
+
+.conflictBadge {
+  padding: 2px 8px;
+  font-size: 10px;
+  font-family: inherit;
+  font-weight: 600;
+  border: 1px solid var(--sg-border);
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--sg-transition);
+  background: transparent;
+  color: var(--sg-foreground-muted);
+}
+
+.conflictBadgeResolved {
+  background: color-mix(in srgb, var(--sg-success) 20%, transparent);
+  border-color: var(--sg-success);
+  color: var(--sg-success);
+}
+
+.conflictBadgeUnresolved {
+  background: color-mix(in srgb, var(--sg-warning) 15%, transparent);
+  border-color: var(--sg-warning);
+  color: var(--sg-warning);
+}
+
+.conflictBadgeActive {
+  outline: 2px solid var(--sg-primary);
+  outline-offset: -1px;
+}
+
+.conflictNavArrows {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.conflictNavLabel {
+  font-size: 11px;
+  color: var(--sg-foreground-muted);
+  white-space: nowrap;
+  min-width: 50px;
+  text-align: center;
+}
+
+/* ─── Conflict action buttons ─── */
+.conflictActions {
+  display: flex;
+  gap: 4px;
+  padding: 4px 12px;
+  background: var(--sg-surface);
+  border-bottom: 1px solid var(--sg-border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.conflictActionBtn {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 500;
+  border: 1px solid var(--sg-border);
+  border-radius: var(--sg-radius-sm);
+  cursor: pointer;
+  transition: all var(--sg-transition);
+  background: transparent;
+  color: var(--sg-foreground);
+}
+
+.conflictActionBtn:hover {
+  background: var(--sg-surface-hover);
+}
+
+.conflictActionOurs {
+  border-color: color-mix(in srgb, #569cd6 50%, var(--sg-border));
+}
+
+.conflictActionTheirs {
+  border-color: color-mix(in srgb, #3fb950 50%, var(--sg-border));
+}
+
+.conflictActionBoth {
+  border-color: color-mix(in srgb, #d7ba7d 50%, var(--sg-border));
+}
+
+.conflictActionActive {
+  background: var(--sg-primary) !important;
+  color: #fff !important;
+  border-color: var(--sg-primary) !important;
+}
+
+/* ─── Three-pane layout ─── */
+.mergePanes {
   display: flex;
   flex: 1;
   overflow: hidden;
@@ -221,6 +348,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
 }
 
 .mergeCol + .mergeCol {
@@ -240,6 +368,18 @@
   flex-shrink: 0;
 }
 
+.mergeColHeaderOurs {
+  border-bottom: 2px solid #569cd6;
+}
+
+.mergeColHeaderTheirs {
+  border-bottom: 2px solid #3fb950;
+}
+
+.mergeColHeaderResult {
+  border-bottom: 2px solid var(--sg-primary);
+}
+
 .mergeColBranch {
   font-family: var(--sg-font-mono);
   color: var(--sg-primary);
@@ -253,6 +393,7 @@
   line-height: 1.5;
 }
 
+/* ─── Blocks ─── */
 .mergeBlock {
   padding: 0 8px;
   cursor: default;
@@ -261,35 +402,40 @@
 .mergeBlockConflict {
   cursor: pointer;
   position: relative;
+  transition: background var(--sg-transition);
 }
 
 .mergeBlockOurs {
-  background: color-mix(in srgb, #f85149 12%, transparent);
+  background: color-mix(in srgb, #569cd6 10%, transparent);
 }
 
 .mergeBlockTheirs {
-  background: color-mix(in srgb, #3fb950 12%, transparent);
+  background: color-mix(in srgb, #3fb950 10%, transparent);
 }
 
-.mergeBlockSelected {
+.mergeBlockActive {
   outline: 2px solid var(--sg-primary);
   outline-offset: -2px;
+}
+
+.mergeBlockChosen {
+  opacity: 0.85;
 }
 
 .mergeBlockLabel {
   position: absolute;
   top: 2px;
   right: 4px;
-  font-size: 9px;
+  font-size: 10px;
   padding: 1px 5px;
   border-radius: 3px;
   background: var(--sg-primary);
   color: #fff;
   font-weight: 700;
-  text-transform: uppercase;
   pointer-events: none;
 }
 
+/* ─── Lines ─── */
 .mergeLine {
   white-space: pre;
   min-height: 1.5em;
@@ -305,6 +451,41 @@
   user-select: none;
 }
 
+.mergeLineEmpty {
+  color: var(--sg-foreground-muted);
+  font-style: italic;
+  opacity: 0.5;
+}
+
+.mergeLineResolved {
+  background: color-mix(in srgb, var(--sg-success) 10%, transparent);
+}
+
+.mergeLineUnresolved {
+  background: color-mix(in srgb, var(--sg-warning) 12%, transparent);
+}
+
+/* ─── Ghost button ─── */
+.btnGhost {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 500;
+  background: transparent;
+  color: var(--sg-foreground-muted);
+  border: 1px solid transparent;
+  border-radius: var(--sg-radius-sm);
+  cursor: pointer;
+  transition: all var(--sg-transition);
+}
+
+.btnGhost:hover {
+  background: var(--sg-surface-hover);
+  color: var(--sg-foreground);
+  border-color: var(--sg-border);
+}
+
+/* ─── Footer ─── */
 .mergeFooter {
   display: flex;
   align-items: center;
