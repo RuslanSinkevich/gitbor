@@ -64,7 +64,9 @@ export class FileWatcher {
     this.gitDebounce = setTimeout(() => {
       this.gitDebounce = null;
       this.stateManager.invalidateGraphCache();
-      this.stateManager.refreshAll().catch(() => {});
+      this.stateManager.refreshAll().catch((err) => {
+        console.error('[SkyFork FileWatcher] refreshAll failed:', err instanceof Error ? err.message : err);
+      });
     }, GIT_DEBOUNCE_MS);
   }
 
@@ -72,7 +74,9 @@ export class FileWatcher {
     if (this.worktreeDebounce) clearTimeout(this.worktreeDebounce);
     this.worktreeDebounce = setTimeout(() => {
       this.worktreeDebounce = null;
-      this.stateManager.refreshStatusAndNotify().catch(() => {});
+      this.stateManager.refreshStatusAndNotify().catch((err) => {
+        console.error('[SkyFork FileWatcher] refreshStatus failed:', err instanceof Error ? err.message : err);
+      });
     }, WORKTREE_DEBOUNCE_MS);
   }
 }

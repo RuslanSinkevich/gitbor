@@ -1,22 +1,17 @@
 import { useState, useEffect } from 'react';
 import { postCommand, onMainEvent } from '../../api';
+import { t } from '../../i18n';
 import type { MergeOptions } from '../../types';
 import s from './Merge.module.css';
 
 type MergeMode = 'default' | 'no-ff' | 'squash' | 'no-commit';
-
-const MODE_LABELS: Record<MergeMode, string> = {
-  'default': 'Default — Fast-forward if possible',
-  'no-ff': 'No Fast-Forward — Always create a merge commit',
-  'squash': 'Squash — Squash merge',
-  'no-commit': "Don't Commit — Merge without commit",
-};
 
 function modeToOptions(mode: MergeMode): MergeOptions {
   return {
     noCommit: mode === 'no-commit',
     squash: mode === 'squash',
     ffOnly: false,
+    noFf: mode === 'no-ff',
   };
 }
 
@@ -27,9 +22,17 @@ interface Props {
 }
 
 export function MergeDialog({ source, target, onClose }: Props) {
+  const loc = t();
   const [mode, setMode] = useState<MergeMode>('default');
   const [predictedConflicts, setPredictedConflicts] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const modeLabels: Record<MergeMode, string> = {
+    'default': loc.mergeDialog.modeDefault,
+    'no-ff': loc.mergeDialog.modeNoFf,
+    'squash': loc.mergeDialog.modeSquash,
+    'no-commit': loc.mergeDialog.modeNoCommit,
+  };
 
   useEffect(() => {
     const unsub = onMainEvent((msg) => {
@@ -51,40 +54,40 @@ export function MergeDialog({ source, target, onClose }: Props) {
     <div className={s.overlay} onClick={onClose}>
       <div className={s.dialog} onClick={e => e.stopPropagation()}>
         <div className={s.dialogHeader}>
-          <h3 className={s.dialogTitle}>Merge Branch</h3>
-          <span className={s.dialogSubtitle}>Merge branch into another one</span>
+          <h3 className={s.dialogTitle}>{loc.mergeDialog.title}</h3>
+          <span className={s.dialogSubtitle}>{loc.mergeDialog.subtitle}</span>
         </div>
 
         <div className={s.dialogBody}>
           <div className={s.field}>
-            <label className={s.label}>Merge:</label>
+            <label className={s.label}>{loc.mergeDialog.mergeLabel}</label>
             <span className={s.branchName}>{source}</span>
           </div>
           <div className={s.field}>
-            <label className={s.label}>Into:</label>
+            <label className={s.label}>{loc.mergeDialog.intoLabel}</label>
             <span className={s.branchName}>{target}</span>
           </div>
           <div className={s.field}>
-            <label className={s.label}>Merge Option:</label>
+            <label className={s.label}>{loc.mergeDialog.optionLabel}</label>
             <select className={s.select} value={mode} onChange={e => setMode(e.target.value as MergeMode)}>
-              {(Object.keys(MODE_LABELS) as MergeMode[]).map(m => (
-                <option key={m} value={m}>{MODE_LABELS[m]}</option>
+              {(Object.keys(modeLabels) as MergeMode[]).map(m => (
+                <option key={m} value={m}>{modeLabels[m]}</option>
               ))}
             </select>
           </div>
 
           {predictedConflicts.length > 0 && (
             <div className={s.warning}>
-              ⚠ Merge will cause conflicts ({predictedConflicts.length} file{predictedConflicts.length > 1 ? 's' : ''})
+              ⚠ {loc.mergeDialog.warning} ({predictedConflicts.length} {loc.mergeDialog.files})
             </div>
           )}
         </div>
 
         <div className={s.dialogFooter}>
           <button className={s.btnPrimary} onClick={handleMerge} disabled={loading}>
-            {loading ? 'Merging...' : 'Merge'}
+            {loading ? loc.mergeDialog.merging : loc.mergeEditor.merge}
           </button>
-          <button className={s.btnSecondary} onClick={onClose}>Cancel</button>
+          <button className={s.btnSecondary} onClick={onClose}>{loc.mergeEditor.cancel}</button>
         </div>
       </div>
     </div>

@@ -70,7 +70,7 @@ export function parseBranches(stdout: string, isRemote = false): Branch[] {
     .trim()
     .split('\n')
     .reduce<Branch[]>((acc, line) => {
-      const parts = line.split(NUL);
+      const parts = line.replace(/\r$/, '').split(NUL);
       if (parts.length < 2) return acc;
 
       const [name, hash] = parts;
@@ -96,7 +96,7 @@ export function parseTags(stdout: string): Tag[] {
     .trim()
     .split('\n')
     .reduce<Tag[]>((acc, line) => {
-      const parts = line.split(NUL);
+      const parts = line.replace(/\r$/, '').split(NUL);
       if (parts.length < 2) return acc;
 
       const [name, hash] = parts;
@@ -114,7 +114,7 @@ export function parseStashes(stdout: string): Stash[] {
     .trim()
     .split('\n')
     .reduce<Stash[]>((acc, line) => {
-      const parts = line.split(NUL);
+      const parts = line.replace(/\r$/, '').split(NUL);
       if (parts.length < 3) return acc;
 
       const [index, hash, message] = parts;
@@ -158,6 +158,7 @@ export function parseStatus(stdout: string): FileStatus[] {
   for (const rawLine of stdout.trim().split('\n')) {
     const line = rawLine.replace(/\r$/, '');
     if (line.length < 4) continue;
+    if (line[2] !== ' ') continue;
 
     const x = line[0];
     const y = line[1];
@@ -202,11 +203,16 @@ export function parseFileChanges(stdout: string): FileChange[] {
     .trim()
     .split('\n')
     .reduce<FileChange[]>((acc, line) => {
-      const parts = line.split('\t');
+      const parts = line.replace(/\r$/, '').split('\t');
       if (parts.length < 2) return acc;
 
-      const [status, filePath] = parts;
-      acc.push({ status: status.trim(), path: filePath.trim() });
+      const statusRaw = parts[0].trim();
+      const status = statusRaw[0];
+      if (parts.length >= 3 && (status === 'R' || status === 'C')) {
+        acc.push({ status, path: parts[2].trim(), oldPath: parts[1].trim() });
+      } else {
+        acc.push({ status, path: parts[1].trim() });
+      }
       return acc;
     }, []);
 }

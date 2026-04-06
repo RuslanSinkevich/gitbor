@@ -21,18 +21,20 @@ export async function checkout(queue: OperationQueue, git: GitExecutor, safety: 
   });
 }
 
-export async function fetch(queue: OperationQueue, git: GitExecutor, state: StateManager): Promise<OperationResult> {
+export async function fetch(queue: OperationQueue, git: GitExecutor, state: StateManager, remote?: string): Promise<OperationResult> {
   return queue.enqueueWrite('fetch', async () => {
-    const r = await git.exec(['fetch', '--all', '--prune']);
+    const args = remote ? ['fetch', '--prune', remote] : ['fetch', '--all', '--prune'];
+    const r = await git.exec(args);
     await state.refreshAll();
     return simpleResult(r.exitCode, r.stderr);
   });
 }
 
-export async function pull(queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager): Promise<OperationResult> {
+export async function pull(queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager, rebase?: boolean): Promise<OperationResult> {
   return queue.enqueueWrite('pull', async () => {
     const result = await safety.wrapDestructive('pull', {}, async () => {
-      const r = await git.exec(['pull']);
+      const args = rebase ? ['pull', '--rebase'] : ['pull'];
+      const r = await git.exec(args);
       if (r.exitCode !== 0) throw new GitError(`Pull failed: ${r.stderr}`, 'pull', r.exitCode, r.stderr);
     });
     await state.refreshAll();
@@ -40,9 +42,12 @@ export async function pull(queue: OperationQueue, git: GitExecutor, safety: Safe
   });
 }
 
-export async function push(queue: OperationQueue, git: GitExecutor, state: StateManager): Promise<OperationResult> {
+export async function push(queue: OperationQueue, git: GitExecutor, state: StateManager, force?: boolean, setUpstream?: boolean): Promise<OperationResult> {
   return queue.enqueueWrite('push', async () => {
-    const r = await git.exec(['push']);
+    const args = ['push'];
+    if (force) args.push('--force-with-lease');
+    if (setUpstream) args.push('-u', 'origin', 'HEAD');
+    const r = await git.exec(args);
     await state.refreshAll();
     return simpleResult(r.exitCode, r.stderr);
   });
@@ -70,7 +75,7 @@ export async function merge(queue: OperationQueue, git: GitExecutor, safety: Saf
   return queue.enqueueWrite('merge', async () => {
     const result = await safety.wrapDestructive('merge', { branch }, async () => {
       const r = await git.exec(['merge', branch]);
-      if (r.exitCode !== 0 && r.stdout.includes('CONFLICT')) {
+      if (r.exitCode !== 0 && (r.stdout.includes('CONFLICT') || r.stderr.includes('CONFLICT'))) {
         const statusResult = await git.exec(['status', '--porcelain=v1']);
         const conflicts = GitParser.parseStatus(statusResult.stdout).filter(f => f.status === 'U').map(f => f.path);
         return { success: false, conflicts } satisfies MergeResult;
@@ -85,7 +90,7 @@ export async function merge(queue: OperationQueue, git: GitExecutor, safety: Saf
 
 export async function createBranch(queue: OperationQueue, git: GitExecutor, state: StateManager, name: string, from: string): Promise<OperationResult> {
   return queue.enqueueWrite('createBranch', async () => {
-    const r = await git.exec(['checkout', '-b', name, from]);
+    const r = await git.exec(['branch', name, from]);
     await state.refreshAll();
     return simpleResult(r.exitCode, r.stderr);
   });
@@ -107,9 +112,10 @@ export async function deleteBranch(queue: OperationQueue, git: GitExecutor, stat
   });
 }
 
-export async function createTag(queue: OperationQueue, git: GitExecutor, state: StateManager, name: string, ref: string): Promise<OperationResult> {
+export async function createTag(queue: OperationQueue, git: GitExecutor, state: StateManager, name: string, ref: string, message?: string): Promise<OperationResult> {
   return queue.enqueueWrite('createTag', async () => {
-    const r = await git.exec(['tag', name, ref]);
+    const args = message ? ['tag', '-a', name, ref, '-m', message] : ['tag', name, ref];
+    const r = await git.exec(args);
     await state.refreshAll();
     return simpleResult(r.exitCode, r.stderr);
   });
@@ -118,9 +124,19 @@ export async function createTag(queue: OperationQueue, git: GitExecutor, state: 
 export async function deleteTag(queue: OperationQueue, git: GitExecutor, state: StateManager, name: string, remote?: boolean): Promise<OperationResult> {
   return queue.enqueueWrite('deleteTag', async () => {
     const r = await git.exec(['tag', '-d', name]);
-    if (remote && r.exitCode === 0) await git.exec(['push', 'origin', `:refs/tags/${name}`]);
+    if (r.exitCode !== 0) {
+      await state.refreshAll();
+      return simpleResult(r.exitCode, r.stderr);
+    }
+    if (remote) {
+      const rr = await git.exec(['push', 'origin', `:refs/tags/${name}`]);
+      if (rr.exitCode !== 0) {
+        await state.refreshAll();
+        return { success: false, error: `Tag deleted locally but failed to delete on remote: ${rr.stderr}`, rollbackAvailable: false };
+      }
+    }
     await state.refreshAll();
-    return simpleResult(r.exitCode, r.stderr);
+    return simpleResult(0, '');
   });
 }
 
@@ -191,9 +207,25 @@ export async function stageFile(queue: OperationQueue, git: GitExecutor, state: 
   });
 }
 
+export async function stageAll(queue: OperationQueue, git: GitExecutor, state: StateManager, files: string[]): Promise<OperationResult> {
+  return queue.enqueueWrite('stageAll', async () => {
+    const r = await git.exec(['add', '--', ...files]);
+    await state.refreshStatusAndNotify();
+    return simpleResult(r.exitCode, r.stderr);
+  });
+}
+
 export async function unstageFile(queue: OperationQueue, git: GitExecutor, state: StateManager, file: string): Promise<OperationResult> {
   return queue.enqueueWrite('unstageFile', async () => {
     const r = await git.exec(['reset', 'HEAD', '--', file]);
+    await state.refreshStatusAndNotify();
+    return simpleResult(r.exitCode, r.stderr);
+  });
+}
+
+export async function unstageAll(queue: OperationQueue, git: GitExecutor, state: StateManager, files: string[]): Promise<OperationResult> {
+  return queue.enqueueWrite('unstageAll', async () => {
+    const r = await git.exec(['reset', 'HEAD', '--', ...files]);
     await state.refreshStatusAndNotify();
     return simpleResult(r.exitCode, r.stderr);
   });
@@ -288,7 +320,8 @@ export async function stageHunk(
   file: string, hunkIndex: number, reverse: boolean,
 ): Promise<OperationResult> {
   return queue.enqueueWrite('stageHunk', async () => {
-    const diffResult = await git.exec(['diff', '--', file]);
+    const diffArgs = reverse ? ['diff', '--cached', '--', file] : ['diff', '--', file];
+    const diffResult = await git.exec(diffArgs);
     const diffs = parseDiff(diffResult.stdout);
     const fileDiff = diffs.find(d => d.path === file);
     if (!fileDiff || !fileDiff.hunks[hunkIndex]) {
@@ -310,7 +343,8 @@ export async function stageLines(
   file: string, hunkIndex: number, lineIndices: number[], reverse: boolean,
 ): Promise<OperationResult> {
   return queue.enqueueWrite('stageLines', async () => {
-    const diffResult = await git.exec(['diff', '--', file]);
+    const diffArgs = reverse ? ['diff', '--cached', '--', file] : ['diff', '--', file];
+    const diffResult = await git.exec(diffArgs);
     const diffs = parseDiff(diffResult.stdout);
     const fileDiff = diffs.find(d => d.path === file);
     if (!fileDiff || !fileDiff.hunks[hunkIndex]) {

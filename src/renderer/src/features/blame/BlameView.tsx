@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { BlameResult } from '../../types';
 import { postCommand, onMainEvent } from '../../api';
+import { t } from '../../i18n';
 import s from './BlameView.module.css';
 
 interface Props {
@@ -15,6 +16,7 @@ function formatDate(ts: number): string {
 }
 
 export function BlameView({ file, hash, onSelectCommit }: Props) {
+  const loc = t();
   const [blame, setBlame] = useState<BlameResult | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -23,7 +25,7 @@ export function BlameView({ file, hash, onSelectCommit }: Props) {
     setBlame(null);
 
     const unsub = onMainEvent((msg) => {
-      if (msg.type === 'fileBlame') {
+      if (msg.type === 'fileBlame' && msg.file === file) {
         setBlame(msg.data);
         setLoading(false);
       }
@@ -34,8 +36,8 @@ export function BlameView({ file, hash, onSelectCommit }: Props) {
     return unsub;
   }, [file, hash]);
 
-  if (loading) return <div className={s.empty}>Loading blame...</div>;
-  if (!blame || blame.lines.length === 0) return <div className={s.empty}>No blame data</div>;
+  if (loading) return <div className={s.empty}>{loc.blame.loading}</div>;
+  if (!blame || blame.lines.length === 0) return <div className={s.empty}>{loc.blame.noData}</div>;
 
   let prevHash = '';
 

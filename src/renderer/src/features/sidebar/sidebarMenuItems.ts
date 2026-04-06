@@ -59,10 +59,12 @@ export function getTagMenuItems(tag: Tag, loc: Loc): SgContextMenuItem[] {
   ];
 }
 
-export function getStashMenuItems(stash: Stash, loc: Loc): SgContextMenuItem[] {
+export function getStashMenuItems(stash: Stash, loc: Loc, onShowStash?: (index: string) => void): SgContextMenuItem[] {
   return [
+    { label: loc.contextMenu.stashShow, action: () => onShowStash?.(stash.index) ?? postCommand({ type: 'stashShow', index: stash.index }) },
+    { divider: true },
     { label: tpl(loc.contextMenu.stashApply, { stash: stash.message }), action: () => postCommand({ type: 'stashApply', index: stash.index }) },
-    { label: tpl(loc.contextMenu.stashPop, { stash: stash.message }), action: () => postCommand({ type: 'stashPop' }) },
+    { label: tpl(loc.contextMenu.stashPop, { stash: stash.message }), action: () => postCommand({ type: 'stashPopIndex', index: stash.index }) },
     { divider: true },
     { label: tpl(loc.contextMenu.stashDrop, { stash: stash.message }), danger: true, action: () => postCommand({ type: 'stashDrop', index: stash.index }) },
   ];
@@ -70,7 +72,7 @@ export function getStashMenuItems(stash: Stash, loc: Loc): SgContextMenuItem[] {
 
 export function getRemoteMenuItems(remote: Remote, loc: Loc, showPrompt?: ShowPrompt): SgContextMenuItem[] {
   return [
-    { label: tpl(loc.contextMenu.fetchRemote, { remote: remote.name }), action: () => postCommand({ type: 'fetch' }) },
+    { label: tpl(loc.contextMenu.fetchRemote, { remote: remote.name }), action: () => postCommand({ type: 'fetch', remote: remote.name }) },
     { divider: true },
     ...(showPrompt ? [{
       label: `Rename "${remote.name}"...`,

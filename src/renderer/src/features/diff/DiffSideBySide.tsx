@@ -1,4 +1,5 @@
 import { postCommand } from '../../api';
+import { t } from '../../i18n';
 import type { DiffHunk, DiffLine } from '../../types';
 import s from './DiffView.module.css';
 
@@ -82,11 +83,12 @@ function SideTable({ lines, label }: { lines: SideLine[]; label: string }) {
 }
 
 export function DiffSideBySide({ hunks, file, isWorkingCopy, isStaged }: Props) {
+  const loc = t();
   const { left, right } = buildSideLines(hunks);
   return (
     <div className={s.sideBySide}>
       <div className={s.sidePane}>
-        <div className={s.sidePaneHeader}>Original</div>
+        <div className={s.sidePaneHeader}>{loc.diff.original}</div>
         <table className={s.diffTable}>
           <tbody>
             {left.map((line, i) => (
@@ -100,17 +102,17 @@ export function DiffSideBySide({ hunks, file, isWorkingCopy, isStaged }: Props) 
       </div>
       <div className={s.sidePane}>
         <div className={s.sidePaneHeader}>
-          <span>Modified</span>
+          <span>{loc.diff.modified}</span>
           {file && (isWorkingCopy || isStaged) && (
             <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
               {isWorkingCopy && hunks.map((_, hi) => (
-                <button key={hi} className={s.hunkAction} onClick={() => postCommand({ type: 'stageHunk', file, hunkIndex: hi })} title={`Stage hunk ${hi + 1}`}>
-                  Stage {hunks.length > 1 ? `#${hi + 1}` : 'Hunk'}
+                <button key={hi} className={s.hunkAction} onClick={() => postCommand({ type: 'stageHunk', file, hunkIndex: hi })} title={`${loc.diff.stageHunk} ${hi + 1}`}>
+                  {hunks.length > 1 ? `${loc.diff.stageHunk} #${hi + 1}` : loc.diff.stageHunk}
                 </button>
               ))}
               {isStaged && hunks.map((_, hi) => (
-                <button key={hi} className={s.hunkAction} onClick={() => postCommand({ type: 'stageHunk', file, hunkIndex: hi, reverse: true })} title={`Unstage hunk ${hi + 1}`}>
-                  Unstage {hunks.length > 1 ? `#${hi + 1}` : 'Hunk'}
+                <button key={hi} className={s.hunkAction} onClick={() => postCommand({ type: 'stageHunk', file, hunkIndex: hi, reverse: true })} title={`${loc.diff.unstageHunk} ${hi + 1}`}>
+                  {hunks.length > 1 ? `${loc.diff.unstageHunk} #${hi + 1}` : loc.diff.unstageHunk}
                 </button>
               ))}
             </span>

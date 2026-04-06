@@ -2,6 +2,7 @@ export interface MergeOptions {
   noCommit: boolean;
   squash: boolean;
   ffOnly: boolean;
+  noFf?: boolean;
 }
 
 export interface ConflictFile {

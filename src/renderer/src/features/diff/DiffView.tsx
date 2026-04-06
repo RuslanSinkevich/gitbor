@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { FileDiff } from '../../types';
+import { t } from '../../i18n';
 import { DiffHunkView } from './DiffHunkView';
 import { DiffSideBySide } from './DiffSideBySide';
 import s from './DiffView.module.css';
@@ -12,14 +13,6 @@ interface Props {
 
 type DiffMode = 'inline' | 'side-by-side';
 
-const STATUS_LABELS: Record<string, string> = {
-  added: 'Added',
-  deleted: 'Deleted',
-  modified: 'Modified',
-  renamed: 'Renamed',
-  copied: 'Copied',
-};
-
 const STATUS_CLS: Record<string, string> = {
   added: s.statusAdded,
   deleted: s.statusDeleted,
@@ -29,15 +22,23 @@ const STATUS_CLS: Record<string, string> = {
 };
 
 export function DiffView({ diff, file, hash }: Props) {
+  const loc = t();
   const [mode, setMode] = useState<DiffMode>('inline');
   const isWorkingCopy = hash === 'WORKING';
   const isStaged = hash === 'STAGED';
+  const statusLabel =
+    diff.status === 'added' ? loc.diff.statusAdded
+    : diff.status === 'deleted' ? loc.diff.statusDeleted
+    : diff.status === 'modified' ? loc.diff.statusModified
+    : diff.status === 'renamed' ? loc.diff.statusRenamed
+    : diff.status === 'copied' ? loc.diff.statusCopied
+    : diff.status;
 
   return (
     <div className={s.root}>
       <div className={s.toolbar}>
         <span className={`${s.fileStatus} ${STATUS_CLS[diff.status] || ''}`}>
-          {STATUS_LABELS[diff.status] || diff.status}
+          {statusLabel}
         </span>
         <span className={s.filePath}>
           {diff.oldPath && diff.oldPath !== diff.path
@@ -49,21 +50,21 @@ export function DiffView({ diff, file, hash }: Props) {
             className={`${s.modeBtn} ${mode === 'inline' ? s.modeBtnActive : ''}`}
             onClick={() => setMode('inline')}
           >
-            Inline
+            {loc.diff.inline}
           </button>
           <button
             className={`${s.modeBtn} ${mode === 'side-by-side' ? s.modeBtnActive : ''}`}
             onClick={() => setMode('side-by-side')}
           >
-            Split
+            {loc.diff.split}
           </button>
         </div>
       </div>
 
       {diff.isBinary ? (
-        <div className={s.binary}>Binary file — diff not available</div>
+        <div className={s.binary}>{loc.diff.binaryFile}</div>
       ) : diff.hunks.length === 0 ? (
-        <div className={s.empty}>No changes</div>
+        <div className={s.empty}>{loc.diff.noChanges}</div>
       ) : mode === 'inline' ? (
         <div className={s.hunks}>
           {diff.hunks.map((hunk, i) => (

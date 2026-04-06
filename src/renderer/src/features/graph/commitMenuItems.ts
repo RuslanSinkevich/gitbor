@@ -52,10 +52,22 @@ export function getCommitMenuItems(commit: Commit, currentBranch: string, showPr
         onConfirm: (name) => postCommand({ type: 'createTag', name, ref: commit.hash }),
       }),
     },
+    {
+      label: loc.contextMenu.newAnnotatedTag || 'New Annotated Tag...',
+      action: () => showPrompt({
+        title: loc.contextMenu.newAnnotatedTag || 'New Annotated Tag',
+        placeholder: 'v1.0.0',
+        onConfirm: (name) => showPrompt({
+          title: 'Tag message',
+          placeholder: 'Release v1.0.0',
+          onConfirm: (message) => postCommand({ type: 'createTag', name, ref: commit.hash, message }),
+        }),
+      }),
+    },
     { divider: true },
 
     { label: tpl(loc.contextMenu.mergeInto, { source: shortHash, target: currentBranch }), action: () => postCommand({ type: 'startMerge', source: commit.hash, options: { noCommit: false, ffOnly: false, squash: false } }) },
-    { label: tpl(loc.contextMenu.rebaseToHere, { branch: currentBranch }), disabled: true },
+    { label: tpl(loc.contextMenu.rebaseToHere, { branch: currentBranch }), action: () => postCommand({ type: 'rebaseTo', onto: commit.hash }) },
     {
       label: tpl(loc.contextMenu.interactiveRebaseToHere, { branch: currentBranch }),
       action: onRebase ? () => onRebase(commit.hash) : undefined,
@@ -63,7 +75,7 @@ export function getCommitMenuItems(commit: Commit, currentBranch: string, showPr
     },
     { divider: true },
 
-    { label: tpl(loc.contextMenu.resetToHere, { branch: currentBranch }), disabled: true },
+    { header: true, label: tpl(loc.contextMenu.resetToHere, { branch: currentBranch }) },
     { label: loc.contextMenu.resetSoft, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'soft' }) },
     { label: loc.contextMenu.resetMixed, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'mixed' }) },
     { label: loc.contextMenu.resetHard, danger: true, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'hard' }) },
@@ -74,10 +86,10 @@ export function getCommitMenuItems(commit: Commit, currentBranch: string, showPr
     { label: loc.contextMenu.revert, action: () => postCommand({ type: 'revert', hash: commit.hash }) },
     { divider: true },
 
-    { label: loc.contextMenu.saveAsPatch, disabled: true },
+    { label: loc.contextMenu.saveAsPatch, action: () => postCommand({ type: 'saveAsPatch', hash: commit.hash }) },
     { divider: true },
 
-    { label: loc.contextMenu.compareToLocal, disabled: true },
+    { label: loc.contextMenu.compareToLocal, action: () => postCommand({ type: 'openDiff', file: '.', hash: commit.hash }) },
     { divider: true },
 
     { label: loc.contextMenu.copySha, shortcut: 'Ctrl+C', action: () => navigator.clipboard.writeText(commit.hash) },

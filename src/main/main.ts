@@ -75,6 +75,7 @@ async function createWindow(): Promise<void> {
 
   mainWindow.on('closed', () => {
     fileWatcher?.dispose();
+    stateManager?.getGit().killAll();
     mainWindow = null;
   });
 }
@@ -193,6 +194,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  stateManager?.getGit().killAll();
   if (process.platform !== 'darwin') {
     app.quit();
   }

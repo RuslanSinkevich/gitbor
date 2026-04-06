@@ -46,7 +46,7 @@ export class StateManager {
     return this.git;
   }
 
-  private static readonly INITIAL_COMMIT_LIMIT = 0;
+  private static readonly INITIAL_COMMIT_LIMIT = 2000;
 
   async refreshAll(): Promise<void> {
     await Promise.all([
@@ -116,14 +116,16 @@ export class StateManager {
       const headResult = await this.git.exec(['rev-parse', 'HEAD']);
       const headHash = headResult.stdout.trim();
 
-      if (headHash === this.cachedHeadHash && this.state.commits.length > 0) {
+      const effectiveLimit = maxCount > 0 ? maxCount : StateManager.INITIAL_COMMIT_LIMIT;
+
+      if (headHash === this.cachedHeadHash && this.state.commits.length > 0 && this.state.commits.length >= effectiveLimit) {
         return;
       }
 
       this.cachedHeadHash = headHash;
 
       const logArgs = ['log', '--all', '--date-order', `--format=${LOG_FORMAT}`];
-      if (maxCount > 0) logArgs.push(`--max-count=${maxCount}`);
+      logArgs.push(`--max-count=${effectiveLimit}`);
 
       const logResult = await this.git.exec(logArgs);
 

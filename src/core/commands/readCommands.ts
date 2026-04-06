@@ -108,7 +108,7 @@ export async function getFileBlame(
 ): Promise<BlameResult> {
   return queue.enqueueRead('getFileBlame', async () => {
     const args = ['blame', '--porcelain'];
-    if (hash) args.push(hash);
+    if (hash && hash !== 'WORKING' && hash !== 'STAGED') args.push(hash);
     args.push('--', file);
     const result = await git.exec(args);
     return parseBlame(result.stdout, file);

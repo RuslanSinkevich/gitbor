@@ -17,7 +17,7 @@ export function extractSummary(state: AppState): RepoSummary | null {
     branches: state.branches.filter(b => !b.isRemote).length,
     tags: state.tags.length,
     remotes: state.remotes.map(r => r.name),
-    uncommitted: state.stagedFiles.length + state.unstagedFiles.length,
+    uncommitted: new Set([...state.stagedFiles.map(f => f.path), ...state.unstagedFiles.map(f => f.path)]).size,
     lastCommitMessage: lastCommit?.subject ?? '',
     lastCommitAuthor: lastCommit?.authorName ?? '',
     lastCommitDate: lastCommit?.authorDate ?? 0,

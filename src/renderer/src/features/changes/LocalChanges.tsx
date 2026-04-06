@@ -1,5 +1,5 @@
 import { useCallback, useState, useMemo } from 'react';
-import { t } from '../../i18n';
+import { t, tpl } from '../../i18n';
 import { postCommand } from '../../api';
 import type { FileStatus } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
@@ -88,9 +88,10 @@ function collapseSingleChild(nodes: FileTreeNode[]): FileTreeNode[] {
   });
 }
 
-function FileTreeItem({ node, depth, activePath, onClickFile, onContextMenu }: {
+function FileTreeItem({ node, depth, activePath, onClickFile, onDoubleClickFile, onContextMenu }: {
   node: FileTreeNode; depth: number; activePath?: string;
   onClickFile: (file: FileStatus) => void;
+  onDoubleClickFile?: (file: FileStatus) => void;
   onContextMenu: (e: React.MouseEvent, file: FileStatus) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
@@ -106,7 +107,7 @@ function FileTreeItem({ node, depth, activePath, onClickFile, onContextMenu }: {
           <span className={s.treeFolderName}>{node.name}</span>
         </div>
         {expanded && node.children.map(child => (
-          <FileTreeItem key={child.path} node={child} depth={depth + 1} activePath={activePath} onClickFile={onClickFile} onContextMenu={onContextMenu} />
+          <FileTreeItem key={child.path} node={child} depth={depth + 1} activePath={activePath} onClickFile={onClickFile} onDoubleClickFile={onDoubleClickFile} onContextMenu={onContextMenu} />
         ))}
       </>
     );
@@ -119,6 +120,7 @@ function FileTreeItem({ node, depth, activePath, onClickFile, onContextMenu }: {
         className={`${s.fileItem} ${file.status === 'U' ? s.fileItemConflict : ''} ${activePath === file.path ? s.fileItemActive : ''}`}
         style={{ paddingLeft }}
         onClick={() => onClickFile(file)}
+        onDoubleClick={() => onDoubleClickFile?.(file)}
         onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, file); }}
       >
         <span className={`${s.statusIcon} ${statusCls(file.status)}`}>{statusIcon(file.status)}</span>
@@ -137,22 +139,22 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
     { label: loc.contextMenu.unstage, action: () => postCommand({ type: 'unstageFile', file: file.path }) },
     { divider: true },
     { label: loc.contextMenu.openFile, action: () => postCommand({ type: 'openFile', file: file.path }) },
-    { label: loc.contextMenu.openDiff, action: () => postCommand({ type: 'openDiff', file: file.path, hash: 'HEAD' }) },
-    { label: 'File History', action: () => onFileHistory?.(file.path) },
-    { label: 'Blame', action: () => onFileBlame?.(file.path) },
+    { label: loc.contextMenu.openDiff, action: () => onOpenDiff ? onOpenDiff(file.path, 'STAGED') : postCommand({ type: 'openDiff', file: file.path, hash: 'STAGED' }) },
+    { label: loc.contextMenu.fileHistory, action: () => onFileHistory?.(file.path) },
+    { label: loc.contextMenu.blame, action: () => onFileBlame?.(file.path) },
     { divider: true },
     { label: loc.contextMenu.copyPath, action: () => navigator.clipboard.writeText(file.path) },
     { label: loc.contextMenu.copyFileName, action: () => navigator.clipboard.writeText(fileName(file.path)) },
-  ], [loc, onFileHistory, onFileBlame]);
+  ], [loc, onFileHistory, onFileBlame, onOpenDiff]);
 
   const getUnstagedMenuItems = useCallback((file: FileStatus): SgContextMenuItem[] => {
     const items: SgContextMenuItem[] = [
       { label: loc.contextMenu.stage, action: () => postCommand({ type: 'stageFile', file: file.path }) },
       { divider: true },
       { label: loc.contextMenu.openFile, action: () => postCommand({ type: 'openFile', file: file.path }) },
-      { label: loc.contextMenu.openDiff, action: () => postCommand({ type: 'openDiff', file: file.path, hash: 'HEAD' }) },
-      { label: 'File History', action: () => onFileHistory?.(file.path) },
-      { label: 'Blame', action: () => onFileBlame?.(file.path) },
+      { label: loc.contextMenu.openDiff, action: () => onOpenDiff ? onOpenDiff(file.path, 'WORKING') : postCommand({ type: 'openDiff', file: file.path, hash: 'WORKING' }) },
+      { label: loc.contextMenu.fileHistory, action: () => onFileHistory?.(file.path) },
+      { label: loc.contextMenu.blame, action: () => onFileBlame?.(file.path) },
     ];
     if (file.status === 'U') {
       items.push(
@@ -162,7 +164,9 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
         { label: loc.contextMenu.resolveTheirs, action: () => postCommand({ type: 'resolveWithTheirs', file: file.path }) },
       );
     }
-    if (file.status !== '?' && file.status !== 'U') {
+    if (file.status === '?') {
+      items.push({ divider: true }, { label: loc.contextMenu.discard, danger: true, action: () => postCommand({ type: 'deleteUntrackedFile', file: file.path }) });
+    } else if (file.status !== 'U') {
       items.push({ divider: true }, { label: loc.contextMenu.discard, danger: true, action: () => postCommand({ type: 'discardFileChanges', file: file.path }) });
     }
     items.push(
@@ -171,10 +175,10 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
       { label: loc.contextMenu.copyFileName, action: () => navigator.clipboard.writeText(fileName(file.path)) },
     );
     return items;
-  }, [loc, onFileHistory, onFileBlame]);
+  }, [loc, onFileHistory, onFileBlame, onOpenDiff]);
 
-  const handleStageAll = () => { for (const f of unstagedFiles) postCommand({ type: 'stageFile', file: f.path }); };
-  const handleUnstageAll = () => { for (const f of stagedFiles) postCommand({ type: 'unstageFile', file: f.path }); };
+  const handleStageAll = () => { postCommand({ type: 'stageAll', files: unstagedFiles.map(f => f.path) }); };
+  const handleUnstageAll = () => { postCommand({ type: 'unstageAll', files: stagedFiles.map(f => f.path) }); };
   const handleDiscardAll = () => {
     for (const f of unstagedFiles) {
       if (f.status !== '?' && f.status !== 'U') postCommand({ type: 'discardFileChanges', file: f.path });
@@ -189,12 +193,12 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
   const handleUnstagedClick = useCallback((file: FileStatus) => {
     if (file.status === 'U' && onOpenMergeEditor) onOpenMergeEditor(file.path);
     else if (onOpenDiff) onOpenDiff(file.path, 'WORKING');
-    else postCommand({ type: 'openDiff', file: file.path, hash: 'HEAD' });
+    else postCommand({ type: 'openDiff', file: file.path, hash: 'WORKING' });
   }, [onOpenDiff, onOpenMergeEditor]);
 
   const handleStagedClick = useCallback((file: FileStatus) => {
     if (onOpenDiff) onOpenDiff(file.path, 'STAGED');
-    else postCommand({ type: 'openDiff', file: file.path, hash: 'HEAD' });
+    else postCommand({ type: 'openDiff', file: file.path, hash: 'STAGED' });
   }, [onOpenDiff]);
 
   if (stagedFiles.length === 0 && unstagedFiles.length === 0) {
@@ -205,7 +209,7 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
     <div className={s.root}>
       {mergeInProgress && conflicts.length > 0 && (
         <div className={s.conflictBanner}>
-          ⚠ {conflicts.length} conflict{conflicts.length > 1 ? 's' : ''} — resolve before committing
+          ⚠ {tpl(loc.changes.conflictBanner, { count: conflicts.length })}
         </div>
       )}
 
@@ -215,10 +219,10 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
           <span className={s.sectionTitle}>{loc.changes.unstaged} ({unstagedFiles.length})</span>
           <div className={s.sectionActions}>
             {unstagedFiles.some(f => f.status !== '?' && f.status !== 'U') && (
-              <button className={`${s.sectionAction} ${s.sectionActionDanger}`} onClick={handleDiscardAll} title="Discard All">✕</button>
+              <button className={`${s.sectionAction} ${s.sectionActionDanger}`} onClick={handleDiscardAll} title={loc.changes.discardAll}>✕</button>
             )}
             {unstagedFiles.length > 0 && (
-              <button className={s.sectionAction} onClick={handleStageAll} title={loc.changes.stageAll}>Stage</button>
+              <button className={s.sectionAction} onClick={handleStageAll} title={loc.changes.stageAll}>{loc.contextMenu.stage}</button>
             )}
           </div>
         </div>
@@ -230,6 +234,7 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
               depth={0}
               activePath={activePath}
               onClickFile={handleUnstagedClick}
+              onDoubleClickFile={(file) => postCommand({ type: 'stageFile', file: file.path })}
               onContextMenu={(e, file) => onContextMenu(e, getUnstagedMenuItems(file))}
             />
           ))}
@@ -241,7 +246,7 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
         <div className={s.sectionHeader}>
           <span className={s.sectionTitle}>{loc.changes.staged} ({stagedFiles.length})</span>
           {stagedFiles.length > 0 && (
-            <button className={s.sectionAction} onClick={handleUnstageAll} title={loc.changes.unstageAll}>Unstage</button>
+            <button className={s.sectionAction} onClick={handleUnstageAll} title={loc.changes.unstageAll}>{loc.contextMenu.unstage}</button>
           )}
         </div>
         <div className={s.fileList}>
@@ -252,6 +257,7 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
               depth={0}
               activePath={activePath}
               onClickFile={handleStagedClick}
+              onDoubleClickFile={(file) => postCommand({ type: 'unstageFile', file: file.path })}
               onContextMenu={(e, file) => onContextMenu(e, getStagedMenuItems(file))}
             />
           ))}

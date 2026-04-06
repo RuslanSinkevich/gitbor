@@ -34,26 +34,67 @@ export class CommandHandler {
 
   // ─── Write ───
   checkout(branch: string): Promise<OperationResult> { return Write.checkout(this.queue, this.git, this.safety, this.state, branch); }
-  fetch(): Promise<OperationResult> { return Write.fetch(this.queue, this.git, this.state); }
-  pull(): Promise<OperationResult> { return Write.pull(this.queue, this.git, this.safety, this.state); }
-  push(): Promise<OperationResult> { return Write.push(this.queue, this.git, this.state); }
+  fetch(remote?: string): Promise<OperationResult> { return Write.fetch(this.queue, this.git, this.state, remote); }
+  pull(rebase?: boolean): Promise<OperationResult> { return Write.pull(this.queue, this.git, this.safety, this.state, rebase); }
+  push(force?: boolean, setUpstream?: boolean): Promise<OperationResult> { return Write.push(this.queue, this.git, this.state, force, setUpstream); }
   stash(message?: string): Promise<OperationResult> { return Write.stash(this.queue, this.git, this.state, message); }
   stashPop(): Promise<OperationResult> { return Write.stashPop(this.queue, this.git, this.state); }
   merge(branch: string): Promise<OperationResult<MergeResult>> { return Write.merge(this.queue, this.git, this.safety, this.state, branch); }
   createBranch(name: string, from: string): Promise<OperationResult> { return Write.createBranch(this.queue, this.git, this.state, name, from); }
   renameBranch(oldName: string, newName: string): Promise<OperationResult> { return Write.renameBranch(this.queue, this.git, this.state, oldName, newName); }
   deleteBranch(branch: string, force?: boolean): Promise<OperationResult> { return Write.deleteBranch(this.queue, this.git, this.state, branch, force); }
-  createTag(name: string, ref: string): Promise<OperationResult> { return Write.createTag(this.queue, this.git, this.state, name, ref); }
+  createTag(name: string, ref: string, message?: string): Promise<OperationResult> { return Write.createTag(this.queue, this.git, this.state, name, ref, message); }
   deleteTag(name: string, remote?: boolean): Promise<OperationResult> { return Write.deleteTag(this.queue, this.git, this.state, name, remote); }
   cherryPick(hash: string): Promise<OperationResult> { return Write.cherryPick(this.queue, this.git, this.safety, this.state, hash); }
   revert(hash: string): Promise<OperationResult> { return Write.revert(this.queue, this.git, this.safety, this.state, hash); }
   resetTo(hash: string, mode: 'soft' | 'mixed' | 'hard'): Promise<OperationResult> { return Write.resetTo(this.queue, this.git, this.safety, this.state, hash, mode); }
+  async stashShow(index: string): Promise<FileDiff[]> {
+    return this.queue.enqueueRead('stashShow', async () => {
+      const r = await this.git.exec(['stash', 'show', '-p', index]);
+      if (!r.stdout.trim()) return [];
+      const { parseDiff } = await import('../git/DiffParser');
+      return parseDiff(r.stdout);
+    });
+  }
   stashApply(index: string): Promise<OperationResult> { return Write.stashApply(this.queue, this.git, this.state, index); }
   stashDrop(index: string): Promise<OperationResult> { return Write.stashDrop(this.queue, this.git, this.state, index); }
   commit(message: string, amend?: boolean): Promise<OperationResult> { return Write.commit(this.queue, this.git, this.state, message, amend); }
   stageFile(file: string): Promise<OperationResult> { return Write.stageFile(this.queue, this.git, this.state, file); }
+  stageAll(files: string[]): Promise<OperationResult> { return Write.stageAll(this.queue, this.git, this.state, files); }
   unstageFile(file: string): Promise<OperationResult> { return Write.unstageFile(this.queue, this.git, this.state, file); }
+  unstageAll(files: string[]): Promise<OperationResult> { return Write.unstageAll(this.queue, this.git, this.state, files); }
   discardFileChanges(file: string): Promise<OperationResult> { return Write.discardFileChanges(this.queue, this.git, this.state, file); }
+  async deleteUntrackedFile(file: string): Promise<void> {
+    await this.queue.enqueueWrite('deleteUntrackedFile', async () => {
+      const { join, resolve, normalize } = await import('path');
+      const { rm, stat } = await import('fs/promises');
+      const repoPath = this.state.getState().repoPath;
+      const fullPath = resolve(join(repoPath, file));
+      const normalizedRepo = normalize(repoPath);
+      if (!fullPath.startsWith(normalizedRepo)) {
+        throw new Error('Path traversal detected');
+      }
+      const fileStat = await stat(fullPath);
+      await rm(fullPath, { recursive: fileStat.isDirectory(), force: false });
+      await this.state.refreshStatusAndNotify();
+    });
+  }
+
+  async saveAsPatch(hash: string): Promise<void> {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    if (!win) return;
+    const shortHash = hash.substring(0, 7);
+    const result = await dialog.showSaveDialog(win, {
+      defaultPath: `${shortHash}.patch`,
+      filters: [{ name: 'Patch files', extensions: ['patch', 'diff'] }],
+    });
+    if (result.canceled || !result.filePath) return;
+    const r = await this.git.exec(['format-patch', '-1', hash, '--stdout']);
+    if (r.exitCode === 0) {
+      const { writeFile } = await import('fs/promises');
+      await writeFile(result.filePath, r.stdout, 'utf-8');
+    }
+  }
 
   cloneRepo(url: string, path: string): Promise<OperationResult> { return Write.cloneRepo(this.queue, this.git, this.state, url, path); }
   initRepo(path: string): Promise<OperationResult> { return Write.initRepo(this.queue, this.git, this.state, path); }
@@ -100,6 +141,13 @@ export class CommandHandler {
   }
 
   // ─── Rebase ───
+  async rebaseTo(onto: string): Promise<OperationResult> {
+    return this.queue.enqueueWrite('rebase', async () => {
+      const r = await this.git.exec(['rebase', onto]);
+      await this.state.refreshAll();
+      return { success: r.exitCode === 0, error: r.exitCode !== 0 ? r.stderr : undefined, rollbackAvailable: false };
+    });
+  }
   getRebaseTodo(onto: string): Promise<RebaseTodoList> { return this.queue.enqueueRead('getRebaseTodo', () => this.rebase.getTodoList(onto)); }
   getRebaseProgress(): Promise<RebaseProgress> { return this.queue.enqueueRead('getRebaseProgress', () => this.rebase.getProgress()); }
   async executeRebase(onto: string, entries: RebaseTodoEntry[]): Promise<OperationResult> {

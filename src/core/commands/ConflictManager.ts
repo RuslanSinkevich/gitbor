@@ -44,6 +44,7 @@ export class ConflictManager {
     if (options.noCommit) args.push('--no-commit');
     if (options.squash) args.push('--squash');
     if (options.ffOnly) args.push('--ff-only');
+    if (options.noFf) args.push('--no-ff');
     args.push(source);
 
     const result = await this.git.exec(args);

@@ -72,7 +72,23 @@ export function parseConflictMarkers(content: string): ConflictBlock[] {
     }
   }
 
-  flushClean();
+  if (state === 'theirs') {
+    blocks.push({
+      type: 'conflict',
+      content: '',
+      ours: oursLines.join('\n'),
+      theirs: theirsLines.join('\n'),
+    });
+  } else if (state === 'ours') {
+    blocks.push({
+      type: 'conflict',
+      content: '',
+      ours: oursLines.join('\n'),
+      theirs: '',
+    });
+  } else {
+    flushClean();
+  }
 
   return blocks;
 }

@@ -1,7 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { AppState, CommitDetail, MergeState, MainEvent } from '../types';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { AppState, CommitDetail, MergeState, MainEvent, RebaseProgress, RecoveryIssue } from '../types';
 import { sendReady, postCommand, onMainEvent, onMenuAction } from '../api';
 import { setLang } from '../i18n';
+
+export interface OpenDiffEvent { file: string; hash: string }
+export interface OpenMergeEditorEvent { file: string }
+export interface MenuActionEvent { action: string }
 
 const EMPTY_STATE: AppState = {
   repoPath: '',
@@ -30,6 +34,11 @@ export function useAppState() {
   const [commitDetail, setCommitDetail] = useState<CommitDetail | null>(null);
   const [mergeState, setMergeState] = useState<MergeState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rebaseProgress, setRebaseProgress] = useState<RebaseProgress | null>(null);
+  const [recoveryIssues, setRecoveryIssues] = useState<readonly RecoveryIssue[]>([]);
+  const [pendingOpenDiff, setPendingOpenDiff] = useState<OpenDiffEvent | null>(null);
+  const [pendingOpenMergeEditor, setPendingOpenMergeEditor] = useState<OpenMergeEditorEvent | null>(null);
+  const [pendingMenuAction, setPendingMenuAction] = useState<MenuActionEvent | null>(null);
 
   useEffect(() => {
     const unsubscribe = onMainEvent((msg: MainEvent) => {
@@ -41,7 +50,12 @@ export function useAppState() {
           setState(prev => ({ ...prev, ...msg.data }));
           break;
         case 'commitDetails':
-          setCommitDetail(msg.data);
+          setState(prev => {
+            if (prev.selectedCommitHash && (msg.hash === prev.selectedCommitHash || msg.data.hash === prev.selectedCommitHash)) {
+              setCommitDetail(msg.data);
+            }
+            return prev;
+          });
           break;
         case 'graphData':
           setState(prev => ({
@@ -80,6 +94,20 @@ export function useAppState() {
         case 'showView':
           setViewOverride(msg.view);
           break;
+        case 'rebaseProgress':
+          setRebaseProgress(msg.data);
+          break;
+        case 'recoveryRequired':
+          setRecoveryIssues(msg.issues);
+          break;
+        case 'openDiff':
+          setPendingOpenDiff({ file: msg.file, hash: msg.hash });
+          break;
+        case 'openMergeEditor':
+          setPendingOpenMergeEditor({ file: msg.file });
+          break;
+        case 'openFile':
+          break;
         case 'error':
           setError(msg.message);
           break;
@@ -93,6 +121,11 @@ export function useAppState() {
         case 'push': postCommand({ type: 'push' }); break;
         case 'stash': postCommand({ type: 'stash' }); break;
         case 'stashPop': postCommand({ type: 'stashPop' }); break;
+        case 'newBranch':
+        case 'merge':
+        case 'about':
+          setPendingMenuAction({ action });
+          break;
       }
     });
 
@@ -111,8 +144,19 @@ export function useAppState() {
 
   const clearError = useCallback(() => setError(null), []);
   const [viewOverride, setViewOverride] = useState<'changes' | 'commits' | null>(null);
-
   const clearViewOverride = useCallback(() => setViewOverride(null), []);
+  const clearPendingOpenDiff = useCallback(() => setPendingOpenDiff(null), []);
+  const clearPendingOpenMergeEditor = useCallback(() => setPendingOpenMergeEditor(null), []);
+  const clearPendingMenuAction = useCallback(() => setPendingMenuAction(null), []);
+  const clearRecoveryIssues = useCallback(() => setRecoveryIssues([]), []);
 
-  return { state, commitDetail, mergeState, error, selectCommit, clearError, viewOverride, clearViewOverride };
+  return {
+    state, commitDetail, mergeState, error, selectCommit, clearError,
+    viewOverride, clearViewOverride,
+    rebaseProgress,
+    recoveryIssues, clearRecoveryIssues,
+    pendingOpenDiff, clearPendingOpenDiff,
+    pendingOpenMergeEditor, clearPendingOpenMergeEditor,
+    pendingMenuAction, clearPendingMenuAction,
+  };
 }

@@ -9,7 +9,7 @@ import { BlameView } from './features/blame';
 import { MergeDialog, ConflictNotifyDialog, MergeBanner, MergeEditor } from './features/merge';
 import { RebaseEditor } from './features/rebase';
 import { Toolbar } from './features/toolbar';
-import { Sidebar } from './features/sidebar';
+import { Sidebar, BranchStatus } from './features/sidebar';
 import { RepoTabs } from './features/repo-tabs';
 import { RepoManager, addRecentRepo } from './features/repo-manager';
 import { SgContextMenu, type SgContextMenuItem } from './ui/SgContextMenu';
@@ -34,7 +34,15 @@ function getInitialTheme(): Theme {
 }
 
 export function App() {
-  const { state, commitDetail, mergeState, error, selectCommit, clearError, viewOverride, clearViewOverride } = useAppState();
+  const {
+    state, commitDetail, mergeState, error, selectCommit, clearError,
+    viewOverride, clearViewOverride,
+    rebaseProgress,
+    recoveryIssues, clearRecoveryIssues,
+    pendingOpenDiff, clearPendingOpenDiff,
+    pendingOpenMergeEditor, clearPendingOpenMergeEditor,
+    pendingMenuAction, clearPendingMenuAction,
+  } = useAppState();
   const [viewMode, setViewMode] = useState<ViewMode>('changes');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; items: SgContextMenuItem[] } | null>(null);
   const [toasts, setToasts] = useState<SgToastData[]>([]);
@@ -78,6 +86,22 @@ export function App() {
     }
   }, [viewOverride, clearViewOverride]);
 
+  useEffect(() => {
+    if (pendingOpenDiff) {
+      openDiff(pendingOpenDiff.file, pendingOpenDiff.hash);
+      setRightPanel('diff');
+      clearPendingOpenDiff();
+    }
+  }, [pendingOpenDiff, openDiff, clearPendingOpenDiff]);
+
+  useEffect(() => {
+    if (pendingOpenMergeEditor) {
+      setMergeEditorFile(pendingOpenMergeEditor.file);
+      setViewMode('changes');
+      clearPendingOpenMergeEditor();
+    }
+  }, [pendingOpenMergeEditor, clearPendingOpenMergeEditor]);
+
   const prevMergeRef = useRef(false);
   useEffect(() => {
     if (mergeState?.inProgress && !prevMergeRef.current) {
@@ -109,6 +133,26 @@ export function App() {
   const handleOpenMergeDialog = useCallback((source: string) => {
     setMergeDialogSource(source);
   }, []);
+
+  useEffect(() => {
+    if (pendingMenuAction) {
+      const { action } = pendingMenuAction;
+      clearPendingMenuAction();
+      if (action === 'newBranch') {
+        showPrompt({
+          title: loc.menu.newBranch,
+          placeholder: 'branch-name',
+          onConfirm: (name) => postCommand({ type: 'createBranch', name, from: state.currentBranch }),
+        });
+      } else if (action === 'merge') {
+        if (state.branches.length > 0) {
+          handleOpenMergeDialog(state.branches.find(b => !b.isCurrent)?.name || '');
+        }
+      } else if (action === 'about') {
+        setToasts(prev => [...prev, { id: Date.now().toString(), message: `SkyFork v0.1 — Git Client`, type: 'info' as const }]);
+      }
+    }
+  }, [pendingMenuAction, clearPendingMenuAction, showPrompt, state.currentBranch, state.branches, handleOpenMergeDialog, loc]);
 
   const handleOpenMergeEditor = useCallback((file: string) => {
     setMergeEditorFile(file);
@@ -173,7 +217,7 @@ export function App() {
           <RepoTabs repos={state.openRepos} activeIndex={state.activeRepoIndex} hasChanges={stagedCount + unstagedCount > 0} />
 
           {hasRepo && (
-            <Toolbar isOperationRunning={state.isOperationRunning} />
+            <Toolbar isOperationRunning={state.isOperationRunning} hasUpstream={state.branches.some(b => b.isCurrent && b.upstream)} />
           )}
 
           {mergeState?.inProgress && <MergeBanner mergeState={mergeState} />}
@@ -219,12 +263,12 @@ export function App() {
                             onContextMenu={handleContextMenu}
                             showPrompt={showPrompt}
                             onRebase={setRebaseOnto}
-                            onLoadMore={() => postCommand({ type: 'getGraphData', maxCount: 0 })}
+                            onLoadMore={() => postCommand({ type: 'getGraphData', maxCount: state.commits.length + 2000 })}
                           />
                         </div>
                         <div className={s.commitBottomPane}>
                           <div className={s.detailPane}>
-                            <CommitDetails detail={commitDetail} onSelectCommit={selectCommit} onOpenDiff={openDiff} activePath={diffTarget?.file} />
+                            <CommitDetails detail={commitDetail} onSelectCommit={selectCommit} onOpenDiff={openDiff} onContextMenu={handleContextMenu} onFileHistory={openFileHistory} onFileBlame={(f) => openFileBlame(f)} activePath={diffTarget?.file} />
                           </div>
                           {diffTarget && (
                             <div className={s.commitDiffPane}>
@@ -287,11 +331,15 @@ export function App() {
 
           <footer className={s.statusbar}>
             {hasRepo ? (
-              <>
-                <span>{state.currentBranch}</span>
-                {state.ahead > 0 && <span>↑{state.ahead}</span>}
-                {state.behind > 0 && <span>↓{state.behind}</span>}
-              </>
+              <BranchStatus
+                currentBranch={state.currentBranch}
+                ahead={state.ahead}
+                behind={state.behind}
+                stagedCount={stagedCount}
+                unstagedCount={unstagedCount}
+                isOperationRunning={state.isOperationRunning}
+                currentOperation={state.currentOperation}
+              />
             ) : (
               <span>{loc.statusbar.noRepo}</span>
             )}
@@ -323,6 +371,7 @@ export function App() {
         <ConflictNotifyDialog
           mergeState={mergeState}
           onClose={() => setShowConflictNotify(false)}
+          onOpenMergeEditor={handleOpenMergeEditor}
         />
       )}
 

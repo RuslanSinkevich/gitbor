@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { t } from '../../i18n';
 import { postCommand } from '../../api';
 import type { CommitDetail, FileChange } from '../../types';
+import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import s from './CommitDetails.module.css';
 
 type Tab = 'commit' | 'changes' | 'tree';
@@ -93,13 +94,32 @@ interface Props {
   detail: CommitDetail | null;
   onSelectCommit?: (hash: string) => void;
   onOpenDiff?: (file: string, hash: string) => void;
+  onContextMenu?: (e: React.MouseEvent, items: SgContextMenuItem[]) => void;
+  onFileHistory?: (file: string) => void;
+  onFileBlame?: (file: string) => void;
   activePath?: string;
 }
 
-export function CommitDetails({ detail, onSelectCommit, onOpenDiff, activePath }: Props) {
+export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMenu, onFileHistory, onFileBlame, activePath }: Props) {
   const loc = t();
   const [tab, setTab] = useState<Tab>('commit');
   const tree = useMemo(() => detail ? buildFileTree(detail.files) : [], [detail]);
+
+  const getFileMenuItems = useCallback((file: FileChange, commitHash: string): SgContextMenuItem[] => {
+    const loc2 = t();
+    const items: SgContextMenuItem[] = [
+      { label: loc2.contextMenu.openDiff, action: () => onOpenDiff ? onOpenDiff(file.path, commitHash) : postCommand({ type: 'openDiff', file: file.path, hash: commitHash }) },
+      { label: loc2.contextMenu.openFile, action: () => postCommand({ type: 'openFile', file: file.path }) },
+    ];
+    if (onFileHistory) items.push({ label: loc2.contextMenu.fileHistory, action: () => onFileHistory(file.path) });
+    if (onFileBlame) items.push({ label: loc2.contextMenu.blame, action: () => onFileBlame(file.path) });
+    items.push(
+      { divider: true },
+      { label: loc2.contextMenu.copyPath, action: () => navigator.clipboard.writeText(file.path) },
+      { label: loc2.contextMenu.copyFileName, action: () => navigator.clipboard.writeText(file.path.split('/').pop() || file.path) },
+    );
+    return items;
+  }, [onOpenDiff, onFileHistory, onFileBlame]);
 
   const copySha = useCallback(() => {
     if (detail) navigator.clipboard.writeText(detail.hash);
@@ -143,7 +163,7 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, activePath }
               </div>
               <div className={s.metaRow}>
                 <span className={s.label}>{loc.details.sha}:</span>
-                <span className={s.sha} onClick={copySha} title="Click to copy">{detail.hash}</span>
+                <span className={s.sha} onClick={copySha} title={loc.details.clickToCopy}>{detail.hash}</span>
               </div>
               {detail.parents.length > 0 && (
                 <div className={s.metaRow}>
@@ -166,13 +186,14 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, activePath }
                 key={file.path}
                 className={`${s.fileListItem} ${activePath === file.path ? s.fileListItemActive : ''}`}
                 onClick={() => onOpenDiff ? onOpenDiff(file.path, detail.hash) : postCommand({ type: 'openDiff', file: file.path, hash: detail.hash })}
+                onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, getFileMenuItems(file, detail.hash)); }}
               >
                 <span className={`${s.fileStatus} ${statusCls(file.status)}`}>{statusIcon(file.status)}</span>
                 <span className={s.filePath}>{file.path}</span>
               </div>
             ))}
             {detail.files.length === 0 && (
-              <div className={s.emptyFiles}>No changed files</div>
+              <div className={s.emptyFiles}>{loc.details.noChangedFiles}</div>
             )}
           </div>
         )}

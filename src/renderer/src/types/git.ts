@@ -47,6 +47,7 @@ export interface FileStatus {
 export interface FileChange {
   path: string;
   status: string;
+  oldPath?: string;
 }
 
 export interface CommitDetail {

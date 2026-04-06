@@ -75,11 +75,13 @@ export class RecoveryManager {
         await this.git.exec(['merge', '--abort']);
         break;
       case 'continue_merge':
+        await this.git.exec(['commit', '--no-edit']);
         break;
       case 'abort_rebase':
         await this.git.exec(['rebase', '--abort']);
         break;
       case 'continue_rebase':
+        await this.git.exec(['rebase', '--continue']);
         break;
       case 'remove_lock':
         this.removeLockFile();

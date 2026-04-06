@@ -57,7 +57,7 @@ export class MessageBridge {
 
         case 'getCommitDetails': {
           const detail = await this.commandHandler.getCommitDetails(command.hash);
-          this.send({ type: 'commitDetails', data: detail });
+          this.send({ type: 'commitDetails', data: detail, hash: command.hash });
           return;
         }
 
@@ -80,12 +80,12 @@ export class MessageBridge {
         }
         case 'getFileBlame': {
           const blame = await this.commandHandler.getFileBlame(command.file, command.hash);
-          this.send({ type: 'fileBlame', data: blame });
+          this.send({ type: 'fileBlame', data: blame, file: command.file });
           return;
         }
         case 'getFileHistory': {
           const history = await this.commandHandler.getFileHistory(command.file);
-          this.send({ type: 'fileHistory', data: history });
+          this.send({ type: 'fileHistory', data: history, file: command.file });
           return;
         }
 
@@ -98,21 +98,21 @@ export class MessageBridge {
 
         case 'fetch': {
           this.send({ type: 'operationStart', operation: 'fetch' });
-          const result = await this.commandHandler.fetch();
+          const result = await this.commandHandler.fetch(command.remote);
           this.send({ type: 'operationEnd', operation: 'fetch', success: result.success, error: result.error });
           return;
         }
 
         case 'pull': {
           this.send({ type: 'operationStart', operation: 'pull' });
-          const result = await this.commandHandler.pull();
+          const result = await this.commandHandler.pull(command.rebase);
           this.send({ type: 'operationEnd', operation: 'pull', success: result.success, error: result.error });
           return;
         }
 
         case 'push': {
           this.send({ type: 'operationStart', operation: 'push' });
-          const result = await this.commandHandler.push();
+          const result = await this.commandHandler.push(command.force, command.setUpstream);
           this.send({ type: 'operationEnd', operation: 'push', success: result.success, error: result.error });
           return;
         }
@@ -163,13 +163,18 @@ export class MessageBridge {
         }
 
         case 'createTag': {
-          const result = await this.commandHandler.createTag(command.name, command.ref);
+          const result = await this.commandHandler.createTag(command.name, command.ref, command.message);
           if (!result.success) this.send({ type: 'error', message: result.error || 'Create tag failed' });
           return;
         }
         case 'deleteTag': {
           const result = await this.commandHandler.deleteTag(command.name, command.remote);
           if (!result.success) this.send({ type: 'error', message: result.error || 'Delete tag failed' });
+          return;
+        }
+
+        case 'saveAsPatch': {
+          await this.commandHandler.saveAsPatch(command.hash);
           return;
         }
 
@@ -192,9 +197,25 @@ export class MessageBridge {
           return;
         }
 
+        case 'stashShow': {
+          const diffs = await this.commandHandler.stashShow(command.index);
+          this.send({ type: 'stashDiff', data: diffs, index: command.index });
+          return;
+        }
+
         case 'stashApply': {
           const result = await this.commandHandler.stashApply(command.index);
           if (!result.success) this.send({ type: 'error', message: result.error || 'Stash apply failed' });
+          return;
+        }
+        case 'stashPopIndex': {
+          const applyResult = await this.commandHandler.stashApply(command.index);
+          if (applyResult.success) {
+            const dropResult = await this.commandHandler.stashDrop(command.index);
+            if (!dropResult.success) this.send({ type: 'error', message: dropResult.error || 'Stash drop failed' });
+          } else {
+            this.send({ type: 'error', message: applyResult.error || 'Stash apply failed — stash preserved' });
+          }
           return;
         }
         case 'stashDrop': {
@@ -207,12 +228,24 @@ export class MessageBridge {
           await this.commandHandler.stageFile(command.file);
           return;
         }
+        case 'stageAll': {
+          await this.commandHandler.stageAll(command.files);
+          return;
+        }
         case 'unstageFile': {
           await this.commandHandler.unstageFile(command.file);
           return;
         }
+        case 'unstageAll': {
+          await this.commandHandler.unstageAll(command.files);
+          return;
+        }
         case 'discardFileChanges': {
           await this.commandHandler.discardFileChanges(command.file);
+          return;
+        }
+        case 'deleteUntrackedFile': {
+          await this.commandHandler.deleteUntrackedFile(command.file);
           return;
         }
 
@@ -347,6 +380,13 @@ export class MessageBridge {
           return;
         }
 
+        case 'rebaseTo': {
+          this.send({ type: 'operationStart', operation: 'rebase' });
+          const result = await this.commandHandler.rebaseTo(command.onto);
+          this.send({ type: 'operationEnd', operation: 'rebase', success: result.success, error: result.error });
+          return;
+        }
+
         case 'getRebaseTodo': {
           const todo = await this.commandHandler.getRebaseTodo(command.onto);
           this.send({ type: 'rebaseTodo', data: todo });
@@ -396,6 +436,12 @@ export class MessageBridge {
         case 'switchView':
           this.send({ type: 'showView', view: command.view });
           return;
+
+        default: {
+          const unknownType = (command as { type: string }).type;
+          this.send({ type: 'error', message: `Unknown command: ${unknownType}` });
+          return;
+        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

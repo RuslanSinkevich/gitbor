@@ -191,14 +191,14 @@ export function Sidebar({
       </div>
 
       <SidebarSection title={loc.sidebar.branches} icon={ICONS.branch} count={filteredLocal.length} expanded={sections.branches} onToggle={() => toggle('branches')}>
-        {filteredLocal.length === 0 && <div className={s.emptySection}>{filter ? 'No matches' : 'No branches'}</div>}
+        {filteredLocal.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noBranches}</div>}
         {localTree.map(node => (
           <BranchTreeItem key={node.fullPath} node={node} depth={0} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
         ))}
       </SidebarSection>
 
       <SidebarSection title={loc.sidebar.remotes} icon={ICONS.remote} count={remotes.length} expanded={sections.remotes} onToggle={() => toggle('remotes')}>
-        {remotes.length === 0 && <div className={s.emptySection}>No remotes</div>}
+        {remotes.length === 0 && <div className={s.emptySection}>{loc.sidebar.noRemotes}</div>}
         {remotes.map(remote => {
           const remoteBranchesForRemote = filteredRemote.filter(b => b.name.startsWith(remote.name + '/'));
           const remoteTree = buildBranchTree(remoteBranchesForRemote, remote.name + '/');
@@ -211,7 +211,7 @@ export function Sidebar({
       </SidebarSection>
 
       <SidebarSection title={loc.sidebar.tags} icon={ICONS.tag} count={filteredTags.length} expanded={sections.tags} onToggle={() => toggle('tags')}>
-        {filteredTags.length === 0 && <div className={s.emptySection}>{filter ? 'No matches' : 'No tags'}</div>}
+        {filteredTags.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noTags}</div>}
         {filteredTags.map(tag => (
           <div
             key={tag.name}
@@ -226,7 +226,7 @@ export function Sidebar({
       </SidebarSection>
 
       <SidebarSection title={loc.sidebar.stashes} icon={ICONS.stash} count={stashes.length} expanded={sections.stashes} onToggle={() => toggle('stashes')}>
-        {stashes.length === 0 && <div className={s.emptySection}>No stashes</div>}
+        {stashes.length === 0 && <div className={s.emptySection}>{loc.sidebar.noStashes}</div>}
         {stashes.map(stash => (
           <div
             key={stash.index}

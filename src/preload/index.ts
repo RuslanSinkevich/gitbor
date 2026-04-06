@@ -14,11 +14,17 @@ const api: SkyForkAPI = {
     ipcRenderer.invoke('skyfork:command', command),
 
   onEvent: (callback: (event: unknown) => void) => {
-    ipcRenderer.on('skyfork:event', (_e, data) => callback(data));
+    const handler = (_e: Electron.IpcRendererEvent, data: unknown) => callback(data);
+    ipcRenderer.on('skyfork:event', handler);
+    (api as any)._eventHandler = handler;
   },
 
   offEvent: () => {
-    ipcRenderer.removeAllListeners('skyfork:event');
+    const handler = (api as any)._eventHandler;
+    if (handler) {
+      ipcRenderer.removeListener('skyfork:event', handler);
+      (api as any)._eventHandler = null;
+    }
   },
 
   onMenuAction: (callback: (action: string) => void) => {

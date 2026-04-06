@@ -232,9 +232,17 @@ export function computeGraphLayout(commits: Commit[]): GraphLayoutData {
   }
 
   let cursor = 0;
+  let safetyCounter = 0;
+  const maxIterations = graph.length * (graph.length + 1);
   while (cursor < graph.length) {
+    if (++safetyCounter > maxIterations) break;
     if (graph[cursor].nextPredecessor() !== null || graph[cursor].isUnassigned()) {
+      const predBefore = graph[cursor].nextPredecessor();
+      const wasUnassigned = graph[cursor].isUnassigned();
       tracePath(cursor);
+      if (graph[cursor].nextPredecessor() === predBefore && graph[cursor].isUnassigned() === wasUnassigned) {
+        graph[cursor].advancePredecessor();
+      }
     } else {
       cursor++;
     }

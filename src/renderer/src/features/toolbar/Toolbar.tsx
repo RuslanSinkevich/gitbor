@@ -1,9 +1,11 @@
+import { useState, useRef, useEffect } from 'react';
 import { t } from '../../i18n';
 import { postCommand } from '../../api';
 import s from './Toolbar.module.css';
 
 interface Props {
   isOperationRunning: boolean;
+  hasUpstream?: boolean;
 }
 
 const IconFetch = () => (
@@ -26,38 +28,93 @@ const IconStash = () => (
     <rect x="3" y="2" width="10" height="4" rx="1" /><rect x="3" y="8" width="10" height="4" rx="1" />
   </svg>
 );
+const IconDropdown = () => (
+  <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><path d="M1 2.5l3 3 3-3" /></svg>
+);
 
-export function Toolbar({ isOperationRunning }: Props) {
+function DropdownButton({ label, icon, disabled, mainAction, items }: {
+  label: string; icon: React.ReactNode; disabled: boolean;
+  mainAction: () => void;
+  items: { label: string; action: () => void }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+
+  return (
+    <div ref={ref} className={s.dropdownWrap}>
+      <button className={s.action} onClick={mainAction} disabled={disabled} title={label}>
+        {icon}
+        <span className={s.actionLabel}>{label}</span>
+      </button>
+      <button className={s.dropdownToggle} onClick={() => setOpen(o => !o)} disabled={disabled}>
+        <IconDropdown />
+      </button>
+      {open && (
+        <div className={s.dropdownMenu}>
+          {items.map((item, i) => (
+            <div key={i} className={s.dropdownItem} onClick={() => { item.action(); setOpen(false); }}>
+              {item.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Toolbar({ isOperationRunning, hasUpstream }: Props) {
   const loc = t();
-
-  const actions = [
-    { key: 'fetch', label: loc.toolbar.fetch, icon: <IconFetch />, action: () => postCommand({ type: 'fetch' }) },
-    { key: 'pull', label: loc.toolbar.pull, icon: <IconPull />, action: () => postCommand({ type: 'pull' }) },
-    { key: 'push', label: loc.toolbar.push, icon: <IconPush />, action: () => postCommand({ type: 'push' }) },
-    { key: 'sep1', separator: true },
-    { key: 'stash', label: loc.toolbar.stash, icon: <IconStash />, action: () => postCommand({ type: 'stash' }) },
-    { key: 'stashPop', label: loc.toolbar.stashPop, icon: <IconStash />, action: () => postCommand({ type: 'stashPop' }) },
-  ] as const;
 
   return (
     <div className={s.root}>
       <div className={s.left}>
-        {actions.map(a =>
-          'separator' in a ? (
-            <div key={a.key} className={s.separator} />
-          ) : (
-            <button
-              key={a.key}
-              className={s.action}
-              onClick={a.action}
-              disabled={isOperationRunning}
-              title={a.label}
-            >
-              {a.icon}
-              <span className={s.actionLabel}>{a.label}</span>
-            </button>
-          )
-        )}
+        <button className={s.action} onClick={() => postCommand({ type: 'fetch' })} disabled={isOperationRunning} title={loc.toolbar.fetch}>
+          <IconFetch />
+          <span className={s.actionLabel}>{loc.toolbar.fetch}</span>
+        </button>
+
+        <DropdownButton
+          label={loc.toolbar.pull}
+          icon={<IconPull />}
+          disabled={isOperationRunning}
+          mainAction={() => postCommand({ type: 'pull' })}
+          items={[
+            { label: loc.toolbar.pull, action: () => postCommand({ type: 'pull' }) },
+            { label: loc.toolbar.pullRebase, action: () => postCommand({ type: 'pull', rebase: true }) },
+          ]}
+        />
+
+        <DropdownButton
+          label={loc.toolbar.push}
+          icon={<IconPush />}
+          disabled={isOperationRunning}
+          mainAction={() => postCommand({ type: 'push' })}
+          items={[
+            { label: loc.toolbar.push, action: () => postCommand({ type: 'push' }) },
+            { label: loc.toolbar.pushForce, action: () => postCommand({ type: 'push', force: true }) },
+            ...(!hasUpstream ? [{ label: loc.toolbar.pushSetUpstream, action: () => postCommand({ type: 'push', setUpstream: true }) }] : []),
+          ]}
+        />
+
+        <div className={s.separator} />
+
+        <button className={s.action} onClick={() => postCommand({ type: 'stash' })} disabled={isOperationRunning} title={loc.toolbar.stash}>
+          <IconStash />
+          <span className={s.actionLabel}>{loc.toolbar.stash}</span>
+        </button>
+        <button className={s.action} onClick={() => postCommand({ type: 'stashPop' })} disabled={isOperationRunning} title={loc.toolbar.stashPop}>
+          <IconStash />
+          <span className={s.actionLabel}>{loc.toolbar.stashPop}</span>
+        </button>
       </div>
     </div>
   );

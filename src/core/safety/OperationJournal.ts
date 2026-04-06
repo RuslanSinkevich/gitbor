@@ -10,9 +10,23 @@ const DEFAULT_MAX_AGE_DAYS = 7;
 
 export class OperationJournal {
   private readonly journalPath: string;
+  private _lock: Promise<void> = Promise.resolve();
 
   constructor(private readonly gitDir: string) {
     this.journalPath = join(gitDir, JOURNAL_FILENAME);
+  }
+
+  private async withLock<T>(fn: () => Promise<T>): Promise<T> {
+    let release: () => void;
+    const next = new Promise<void>(resolve => { release = resolve; });
+    const prev = this._lock;
+    this._lock = next;
+    await prev;
+    try {
+      return await fn();
+    } finally {
+      release!();
+    }
   }
 
   async begin(entry: {
@@ -20,43 +34,49 @@ export class OperationJournal {
     savedState: SavedState;
     params: Record<string, string>;
   }): Promise<string> {
-    const id = `op_${Date.now()}_${randomBytes(4).toString('hex')}`;
+    return this.withLock(async () => {
+      const id = `op_${Date.now()}_${randomBytes(4).toString('hex')}`;
 
-    const journalEntry: JournalEntry = {
-      id,
-      operation: entry.operation,
-      startedAt: Date.now(),
-      status: 'started',
-      savedState: entry.savedState,
-      params: entry.params,
-    };
+      const journalEntry: JournalEntry = {
+        id,
+        operation: entry.operation,
+        startedAt: Date.now(),
+        status: 'started',
+        savedState: entry.savedState,
+        params: entry.params,
+      };
 
-    const journal = await this.read();
-    journal.entries.push(journalEntry);
-    await atomicWriteJSON(this.journalPath, journal);
+      const journal = await this.read();
+      journal.entries.push(journalEntry);
+      await atomicWriteJSON(this.journalPath, journal);
 
-    return id;
+      return id;
+    });
   }
 
   async complete(id: string): Promise<void> {
-    const journal = await this.read();
-    const entry = journal.entries.find(e => e.id === id);
-    if (entry) {
-      entry.status = 'completed';
-      entry.completedAt = Date.now();
-    }
-    await atomicWriteJSON(this.journalPath, journal);
+    return this.withLock(async () => {
+      const journal = await this.read();
+      const entry = journal.entries.find(e => e.id === id);
+      if (entry) {
+        entry.status = 'completed';
+        entry.completedAt = Date.now();
+      }
+      await atomicWriteJSON(this.journalPath, journal);
+    });
   }
 
   async fail(id: string, error: string): Promise<void> {
-    const journal = await this.read();
-    const entry = journal.entries.find(e => e.id === id);
-    if (entry) {
-      entry.status = 'failed';
-      entry.completedAt = Date.now();
-      entry.error = error;
-    }
-    await atomicWriteJSON(this.journalPath, journal);
+    return this.withLock(async () => {
+      const journal = await this.read();
+      const entry = journal.entries.find(e => e.id === id);
+      if (entry) {
+        entry.status = 'failed';
+        entry.completedAt = Date.now();
+        entry.error = error;
+      }
+      await atomicWriteJSON(this.journalPath, journal);
+    });
   }
 
   async getIncomplete(): Promise<JournalEntry[]> {
@@ -70,14 +90,16 @@ export class OperationJournal {
   }
 
   async cleanup(maxAgeDays: number = DEFAULT_MAX_AGE_DAYS): Promise<void> {
-    const journal = await this.read();
-    const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+    return this.withLock(async () => {
+      const journal = await this.read();
+      const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
 
-    journal.entries = journal.entries.filter(
-      e => e.status === 'started' || e.startedAt > cutoff
-    );
+      journal.entries = journal.entries.filter(
+        e => e.status === 'started' || e.startedAt > cutoff
+      );
 
-    await atomicWriteJSON(this.journalPath, journal);
+      await atomicWriteJSON(this.journalPath, journal);
+    });
   }
 
   private async read(): Promise<JournalFile> {

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import type { FileDiff } from '../../types';
+import { t } from '../../i18n';
 import { postCommand, onMainEvent, isElectron } from '../../api';
 import { DiffView } from './DiffView';
 import { ImageDiff, isImageFile } from './ImageDiff';
@@ -13,6 +14,7 @@ interface Props {
 const DIFF_TIMEOUT_MS = 15_000;
 
 export function DiffPanel({ file, hash }: Props) {
+  const loc = t();
   const [diffs, setDiffs] = useState<FileDiff[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +30,7 @@ export function DiffPanel({ file, hash }: Props) {
 
     if (!isElectron) {
       setLoading(false);
-      setError('IPC bridge not available (running outside Electron)');
+      setError(loc.diff.ipcUnavailable);
       return;
     }
 
@@ -53,20 +55,20 @@ export function DiffPanel({ file, hash }: Props) {
 
     const timeout = setTimeout(() => {
       setLoading(prev => {
-        if (prev) setError('Diff request timed out');
+        if (prev) setError(loc.diff.requestTimedOut);
         return false;
       });
     }, DIFF_TIMEOUT_MS);
 
     return () => { unsub(); clearTimeout(timeout); };
-  }, [file, hash, isImage]);
+  }, [file, hash, isImage, loc]);
 
   if (isImage) {
     return <ImageDiff file={file} hash={hash} />;
   }
 
   if (loading) {
-    return <div className={s.empty}>Loading diff...</div>;
+    return <div className={s.empty}>{loc.diff.loading}</div>;
   }
 
   if (error) {
@@ -74,7 +76,7 @@ export function DiffPanel({ file, hash }: Props) {
   }
 
   if (!diffs || diffs.length === 0) {
-    return <div className={s.empty}>No diff available</div>;
+    return <div className={s.empty}>{loc.diff.noDiff}</div>;
   }
 
   return (

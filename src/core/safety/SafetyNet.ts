@@ -44,6 +44,8 @@ export class SafetyNet {
       if (stashResult.exitCode === 0) {
         const hashResult = await this.git.exec(['rev-parse', 'stash@{0}']);
         autoStashHash = hashResult.stdout.trim();
+      } else {
+        return { success: false, error: `Failed to auto-stash uncommitted changes: ${stashResult.stderr}`, rollbackAvailable: false };
       }
     }
 

@@ -1,11 +1,12 @@
 import type { DiffLine, DiffHunk, FileDiff } from './types';
 
-const HUNK_HEADER_RE = /^@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@(.*)$/;
-const DIFF_FILE_RE = /^diff --git a\/(.+?) b\/(.+)$/;
+const HUNK_HEADER_RE = /^@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@(.*)$/m;
+const DIFF_FILE_RE = /^diff --git a\/(.+?) b\/(.+)$/m;
 
 export function parseDiff(stdout: string): FileDiff[] {
   const files: FileDiff[] = [];
-  const rawFiles = stdout.split(/(?=^diff --git )/m);
+  const cleaned = stdout.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const rawFiles = cleaned.split(/(?=^diff --git )/m);
 
   for (const raw of rawFiles) {
     if (!raw.trim()) continue;

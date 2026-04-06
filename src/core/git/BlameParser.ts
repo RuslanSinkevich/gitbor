@@ -40,6 +40,7 @@ export function parseBlame(stdout: string, filePath: string): BlameResult {
         content: raw.substring(1),
         summary,
       });
+      lineNo++;
     }
   }
 

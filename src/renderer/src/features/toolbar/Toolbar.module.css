@@ -58,3 +58,58 @@
 .actionLabel {
   white-space: nowrap;
 }
+
+.dropdownWrap {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.dropdownToggle {
+  display: flex;
+  align-items: center;
+  padding: 5px 4px;
+  background: none;
+  border: none;
+  color: var(--sg-foreground);
+  cursor: pointer;
+  border-radius: var(--sg-radius-sm);
+  opacity: 0.6;
+  transition: background var(--sg-transition);
+}
+
+.dropdownToggle:hover {
+  background: rgba(128, 128, 128, 0.15);
+  opacity: 1;
+}
+
+.dropdownToggle:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  min-width: 160px;
+  background: var(--sg-surface-raised);
+  border: 1px solid var(--sg-border);
+  border-radius: var(--sg-radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 4px 0;
+  margin-top: 2px;
+}
+
+.dropdownItem {
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--sg-foreground);
+  white-space: nowrap;
+}
+
+.dropdownItem:hover {
+  background: rgba(128, 128, 128, 0.15);
+}

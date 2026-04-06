@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FileHistoryResult, FileHistoryEntry } from '../../types';
 import { postCommand, onMainEvent } from '../../api';
+import { t } from '../../i18n';
 import s from './FileHistory.module.css';
 
 interface Props {
@@ -25,6 +26,7 @@ function statusCls(status: string): string {
 }
 
 export function FileHistory({ file, onSelectEntry, onOpenDiff }: Props) {
+  const loc = t();
   const [history, setHistory] = useState<FileHistoryResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedHash, setSelectedHash] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export function FileHistory({ file, onSelectEntry, onOpenDiff }: Props) {
     setHistory(null);
 
     const unsub = onMainEvent((msg) => {
-      if (msg.type === 'fileHistory') {
+      if (msg.type === 'fileHistory' && msg.file === file) {
         setHistory(msg.data);
         setLoading(false);
       }
@@ -45,15 +47,15 @@ export function FileHistory({ file, onSelectEntry, onOpenDiff }: Props) {
     return unsub;
   }, [file]);
 
-  if (loading) return <div className={s.empty}>Loading history...</div>;
-  if (!history || history.entries.length === 0) return <div className={s.empty}>No history</div>;
+  if (loading) return <div className={s.empty}>{loc.fileHistory.loading}</div>;
+  if (!history || history.entries.length === 0) return <div className={s.empty}>{loc.fileHistory.noHistory}</div>;
 
   return (
     <div className={s.root}>
       <div className={s.toolbar}>
-        <span className={s.filePath}>History: {file}</span>
+        <span className={s.filePath}>{loc.fileHistory.history}: {file}</span>
         <span style={{ fontSize: 11, color: 'var(--sg-foreground-muted)' }}>
-          {history.entries.length} commit{history.entries.length !== 1 ? 's' : ''}
+          {history.entries.length} {loc.fileHistory.commits}
         </span>
       </div>
       <div className={s.list}>

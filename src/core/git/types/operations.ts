@@ -29,6 +29,7 @@ export interface MergeOptions {
   readonly noCommit: boolean;
   readonly squash: boolean;
   readonly ffOnly: boolean;
+  readonly noFf?: boolean;
 }
 
 export interface ConflictFile {

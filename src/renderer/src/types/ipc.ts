@@ -24,30 +24,37 @@ export type RendererCommand =
   | { type: 'submoduleInit'; path: string }
   | { type: 'getRebaseTodo'; onto: string }
   | { type: 'executeRebase'; onto: string; entries: RebaseTodoEntry[] }
+  | { type: 'rebaseTo'; onto: string }
   | { type: 'continueRebase' }
   | { type: 'abortRebase' }
   | { type: 'skipRebase' }
   | { type: 'checkout'; branch: string }
-  | { type: 'fetch' }
-  | { type: 'pull' }
-  | { type: 'push' }
+  | { type: 'fetch'; remote?: string }
+  | { type: 'pull'; rebase?: boolean }
+  | { type: 'push'; force?: boolean; setUpstream?: boolean }
   | { type: 'stash'; message?: string }
   | { type: 'stashPop' }
   | { type: 'merge'; branch: string }
   | { type: 'createBranch'; name: string; from: string }
   | { type: 'renameBranch'; oldName: string; newName: string }
   | { type: 'deleteBranch'; branch: string; force?: boolean }
-  | { type: 'createTag'; name: string; ref: string }
+  | { type: 'createTag'; name: string; ref: string; message?: string }
   | { type: 'deleteTag'; name: string; remote?: boolean }
+  | { type: 'saveAsPatch'; hash: string }
   | { type: 'cherryPick'; hash: string }
   | { type: 'revert'; hash: string }
   | { type: 'resetTo'; hash: string; mode: 'soft' | 'mixed' | 'hard' }
+  | { type: 'stashShow'; index: string }
   | { type: 'stashApply'; index: string }
+  | { type: 'stashPopIndex'; index: string }
   | { type: 'stashDrop'; index: string }
   | { type: 'commit'; message: string; amend?: boolean }
   | { type: 'stageFile'; file: string }
+  | { type: 'stageAll'; files: string[] }
   | { type: 'unstageFile'; file: string }
+  | { type: 'unstageAll'; files: string[] }
   | { type: 'discardFileChanges'; file: string }
+  | { type: 'deleteUntrackedFile'; file: string }
   | { type: 'startMerge'; source: string; options: MergeOptions }
   | { type: 'resolveWithOurs'; file: string }
   | { type: 'resolveWithTheirs'; file: string }
@@ -71,11 +78,11 @@ export type RendererCommand =
 export type MainEvent =
   | { type: 'fullState'; data: AppState }
   | { type: 'stateUpdate'; data: Partial<AppState> }
-  | { type: 'commitDetails'; data: CommitDetail }
+  | { type: 'commitDetails'; data: CommitDetail; hash: string }
   | { type: 'graphData'; data: CommitGraphData }
   | { type: 'fileDiff'; data: FileDiff[]; file: string; hash: string }
-  | { type: 'fileBlame'; data: BlameResult }
-  | { type: 'fileHistory'; data: FileHistoryResult }
+  | { type: 'fileBlame'; data: BlameResult; file: string }
+  | { type: 'fileHistory'; data: FileHistoryResult; file: string }
   | { type: 'submodules'; data: Submodule[] }
   | { type: 'rebaseTodo'; data: RebaseTodoList }
   | { type: 'rebaseProgress'; data: RebaseProgress }
@@ -92,4 +99,5 @@ export type MainEvent =
   | { type: 'openMergeEditor'; file: string; repoPath: string }
   | { type: 'openFile'; file: string; repoPath: string }
   | { type: 'showView'; view: 'changes' | 'commits' }
+  | { type: 'stashDiff'; data: import('./diff').FileDiff[]; index: string }
   | { type: 'error'; message: string };

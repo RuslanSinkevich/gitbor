@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
-import { t } from '../../i18n';
+import { t, tpl } from '../../i18n';
 import type { Commit, GraphNode, MergeLink } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { ROW_HEIGHT, COL_WIDTH, LEFT_PAD, NODE_RADIUS, MERGE_RADIUS, OVERSCAN, DESC_PAD, colX, rowY, formatCommitDate } from './graphConstants';
@@ -170,7 +170,7 @@ export function CommitGraph({ commits, graphNodes, maxColumns, mergeLinks, selec
             ref={searchRef}
             className={s.searchInput}
             type="text"
-            placeholder="Search commits..."
+            placeholder={loc.graph.searchPlaceholder}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             onKeyDown={e => {
@@ -180,7 +180,7 @@ export function CommitGraph({ commits, graphNodes, maxColumns, mergeLinks, selec
           />
           {searchQuery && (
             <span className={s.searchCount}>
-              {searchMatches.length > 0 ? `${searchMatchIdx + 1}/${searchMatches.length}` : 'No results'}
+              {searchMatches.length > 0 ? `${searchMatchIdx + 1}/${searchMatches.length}` : loc.graph.noSearchResults}
             </span>
           )}
           <button className={s.searchNav} onClick={() => navigateSearch(-1)} disabled={searchMatches.length === 0}>▲</button>
@@ -271,10 +271,10 @@ export function CommitGraph({ commits, graphNodes, maxColumns, mergeLinks, selec
               </div>
             );
           })}
-          {onLoadMore && commits.length >= 500 && (
+          {onLoadMore && commits.length > 0 && commits.length % 2000 === 0 && (
             <div className={s.loadMore} style={{ top: commits.length * ROW_HEIGHT }}>
               <button className={s.loadMoreBtn} onClick={onLoadMore}>
-                Load more commits ({commits.length} loaded)
+                {tpl(loc.graph.loadMore, { loaded: commits.length })}
               </button>
             </div>
           )}
