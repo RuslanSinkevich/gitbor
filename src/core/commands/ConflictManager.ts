@@ -70,14 +70,19 @@ export class ConflictManager {
     const statusResult = await this.git.exec(['status', '--porcelain=v1']);
     const allFiles = GitParser.parseStatus(statusResult.stdout);
 
-    return allFiles
-      .filter(f => f.status === 'U' || (!f.staged && f.status === 'M'))
-      .map(f => ({
-        path: f.path,
-        status: f.status === 'U' ? 'conflicted' as const : 'resolved' as const,
-        oursModified: true,
-        theirsModified: true,
-      }));
+    const conflictPaths = new Set(allFiles.filter(f => f.status === 'U').map(f => f.path));
+    const stagedPaths = new Set(allFiles.filter(f => f.staged && f.status === 'M').map(f => f.path));
+
+    const result: ConflictFile[] = [];
+    for (const path of conflictPaths) {
+      result.push({ path, status: 'conflicted', oursModified: true, theirsModified: true });
+    }
+    for (const path of stagedPaths) {
+      if (!conflictPaths.has(path)) {
+        result.push({ path, status: 'resolved', oursModified: true, theirsModified: true });
+      }
+    }
+    return result;
   }
 
   async getMergeState(): Promise<MergeState> {
@@ -101,8 +106,10 @@ export class ConflictManager {
 
     let sourceBranch = '';
     try {
-      const mergeMsg = await this.git.exec(['log', '--format=%s', '-1', 'MERGE_HEAD']);
-      sourceBranch = mergeMsg.stdout.trim();
+      const mergeHeadHash = (await this.git.exec(['rev-parse', 'MERGE_HEAD'])).stdout.trim();
+      const branchResult = await this.git.exec(['branch', '--points-at', mergeHeadHash, '--format=%(refname:short)']);
+      const branches = branchResult.stdout.trim().split('\n').filter(Boolean);
+      sourceBranch = branches[0] || mergeHeadHash.substring(0, 7);
     } catch {
       sourceBranch = 'unknown';
     }
