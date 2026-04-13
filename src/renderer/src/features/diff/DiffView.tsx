@@ -9,6 +9,8 @@ interface Props {
   diff: FileDiff;
   file: string;
   hash: string;
+  ignoreWs?: boolean;
+  onToggleWs?: () => void;
 }
 
 type DiffMode = 'inline' | 'side-by-side';
@@ -21,7 +23,7 @@ const STATUS_CLS: Record<string, string> = {
   copied: s.statusRenamed,
 };
 
-export function DiffView({ diff, file, hash }: Props) {
+export function DiffView({ diff, file, hash, ignoreWs, onToggleWs }: Props) {
   const loc = t();
   const [mode, setMode] = useState<DiffMode>('inline');
   const isWorkingCopy = hash === 'WORKING';
@@ -45,6 +47,15 @@ export function DiffView({ diff, file, hash }: Props) {
             ? `${diff.oldPath} → ${diff.path}`
             : diff.path}
         </span>
+        {onToggleWs && (
+          <button
+            className={`${s.modeBtn} ${ignoreWs ? s.modeBtnActive : ''}`}
+            onClick={onToggleWs}
+            title={loc.diff.ignoreWhitespace}
+          >
+            {loc.diff.ignoreWhitespace}
+          </button>
+        )}
         <div className={s.modeToggle}>
           <button
             className={`${s.modeBtn} ${mode === 'inline' ? s.modeBtnActive : ''}`}

@@ -35,7 +35,6 @@ npm start            # Run the built app
 | UI | React 18, TypeScript, Vite 5 |
 | Styles | CSS Modules, `--sg-*` custom properties |
 | File watcher | chokidar |
-| Settings | electron-store |
 | Git | Bundled git binary (`resources/git/{platform}/git`) |
 
 ---
@@ -45,19 +44,19 @@ npm start            # Run the built app
 4 layers, dependencies flow downward only:
 
 ```
-┌─────────────────────────────────────────────┐
-│  Renderer Process (React)                   │
-│  UI: Sidebar, Graph, Changes, Diff, Toolbar │
-├─────────────────────────────────────────────┤
-│  Preload Script                             │
-│  contextBridge (secure IPC bridge)          │
-├─────────────────────────────────────────────┤
-│  Main Process (Node.js)                     │
-│  Application + Safety + Git Layer           │
-├─────────────────────────────────────────────┤
-│  Bundled Git                                │
-│  resources/git/{platform}/git               │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  Renderer Process (React)                                │
+│  UI: Menu, Sidebar, Graph, Changes, Diff, Merge, SSH    │
+├──────────────────────────────────────────────────────────┤
+│  Preload Script                                          │
+│  contextBridge (secure IPC bridge)                       │
+├──────────────────────────────────────────────────────────┤
+│  Main Process (Node.js)                                  │
+│  Application + Safety + Git Layer + SSH Key Manager      │
+├──────────────────────────────────────────────────────────┤
+│  Bundled Git                                             │
+│  resources/git/{platform}/git                            │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ### Data Flow
@@ -84,6 +83,7 @@ skyfork/
 │   │   ├── git/                   # Git layer
 │   │   │   ├── GitExecutor.ts     # Run git processes
 │   │   │   ├── GitParser.ts       # Parse git output
+│   │   │   ├── GitConfig.ts       # Read/write git config (user.name, user.email)
 │   │   │   ├── GraphLayout.ts     # Commit graph layout algorithm
 │   │   │   ├── DiffParser.ts      # Parse unified diff
 │   │   │   ├── ConflictParser.ts  # Parse conflict markers
@@ -92,6 +92,8 @@ skyfork/
 │   │   │   ├── RebaseManager.ts   # Rebase operations
 │   │   │   ├── SubmoduleParser.ts # Parse submodules
 │   │   │   └── types/             # Types: Commit, Branch, Tag, GraphNode, etc.
+│   │   ├── ssh/                   # SSH key management
+│   │   │   └── SshKeyManager.ts   # List, generate, delete SSH keys
 │   │   ├── safety/                # 5 levels of data protection
 │   │   │   ├── OperationQueue.ts  # Queue: reads parallel, writes serial
 │   │   │   ├── OperationJournal.ts # WAL operation journal
@@ -104,8 +106,8 @@ skyfork/
 │   │       └── Logger.ts          # File logging
 │   │
 │   ├── main/                      # Electron entry point
-│   │   ├── main.ts                # Window creation, service init
-│   │   ├── menu.ts                # Native menu
+│   │   ├── main.ts                # Window creation, service init, autoHideMenuBar
+│   │   ├── menu.ts                # Hidden native menu (keyboard accelerators only)
 │   │   └── i18n/                  # Menu localization (ru, en)
 │   │
 │   ├── preload/
@@ -113,24 +115,28 @@ skyfork/
 │   │
 │   └── renderer/                  # Frontend (React)
 │       ├── src/
-│       │   ├── App.tsx            # Root component
+│       │   ├── App.tsx            # Root component (composition only)
 │       │   ├── api.ts             # skyForkAPI wrapper (invoke, onEvent)
 │       │   ├── features/          # Feature modules
 │       │   │   ├── graph/         # Commit graph (virtualized)
 │       │   │   ├── sidebar/       # Sidebar (branches, tags, stash, remotes)
-│       │   │   ├── changes/       # Changed files (tree view)
-│       │   │   ├── diff/          # Diff viewer (inline + split)
-│       │   │   ├── merge/         # Merge conflict resolution
+│       │   │   ├── changes/       # Changed files (tree), CommitBar (subject + desc)
+│       │   │   ├── diff/          # Diff viewer (inline + split, ignore whitespace)
+│       │   │   ├── merge/         # Merge conflict resolution (ConflictPanel, MergeEditor)
 │       │   │   ├── toolbar/       # Toolbar actions
 │       │   │   ├── blame/         # Git blame
 │       │   │   ├── file-history/  # File history
 │       │   │   ├── rebase/        # Interactive rebase editor
 │       │   │   ├── repo-manager/  # Repository management
-│       │   │   └── repo-tabs/     # Multi-repo tabs
-│       │   ├── ui/                # UI kit (SgButton, SgDialog, SgToast...)
-│       │   ├── hooks/             # React hooks
+│       │   │   ├── repo-tabs/     # Multi-repo tabs
+│       │   │   ├── titlebar/      # Custom menu bar (replaces native Electron menu)
+│       │   │   ├── layout/        # CommitsView, ChangesView, RightPanelContent
+│       │   │   ├── ssh/           # SSH Keys Manager dialog
+│       │   │   └── settings/      # Repository Settings dialog
+│       │   ├── ui/                # UI kit (SgButton, SgDialog, SgToast, MenuBar...)
+│       │   ├── hooks/             # React hooks (useAppState, useMenuActions, useOperationToasts...)
 │       │   ├── i18n/              # UI localization (ru, en)
-│       │   ├── styles/            # Global styles, CSS variables
+│       │   ├── styles/            # Global styles, CSS variables, themes
 │       │   ├── types/             # TypeScript types for renderer
 │       │   └── pages/
 │       │       └── showcase/      # UI Showcase (component demos)
@@ -149,6 +155,28 @@ skyfork/
 ├── package.json                   # Electron 28, TypeScript 5.3
 └── tsconfig.json
 ```
+
+---
+
+## Key Features
+
+- **Commit graph** — virtualized scroll, branch coloring, search
+- **Branch/Tag/Stash sidebar** — tree view, checkout, merge, rename, delete
+- **Local changes** — tree view, stage/unstage/discard per file and per hunk
+- **Diff viewer** — inline + split, ignore whitespace, stage hunk
+- **Merge conflict resolution** — two-column editor, auto-advance, conflict prediction
+- **File history & Git blame** — per-file commit history, line-by-line annotations
+- **Interactive rebase** — pick/reword/edit/squash/fixup/drop
+- **Multi-repo tabs** — open multiple repositories simultaneously
+- **Custom menu bar** — stable HTML/CSS menu (replaces native Electron menu)
+- **SSH Keys Manager** — generate, view, copy, delete SSH keys
+- **Repository Settings** — user.name/email, global/local toggle
+- **Toast notifications** — success/error feedback for all git operations
+- **Confirmation dialogs** — destructive actions require confirmation
+- **Shell integration** — open in Explorer/Terminal, refresh (F5)
+- **Error boundary** — React ErrorBoundary prevents blank screens
+- **i18n** — English and Russian
+- **Themes** — dark and light mode
 
 ---
 
@@ -179,7 +207,7 @@ Internal module docs: [`docs/internal/`](docs/internal/INDEX.md)
 
 ## Status
 
-Version 0.1.0. Backend ready, UI in active development. Not production-tested.
+Version 0.1.0. Backend and UI feature-complete for MVP. Not production-tested.
 
 ## License
 

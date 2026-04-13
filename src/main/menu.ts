@@ -19,10 +19,7 @@ export function buildMenu(onOpenRepo?: () => void): Menu {
         { type: 'separator' },
         {
           label: loc.menu.closeRepo, accelerator: 'CmdOrCtrl+W',
-          click: () => {
-            const win = BrowserWindow.getFocusedWindow();
-            if (win) win.close();
-          },
+          click: () => sendToRenderer('skyfork:menu-action', 'closeRepo'),
         },
         { type: 'separator' },
         { role: 'quit', label: loc.menu.exit },
@@ -58,12 +55,17 @@ export function buildMenu(onOpenRepo?: () => void): Menu {
     {
       label: loc.menu.repository,
       submenu: [
+        { label: loc.menu.refresh, accelerator: 'F5', click: () => sendToRenderer('skyfork:menu-action', 'refresh') },
+        { type: 'separator' },
         { label: loc.menu.fetch, accelerator: 'CmdOrCtrl+Shift+F', click: () => sendToRenderer('skyfork:menu-action', 'fetch') },
-        { label: loc.menu.pull, accelerator: 'CmdOrCtrl+Shift+P', click: () => sendToRenderer('skyfork:menu-action', 'pull') },
+        { label: loc.menu.pull, accelerator: 'CmdOrCtrl+Shift+L', click: () => sendToRenderer('skyfork:menu-action', 'pull') },
         { label: loc.menu.push, accelerator: 'CmdOrCtrl+Shift+U', click: () => sendToRenderer('skyfork:menu-action', 'push') },
         { type: 'separator' },
         { label: loc.menu.stash, accelerator: 'CmdOrCtrl+Shift+S', click: () => sendToRenderer('skyfork:menu-action', 'stash') },
         { label: loc.menu.stashPop, accelerator: 'CmdOrCtrl+Shift+A', click: () => sendToRenderer('skyfork:menu-action', 'stashPop') },
+        { type: 'separator' },
+        { label: loc.menu.openInExplorer, accelerator: 'CmdOrCtrl+Alt+O', click: () => sendToRenderer('skyfork:menu-action', 'openInExplorer') },
+        { label: loc.menu.openInTerminal, accelerator: 'CmdOrCtrl+Alt+T', click: () => sendToRenderer('skyfork:menu-action', 'openInTerminal') },
       ],
     },
     {

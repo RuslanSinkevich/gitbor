@@ -32,7 +32,7 @@ export class GitExecutor {
     const fullArgs = ['-c', 'core.quotePath=false', ...args];
 
     if (options?.stdin) {
-      return this.execWithStdin(fullArgs, options.stdin, cwd, timeout, maxBuffer, args);
+      return this.execWithStdin(fullArgs, options.stdin, cwd, timeout, maxBuffer, args, options?.env);
     }
 
     this.logger.log(`exec: git ${args.join(' ')}  [cwd: ${cwd}]`);
@@ -41,7 +41,7 @@ export class GitExecutor {
       const proc = execFile(
         'git',
         fullArgs,
-        { cwd, timeout, maxBuffer, windowsHide: true },
+        { cwd, timeout, maxBuffer, windowsHide: true, env: options?.env ? { ...process.env, ...options.env } : undefined },
         (error, stdout, stderr) => {
           this.activeProcesses.delete(proc);
           const duration = Date.now() - startTime;
@@ -89,12 +89,13 @@ export class GitExecutor {
   private execWithStdin(
     fullArgs: string[], stdin: string, cwd: string,
     timeout: number, _maxBuffer: number, displayArgs: string[],
+    env?: Record<string, string>,
   ): Promise<GitExecResult> {
     const startTime = Date.now();
     this.logger.log(`exec(stdin): git ${displayArgs.join(' ')}  [cwd: ${cwd}]`);
 
     return new Promise<GitExecResult>((resolve, reject) => {
-      const proc = spawn('git', fullArgs, { cwd, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+      const proc = spawn('git', fullArgs, { cwd, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: env ? { ...process.env, ...env } : undefined });
       this.activeProcesses.add(proc);
 
       let stdout = '';

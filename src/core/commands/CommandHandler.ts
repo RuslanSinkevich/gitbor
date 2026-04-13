@@ -27,7 +27,7 @@ export class CommandHandler {
   // ─── Read ───
   getGraphData(maxCount: number): Promise<CommitGraphData> { return Read.getGraphData(this.queue, this.state, maxCount); }
   getCommitDetails(hash: string): Promise<CommitDetail> { return Read.getCommitDetails(this.queue, this.git, hash); }
-  getFileDiff(file: string, hash: string): Promise<FileDiff[]> { return Read.getFileDiff(this.queue, this.git, file, hash); }
+  getFileDiff(file: string, hash: string, ignoreWhitespace?: boolean): Promise<FileDiff[]> { return Read.getFileDiff(this.queue, this.git, file, hash, ignoreWhitespace); }
   getFileBlame(file: string, hash?: string): Promise<BlameResult> { return Read.getFileBlame(this.queue, this.git, file, hash); }
   getFileHistory(file: string): Promise<FileHistoryResult> { return Read.getFileHistory(this.queue, this.git, file); }
   getSubmodules(): Promise<Submodule[]> { return Read.getSubmodules(this.queue, this.git); }
@@ -130,12 +130,14 @@ export class CommandHandler {
   async submoduleUpdate(path: string): Promise<OperationResult> {
     return this.queue.enqueueWrite('submoduleUpdate', async () => {
       const r = await this.git.exec(['submodule', 'update', '--init', '--', path]);
+      await this.state.refreshAll();
       return { success: r.exitCode === 0, error: r.exitCode !== 0 ? r.stderr : undefined, rollbackAvailable: false };
     });
   }
   async submoduleInit(path: string): Promise<OperationResult> {
     return this.queue.enqueueWrite('submoduleInit', async () => {
       const r = await this.git.exec(['submodule', 'init', '--', path]);
+      await this.state.refreshAll();
       return { success: r.exitCode === 0, error: r.exitCode !== 0 ? r.stderr : undefined, rollbackAvailable: false };
     });
   }

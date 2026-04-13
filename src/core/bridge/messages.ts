@@ -20,9 +20,10 @@ import type { ConflictContent } from '../git/types';
 export type RendererCommand =
   | { type: 'ready' }
   | { type: 'getState' }
+  | { type: 'refreshAll' }
   | { type: 'getCommitDetails'; hash: string }
   | { type: 'getGraphData'; maxCount: number }
-  | { type: 'getFileDiff'; file: string; hash: string }
+  | { type: 'getFileDiff'; file: string; hash: string; ignoreWhitespace?: boolean }
   | { type: 'getFileBlame'; file: string; hash?: string }
   | { type: 'getFileHistory'; file: string }
   | { type: 'addRemote'; name: string; url: string }
@@ -103,6 +104,20 @@ export type RendererCommand =
   | { type: 'closeRepo'; index: number }
   | { type: 'switchRepo'; index: number }
 
+  // Shell actions
+  | { type: 'openInExplorer' }
+  | { type: 'openInTerminal' }
+
+  // Repo settings
+  | { type: 'getRepoSettings' }
+  | { type: 'setRepoSettings'; useGlobal: boolean; name: string; email: string }
+
+  // SSH keys
+  | { type: 'listSshKeys' }
+  | { type: 'generateSshKey'; name: string; keyType: 'ed25519' | 'rsa'; passphrase: string; comment: string }
+  | { type: 'deleteSshKey'; name: string }
+  | { type: 'getPublicKey'; name: string }
+
   // Renderer-handled views
   | { type: 'openDiff'; file: string; hash: string }
   | { type: 'openMergeEditor'; file: string }
@@ -136,4 +151,7 @@ export type MainEvent =
   | { type: 'openFile'; file: string; repoPath: string }
   | { type: 'showView'; view: 'changes' | 'commits' }
   | { type: 'stashDiff'; data: FileDiff[]; index: string }
+  | { type: 'repoSettings'; data: import('../git/GitConfig').RepoSettings }
+  | { type: 'sshKeys'; data: import('../ssh/SshKeyManager').SshKeyInfo[] }
+  | { type: 'publicKey'; name: string; content: string }
   | { type: 'error'; message: string };

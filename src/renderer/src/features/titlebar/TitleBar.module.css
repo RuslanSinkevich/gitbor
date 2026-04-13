@@ -1,0 +1,42 @@
+.titlebar {
+  height: 32px;
+  background: var(--sg-titlebar-bg);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 12px;
+  color: var(--sg-foreground-muted);
+}
+
+.nav {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.themeToggle,
+.langToggle {
+  background: none;
+  border: none;
+  color: var(--sg-foreground-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  -webkit-app-region: no-drag;
+  transition: all var(--sg-transition);
+  font-weight: 600;
+}
+
+.themeToggle { font-size: 14px; }
+
+.themeToggle:hover,
+.langToggle:hover {
+  background: rgba(128, 128, 128, 0.15);
+  color: var(--sg-foreground);
+}

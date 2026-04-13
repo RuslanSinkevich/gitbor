@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow, ipcMain, shell } from 'electron';
 import { CommandHandler } from '../commands/CommandHandler';
 import { StateManager } from '../state/StateManager';
 import { RendererCommand, MainEvent } from './messages';
@@ -71,6 +71,11 @@ const handlers: HandlerTable = {
     ctx.send({ type: 'config', lang: getLang() });
     ctx.send({ type: 'fullState', data: state });
   },
+  refreshAll: async (_cmd, ctx) => {
+    await ctx.sm.refreshAll();
+    const state = ctx.sm.getState();
+    ctx.send({ type: 'fullState', data: state });
+  },
 
   getCommitDetails: async (cmd, ctx) => {
     const detail = await ctx.ch.getCommitDetails(cmd.hash);
@@ -82,7 +87,7 @@ const handlers: HandlerTable = {
   },
   getFileDiff: async (cmd, ctx) => {
     try {
-      const diffs = await ctx.ch.getFileDiff(cmd.file, cmd.hash);
+      const diffs = await ctx.ch.getFileDiff(cmd.file, cmd.hash, cmd.ignoreWhitespace);
       ctx.send({ type: 'fileDiff', data: diffs, file: cmd.file, hash: cmd.hash });
     } catch (diffErr) {
       console.error('[SkyFork] getFileDiff error:', diffErr);
@@ -229,6 +234,76 @@ const handlers: HandlerTable = {
   },
   switchView: async (cmd, ctx) => {
     ctx.send({ type: 'showView', view: cmd.view });
+  },
+
+  openInExplorer: async (_cmd, ctx) => {
+    const repoPath = ctx.sm.getState().repoPath;
+    if (repoPath) shell.openPath(repoPath);
+  },
+  openInTerminal: async (_cmd, ctx) => {
+    const repoPath = ctx.sm.getState().repoPath;
+    if (!repoPath) return;
+    const { spawn } = await import('child_process');
+    if (process.platform === 'win32') {
+      spawn('cmd.exe', [], { cwd: repoPath, detached: true, stdio: 'ignore', shell: false }).unref();
+    } else if (process.platform === 'darwin') {
+      spawn('open', ['-a', 'Terminal', repoPath], { detached: true, stdio: 'ignore' }).unref();
+    } else {
+      spawn('x-terminal-emulator', [], { cwd: repoPath, detached: true, stdio: 'ignore' }).unref();
+    }
+  },
+
+  getRepoSettings: async (_cmd, ctx) => {
+    const { GitConfig } = await import('../git/GitConfig');
+    const config = new GitConfig(ctx.sm.getGit());
+    const data = await config.getRepoSettings();
+    ctx.send({ type: 'repoSettings', data });
+  },
+  setRepoSettings: async (cmd, ctx) => {
+    const { GitConfig } = await import('../git/GitConfig');
+    const config = new GitConfig(ctx.sm.getGit());
+    try {
+      await config.setRepoSettings({ useGlobal: cmd.useGlobal, name: cmd.name, email: cmd.email });
+      const data = await config.getRepoSettings();
+      ctx.send({ type: 'repoSettings', data });
+    } catch (err) {
+      ctx.send({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
+  listSshKeys: async (_cmd, ctx) => {
+    const { listSshKeys } = await import('../ssh/SshKeyManager');
+    const keys = await listSshKeys();
+    ctx.send({ type: 'sshKeys', data: keys });
+  },
+  generateSshKey: async (cmd, ctx) => {
+    const { generateSshKey, listSshKeys } = await import('../ssh/SshKeyManager');
+    try {
+      await generateSshKey({ name: cmd.name, type: cmd.keyType, passphrase: cmd.passphrase, comment: cmd.comment });
+      const keys = await listSshKeys();
+      ctx.send({ type: 'sshKeys', data: keys });
+    } catch (err) {
+      ctx.send({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+    }
+  },
+  deleteSshKey: async (cmd, ctx) => {
+    const { deleteSshKey, listSshKeys } = await import('../ssh/SshKeyManager');
+    try {
+      deleteSshKey(cmd.name);
+      const keys = await listSshKeys();
+      ctx.send({ type: 'sshKeys', data: keys });
+    } catch (err) {
+      ctx.send({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+    }
+  },
+  getPublicKey: async (cmd, ctx) => {
+    const { readPublicKey } = await import('../ssh/SshKeyManager');
+    try {
+      const content = readPublicKey(cmd.name);
+      ctx.send({ type: 'publicKey', name: cmd.name, content });
+    } catch (err) {
+      ctx.send({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+    }
   },
 };
 

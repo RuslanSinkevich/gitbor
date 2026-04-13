@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import type { FileDiff } from '../../types';
 import { t } from '../../i18n';
 import { postCommand, onMainEvent, isElectron } from '../../api';
@@ -18,6 +18,7 @@ export function DiffPanel({ file, hash }: Props) {
   const [diffs, setDiffs] = useState<FileDiff[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [ignoreWs, setIgnoreWs] = useState(false);
   const requestRef = useRef({ file, hash });
 
   const isImage = isImageFile(file);
@@ -38,20 +39,17 @@ export function DiffPanel({ file, hash }: Props) {
     setDiffs(null);
     setError(null);
     requestRef.current = { file, hash };
+    postCommand({ type: 'getFileDiff', file, hash, ignoreWhitespace: ignoreWs || undefined });
 
     const unsub = onMainEvent((msg) => {
       if (msg.type === 'fileDiff') {
-        const isMatch = ('file' in msg && 'hash' in msg)
-          ? msg.file === file && msg.hash === hash
-          : requestRef.current.file === file && requestRef.current.hash === hash;
+        const isMatch = msg.file === file && msg.hash === hash;
         if (isMatch) {
           setDiffs(msg.data);
           setLoading(false);
         }
       }
     });
-
-    postCommand({ type: 'getFileDiff', file, hash });
 
     const timeout = setTimeout(() => {
       setLoading(prev => {
@@ -61,7 +59,11 @@ export function DiffPanel({ file, hash }: Props) {
     }, DIFF_TIMEOUT_MS);
 
     return () => { unsub(); clearTimeout(timeout); };
-  }, [file, hash, isImage, loc]);
+  }, [file, hash, isImage, ignoreWs, loc]);
+
+  const handleToggleWs = useCallback(() => {
+    setIgnoreWs(prev => !prev);
+  }, []);
 
   if (isImage) {
     return <ImageDiff file={file} hash={hash} />;
@@ -82,7 +84,9 @@ export function DiffPanel({ file, hash }: Props) {
   return (
     <>
       {diffs.map((d, i) => (
-        <DiffView key={`${d.path}-${i}`} diff={d} file={file} hash={hash} />
+        <DiffView key={`${d.path}-${i}`} diff={d} file={file} hash={hash}
+          ignoreWs={ignoreWs} onToggleWs={handleToggleWs}
+        />
       ))}
     </>
   );

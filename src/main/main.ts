@@ -62,6 +62,7 @@ async function createWindow(): Promise<void> {
     minHeight: 600,
     title: 'SkyFork',
     show: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       sandbox: true,

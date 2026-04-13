@@ -124,9 +124,13 @@ export function useAppState() {
         case 'push': postCommand({ type: 'push' }); break;
         case 'stash': postCommand({ type: 'stash' }); break;
         case 'stashPop': postCommand({ type: 'stashPop' }); break;
+        case 'refresh': postCommand({ type: 'refreshAll' }); break;
         case 'newBranch':
         case 'merge':
         case 'about':
+        case 'closeRepo':
+        case 'openInExplorer':
+        case 'openInTerminal':
           setPendingMenuAction({ action });
           break;
       }

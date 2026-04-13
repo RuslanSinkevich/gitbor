@@ -1,0 +1,45 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog {
+  background: var(--sg-surface-raised);
+  border: 1px solid var(--sg-border);
+  border-radius: var(--sg-radius);
+  padding: 32px 40px;
+  text-align: center;
+  box-shadow: var(--sg-shadow-lg);
+  min-width: 280px;
+}
+
+.dialog h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  color: var(--sg-foreground);
+}
+
+.version {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--sg-primary);
+  font-weight: 500;
+}
+
+.desc {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--sg-foreground-muted);
+}
+
+.copy {
+  margin: 0 0 20px;
+  font-size: 11px;
+  color: var(--sg-foreground-muted);
+  opacity: 0.6;
+}

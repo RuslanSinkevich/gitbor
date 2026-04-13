@@ -64,41 +64,39 @@ export async function getCommitDetails(
 
 export async function getFileDiff(
   queue: OperationQueue, git: GitExecutor, file: string, hash: string,
+  ignoreWhitespace?: boolean,
 ): Promise<FileDiff[]> {
   return queue.enqueueRead('getFileDiff', async () => {
     const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf899d15d4cef8de1';
+    const wsFlag = ignoreWhitespace ? ['-w'] : [];
 
     if (hash === 'WORKING') {
-      const result = await git.exec(['diff', '--', file]);
+      const result = await git.exec(['diff', ...wsFlag, '--', file]);
       if (result.stdout.trim()) return parseDiff(result.stdout);
 
-      // Untracked file — diff against /dev/null (works on Git for Windows too)
       const untrackedResult = await git.exec(
-        ['diff', '--no-index', '--', '/dev/null', file]
+        ['diff', '--no-index', ...wsFlag, '--', '/dev/null', file]
       );
       return parseDiff(untrackedResult.stdout);
     }
 
     if (hash === 'STAGED') {
-      const result = await git.exec(['diff', '--cached', '--', file]);
+      const result = await git.exec(['diff', '--cached', ...wsFlag, '--', file]);
       if (result.stdout.trim()) return parseDiff(result.stdout);
 
-      // Newly staged file — diff against empty tree
-      const newResult = await git.exec(['diff', '--cached', EMPTY_TREE, '--', file]);
+      const newResult = await git.exec(['diff', '--cached', ...wsFlag, EMPTY_TREE, '--', file]);
       return parseDiff(newResult.stdout);
     }
 
-    // Commit diff — check if root commit (no parent)
     const parentCheck = await git.exec(['rev-list', '--parents', '-1', hash]);
     const parentParts = parentCheck.stdout.trim().split(/\s+/);
 
     if (parentParts.length > 1) {
-      const result = await git.exec(['diff', `${hash}^`, hash, '--', file]);
+      const result = await git.exec(['diff', ...wsFlag, `${hash}^`, hash, '--', file]);
       return parseDiff(result.stdout);
     }
 
-    // Root commit: diff against empty tree
-    const result = await git.exec(['diff', EMPTY_TREE, hash, '--', file]);
+    const result = await git.exec(['diff', ...wsFlag, EMPTY_TREE, hash, '--', file]);
     return parseDiff(result.stdout);
   });
 }

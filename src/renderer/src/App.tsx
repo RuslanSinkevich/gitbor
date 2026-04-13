@@ -4,12 +4,11 @@ import { useDiffState } from './hooks/useDiffState';
 import { useTheme } from './hooks/useTheme';
 import { useToasts } from './hooks/useToasts';
 import { useContextMenu } from './hooks/useContextMenu';
-import { CommitGraph, CommitDetails } from './features/graph';
-import { LocalChanges, CommitBar } from './features/changes';
-import { DiffPanel } from './features/diff';
-import { FileHistory } from './features/file-history';
-import { BlameView } from './features/blame';
-import { MergeDialog, MergeBanner, MergeEditor, ConflictPanel } from './features/merge';
+import { useMenuActions } from './hooks/useMenuActions';
+import { useOperationToasts } from './hooks/useOperationToasts';
+import { TitleBar } from './features/titlebar';
+import { CommitsView, ChangesView, type RightPanel } from './features/layout';
+import { MergeDialog, MergeBanner, MergeEditor } from './features/merge';
 import { RebaseEditor } from './features/rebase';
 import { Toolbar } from './features/toolbar';
 import { Sidebar, BranchStatus } from './features/sidebar';
@@ -19,17 +18,16 @@ import { SgContextMenu } from './ui/SgContextMenu';
 import { SgSplitPane } from './ui/SgSplitPane';
 import { SgToastContainer } from './ui/SgToast';
 import { usePromptDialog, SgPromptDialog } from './ui/SgPromptDialog';
+import { AboutDialog } from './ui/AboutDialog';
+import { SshKeysDialog } from './features/ssh';
+import { RepoSettingsDialog } from './features/settings';
 import { postCommand } from './api';
-import { t, tpl, setLang, getLang } from './i18n';
+import { t, setLang, getLang } from './i18n';
 import { UiShowcase } from './pages/UiShowcase';
-import { SgButton } from './ui';
 import s from './App.module.css';
 
 type Page = 'app' | 'ui-kit';
 type ViewMode = 'changes' | 'commits';
-type RightPanel = 'diff' | 'history' | 'blame';
-
-const isDev = import.meta.env.DEV;
 
 export function App() {
   const {
@@ -55,41 +53,28 @@ export function App() {
   const [rebaseOnto, setRebaseOnto] = useState<string | null>(null);
   const [page, setPage] = useState<Page>('app');
   const [lang, setLangState] = useState(getLang);
+  const [showAbout, setShowAbout] = useState(false);
+  const [showSshKeys, setShowSshKeys] = useState(false);
+  const [showRepoSettings, setShowRepoSettings] = useState(false);
   const loc = t();
 
-  useEffect(() => {
-    if (!lastOpResult) return;
-    clearLastOpResult();
-    const { operation, success } = lastOpResult;
-    const ops = loc.operations;
-    const silentOps = ['createBranch', 'deleteBranch', 'renameBranch', 'createTag', 'deleteTag',
-      'addRemote', 'removeRemote', 'renameRemote', 'submoduleInit', 'submoduleUpdate',
-      'clone', 'init'];
-    if (silentOps.includes(operation)) return;
-    if (success) {
-      const msg: Record<string, string> = {
-        fetch: ops.fetchSuccess, pull: ops.pullSuccess, push: ops.pushSuccess,
-        stash: ops.stashSuccess, stashPop: ops.stashPopSuccess,
-        commit: ops.commitSuccess, merge: ops.mergeSuccess, rebase: ops.rebaseSuccess,
-        'cherry-pick': ops.cherryPickSuccess, revert: ops.revertSuccess,
-        reset: ops.resetSuccess, checkout: ops.genericSuccess,
-      };
-      const text = msg[operation] || tpl(ops.genericSuccess, { operation });
-      addToast(text, 'success');
-    }
-  }, [lastOpResult, clearLastOpResult, loc, addToast]);
+  useOperationToasts(lastOpResult, clearLastOpResult, addToast);
+
+  const handleOpenMergeDialog = useCallback((source: string) => {
+    setMergeDialogSource(source);
+  }, []);
+
+  const handleMenuAction = useMenuActions({
+    state, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings, showPrompt,
+    handleOpenMergeDialog, pendingMenuAction, clearPendingMenuAction,
+  });
 
   useEffect(() => {
-    if (state.repoPath && state.repoName) {
-      addRecentRepo(state.repoName, state.repoPath);
-    }
+    if (state.repoPath && state.repoName) addRecentRepo(state.repoName, state.repoPath);
   }, [state.repoPath, state.repoName]);
 
   useEffect(() => {
-    if (viewOverride) {
-      setViewMode(viewOverride);
-      clearViewOverride();
-    }
+    if (viewOverride) { setViewMode(viewOverride); clearViewOverride(); }
   }, [viewOverride, clearViewOverride]);
 
   useEffect(() => {
@@ -113,31 +98,18 @@ export function App() {
     if (!diffTarget || viewMode !== 'changes') return;
     const { file, hash } = diffTarget;
     if (hash !== 'WORKING' && hash !== 'STAGED') return;
-    const allFiles = [...state.unstagedFiles, ...state.stagedFiles];
-    if (!allFiles.some(f => f.path === file)) {
-      closeDiff();
-    }
+    if (![...state.unstagedFiles, ...state.stagedFiles].some(f => f.path === file)) closeDiff();
   }, [state.unstagedFiles, state.stagedFiles, diffTarget, viewMode, closeDiff]);
 
   const prevMergeRef = useRef(false);
   useEffect(() => {
     const wasInProgress = prevMergeRef.current;
     const isNow = !!mergeState?.inProgress;
-
     if (isNow && !wasInProgress) {
-      const firstConflict = mergeState!.conflictFiles.find(f => f.status === 'conflicted');
-      if (firstConflict) {
-        setViewMode('changes');
-        setConflictFile(firstConflict.path);
-      }
+      const first = mergeState!.conflictFiles.find(f => f.status === 'conflicted');
+      if (first) { setViewMode('changes'); setConflictFile(first.path); }
     }
-
-    if (!isNow && wasInProgress) {
-      setConflictFile(null);
-      setMergeEditorFile(null);
-      closeDiff();
-    }
-
+    if (!isNow && wasInProgress) { setConflictFile(null); setMergeEditorFile(null); closeDiff(); }
     prevMergeRef.current = isNow;
   }, [mergeState, closeDiff]);
 
@@ -147,30 +119,6 @@ export function App() {
     setLangState(next);
   }, [lang]);
 
-  const handleOpenMergeDialog = useCallback((source: string) => {
-    setMergeDialogSource(source);
-  }, []);
-
-  useEffect(() => {
-    if (pendingMenuAction) {
-      const { action } = pendingMenuAction;
-      clearPendingMenuAction();
-      if (action === 'newBranch') {
-        showPrompt({
-          title: loc.menu.newBranch,
-          placeholder: 'branch-name',
-          onConfirm: (name) => postCommand({ type: 'createBranch', name, from: state.currentBranch }),
-        });
-      } else if (action === 'merge') {
-        if (state.branches.length > 0) {
-          handleOpenMergeDialog(state.branches.find(b => !b.isCurrent)?.name || '');
-        }
-      } else if (action === 'about') {
-        addToast(`SkyFork v0.1 — Git Client`, 'info');
-      }
-    }
-  }, [pendingMenuAction, clearPendingMenuAction, showPrompt, state.currentBranch, state.branches, handleOpenMergeDialog, loc, addToast]);
-
   const handleOpenMergeEditor = useCallback((file: string) => {
     setConflictFile(file);
     setMergeEditorFile(null);
@@ -178,31 +126,20 @@ export function App() {
 
   const handleConflictResolved = useCallback((resolvedPath: string) => {
     postCommand({ type: 'getMergeState' });
-    const remaining = mergeState?.conflictFiles.filter(
-      f => f.status === 'conflicted' && f.path !== resolvedPath,
-    );
-    if (remaining && remaining.length > 0) {
-      setConflictFile(remaining[0].path);
-    } else {
-      setConflictFile(null);
-    }
+    const remaining = mergeState?.conflictFiles.filter(f => f.status === 'conflicted' && f.path !== resolvedPath);
+    setConflictFile(remaining && remaining.length > 0 ? remaining[0].path : null);
   }, [mergeState]);
 
   const handleSelectRef = useCallback((hash: string) => {
-    setViewMode('commits');
-    setRightPanel('diff');
-    closeDiff();
-    selectCommit(hash);
+    setViewMode('commits'); setRightPanel('diff'); closeDiff(); selectCommit(hash);
   }, [selectCommit, closeDiff]);
 
   const openFileHistory = useCallback((file: string) => {
-    openDiff(file, diffTarget?.hash || 'WORKING');
-    setRightPanel('history');
+    openDiff(file, diffTarget?.hash || 'WORKING'); setRightPanel('history');
   }, [openDiff, diffTarget]);
 
   const openFileBlame = useCallback((file: string, hash?: string) => {
-    openDiff(file, hash || 'WORKING');
-    setRightPanel('blame');
+    openDiff(file, hash || 'WORKING'); setRightPanel('blame');
   }, [openDiff]);
 
   const prevCommitHashRef = useRef<string | null>(null);
@@ -223,13 +160,11 @@ export function App() {
   return (
     <div className={s.app}>
       <TitleBar
-        loc={loc}
-        page={page}
-        setPage={setPage}
-        lang={lang}
-        toggleLang={toggleLang}
-        theme={theme}
-        toggleTheme={toggleTheme}
+        loc={loc} page={page} setPage={setPage}
+        lang={lang} toggleLang={toggleLang}
+        theme={theme} toggleTheme={toggleTheme}
+        onMenuAction={handleMenuAction}
+        onOpenRepo={() => postCommand({ type: 'openRepoDialog' })}
       />
 
       {page === 'ui-kit' && <UiShowcase />}
@@ -245,26 +180,19 @@ export function App() {
           {mergeState?.inProgress && <MergeBanner mergeState={mergeState} showPrompt={showPrompt} />}
 
           <main className={s.main}>
-            {hasRepo && (
+            {hasRepo ? (
               <SgSplitPane
                 defaultSize={240}
                 left={
                   <aside className={s.sidebar}>
                     <Sidebar
-                      currentBranch={state.currentBranch}
-                      branches={state.branches}
-                      remotes={state.remotes}
-                      tags={state.tags}
-                      stashes={state.stashes}
-                      ahead={state.ahead}
-                      behind={state.behind}
-                      stagedCount={stagedCount}
-                      unstagedCount={unstagedCount}
+                      currentBranch={state.currentBranch} branches={state.branches}
+                      remotes={state.remotes} tags={state.tags} stashes={state.stashes}
+                      ahead={state.ahead} behind={state.behind}
+                      stagedCount={stagedCount} unstagedCount={unstagedCount}
                       activeView={viewMode}
-                      onContextMenu={showContextMenu}
-                      onSwitchView={setViewMode}
-                      onSelectRef={handleSelectRef}
-                      onMerge={handleOpenMergeDialog}
+                      onContextMenu={showContextMenu} onSwitchView={setViewMode}
+                      onSelectRef={handleSelectRef} onMerge={handleOpenMergeDialog}
                       showPrompt={showPrompt}
                     />
                   </aside>
@@ -273,58 +201,40 @@ export function App() {
                   <section className={s.content}>
                     {viewMode === 'commits' ? (
                       <CommitsView
-                        state={state}
-                        commitDetail={commitDetail}
-                        diffTarget={diffTarget}
-                        rightPanel={rightPanel}
-                        setRightPanel={setRightPanel}
-                        selectCommit={selectCommit}
-                        openDiff={openDiff}
-                        openFileHistory={openFileHistory}
-                        openFileBlame={openFileBlame}
-                        showContextMenu={showContextMenu}
-                        showPrompt={showPrompt}
+                        state={state} commitDetail={commitDetail} diffTarget={diffTarget}
+                        rightPanel={rightPanel} setRightPanel={setRightPanel}
+                        selectCommit={selectCommit} openDiff={openDiff}
+                        openFileHistory={openFileHistory} openFileBlame={openFileBlame}
+                        showContextMenu={showContextMenu} showPrompt={showPrompt}
                         setRebaseOnto={setRebaseOnto}
                       />
                     ) : (
                       <ChangesView
-                        state={state}
-                        mergeState={mergeState}
-                        diffTarget={diffTarget}
-                        rightPanel={rightPanel}
-                        setRightPanel={setRightPanel}
-                        conflictFile={conflictFile}
-                        setConflictFile={setConflictFile}
+                        state={state} mergeState={mergeState} diffTarget={diffTarget}
+                        rightPanel={rightPanel} setRightPanel={setRightPanel}
+                        conflictFile={conflictFile} setConflictFile={setConflictFile}
                         setMergeEditorFile={setMergeEditorFile}
-                        showContextMenu={showContextMenu}
-                        openDiff={openDiff}
-                        openFileHistory={openFileHistory}
-                        openFileBlame={openFileBlame}
+                        showContextMenu={showContextMenu} openDiff={openDiff}
+                        openFileHistory={openFileHistory} openFileBlame={openFileBlame}
                         handleOpenMergeEditor={handleOpenMergeEditor}
                         handleConflictResolved={handleConflictResolved}
-                        selectCommit={selectCommit}
-                        showPrompt={showPrompt}
-                        loc={loc}
+                        selectCommit={selectCommit} showPrompt={showPrompt} loc={loc}
                       />
                     )}
                   </section>
                 }
               />
+            ) : (
+              <RepoManager state={state} />
             )}
-
-            {!hasRepo && <RepoManager state={state} />}
           </main>
 
           <footer className={s.statusbar}>
             {hasRepo ? (
               <BranchStatus
-                currentBranch={state.currentBranch}
-                ahead={state.ahead}
-                behind={state.behind}
-                stagedCount={stagedCount}
-                unstagedCount={unstagedCount}
-                isOperationRunning={state.isOperationRunning}
-                currentOperation={state.currentOperation}
+                currentBranch={state.currentBranch} ahead={state.ahead} behind={state.behind}
+                stagedCount={stagedCount} unstagedCount={unstagedCount}
+                isOperationRunning={state.isOperationRunning} currentOperation={state.currentOperation}
               />
             ) : (
               <span>{loc.statusbar.noRepo}</span>
@@ -333,9 +243,7 @@ export function App() {
         </>
       )}
 
-      {contextMenu && (
-        <SgContextMenu x={contextMenu.x} y={contextMenu.y} items={contextMenu.items} onClose={closeContextMenu} />
-      )}
+      {contextMenu && <SgContextMenu x={contextMenu.x} y={contextMenu.y} items={contextMenu.items} onClose={closeContextMenu} />}
 
       {rebaseOnto && (
         <div className={s.overlay}>
@@ -348,179 +256,21 @@ export function App() {
       {mergeEditorFile && (
         <MergeEditor
           file={mergeEditorFile}
-          sourceBranch={mergeState?.sourceBranch || ''}
-          targetBranch={mergeState?.targetBranch || ''}
+          sourceBranch={mergeState?.sourceBranch || ''} targetBranch={mergeState?.targetBranch || ''}
           onResolved={() => { setMergeEditorFile(null); handleConflictResolved(mergeEditorFile); }}
           onCancel={() => setMergeEditorFile(null)}
         />
       )}
 
       {mergeDialogSource && (
-        <MergeDialog
-          source={mergeDialogSource}
-          target={state.currentBranch}
-          onClose={() => setMergeDialogSource(null)}
-        />
+        <MergeDialog source={mergeDialogSource} target={state.currentBranch} onClose={() => setMergeDialogSource(null)} />
       )}
 
       <SgPromptDialog prompt={prompt} onClose={closePrompt} />
       <SgToastContainer toasts={toasts} onDismiss={dismissToast} />
+      {showAbout && <AboutDialog onClose={() => setShowAbout(false)} loc={loc} />}
+      {showSshKeys && <SshKeysDialog onClose={() => setShowSshKeys(false)} />}
+      {showRepoSettings && <RepoSettingsDialog onClose={() => setShowRepoSettings(false)} />}
     </div>
   );
-}
-
-/* ─── Sub-components ─── */
-
-function TitleBar({ loc, page, setPage, lang, toggleLang, theme, toggleTheme }: {
-  loc: ReturnType<typeof t>;
-  page: Page; setPage: (p: Page) => void;
-  lang: string; toggleLang: () => void;
-  theme: string; toggleTheme: () => void;
-}) {
-  return (
-    <header className={s.titlebar}>
-      <span className={s.titlebarTitle}>{loc.app.title}</span>
-      <div className={s.titlebarNav}>
-        {isDev && (
-          <>
-            <SgButton variant={page === 'app' ? 'primary' : 'ghost'} size="sm" onClick={() => setPage('app')}>App</SgButton>
-            <SgButton variant={page === 'ui-kit' ? 'primary' : 'ghost'} size="sm" onClick={() => setPage('ui-kit')}>{loc.showcase.title}</SgButton>
-          </>
-        )}
-        <button className={s.langToggle} onClick={toggleLang} title={lang === 'en' ? 'Русский' : 'English'}>
-          {lang === 'en' ? 'RU' : 'EN'}
-        </button>
-        <button className={s.themeToggle} onClick={toggleTheme} title={theme === 'dark' ? 'Light mode' : 'Dark mode'}>
-          {theme === 'dark' ? '☀' : '☾'}
-        </button>
-      </div>
-    </header>
-  );
-}
-
-function CommitsView({ state, commitDetail, diffTarget, rightPanel, setRightPanel, selectCommit, openDiff, openFileHistory, openFileBlame, showContextMenu, showPrompt, setRebaseOnto }: {
-  state: any; commitDetail: any; diffTarget: any;
-  rightPanel: RightPanel; setRightPanel: (p: RightPanel) => void;
-  selectCommit: (hash: string) => void;
-  openDiff: (file: string, hash: string) => void;
-  openFileHistory: (file: string) => void;
-  openFileBlame: (file: string, hash?: string) => void;
-  showContextMenu: (e: React.MouseEvent, items: any[]) => void;
-  showPrompt: any;
-  setRebaseOnto: (onto: string | null) => void;
-}) {
-  return (
-    <div className={s.commitsLayout}>
-      <div className={s.graphPane}>
-        <CommitGraph
-          commits={state.commits}
-          graphNodes={state.graphLayout.nodes as any}
-          maxColumns={state.graphLayout.maxColumns}
-          mergeLinks={state.graphLayout.mergeLinks ?? []}
-          selectedHash={state.selectedCommitHash}
-          onSelect={selectCommit}
-          currentBranch={state.currentBranch}
-          onContextMenu={showContextMenu}
-          showPrompt={showPrompt}
-          onRebase={setRebaseOnto}
-          onLoadMore={() => postCommand({ type: 'getGraphData', maxCount: state.commits.length + 2000 })}
-        />
-      </div>
-      <div className={s.commitBottomPane}>
-        <div className={s.detailPane}>
-          <CommitDetails
-            detail={commitDetail}
-            onSelectCommit={selectCommit}
-            onOpenDiff={openDiff}
-            onContextMenu={showContextMenu}
-            onFileHistory={openFileHistory}
-            onFileBlame={(f) => openFileBlame(f)}
-            activePath={diffTarget?.file}
-          />
-        </div>
-        {diffTarget && (
-          <div className={s.commitDiffPane}>
-            <RightPanelContent
-              rightPanel={rightPanel}
-              setRightPanel={setRightPanel}
-              diffTarget={diffTarget}
-              selectCommit={selectCommit}
-              openDiff={openDiff}
-            />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ChangesView({ state, mergeState, diffTarget, rightPanel, setRightPanel, conflictFile, setConflictFile, setMergeEditorFile, showContextMenu, openDiff, openFileHistory, openFileBlame, handleOpenMergeEditor, handleConflictResolved, selectCommit, showPrompt, loc }: {
-  state: any; mergeState: any; diffTarget: any;
-  rightPanel: RightPanel; setRightPanel: (p: RightPanel) => void;
-  conflictFile: string | null; setConflictFile: (f: string | null) => void;
-  setMergeEditorFile: (f: string | null) => void;
-  showContextMenu: (e: React.MouseEvent, items: any[]) => void;
-  openDiff: (file: string, hash: string) => void;
-  openFileHistory: (file: string) => void;
-  openFileBlame: (file: string) => void;
-  handleOpenMergeEditor: (file: string) => void;
-  handleConflictResolved: (resolvedPath: string) => void;
-  selectCommit: (hash: string) => void;
-  showPrompt: any;
-  loc: ReturnType<typeof t>;
-}) {
-  return (
-    <div className={s.changesLayout}>
-      <div className={s.changesFileList}>
-                      <LocalChanges
-                        unstagedFiles={state.unstagedFiles}
-                        stagedFiles={state.stagedFiles}
-                        mergeInProgress={mergeState?.inProgress}
-                        onContextMenu={showContextMenu}
-                        onOpenDiff={(f, h) => { openDiff(f, h); setConflictFile(null); setMergeEditorFile(null); setRightPanel('diff'); }}
-                        onFileHistory={openFileHistory}
-                        onFileBlame={(f) => openFileBlame(f)}
-                        onOpenMergeEditor={handleOpenMergeEditor}
-                        showPrompt={showPrompt}
-                        activePath={conflictFile || diffTarget?.file}
-                      />
-        <CommitBar stagedCount={state.stagedFiles.length} isOperationRunning={state.isOperationRunning} />
-      </div>
-      <div className={s.changesDiff}>
-        {conflictFile && mergeState ? (
-          <ConflictPanel
-            file={conflictFile}
-            mergeState={mergeState}
-            onOpenEditor={(f: string) => setMergeEditorFile(f)}
-            onResolved={() => handleConflictResolved(conflictFile!)}
-          />
-        ) : diffTarget ? (
-          <RightPanelContent
-            rightPanel={rightPanel}
-            setRightPanel={setRightPanel}
-            diffTarget={diffTarget}
-            selectCommit={selectCommit}
-            openDiff={openDiff}
-          />
-        ) : (
-          <div className={s.emptyDiff}>{loc.details.selectCommit}</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RightPanelContent({ rightPanel, setRightPanel, diffTarget, selectCommit, openDiff }: {
-  rightPanel: RightPanel; setRightPanel: (p: RightPanel) => void;
-  diffTarget: { file: string; hash: string };
-  selectCommit: (hash: string) => void;
-  openDiff: (file: string, hash: string) => void;
-}) {
-  if (rightPanel === 'history') {
-    return <FileHistory file={diffTarget.file} onOpenDiff={(f, h) => { openDiff(f, h); setRightPanel('diff'); }} />;
-  }
-  if (rightPanel === 'blame') {
-    return <BlameView file={diffTarget.file} hash={diffTarget.hash} onSelectCommit={selectCommit} />;
-  }
-  return <DiffPanel file={diffTarget.file} hash={diffTarget.hash} />;
 }
