@@ -86,6 +86,16 @@ export function App() {
     }
   }, [pendingOpenMergeEditor, clearPendingOpenMergeEditor]);
 
+  useEffect(() => {
+    if (!diffTarget || viewMode !== 'changes') return;
+    const { file, hash } = diffTarget;
+    if (hash !== 'WORKING' && hash !== 'STAGED') return;
+    const allFiles = [...state.unstagedFiles, ...state.stagedFiles];
+    if (!allFiles.some(f => f.path === file)) {
+      closeDiff();
+    }
+  }, [state.unstagedFiles, state.stagedFiles, diffTarget, viewMode, closeDiff]);
+
   const prevMergeRef = useRef(false);
   useEffect(() => {
     const wasInProgress = prevMergeRef.current;
