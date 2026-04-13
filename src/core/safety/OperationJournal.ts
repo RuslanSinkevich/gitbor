@@ -12,7 +12,7 @@ export class OperationJournal {
   private readonly journalPath: string;
   private _lock: Promise<void> = Promise.resolve();
 
-  constructor(private readonly gitDir: string) {
+  constructor(gitDir: string) {
     this.journalPath = join(gitDir, JOURNAL_FILENAME);
   }
 

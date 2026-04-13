@@ -10,27 +10,27 @@ export interface JournalEntry {
 }
 
 export interface SavedState {
-  readonly headHash: string;
-  readonly branchName: string;
-  readonly hasUncommitted: boolean;
-  readonly autoStashHash?: string;
+  headHash: string;
+  branchName: string;
+  hasUncommitted: boolean;
+  autoStashHash?: string;
 }
 
 export interface RecoveryReport {
-  readonly hasIssues: boolean;
-  readonly issues: readonly RecoveryIssue[];
+  hasIssues: boolean;
+  issues: RecoveryIssue[];
 }
 
 export interface RecoveryIssue {
-  readonly type:
+  type:
     | 'interrupted_operation'
     | 'lock_file'
     | 'unfinished_merge'
     | 'unfinished_rebase'
     | 'orphaned_auto_stash';
-  readonly description: string;
-  readonly journalEntry?: JournalEntry;
-  readonly suggestedAction: RecoveryAction;
+  description: string;
+  journalEntry?: JournalEntry;
+  suggestedAction: RecoveryAction;
 }
 
 export type RecoveryAction =

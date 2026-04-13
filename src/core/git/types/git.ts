@@ -1,71 +1,71 @@
 export interface Commit {
-  readonly hash: string;
-  readonly parents: readonly string[];
-  readonly authorName: string;
-  readonly authorEmail: string;
-  readonly authorDate: number;
-  readonly refs: readonly RefInfo[];
-  readonly subject: string;
+  hash: string;
+  parents: string[];
+  authorName: string;
+  authorEmail: string;
+  authorDate: number;
+  refs: RefInfo[];
+  subject: string;
 }
 
 export interface RefInfo {
-  readonly name: string;
-  readonly type: 'branch' | 'remote' | 'tag' | 'head';
+  name: string;
+  type: 'branch' | 'remote' | 'tag' | 'head';
 }
 
 export interface Branch {
-  readonly name: string;
-  readonly hash: string;
-  readonly upstream?: string;
-  readonly isCurrent: boolean;
-  readonly isRemote: boolean;
+  name: string;
+  hash: string;
+  upstream?: string;
+  isCurrent: boolean;
+  isRemote: boolean;
 }
 
 export interface Tag {
-  readonly name: string;
-  readonly hash: string;
+  name: string;
+  hash: string;
 }
 
 export interface Stash {
-  readonly index: string;
-  readonly hash: string;
-  readonly message: string;
+  index: string;
+  hash: string;
+  message: string;
 }
 
 export interface Remote {
-  readonly name: string;
-  readonly fetchUrl: string;
-  readonly pushUrl: string;
+  name: string;
+  fetchUrl: string;
+  pushUrl: string;
 }
 
 export interface FileStatus {
-  readonly path: string;
-  readonly status: 'M' | 'A' | 'D' | 'R' | 'U' | '?';
-  readonly staged: boolean;
+  path: string;
+  status: 'M' | 'A' | 'D' | 'R' | 'U' | '?';
+  staged: boolean;
 }
 
 export interface FileChange {
-  readonly path: string;
-  readonly status: string;
-  readonly oldPath?: string;
+  path: string;
+  status: string;
+  oldPath?: string;
 }
 
 export interface CommitDetail {
-  readonly hash: string;
-  readonly parents: readonly string[];
-  readonly authorName: string;
-  readonly authorEmail: string;
-  readonly authorDate: number;
-  readonly committerName: string;
-  readonly committerEmail: string;
-  readonly commitDate: number;
-  readonly refs: readonly RefInfo[];
-  readonly subject: string;
-  readonly body: string;
-  readonly files: readonly FileChange[];
+  hash: string;
+  parents: string[];
+  authorName: string;
+  authorEmail: string;
+  authorDate: number;
+  committerName: string;
+  committerEmail: string;
+  commitDate: number;
+  refs: RefInfo[];
+  subject: string;
+  body: string;
+  files: FileChange[];
 }
 
 export interface RepoInfo {
-  readonly name: string;
-  readonly path: string;
+  name: string;
+  path: string;
 }

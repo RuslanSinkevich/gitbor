@@ -106,6 +106,7 @@ export const en = {
     amend: 'Amend',
     noChanges: 'No changes to commit',
     discardAll: 'Discard All',
+    conflicts: 'Conflicts',
     conflictBanner: '{count} conflict(s) — resolve before committing',
   },
   diff: {
@@ -175,6 +176,15 @@ export const en = {
     acceptBothTheirsFirst: 'Both (Theirs first)',
     acceptAllOurs: 'Accept All Ours',
     acceptAllTheirs: 'Accept All Theirs',
+    allResolved: 'All conflicts resolved',
+  },
+  conflictPanel: {
+    title: 'Merge conflict',
+    subtitle: 'Select the changes or merge them manually',
+    current: 'current',
+    incoming: 'incoming',
+    choose: 'Choose',
+    mergeManually: 'Resolve manually',
   },
   mergeDialog: {
     title: 'Merge Branch',

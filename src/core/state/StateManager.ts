@@ -4,14 +4,8 @@ import * as GitParser from '../git/GitParser';
 import { computeGraphLayout } from '../git/GraphLayout';
 import {
   AppState,
-  Branch,
   Commit,
-  FileStatus,
-  GraphLayoutData,
   RepoInfo,
-  Remote,
-  Stash,
-  Tag,
 } from '../git/types';
 
 type StateListener = (state: AppState) => void;

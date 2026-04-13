@@ -6,9 +6,8 @@ import {
   closeSync,
   mkdirSync,
   unlinkSync,
-  existsSync,
 } from 'fs';
-import { open, rename, mkdir, unlink } from 'fs/promises';
+import { open, rename, mkdir } from 'fs/promises';
 import { dirname, join } from 'path';
 import { randomBytes } from 'crypto';
 
@@ -29,7 +28,12 @@ export async function atomicWriteFile(filePath: string, data: string): Promise<v
     await fd.close();
   }
 
-  await renameWithRetry(tmpPath, filePath);
+  try {
+    await renameWithRetry(tmpPath, filePath);
+  } catch (err) {
+    try { unlinkSync(tmpPath); } catch { /* ignore */ }
+    throw err;
+  }
 
   await fsyncDir(dir);
 }
@@ -53,7 +57,12 @@ export function atomicWriteFileSync(filePath: string, data: string): void {
     closeSync(fd);
   }
 
-  renameSyncWithRetry(tmpPath, filePath);
+  try {
+    renameSyncWithRetry(tmpPath, filePath);
+  } catch (err) {
+    try { unlinkSync(tmpPath); } catch { /* ignore */ }
+    throw err;
+  }
 }
 
 async function renameWithRetry(from: string, to: string): Promise<void> {
@@ -75,6 +84,9 @@ function renameSyncWithRetry(from: string, to: string): void {
       return;
     } catch (err) {
       if (attempt === MAX_RETRIES_WIN - 1) throw err;
+      const waitMs = RETRY_DELAY_MS * (attempt + 1);
+      const end = Date.now() + waitMs;
+      while (Date.now() < end) { /* busy wait for sync context */ }
     }
   }
 }

@@ -6,6 +6,9 @@ interface PromptState {
   label: string;
   defaultValue: string;
   placeholder: string;
+  message: string;
+  confirmLabel: string;
+  danger: boolean;
   onConfirm: (value: string) => void;
 }
 
@@ -17,6 +20,9 @@ export function usePromptDialog() {
     label?: string;
     defaultValue?: string;
     placeholder?: string;
+    message?: string;
+    confirmLabel?: string;
+    danger?: boolean;
     onConfirm: (value: string) => void;
   }) => {
     setPrompt({
@@ -24,6 +30,9 @@ export function usePromptDialog() {
       label: opts.label ?? '',
       defaultValue: opts.defaultValue ?? '',
       placeholder: opts.placeholder ?? '',
+      message: opts.message ?? '',
+      confirmLabel: opts.confirmLabel ?? '',
+      danger: opts.danger ?? false,
       onConfirm: opts.onConfirm,
     });
   }, []);
@@ -42,39 +51,64 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const isConfirmOnly = !!prompt?.confirmLabel;
+
   useEffect(() => {
     if (prompt) {
       setValue(prompt.defaultValue);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      if (!isConfirmOnly) {
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
     }
-  }, [prompt]);
+  }, [prompt, isConfirmOnly]);
 
   if (!prompt) return null;
 
   const handleSubmit = () => {
+    if (isConfirmOnly) {
+      prompt.onConfirm('');
+      onClose();
+      return;
+    }
     const trimmed = value.trim();
     if (!trimmed) return;
     prompt.onConfirm(trimmed);
     onClose();
   };
 
+  const confirmBtnClass = prompt.danger
+    ? 'sg-button sg-button--md sg-button--danger'
+    : 'sg-button sg-button--md sg-button--primary';
+
   return (
     <SgDialog open={true} title={prompt.title} onClose={onClose} width={400} footer={
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button className="sg-btn sg-btn--ghost" onClick={onClose}>Cancel</button>
-        <button className="sg-btn sg-btn--primary" onClick={handleSubmit} disabled={!value.trim()}>OK</button>
+        <button className="sg-button sg-button--md sg-button--ghost" onClick={onClose}>Cancel</button>
+        <button
+          className={confirmBtnClass}
+          onClick={handleSubmit}
+          disabled={!isConfirmOnly && !value.trim()}
+        >
+          {prompt.confirmLabel || 'OK'}
+        </button>
       </div>
     }>
-      {prompt.label && <label style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>{prompt.label}</label>}
-      <input
-        ref={inputRef}
-        className="sg-input"
-        value={value}
-        onChange={e => setValue(e.target.value)}
-        placeholder={prompt.placeholder}
-        onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
-        style={{ width: '100%' }}
-      />
+      {isConfirmOnly ? (
+        prompt.message && <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>{prompt.message}</p>
+      ) : (
+        <>
+          {prompt.label && <label style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>{prompt.label}</label>}
+          <input
+            ref={inputRef}
+            className="sg-input"
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            placeholder={prompt.placeholder}
+            onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
+            style={{ width: '100%' }}
+          />
+        </>
+      )}
     </SgDialog>
   );
 }

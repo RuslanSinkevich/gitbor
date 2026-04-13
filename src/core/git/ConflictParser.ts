@@ -1,25 +1,15 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { join, resolve, normalize } from 'path';
+import type { ConflictBlock, ConflictContent } from './types';
 
-export interface ConflictBlock {
-  type: 'clean' | 'conflict';
-  content: string;
-  ours: string;
-  theirs: string;
-}
+export type { ConflictBlock, ConflictContent };
 
-export interface ConflictContent {
-  file: string;
-  blocks: ConflictBlock[];
-  hasConflicts: boolean;
-}
-
-const OURS_MARKER = /^<{7}\s/;
-const SEPARATOR = /^={7}$/;
-const THEIRS_MARKER = /^>{7}\s/;
+const START_MARKER = '<<<<<<<';
+const SPLITTER = '=======';
+const END_MARKER = '>>>>>>>';
 
 export function parseConflictMarkers(content: string): ConflictBlock[] {
-  const lines = content.split('\n');
+  const lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
   const blocks: ConflictBlock[] = [];
 
   let cleanLines: string[] = [];
@@ -35,20 +25,27 @@ export function parseConflictMarkers(content: string): ConflictBlock[] {
   };
 
   for (const line of lines) {
-    if (state === 'clean' && OURS_MARKER.test(line)) {
+    if (state === 'clean' && line.startsWith(START_MARKER)) {
       flushClean();
       state = 'ours';
       oursLines = [];
       continue;
     }
 
-    if (state === 'ours' && SEPARATOR.test(line)) {
+    if (state === 'ours' && line.startsWith(START_MARKER)) {
+      cleanLines.push(...oursLines);
+      flushClean();
+      oursLines = [];
+      break;
+    }
+
+    if (state === 'ours' && line === SPLITTER) {
       state = 'theirs';
       theirsLines = [];
       continue;
     }
 
-    if (state === 'theirs' && THEIRS_MARKER.test(line)) {
+    if (state === 'theirs' && line.startsWith(END_MARKER)) {
       blocks.push({
         type: 'conflict',
         content: '',
@@ -80,12 +77,8 @@ export function parseConflictMarkers(content: string): ConflictBlock[] {
       theirs: theirsLines.join('\n'),
     });
   } else if (state === 'ours') {
-    blocks.push({
-      type: 'conflict',
-      content: '',
-      ours: oursLines.join('\n'),
-      theirs: '',
-    });
+    cleanLines.push(...oursLines);
+    flushClean();
   } else {
     flushClean();
   }
@@ -107,7 +100,8 @@ export function readConflictFile(repoPath: string, file: string): ConflictConten
   };
 }
 
-export type ConflictResolution = 'ours' | 'theirs' | 'both-ours-first' | 'both-theirs-first';
+import type { ConflictResolution } from './types';
+export type { ConflictResolution };
 
 export function buildResolvedContent(blocks: ConflictBlock[], resolutions: ConflictResolution[]): string {
   const parts: string[] = [];

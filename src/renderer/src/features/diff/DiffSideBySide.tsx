@@ -55,33 +55,6 @@ function buildSideLines(hunks: DiffHunk[]): { left: SideLine[]; right: SideLine[
   return { left, right };
 }
 
-function SideTable({ lines, label }: { lines: SideLine[]; label: string }) {
-  return (
-    <div className={s.sidePane}>
-      <div className={s.sidePaneHeader}>{label}</div>
-      <table className={s.diffTable}>
-        <tbody>
-          {lines.map((line, i) => (
-            <tr
-              key={i}
-              className={
-                line.type === 'add' ? s.lineAdd
-                : line.type === 'remove' ? s.lineRemove
-                : ''
-              }
-            >
-              <td className={s.lineNo}>{line.lineNo ?? ''}</td>
-              <td className={s.lineContent}>
-                {line.type !== 'empty' ? line.content : ''}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 export function DiffSideBySide({ hunks, file, isWorkingCopy, isStaged }: Props) {
   const loc = t();
   const { left, right } = buildSideLines(hunks);

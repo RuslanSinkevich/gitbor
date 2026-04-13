@@ -1,4 +1,6 @@
-export const ru = {
+import type { LocaleMap } from './index';
+
+export const ru: LocaleMap = {
   app: {
     title: 'SkyFork',
     openRepo: 'Открыть репозиторий',
@@ -106,6 +108,7 @@ export const ru = {
     amend: 'Дополнить',
     noChanges: 'Нет изменений для фиксации',
     discardAll: 'Откатить всё',
+    conflicts: 'Конфликты',
     conflictBanner: '{count} конфликт(ов) — разрешите перед фиксацией',
   },
   diff: {
@@ -127,8 +130,8 @@ export const ru = {
     split: 'Разделить',
     original: 'Оригинал',
     modified: 'Изменённый',
-    stageHunk: 'Stage Hunk',
-    unstageHunk: 'Unstage Hunk',
+    stageHunk: 'Подготовить блок',
+    unstageHunk: 'Убрать блок',
     statusAdded: 'Добавлен',
     statusDeleted: 'Удалён',
     statusModified: 'Изменён',
@@ -175,6 +178,15 @@ export const ru = {
     acceptBothTheirsFirst: 'Обе (их первая)',
     acceptAllOurs: 'Всё — нашу',
     acceptAllTheirs: 'Всё — их',
+    allResolved: 'Все конфликты разрешены',
+  },
+  conflictPanel: {
+    title: 'Конфликт слияния',
+    subtitle: 'Выберите версию или разрешите конфликт вручную',
+    current: 'текущая',
+    incoming: 'входящая',
+    choose: 'Выбрать',
+    mergeManually: 'Разрешить вручную',
   },
   mergeDialog: {
     title: 'Слияние веток',

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { AppState, CommitDetail, MergeState, MainEvent, RebaseProgress, RecoveryIssue } from '../types';
 import { sendReady, postCommand, onMainEvent, onMenuAction } from '../api';
 import { setLang } from '../i18n';

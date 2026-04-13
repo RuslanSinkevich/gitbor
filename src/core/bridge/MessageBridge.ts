@@ -4,6 +4,234 @@ import { StateManager } from '../state/StateManager';
 import { RendererCommand, MainEvent } from './messages';
 import { getLang } from '../../main/i18n';
 
+type CmdOf<K extends RendererCommand['type']> = Extract<RendererCommand, { type: K }>;
+
+type HandlerTable = {
+  [K in RendererCommand['type']]?: (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<void>;
+};
+
+interface HandlerContext {
+  ch: CommandHandler;
+  sm: StateManager;
+  send: (event: MainEvent) => void;
+}
+
+function op<K extends RendererCommand['type']>(
+  operation: string,
+  fn: (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<{ success: boolean; error?: string }>,
+): (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<void> {
+  return async (cmd, ctx) => {
+    ctx.send({ type: 'operationStart', operation });
+    const result = await fn(cmd, ctx);
+    ctx.send({ type: 'operationEnd', operation, success: result.success, error: result.error });
+  };
+}
+
+function opWithPostMerge<K extends RendererCommand['type']>(
+  operation: string,
+  fn: (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<{ success: boolean; error?: string }>,
+): (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<void> {
+  return async (cmd, ctx) => {
+    ctx.send({ type: 'operationStart', operation });
+    const result = await fn(cmd, ctx);
+    ctx.send({ type: 'operationEnd', operation, success: result.success, error: result.error });
+    const ms = await ctx.ch.getMergeState();
+    ctx.send({ type: 'mergeState', data: ms });
+  };
+}
+
+function errOnFail<K extends RendererCommand['type']>(
+  fn: (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<{ success: boolean; error?: string }>,
+  fallbackMsg: string,
+): (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<void> {
+  return async (cmd, ctx) => {
+    const result = await fn(cmd, ctx);
+    if (!result.success) ctx.send({ type: 'error', message: result.error || fallbackMsg });
+  };
+}
+
+function mergeStateAfter<K extends RendererCommand['type']>(
+  fn: (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<void>,
+): (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<void> {
+  return async (cmd, ctx) => {
+    await fn(cmd, ctx);
+    const ms = await ctx.ch.getMergeState();
+    ctx.send({ type: 'mergeState', data: ms });
+  };
+}
+
+const handlers: HandlerTable = {
+  ready: async (_cmd, ctx) => {
+    const state = ctx.sm.getState();
+    ctx.send({ type: 'config', lang: getLang() });
+    ctx.send({ type: 'fullState', data: state });
+  },
+  getState: async (_cmd, ctx) => {
+    const state = ctx.sm.getState();
+    ctx.send({ type: 'config', lang: getLang() });
+    ctx.send({ type: 'fullState', data: state });
+  },
+
+  getCommitDetails: async (cmd, ctx) => {
+    const detail = await ctx.ch.getCommitDetails(cmd.hash);
+    ctx.send({ type: 'commitDetails', data: detail, hash: cmd.hash });
+  },
+  getGraphData: async (cmd, ctx) => {
+    const data = await ctx.ch.getGraphData(cmd.maxCount);
+    ctx.send({ type: 'graphData', data });
+  },
+  getFileDiff: async (cmd, ctx) => {
+    try {
+      const diffs = await ctx.ch.getFileDiff(cmd.file, cmd.hash);
+      ctx.send({ type: 'fileDiff', data: diffs, file: cmd.file, hash: cmd.hash });
+    } catch (diffErr) {
+      console.error('[SkyFork] getFileDiff error:', diffErr);
+      ctx.send({ type: 'fileDiff', data: [], file: cmd.file, hash: cmd.hash });
+      ctx.send({ type: 'error', message: diffErr instanceof Error ? diffErr.message : String(diffErr) });
+    }
+  },
+  getFileBlame: async (cmd, ctx) => {
+    const blame = await ctx.ch.getFileBlame(cmd.file, cmd.hash);
+    ctx.send({ type: 'fileBlame', data: blame, file: cmd.file });
+  },
+  getFileHistory: async (cmd, ctx) => {
+    const history = await ctx.ch.getFileHistory(cmd.file);
+    ctx.send({ type: 'fileHistory', data: history, file: cmd.file });
+  },
+
+  checkout:     op('checkout', (cmd, ctx) => ctx.ch.checkout(cmd.branch)),
+  fetch:        op('fetch', (cmd, ctx) => ctx.ch.fetch(cmd.remote)),
+  pull:         op('pull', (cmd, ctx) => ctx.ch.pull(cmd.rebase)),
+  push:         op('push', (cmd, ctx) => ctx.ch.push(cmd.force, cmd.setUpstream)),
+  stash:        op('stash', (cmd, ctx) => ctx.ch.stash(cmd.message)),
+  stashPop:     op('stashPop', (_cmd, ctx) => ctx.ch.stashPop()),
+  merge:        op('merge', (cmd, ctx) => ctx.ch.merge(cmd.branch)),
+  createBranch: op('createBranch', (cmd, ctx) => ctx.ch.createBranch(cmd.name, cmd.from)),
+  cherryPick:   op('cherry-pick', (cmd, ctx) => ctx.ch.cherryPick(cmd.hash)),
+  revert:       op('revert', (cmd, ctx) => ctx.ch.revert(cmd.hash)),
+  resetTo:      op('reset', (cmd, ctx) => ctx.ch.resetTo(cmd.hash, cmd.mode)),
+  cloneRepo:    op('clone', (cmd, ctx) => ctx.ch.cloneRepo(cmd.url, cmd.path)),
+  initRepo:     op('init', (cmd, ctx) => ctx.ch.initRepo(cmd.path)),
+  addRemote:    op('addRemote', (cmd, ctx) => ctx.ch.addRemote(cmd.name, cmd.url)),
+  removeRemote: op('removeRemote', (cmd, ctx) => ctx.ch.removeRemote(cmd.name)),
+  renameRemote: op('renameRemote', (cmd, ctx) => ctx.ch.renameRemote(cmd.oldName, cmd.newName)),
+  submoduleUpdate: op('submoduleUpdate', (cmd, ctx) => ctx.ch.submoduleUpdate(cmd.path)),
+  submoduleInit:   op('submoduleInit', (cmd, ctx) => ctx.ch.submoduleInit(cmd.path)),
+  rebaseTo:        op('rebase', (cmd, ctx) => ctx.ch.rebaseTo(cmd.onto)),
+  continueRebase:  op('rebase', (_cmd, ctx) => ctx.ch.continueRebase()),
+  skipRebase:      op('rebase', (_cmd, ctx) => ctx.ch.skipRebase()),
+
+  commit: opWithPostMerge('commit', (cmd, ctx) => ctx.ch.commit(cmd.message, cmd.amend)),
+
+  renameBranch: errOnFail((cmd, ctx) => ctx.ch.renameBranch(cmd.oldName, cmd.newName), 'Rename failed'),
+  deleteBranch: errOnFail((cmd, ctx) => ctx.ch.deleteBranch(cmd.branch, cmd.force), 'Delete failed'),
+  createTag:    errOnFail((cmd, ctx) => ctx.ch.createTag(cmd.name, cmd.ref, cmd.message), 'Create tag failed'),
+  deleteTag:    errOnFail((cmd, ctx) => ctx.ch.deleteTag(cmd.name, cmd.remote), 'Delete tag failed'),
+  stashApply:   errOnFail((cmd, ctx) => ctx.ch.stashApply(cmd.index), 'Stash apply failed'),
+  stashDrop:    errOnFail((cmd, ctx) => ctx.ch.stashDrop(cmd.index), 'Stash drop failed'),
+  abortRebase:  errOnFail((_cmd, ctx) => ctx.ch.abortRebase(), 'Abort rebase failed'),
+  stageHunk:    errOnFail((cmd, ctx) => ctx.ch.stageHunk(cmd.file, cmd.hunkIndex, !!cmd.reverse), 'Stage hunk failed'),
+  stageLines:   errOnFail((cmd, ctx) => ctx.ch.stageLines(cmd.file, cmd.hunkIndex, cmd.lineIndices, !!cmd.reverse), 'Stage lines failed'),
+
+  stashPopIndex: async (cmd, ctx) => {
+    const applyResult = await ctx.ch.stashApply(cmd.index);
+    if (applyResult.success) {
+      const dropResult = await ctx.ch.stashDrop(cmd.index);
+      if (!dropResult.success) ctx.send({ type: 'error', message: dropResult.error || 'Stash drop failed' });
+    } else {
+      ctx.send({ type: 'error', message: applyResult.error || 'Stash apply failed — stash preserved' });
+    }
+  },
+
+  stashShow: async (cmd, ctx) => {
+    const diffs = await ctx.ch.stashShow(cmd.index);
+    ctx.send({ type: 'stashDiff', data: diffs, index: cmd.index });
+  },
+
+  saveAsPatch: async (cmd, ctx) => { await ctx.ch.saveAsPatch(cmd.hash); },
+
+  stageFile:           async (cmd, ctx) => { await ctx.ch.stageFile(cmd.file); },
+  stageAll:            async (cmd, ctx) => { await ctx.ch.stageAll(cmd.files); },
+  unstageFile:         async (cmd, ctx) => { await ctx.ch.unstageFile(cmd.file); },
+  unstageAll:          async (cmd, ctx) => { await ctx.ch.unstageAll(cmd.files); },
+  discardFileChanges:  async (cmd, ctx) => { await ctx.ch.discardFileChanges(cmd.file); },
+  deleteUntrackedFile: async (cmd, ctx) => { await ctx.ch.deleteUntrackedFile(cmd.file); },
+
+  startMerge: async (cmd, ctx) => {
+    ctx.send({ type: 'operationStart', operation: 'merge' });
+    const result = await ctx.ch.startMerge(cmd.source, cmd.options);
+    ctx.send({ type: 'operationEnd', operation: 'merge', success: result.success, error: result.error });
+    const mergeState = await ctx.ch.getMergeState();
+    if (mergeState.inProgress) ctx.send({ type: 'mergeState', data: mergeState });
+  },
+
+  resolveWithOurs:   mergeStateAfter((cmd, ctx) => ctx.ch.resolveWithOurs(cmd.file)),
+  resolveWithTheirs: mergeStateAfter((cmd, ctx) => ctx.ch.resolveWithTheirs(cmd.file)),
+  resolveConflict:   mergeStateAfter((cmd, ctx) => ctx.ch.resolveConflict(cmd.file, cmd.resolutions)),
+  resolveConflictRaw: mergeStateAfter((cmd, ctx) => ctx.ch.resolveConflictRaw(cmd.file, cmd.content)),
+  getMergeState: mergeStateAfter(async () => {}),
+
+  completeMerge: async (cmd, ctx) => {
+    const result = await ctx.ch.completeMerge(cmd.message);
+    if (result.success) {
+      ctx.send({ type: 'mergeCompleted' });
+    } else {
+      ctx.send({ type: 'error', message: result.error || 'Complete merge failed' });
+    }
+  },
+  abortMerge: async (_cmd, ctx) => {
+    await ctx.ch.abortMerge();
+    ctx.send({ type: 'mergeAborted' });
+  },
+
+  getConflictContent: async (cmd, ctx) => {
+    const content = await ctx.ch.getConflictContent(cmd.file);
+    ctx.send({ type: 'conflictContent', data: content });
+  },
+  predictConflicts: async (cmd, ctx) => {
+    const files = await ctx.ch.predictConflicts(cmd.source, cmd.target);
+    ctx.send({ type: 'predictedConflicts', files });
+  },
+
+  openRepo:       async (cmd, ctx) => { await ctx.ch.openRepo(cmd.path); },
+  openRepoDialog: async (_cmd, ctx) => { await ctx.ch.openRepoDialog(); },
+  closeRepo:      async (cmd, ctx) => { await ctx.ch.closeRepo(cmd.index); },
+  switchRepo:     async (cmd, ctx) => { await ctx.ch.switchRepo(cmd.index); },
+
+  getSubmodules: async (_cmd, ctx) => {
+    const subs = await ctx.ch.getSubmodules();
+    ctx.send({ type: 'submodules', data: subs });
+  },
+
+  getRebaseTodo: async (cmd, ctx) => {
+    const todo = await ctx.ch.getRebaseTodo(cmd.onto);
+    ctx.send({ type: 'rebaseTodo', data: todo });
+  },
+  executeRebase: async (cmd, ctx) => {
+    ctx.send({ type: 'operationStart', operation: 'rebase' });
+    const result = await ctx.ch.executeRebase(cmd.onto, cmd.entries);
+    ctx.send({ type: 'operationEnd', operation: 'rebase', success: result.success, error: result.error });
+    const progress = await ctx.ch.getRebaseProgress();
+    if (progress.inProgress) ctx.send({ type: 'rebaseProgress', data: progress });
+  },
+
+  openDiff: async (cmd, ctx) => {
+    const payload = ctx.ch.getDiffPayload(cmd.file, cmd.hash);
+    ctx.send({ type: 'openDiff', ...payload });
+  },
+  openMergeEditor: async (cmd, ctx) => {
+    const payload = ctx.ch.getFilePayload(cmd.file);
+    ctx.send({ type: 'openMergeEditor', ...payload });
+  },
+  openFile: async (cmd, ctx) => {
+    const payload = ctx.ch.getFilePayload(cmd.file);
+    ctx.send({ type: 'openFile', ...payload });
+  },
+  switchView: async (cmd, ctx) => {
+    ctx.send({ type: 'showView', view: cmd.view });
+  },
+};
+
 export class MessageBridge {
   private window: BrowserWindow | null = null;
   private unsubscribeState: (() => void) | null = null;
@@ -44,404 +272,14 @@ export class MessageBridge {
     this.window = null;
   }
 
-  private async handleCommand(command: RendererCommand): Promise<unknown> {
+  private async handleCommand(command: RendererCommand): Promise<void> {
     try {
-      switch (command.type) {
-        case 'ready':
-        case 'getState': {
-          const state = this.stateManager.getState();
-          this.send({ type: 'config', lang: getLang() });
-          this.send({ type: 'fullState', data: state });
-          return;
-        }
-
-        case 'getCommitDetails': {
-          const detail = await this.commandHandler.getCommitDetails(command.hash);
-          this.send({ type: 'commitDetails', data: detail, hash: command.hash });
-          return;
-        }
-
-        case 'getGraphData': {
-          const graphData = await this.commandHandler.getGraphData(command.maxCount);
-          this.send({ type: 'graphData', data: graphData });
-          return;
-        }
-
-        case 'getFileDiff': {
-          try {
-            const diffs = await this.commandHandler.getFileDiff(command.file, command.hash);
-            this.send({ type: 'fileDiff', data: diffs, file: command.file, hash: command.hash });
-          } catch (diffErr) {
-            console.error('[SkyFork] getFileDiff error:', diffErr);
-            this.send({ type: 'fileDiff', data: [], file: command.file, hash: command.hash });
-            this.send({ type: 'error', message: diffErr instanceof Error ? diffErr.message : String(diffErr) });
-          }
-          return;
-        }
-        case 'getFileBlame': {
-          const blame = await this.commandHandler.getFileBlame(command.file, command.hash);
-          this.send({ type: 'fileBlame', data: blame, file: command.file });
-          return;
-        }
-        case 'getFileHistory': {
-          const history = await this.commandHandler.getFileHistory(command.file);
-          this.send({ type: 'fileHistory', data: history, file: command.file });
-          return;
-        }
-
-        case 'checkout': {
-          this.send({ type: 'operationStart', operation: 'checkout' });
-          const result = await this.commandHandler.checkout(command.branch);
-          this.send({ type: 'operationEnd', operation: 'checkout', success: result.success, error: result.error });
-          return;
-        }
-
-        case 'fetch': {
-          this.send({ type: 'operationStart', operation: 'fetch' });
-          const result = await this.commandHandler.fetch(command.remote);
-          this.send({ type: 'operationEnd', operation: 'fetch', success: result.success, error: result.error });
-          return;
-        }
-
-        case 'pull': {
-          this.send({ type: 'operationStart', operation: 'pull' });
-          const result = await this.commandHandler.pull(command.rebase);
-          this.send({ type: 'operationEnd', operation: 'pull', success: result.success, error: result.error });
-          return;
-        }
-
-        case 'push': {
-          this.send({ type: 'operationStart', operation: 'push' });
-          const result = await this.commandHandler.push(command.force, command.setUpstream);
-          this.send({ type: 'operationEnd', operation: 'push', success: result.success, error: result.error });
-          return;
-        }
-
-        case 'stash': {
-          this.send({ type: 'operationStart', operation: 'stash' });
-          const result = await this.commandHandler.stash(command.message);
-          this.send({ type: 'operationEnd', operation: 'stash', success: result.success, error: result.error });
-          return;
-        }
-
-        case 'stashPop': {
-          this.send({ type: 'operationStart', operation: 'stashPop' });
-          const result = await this.commandHandler.stashPop();
-          this.send({ type: 'operationEnd', operation: 'stashPop', success: result.success, error: result.error });
-          return;
-        }
-
-        case 'merge': {
-          this.send({ type: 'operationStart', operation: 'merge' });
-          const result = await this.commandHandler.merge(command.branch);
-          this.send({ type: 'operationEnd', operation: 'merge', success: result.success, error: result.error });
-          return;
-        }
-
-        case 'commit': {
-          this.send({ type: 'operationStart', operation: 'commit' });
-          const result = await this.commandHandler.commit(command.message, command.amend);
-          this.send({ type: 'operationEnd', operation: 'commit', success: result.success, error: result.error });
-          return;
-        }
-
-        case 'createBranch': {
-          this.send({ type: 'operationStart', operation: 'createBranch' });
-          const result = await this.commandHandler.createBranch(command.name, command.from);
-          this.send({ type: 'operationEnd', operation: 'createBranch', success: result.success, error: result.error });
-          return;
-        }
-        case 'renameBranch': {
-          const result = await this.commandHandler.renameBranch(command.oldName, command.newName);
-          if (!result.success) this.send({ type: 'error', message: result.error || 'Rename failed' });
-          return;
-        }
-        case 'deleteBranch': {
-          const result = await this.commandHandler.deleteBranch(command.branch, command.force);
-          if (!result.success) this.send({ type: 'error', message: result.error || 'Delete failed' });
-          return;
-        }
-
-        case 'createTag': {
-          const result = await this.commandHandler.createTag(command.name, command.ref, command.message);
-          if (!result.success) this.send({ type: 'error', message: result.error || 'Create tag failed' });
-          return;
-        }
-        case 'deleteTag': {
-          const result = await this.commandHandler.deleteTag(command.name, command.remote);
-          if (!result.success) this.send({ type: 'error', message: result.error || 'Delete tag failed' });
-          return;
-        }
-
-        case 'saveAsPatch': {
-          await this.commandHandler.saveAsPatch(command.hash);
-          return;
-        }
-
-        case 'cherryPick': {
-          this.send({ type: 'operationStart', operation: 'cherry-pick' });
-          const result = await this.commandHandler.cherryPick(command.hash);
-          this.send({ type: 'operationEnd', operation: 'cherry-pick', success: result.success, error: result.error });
-          return;
-        }
-        case 'revert': {
-          this.send({ type: 'operationStart', operation: 'revert' });
-          const result = await this.commandHandler.revert(command.hash);
-          this.send({ type: 'operationEnd', operation: 'revert', success: result.success, error: result.error });
-          return;
-        }
-        case 'resetTo': {
-          this.send({ type: 'operationStart', operation: 'reset' });
-          const result = await this.commandHandler.resetTo(command.hash, command.mode);
-          this.send({ type: 'operationEnd', operation: 'reset', success: result.success, error: result.error });
-          return;
-        }
-
-        case 'stashShow': {
-          const diffs = await this.commandHandler.stashShow(command.index);
-          this.send({ type: 'stashDiff', data: diffs, index: command.index });
-          return;
-        }
-
-        case 'stashApply': {
-          const result = await this.commandHandler.stashApply(command.index);
-          if (!result.success) this.send({ type: 'error', message: result.error || 'Stash apply failed' });
-          return;
-        }
-        case 'stashPopIndex': {
-          const applyResult = await this.commandHandler.stashApply(command.index);
-          if (applyResult.success) {
-            const dropResult = await this.commandHandler.stashDrop(command.index);
-            if (!dropResult.success) this.send({ type: 'error', message: dropResult.error || 'Stash drop failed' });
-          } else {
-            this.send({ type: 'error', message: applyResult.error || 'Stash apply failed — stash preserved' });
-          }
-          return;
-        }
-        case 'stashDrop': {
-          const result = await this.commandHandler.stashDrop(command.index);
-          if (!result.success) this.send({ type: 'error', message: result.error || 'Stash drop failed' });
-          return;
-        }
-
-        case 'stageFile': {
-          await this.commandHandler.stageFile(command.file);
-          return;
-        }
-        case 'stageAll': {
-          await this.commandHandler.stageAll(command.files);
-          return;
-        }
-        case 'unstageFile': {
-          await this.commandHandler.unstageFile(command.file);
-          return;
-        }
-        case 'unstageAll': {
-          await this.commandHandler.unstageAll(command.files);
-          return;
-        }
-        case 'discardFileChanges': {
-          await this.commandHandler.discardFileChanges(command.file);
-          return;
-        }
-        case 'deleteUntrackedFile': {
-          await this.commandHandler.deleteUntrackedFile(command.file);
-          return;
-        }
-
-        case 'startMerge': {
-          this.send({ type: 'operationStart', operation: 'merge' });
-          const result = await this.commandHandler.startMerge(command.source, command.options);
-          this.send({ type: 'operationEnd', operation: 'merge', success: result.success, error: result.error });
-          const mergeState = await this.commandHandler.getMergeState();
-          if (mergeState.inProgress) {
-            this.send({ type: 'mergeState', data: mergeState });
-          }
-          return;
-        }
-        case 'resolveWithOurs': {
-          await this.commandHandler.resolveWithOurs(command.file);
-          const ms = await this.commandHandler.getMergeState();
-          this.send({ type: 'mergeState', data: ms });
-          return;
-        }
-        case 'resolveWithTheirs': {
-          await this.commandHandler.resolveWithTheirs(command.file);
-          const ms = await this.commandHandler.getMergeState();
-          this.send({ type: 'mergeState', data: ms });
-          return;
-        }
-        case 'completeMerge': {
-          const result = await this.commandHandler.completeMerge(command.message);
-          if (result.success) {
-            this.send({ type: 'mergeCompleted' });
-          } else {
-            this.send({ type: 'error', message: result.error || 'Complete merge failed' });
-          }
-          return;
-        }
-        case 'abortMerge': {
-          await this.commandHandler.abortMerge();
-          this.send({ type: 'mergeAborted' });
-          return;
-        }
-        case 'getConflictContent': {
-          const content = this.commandHandler.getConflictContent(command.file);
-          this.send({ type: 'conflictContent', data: content });
-          return;
-        }
-        case 'resolveConflict': {
-          await this.commandHandler.resolveConflict(command.file, command.resolutions);
-          const ms = await this.commandHandler.getMergeState();
-          this.send({ type: 'mergeState', data: ms });
-          return;
-        }
-        case 'getMergeState': {
-          const ms = await this.commandHandler.getMergeState();
-          this.send({ type: 'mergeState', data: ms });
-          return;
-        }
-        case 'predictConflicts': {
-          const files = await this.commandHandler.predictConflicts(command.source, command.target);
-          this.send({ type: 'predictedConflicts', files });
-          return;
-        }
-
-        case 'openRepo':
-          await this.commandHandler.openRepo(command.path);
-          return;
-        case 'openRepoDialog':
-          await this.commandHandler.openRepoDialog();
-          return;
-        case 'cloneRepo': {
-          this.send({ type: 'operationStart', operation: 'clone' });
-          const result = await this.commandHandler.cloneRepo(command.url, command.path);
-          this.send({ type: 'operationEnd', operation: 'clone', success: result.success, error: result.error });
-          return;
-        }
-        case 'initRepo': {
-          this.send({ type: 'operationStart', operation: 'init' });
-          const result = await this.commandHandler.initRepo(command.path);
-          this.send({ type: 'operationEnd', operation: 'init', success: result.success, error: result.error });
-          return;
-        }
-        case 'closeRepo':
-          await this.commandHandler.closeRepo(command.index);
-          return;
-        case 'switchRepo':
-          await this.commandHandler.switchRepo(command.index);
-          return;
-
-        case 'addRemote': {
-          this.send({ type: 'operationStart', operation: 'addRemote' });
-          const r = await this.commandHandler.addRemote(command.name, command.url);
-          this.send({ type: 'operationEnd', operation: 'addRemote', success: r.success, error: r.error });
-          return;
-        }
-        case 'removeRemote': {
-          this.send({ type: 'operationStart', operation: 'removeRemote' });
-          const r = await this.commandHandler.removeRemote(command.name);
-          this.send({ type: 'operationEnd', operation: 'removeRemote', success: r.success, error: r.error });
-          return;
-        }
-        case 'renameRemote': {
-          this.send({ type: 'operationStart', operation: 'renameRemote' });
-          const r = await this.commandHandler.renameRemote(command.oldName, command.newName);
-          this.send({ type: 'operationEnd', operation: 'renameRemote', success: r.success, error: r.error });
-          return;
-        }
-
-        case 'stageHunk': {
-          const r = await this.commandHandler.stageHunk(command.file, command.hunkIndex, !!command.reverse);
-          if (!r.success) this.send({ type: 'error', message: r.error || 'Stage hunk failed' });
-          return;
-        }
-        case 'stageLines': {
-          const r = await this.commandHandler.stageLines(command.file, command.hunkIndex, command.lineIndices, !!command.reverse);
-          if (!r.success) this.send({ type: 'error', message: r.error || 'Stage lines failed' });
-          return;
-        }
-
-        case 'getSubmodules': {
-          const subs = await this.commandHandler.getSubmodules();
-          this.send({ type: 'submodules', data: subs });
-          return;
-        }
-        case 'submoduleUpdate': {
-          this.send({ type: 'operationStart', operation: 'submoduleUpdate' });
-          const r = await this.commandHandler.submoduleUpdate(command.path);
-          this.send({ type: 'operationEnd', operation: 'submoduleUpdate', success: r.success, error: r.error });
-          return;
-        }
-        case 'submoduleInit': {
-          this.send({ type: 'operationStart', operation: 'submoduleInit' });
-          const r = await this.commandHandler.submoduleInit(command.path);
-          this.send({ type: 'operationEnd', operation: 'submoduleInit', success: r.success, error: r.error });
-          return;
-        }
-
-        case 'rebaseTo': {
-          this.send({ type: 'operationStart', operation: 'rebase' });
-          const result = await this.commandHandler.rebaseTo(command.onto);
-          this.send({ type: 'operationEnd', operation: 'rebase', success: result.success, error: result.error });
-          return;
-        }
-
-        case 'getRebaseTodo': {
-          const todo = await this.commandHandler.getRebaseTodo(command.onto);
-          this.send({ type: 'rebaseTodo', data: todo });
-          return;
-        }
-        case 'executeRebase': {
-          this.send({ type: 'operationStart', operation: 'rebase' });
-          const result = await this.commandHandler.executeRebase(command.onto, command.entries);
-          this.send({ type: 'operationEnd', operation: 'rebase', success: result.success, error: result.error });
-          const progress = await this.commandHandler.getRebaseProgress();
-          if (progress.inProgress) this.send({ type: 'rebaseProgress', data: progress });
-          return;
-        }
-        case 'continueRebase': {
-          this.send({ type: 'operationStart', operation: 'rebase' });
-          const result = await this.commandHandler.continueRebase();
-          this.send({ type: 'operationEnd', operation: 'rebase', success: result.success, error: result.error });
-          return;
-        }
-        case 'abortRebase': {
-          const result = await this.commandHandler.abortRebase();
-          if (!result.success) this.send({ type: 'error', message: result.error || 'Abort rebase failed' });
-          return;
-        }
-        case 'skipRebase': {
-          this.send({ type: 'operationStart', operation: 'rebase' });
-          const result = await this.commandHandler.skipRebase();
-          this.send({ type: 'operationEnd', operation: 'rebase', success: result.success, error: result.error });
-          return;
-        }
-
-        case 'openDiff': {
-          const payload = this.commandHandler.getDiffPayload(command.file, command.hash);
-          this.send({ type: 'openDiff', ...payload });
-          return;
-        }
-        case 'openMergeEditor': {
-          const payload = this.commandHandler.getFilePayload(command.file);
-          this.send({ type: 'openMergeEditor', ...payload });
-          return;
-        }
-        case 'openFile': {
-          const payload = this.commandHandler.getFilePayload(command.file);
-          this.send({ type: 'openFile', ...payload });
-          return;
-        }
-        case 'switchView':
-          this.send({ type: 'showView', view: command.view });
-          return;
-
-        default: {
-          const unknownType = (command as { type: string }).type;
-          this.send({ type: 'error', message: `Unknown command: ${unknownType}` });
-          return;
-        }
+      type AnyHandler = (cmd: RendererCommand, ctx: HandlerContext) => Promise<void>;
+      const handler = handlers[command.type] as AnyHandler | undefined;
+      if (handler) {
+        await handler(command, { ch: this.commandHandler, sm: this.stateManager, send: e => this.send(e) });
+      } else {
+        this.send({ type: 'error', message: `Unknown command: ${(command as { type: string }).type}` });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

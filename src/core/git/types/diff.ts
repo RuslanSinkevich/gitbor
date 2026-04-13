@@ -1,51 +1,51 @@
 export interface DiffLine {
-  readonly type: 'add' | 'remove' | 'context';
-  readonly content: string;
-  readonly oldLineNo: number | null;
-  readonly newLineNo: number | null;
+  type: 'add' | 'remove' | 'context';
+  content: string;
+  oldLineNo: number | null;
+  newLineNo: number | null;
 }
 
 export interface DiffHunk {
-  readonly header: string;
-  readonly oldStart: number;
-  readonly oldCount: number;
-  readonly newStart: number;
-  readonly newCount: number;
-  readonly lines: readonly DiffLine[];
+  header: string;
+  oldStart: number;
+  oldCount: number;
+  newStart: number;
+  newCount: number;
+  lines: DiffLine[];
 }
 
 export interface FileDiff {
-  readonly path: string;
-  readonly oldPath?: string;
-  readonly status: 'added' | 'modified' | 'deleted' | 'renamed' | 'copied';
-  readonly hunks: readonly DiffHunk[];
-  readonly isBinary: boolean;
+  path: string;
+  oldPath?: string;
+  status: 'added' | 'modified' | 'deleted' | 'renamed' | 'copied';
+  hunks: DiffHunk[];
+  isBinary: boolean;
 }
 
 export interface BlameLine {
-  readonly hash: string;
-  readonly author: string;
-  readonly authorDate: number;
-  readonly lineNo: number;
-  readonly content: string;
-  readonly summary: string;
+  hash: string;
+  author: string;
+  authorDate: number;
+  lineNo: number;
+  content: string;
+  summary: string;
 }
 
 export interface BlameResult {
-  readonly path: string;
-  readonly lines: readonly BlameLine[];
+  path: string;
+  lines: BlameLine[];
 }
 
 export interface FileHistoryEntry {
-  readonly hash: string;
-  readonly shortHash: string;
-  readonly subject: string;
-  readonly authorName: string;
-  readonly authorDate: number;
-  readonly status: string;
+  hash: string;
+  shortHash: string;
+  subject: string;
+  authorName: string;
+  authorDate: number;
+  status: string;
 }
 
 export interface FileHistoryResult {
-  readonly path: string;
-  readonly entries: readonly FileHistoryEntry[];
+  path: string;
+  entries: FileHistoryEntry[];
 }

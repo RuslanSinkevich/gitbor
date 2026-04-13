@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { GitExecutor, GitError } from '../git/GitExecutor';
+import { GitExecutor } from '../git/GitExecutor';
 import { OperationResult, SavedState } from '../git/types';
 import { OperationJournal } from './OperationJournal';
 

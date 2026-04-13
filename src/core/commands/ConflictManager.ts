@@ -14,7 +14,7 @@ import { StateManager } from '../state/StateManager';
 export class ConflictManager {
   constructor(
     private readonly git: GitExecutor,
-    private readonly state: StateManager
+    _state: StateManager
   ) {}
 
   async predictConflicts(source: string, target: string): Promise<string[]> {
@@ -139,8 +139,8 @@ export class ConflictManager {
   }
 
   async completeMerge(message?: string): Promise<OperationResult> {
-    const conflicts = await this.getConflictFileNames();
-    if (conflicts.length > 0) {
+    const unresolved = await this.getConflictFileNames();
+    if (unresolved.length > 0) {
       return {
         success: false,
         error: 'Not all conflicts are resolved',
@@ -148,7 +148,14 @@ export class ConflictManager {
       };
     }
 
-    await this.git.exec(['add', '--all']);
+    const conflictFiles = await this.getConflictFiles();
+    const resolvedPaths = conflictFiles
+      .filter(f => f.status === 'resolved' || f.status === 'staged')
+      .map(f => f.path);
+
+    if (resolvedPaths.length > 0) {
+      await this.git.exec(['add', '--', ...resolvedPaths]);
+    }
 
     if (message) {
       await this.git.exec(['commit', '-m', message]);

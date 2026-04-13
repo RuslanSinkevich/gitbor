@@ -1,504 +1,69 @@
-/* ─── Overlay / Dialog base ─── */
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9000;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+/* ─── Merge Editor Modal Overlay ─── */
+.meOverlay { position: fixed; inset: 0; z-index: 9500; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; }
+.meModal { width: 92vw; height: 88vh; max-width: 1400px; background: var(--sg-background); border: 1px solid var(--sg-border); border-radius: 10px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column; overflow: hidden; }
+.mergeLoading { padding: 24px; color: var(--sg-foreground-muted); }
 
-.dialog {
-  width: 520px;
-  max-width: 90vw;
-  background: var(--sg-background);
-  border: 1px solid var(--sg-border);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-}
+/* ─── Toolbar ─── */
+.mergeToolbar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--sg-surface-raised); border-bottom: 1px solid var(--sg-border); flex-shrink: 0; font-size: 12px; }
+.mergeToolbarLabel { font-weight: 600; color: var(--sg-foreground-muted); }
+.mergeToolbarFile { font-family: var(--sg-font-mono); font-weight: 600; flex: 1; }
 
-.dialogHeader {
-  padding: 16px 20px 8px;
-}
+/* ─── Conflict navigation ─── */
+.conflictNavArrows { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.conflictNavLabel { font-size: 11px; color: var(--sg-foreground-muted); white-space: nowrap; min-width: 50px; text-align: center; }
 
-.dialogTitle {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--sg-foreground);
-}
+/* ─── Two-column layout ─── */
+.mergeTwoCols { display: flex; flex: 2; overflow: hidden; }
+.mergeCol { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.mergeCol + .mergeCol { border-left: 1px solid var(--sg-border); }
 
-.dialogSubtitle {
-  font-size: 12px;
-  color: var(--sg-foreground-muted);
-}
-
-.dialogBody {
-  padding: 12px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.dialogFooter {
-  padding: 12px 20px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  border-top: 1px solid var(--sg-border);
-}
-
-/* ─── Fields ─── */
-.field {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-}
-
-.label {
-  width: 100px;
-  flex-shrink: 0;
-  color: var(--sg-foreground-muted);
-  font-weight: 500;
-  text-align: right;
-}
-
-.branchName {
-  font-family: var(--sg-font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--sg-primary);
-}
-
-.select {
-  flex: 1;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-family: inherit;
-  background: var(--sg-input-bg);
-  color: var(--sg-foreground);
-  border: 1px solid var(--sg-border);
-  border-radius: var(--sg-radius-sm);
-}
-
-/* ─── Warning ─── */
-.warning {
-  padding: 8px 12px;
-  background: color-mix(in srgb, #d29922 15%, transparent);
-  color: #d29922;
-  border-radius: var(--sg-radius-sm);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* ─── Buttons ─── */
-.btnPrimary {
-  padding: 6px 20px;
-  font-size: 13px;
-  font-family: inherit;
-  font-weight: 500;
-  background: var(--sg-primary);
-  color: #fff;
-  border: none;
-  border-radius: var(--sg-radius-sm);
-  cursor: pointer;
-  transition: opacity var(--sg-transition);
-}
-
-.btnPrimary:hover { opacity: 0.85; }
-.btnPrimary:disabled { opacity: 0.5; cursor: default; }
-
-.btnSecondary {
-  padding: 6px 20px;
-  font-size: 13px;
-  font-family: inherit;
-  font-weight: 500;
-  background: transparent;
-  color: var(--sg-foreground);
-  border: 1px solid var(--sg-border);
-  border-radius: var(--sg-radius-sm);
-  cursor: pointer;
-  transition: background var(--sg-transition);
-}
-
-.btnSecondary:hover { background: var(--sg-surface-hover); }
-
-/* ─── Merge Banner ─── */
-.banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 16px;
-  background: color-mix(in srgb, #d29922 20%, var(--sg-background));
-  border-bottom: 1px solid color-mix(in srgb, #d29922 40%, transparent);
-  font-size: 12px;
-  color: var(--sg-foreground);
-  flex-shrink: 0;
-}
-
-.bannerIcon {
-  color: #d29922;
-  font-size: 14px;
-}
-
-.bannerText {
-  flex: 1;
-}
-
-.bannerBranch {
-  font-weight: 600;
-  font-family: var(--sg-font-mono);
-}
-
-.bannerAbort {
-  padding: 2px 10px;
-  font-size: 11px;
-  font-family: inherit;
-  font-weight: 600;
-  background: transparent;
-  color: var(--sg-danger);
-  border: 1px solid var(--sg-danger);
-  border-radius: var(--sg-radius-sm);
-  cursor: pointer;
-  transition: all var(--sg-transition);
-}
-
-.bannerAbort:hover {
-  background: color-mix(in srgb, var(--sg-danger) 15%, transparent);
-}
-
-/* ─── Conflict Notify Dialog ─── */
-.conflictOutput {
-  background: var(--sg-input-bg);
-  border: 1px solid var(--sg-border);
-  border-radius: var(--sg-radius-sm);
-  padding: 10px 12px;
-  font-family: var(--sg-font-mono);
-  font-size: 11px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  color: var(--sg-foreground-muted);
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-/* ─── Merge Editor ─── */
-.mergeEditor {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-.mergeLoading {
-  padding: 24px;
-  color: var(--sg-foreground-muted);
-}
-
-.mergeToolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background: var(--sg-surface-raised);
-  border-bottom: 1px solid var(--sg-border);
-  flex-shrink: 0;
-  font-size: 12px;
-}
-
-.mergeToolbarLabel {
-  font-weight: 600;
-  color: var(--sg-foreground-muted);
-}
-
-.mergeToolbarFile {
-  font-family: var(--sg-font-mono);
-  font-weight: 600;
-  flex: 1;
-}
-
-.mergeToolbarActions {
-  display: flex;
-  gap: 4px;
-}
-
-/* ─── Conflict navigation bar ─── */
-.conflictNav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  background: var(--sg-surface);
-  border-bottom: 1px solid var(--sg-border);
-  flex-shrink: 0;
-  overflow-x: auto;
-}
-
-.conflictBadges {
-  display: flex;
-  gap: 4px;
-  flex: 1;
-  overflow-x: auto;
-}
-
-.conflictBadge {
-  padding: 2px 8px;
-  font-size: 10px;
-  font-family: inherit;
-  font-weight: 600;
-  border: 1px solid var(--sg-border);
-  border-radius: 10px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all var(--sg-transition);
-  background: transparent;
-  color: var(--sg-foreground-muted);
-}
-
-.conflictBadgeResolved {
-  background: color-mix(in srgb, var(--sg-success) 20%, transparent);
-  border-color: var(--sg-success);
-  color: var(--sg-success);
-}
-
-.conflictBadgeUnresolved {
-  background: color-mix(in srgb, var(--sg-warning) 15%, transparent);
-  border-color: var(--sg-warning);
-  color: var(--sg-warning);
-}
-
-.conflictBadgeActive {
-  outline: 2px solid var(--sg-primary);
-  outline-offset: -1px;
-}
-
-.conflictNavArrows {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.conflictNavLabel {
-  font-size: 11px;
-  color: var(--sg-foreground-muted);
-  white-space: nowrap;
-  min-width: 50px;
-  text-align: center;
-}
-
-/* ─── Conflict action buttons ─── */
-.conflictActions {
-  display: flex;
-  gap: 4px;
-  padding: 4px 12px;
-  background: var(--sg-surface);
-  border-bottom: 1px solid var(--sg-border);
-  flex-shrink: 0;
-  flex-wrap: wrap;
-}
-
-.conflictActionBtn {
-  padding: 3px 10px;
-  font-size: 11px;
-  font-family: inherit;
-  font-weight: 500;
-  border: 1px solid var(--sg-border);
-  border-radius: var(--sg-radius-sm);
-  cursor: pointer;
-  transition: all var(--sg-transition);
-  background: transparent;
-  color: var(--sg-foreground);
-}
-
-.conflictActionBtn:hover {
-  background: var(--sg-surface-hover);
-}
-
-.conflictActionOurs {
-  border-color: color-mix(in srgb, #569cd6 50%, var(--sg-border));
-}
-
-.conflictActionTheirs {
-  border-color: color-mix(in srgb, #3fb950 50%, var(--sg-border));
-}
-
-.conflictActionBoth {
-  border-color: color-mix(in srgb, #d7ba7d 50%, var(--sg-border));
-}
-
-.conflictActionActive {
-  background: var(--sg-primary) !important;
-  color: #fff !important;
-  border-color: var(--sg-primary) !important;
-}
-
-/* ─── Three-pane layout ─── */
-.mergePanes {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-.mergeCol {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-
-.mergeCol + .mergeCol {
-  border-left: 1px solid var(--sg-border);
-}
-
-.mergeColHeader {
-  padding: 4px 12px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--sg-foreground-muted);
-  background: var(--sg-surface-raised);
-  border-bottom: 1px solid var(--sg-border);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.mergeColHeaderOurs {
-  border-bottom: 2px solid #569cd6;
-}
-
-.mergeColHeaderTheirs {
-  border-bottom: 2px solid #3fb950;
-}
-
-.mergeColHeaderResult {
-  border-bottom: 2px solid var(--sg-primary);
-}
-
-.mergeColBranch {
-  font-family: var(--sg-font-mono);
-  color: var(--sg-primary);
-}
-
-.mergeColBody {
-  flex: 1;
-  overflow-y: auto;
-  font-family: var(--sg-font-mono);
-  font-size: 12px;
-  line-height: 1.5;
-}
+.mergeColHeader { padding: 4px 12px; font-size: 11px; font-weight: 600; color: var(--sg-foreground-muted); background: var(--sg-surface-raised); border-bottom: 1px solid var(--sg-border); display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.mergeColHeaderOurs { border-bottom: 2px solid #569cd6; }
+.mergeColHeaderTheirs { border-bottom: 2px solid #3fb950; }
+.mergeColBranch { font-family: var(--sg-font-mono); color: var(--sg-primary); }
+.mergeColBody { flex: 1; overflow-y: auto; font-family: var(--sg-font-mono); font-size: 12px; line-height: 1.5; }
 
 /* ─── Blocks ─── */
-.mergeBlock {
-  padding: 0 8px;
-  cursor: default;
-}
-
-.mergeBlockConflict {
-  cursor: pointer;
-  position: relative;
-  transition: background var(--sg-transition);
-}
-
-.mergeBlockOurs {
-  background: color-mix(in srgb, #569cd6 10%, transparent);
-}
-
-.mergeBlockTheirs {
-  background: color-mix(in srgb, #3fb950 10%, transparent);
-}
-
-.mergeBlockActive {
-  outline: 2px solid var(--sg-primary);
-  outline-offset: -2px;
-}
-
-.mergeBlockChosen {
-  opacity: 0.85;
-}
-
-.mergeBlockLabel {
-  position: absolute;
-  top: 2px;
-  right: 4px;
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: var(--sg-primary);
-  color: #fff;
-  font-weight: 700;
-  pointer-events: none;
-}
+.mergeBlock { padding: 0 8px; cursor: default; }
+.mergeBlockConflict { cursor: pointer; position: relative; transition: background var(--sg-transition); }
+.mergeBlockOurs { background: color-mix(in srgb, #569cd6 10%, transparent); }
+.mergeBlockTheirs { background: color-mix(in srgb, #3fb950 10%, transparent); }
+.mergeBlockActive { outline: 2px solid var(--sg-primary); outline-offset: -2px; }
 
 /* ─── Lines ─── */
-.mergeLine {
-  white-space: pre;
-  min-height: 1.5em;
-}
+.mergeLine { white-space: pre; min-height: 1.5em; }
+.mergeLineNo { display: inline-block; width: 40px; text-align: right; padding-right: 8px; color: var(--sg-foreground-muted); opacity: 0.5; user-select: none; }
+.mergeLineEmpty { color: var(--sg-foreground-muted); font-style: italic; opacity: 0.5; }
+.mergeLineSelectable { cursor: pointer; transition: background 0.1s ease; border-left: 3px solid transparent; padding-left: 4px; }
+.mergeLineSelectable:hover { background: color-mix(in srgb, var(--sg-foreground) 10%, transparent); }
+.mergeLineSelected { background: color-mix(in srgb, #569cd6 20%, transparent); border-left-color: #569cd6; }
+.mergeBlockTheirs .mergeLineSelected { background: color-mix(in srgb, #3fb950 20%, transparent); border-left-color: #3fb950; }
+.mergeLineSelected:hover { background: color-mix(in srgb, #569cd6 30%, transparent); }
+.mergeBlockTheirs .mergeLineSelected:hover { background: color-mix(in srgb, #3fb950 30%, transparent); }
 
-.mergeLineNo {
-  display: inline-block;
-  width: 40px;
-  text-align: right;
-  padding-right: 8px;
-  color: var(--sg-foreground-muted);
-  opacity: 0.5;
-  user-select: none;
-}
+/* ─── Result line coloring ─── */
+.mergeResultLineOurs { border-left: 3px solid #569cd6; background: color-mix(in srgb, #569cd6 8%, transparent); }
+.mergeResultLineTheirs { border-left: 3px solid #3fb950; background: color-mix(in srgb, #3fb950 8%, transparent); }
 
-.mergeLineEmpty {
-  color: var(--sg-foreground-muted);
-  font-style: italic;
-  opacity: 0.5;
-}
+/* ─── Result pane ─── */
+.mergeResultPane { flex: 1; display: flex; flex-direction: column; border-top: 2px solid var(--sg-border); min-height: 120px; overflow: hidden; }
+.mergeResultHeader { padding: 4px 12px; font-size: 11px; font-weight: 600; color: var(--sg-foreground-muted); background: var(--sg-surface-raised); border-bottom: 2px solid var(--sg-primary); display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.mergeResultStatus { font-weight: 400; font-size: 10px; color: var(--sg-foreground-muted); margin-left: auto; }
+.mergeResultBody { flex: 1; overflow-y: auto; font-family: var(--sg-font-mono); font-size: 12px; line-height: 1.5; padding: 0 8px; }
 
-.mergeLineResolved {
-  background: color-mix(in srgb, var(--sg-success) 10%, transparent);
-}
+/* ─── Checkbox ─── */
+.mergeCheckbox { position: absolute; top: 2px; left: 4px; z-index: 1; }
+.mergeCheckbox input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--sg-primary); }
 
-.mergeLineUnresolved {
-  background: color-mix(in srgb, var(--sg-warning) 12%, transparent);
-}
-
-/* ─── Ghost button ─── */
-.btnGhost {
-  padding: 2px 8px;
-  font-size: 11px;
-  font-family: inherit;
-  font-weight: 500;
-  background: transparent;
-  color: var(--sg-foreground-muted);
-  border: 1px solid transparent;
-  border-radius: var(--sg-radius-sm);
-  cursor: pointer;
-  transition: all var(--sg-transition);
-}
-
-.btnGhost:hover {
-  background: var(--sg-surface-hover);
-  color: var(--sg-foreground);
-  border-color: var(--sg-border);
-}
+/* ─── Buttons ─── */
+.btnGhost { padding: 2px 8px; font-size: 11px; font-family: inherit; font-weight: 500; background: transparent; color: var(--sg-foreground-muted); border: 1px solid transparent; border-radius: var(--sg-radius-sm); cursor: pointer; transition: all var(--sg-transition); }
+.btnGhost:hover { background: var(--sg-surface-hover); color: var(--sg-foreground); border-color: var(--sg-border); }
+.btnPrimary { padding: 6px 20px; font-size: 13px; font-family: inherit; font-weight: 500; background: var(--sg-primary); color: #fff; border: none; border-radius: var(--sg-radius-sm); cursor: pointer; transition: opacity var(--sg-transition); }
+.btnPrimary:hover { opacity: 0.85; }
+.btnPrimary:disabled { opacity: 0.5; cursor: default; }
+.btnSecondary { padding: 6px 20px; font-size: 13px; font-family: inherit; font-weight: 500; background: transparent; color: var(--sg-foreground); border: 1px solid var(--sg-border); border-radius: var(--sg-radius-sm); cursor: pointer; transition: background var(--sg-transition); }
+.btnSecondary:hover { background: var(--sg-surface-hover); }
 
 /* ─── Footer ─── */
-.mergeFooter {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 8px 12px;
-  border-top: 1px solid var(--sg-border);
-  background: var(--sg-surface-raised);
-  flex-shrink: 0;
-}
-
-.mergeFooterStatus {
-  flex: 1;
-  font-size: 11px;
-  color: var(--sg-foreground-muted);
-}
+.mergeFooter { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--sg-border); background: var(--sg-surface-raised); flex-shrink: 0; }
+.mergeFooterStatus { flex: 1; font-size: 11px; color: var(--sg-foreground-muted); }

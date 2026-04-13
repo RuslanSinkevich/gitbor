@@ -208,9 +208,11 @@ export class CommandHandler {
     return this.queue.enqueueRead('getMergeState', () => this.conflicts.getMergeState());
   }
 
-  getConflictContent(file: string): ConflictContent {
-    const repoPath = this.state.getState().repoPath;
-    return readConflictFile(repoPath, file);
+  getConflictContent(file: string): Promise<ConflictContent> {
+    return this.queue.enqueueRead('getConflictContent', async () => {
+      const repoPath = this.state.getState().repoPath;
+      return readConflictFile(repoPath, file);
+    });
   }
 
   async resolveConflict(file: string, resolutions: ('ours' | 'theirs' | 'both-ours-first' | 'both-theirs-first')[]): Promise<void> {
@@ -218,6 +220,13 @@ export class CommandHandler {
     const parsed = readConflictFile(repoPath, file);
     const resolved = buildResolvedContent(parsed.blocks, resolutions);
     writeResolvedFile(repoPath, file, resolved);
+    await this.git.exec(['add', file]);
+    await this.state.refreshStatusAndNotify();
+  }
+
+  async resolveConflictRaw(file: string, rawContent: string): Promise<void> {
+    const repoPath = this.state.getState().repoPath;
+    writeResolvedFile(repoPath, file, rawContent);
     await this.git.exec(['add', file]);
     await this.state.refreshStatusAndNotify();
   }

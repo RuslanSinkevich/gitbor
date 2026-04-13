@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import type { RebaseTodoEntry, RebaseTodoList, RebaseAction } from '../../types';
+import type { RebaseTodoEntry, RebaseAction } from '../../types';
 import { postCommand, onMainEvent } from '../../api';
 import { t } from '../../i18n';
 import s from './RebaseEditor.module.css';

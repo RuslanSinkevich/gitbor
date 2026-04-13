@@ -161,6 +161,12 @@ export function parseStatus(stdout: string): FileStatus[] {
     const y = line[1];
     const filePath = line.slice(3);
 
+    // UU, AA, DD, AU, UA, DU, UD — unmerged (conflict), show only as unstaged
+    if (x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D')) {
+      results.push({ path: filePath, status: 'U', staged: false });
+      continue;
+    }
+
     if (x !== ' ' && x !== '?') {
       results.push({ path: filePath, status: STATUS_MAP[x] || 'M', staged: true });
     }

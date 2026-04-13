@@ -1,33 +1,33 @@
 import type { Commit } from './git';
 
 export interface GraphNode {
-  readonly commitIndex: number;
-  readonly column: number;
-  readonly color: string;
-  readonly connections: readonly GraphConnection[];
+  commitIndex: number;
+  column: number;
+  color: string;
+  connections: GraphConnection[];
 }
 
 export interface GraphConnection {
-  readonly fromCol: number;
-  readonly toCol: number;
-  readonly color: string;
+  fromCol: number;
+  toCol: number;
+  color: string;
 }
 
 export interface MergeLink {
-  readonly childIdx: number;
-  readonly childCol: number;
-  readonly parentIdx: number;
-  readonly parentCol: number;
-  readonly color: string;
+  childIdx: number;
+  childCol: number;
+  parentIdx: number;
+  parentCol: number;
+  color: string;
 }
 
 export interface GraphLayoutData {
-  readonly nodes: readonly GraphNode[];
-  readonly maxColumns: number;
-  readonly mergeLinks: readonly MergeLink[];
+  nodes: GraphNode[];
+  maxColumns: number;
+  mergeLinks: MergeLink[];
 }
 
 export interface CommitGraphData {
-  readonly commits: readonly Commit[];
-  readonly layout: GraphLayoutData;
+  commits: Commit[];
+  layout: GraphLayoutData;
 }

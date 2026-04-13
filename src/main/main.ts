@@ -12,6 +12,7 @@ import { SafetyNet } from '../core/safety/SafetyNet';
 import { CommandHandler } from '../core/commands/CommandHandler';
 import { MessageBridge } from '../core/bridge/MessageBridge';
 import { RecoveryManager } from '../core/safety/RecoveryManager';
+import { checkGitAvailable, showGitNotFoundMessage, showRecoveryDialog } from '../core/safety/RecoveryUI';
 
 let mainWindow: BrowserWindow | null = null;
 let messageBridge: MessageBridge | null = null;
@@ -97,9 +98,9 @@ async function initServices(): Promise<void> {
 
   const git = new GitExecutor(defaultCwd);
 
-  const gitCheck = await RecoveryManager.checkGitAvailable(git);
+  const gitCheck = await checkGitAvailable(git);
   if (!gitCheck.available) {
-    await RecoveryManager.showGitNotFoundMessage();
+    await showGitNotFoundMessage();
   }
 
   stateManager = new StateManager(git);
@@ -144,7 +145,7 @@ async function autoOpenRepo(): Promise<void> {
     const recovery = new RecoveryManager(git, journal, safety);
     const report = await recovery.checkOnStartup();
     if (report.hasIssues) {
-      await recovery.showRecoveryDialog(report);
+      await showRecoveryDialog(report, recovery);
     }
   } catch {
     // recovery check failed — non-fatal

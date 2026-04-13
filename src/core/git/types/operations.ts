@@ -1,42 +1,42 @@
 export interface MergeResult {
-  readonly success: boolean;
-  readonly conflicts: readonly string[];
+  success: boolean;
+  conflicts: string[];
 }
 
 export interface OperationResult<T = void> {
-  readonly success: boolean;
-  readonly data?: T;
-  readonly error?: string;
-  readonly rollbackAvailable: boolean;
+  success: boolean;
+  data?: T;
+  error?: string;
+  rollbackAvailable: boolean;
 }
 
 export interface GitExecOptions {
-  readonly cwd?: string;
-  readonly timeout?: number;
-  readonly maxBuffer?: number;
-  readonly env?: Readonly<Record<string, string>>;
-  readonly stdin?: string;
+  cwd?: string;
+  timeout?: number;
+  maxBuffer?: number;
+  env?: Record<string, string>;
+  stdin?: string;
 }
 
 export interface GitExecResult {
-  readonly stdout: string;
-  readonly stderr: string;
-  readonly exitCode: number;
-  readonly duration: number;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  duration: number;
 }
 
 export interface MergeOptions {
-  readonly noCommit: boolean;
-  readonly squash: boolean;
-  readonly ffOnly: boolean;
-  readonly noFf?: boolean;
+  noCommit: boolean;
+  squash: boolean;
+  ffOnly: boolean;
+  noFf?: boolean;
 }
 
 export interface ConflictFile {
-  readonly path: string;
-  readonly status: 'conflicted' | 'resolved' | 'staged';
-  readonly oursModified: boolean;
-  readonly theirsModified: boolean;
+  path: string;
+  status: 'conflicted' | 'resolved' | 'staged';
+  oursModified: boolean;
+  theirsModified: boolean;
 }
 
 export interface MergeState {
@@ -46,4 +46,19 @@ export interface MergeState {
   totalConflicts: number;
   resolvedConflicts: number;
   conflictFiles: ConflictFile[];
+}
+
+export type ConflictResolution = 'ours' | 'theirs' | 'both-ours-first' | 'both-theirs-first';
+
+export interface ConflictBlock {
+  type: 'clean' | 'conflict';
+  content: string;
+  ours: string;
+  theirs: string;
+}
+
+export interface ConflictContent {
+  file: string;
+  blocks: ConflictBlock[];
+  hasConflicts: boolean;
 }

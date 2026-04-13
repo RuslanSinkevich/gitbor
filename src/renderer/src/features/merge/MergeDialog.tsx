@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { postCommand, onMainEvent } from '../../api';
 import { t } from '../../i18n';
 import type { MergeOptions } from '../../types';
-import s from './Merge.module.css';
+import s from './MergeDialog.module.css';
 
 type MergeMode = 'default' | 'no-ff' | 'squash' | 'no-commit';
 

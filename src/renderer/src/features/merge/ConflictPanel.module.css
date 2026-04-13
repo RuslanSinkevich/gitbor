@@ -1,0 +1,25 @@
+.conflictPanel { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; height: 100%; padding: 48px 32px 32px; gap: 24px; }
+.cpHeader { display: flex; align-items: center; gap: 12px; text-align: center; flex-direction: column; }
+.cpIcon { font-size: 28px; color: #d29922; }
+.cpHeaderText { display: flex; flex-direction: column; gap: 4px; }
+.cpTitle { margin: 0; font-size: 16px; font-weight: 600; color: var(--sg-foreground); }
+.cpSubtitle { margin: 0; font-size: 12px; color: var(--sg-foreground-muted); }
+.cpFileName { font-family: var(--sg-font-mono); font-size: 13px; font-weight: 600; color: var(--sg-foreground); padding: 6px 16px; background: var(--sg-surface-raised); border: 1px solid var(--sg-border); border-radius: var(--sg-radius-sm); }
+
+.cpCards { display: flex; align-items: center; gap: 16px; width: 100%; max-width: 600px; }
+.cpCard { flex: 1; padding: 16px; border: 2px solid var(--sg-border); border-radius: 8px; background: var(--sg-surface-raised); cursor: pointer; transition: all var(--sg-transition); user-select: none; }
+.cpCard:hover { background: var(--sg-surface-hover); }
+.cpCardIdle { border-color: var(--sg-border); opacity: 0.6; }
+.cpCardIdle:hover { opacity: 0.85; }
+.cpCardOursActive { border-color: #569cd6; background: color-mix(in srgb, #569cd6 8%, var(--sg-surface-raised)); opacity: 1; }
+.cpCardTheirsActive { border-color: #3fb950; background: color-mix(in srgb, #3fb950 8%, var(--sg-surface-raised)); opacity: 1; }
+
+.cpCardBadge { display: flex; align-items: center; gap: 8px; }
+.cpBranchIcon { font-size: 16px; color: var(--sg-foreground-muted); }
+.cpCardBranch { font-family: var(--sg-font-mono); font-size: 13px; font-weight: 600; color: var(--sg-foreground); }
+.cpCardTag { font-size: 10px; padding: 1px 6px; border-radius: 3px; background: var(--sg-surface-hover); color: var(--sg-foreground-muted); font-weight: 500; margin-left: auto; }
+.cpVs { font-size: 12px; font-weight: 600; color: var(--sg-foreground-muted); flex-shrink: 0; }
+
+.cpActionBtn { padding: 8px 28px; font-size: 13px; font-family: inherit; font-weight: 600; background: var(--sg-primary); color: #fff; border: none; border-radius: var(--sg-radius-sm); cursor: pointer; transition: opacity var(--sg-transition); animation: cpFadeIn 0.15s ease; }
+.cpActionBtn:hover { opacity: 0.85; }
+@keyframes cpFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }

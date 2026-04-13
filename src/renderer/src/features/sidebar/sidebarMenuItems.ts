@@ -25,7 +25,19 @@ export function getBranchMenuItems(branch: Branch, currentBranch: string, loc: L
         onConfirm: (newName) => postCommand({ type: 'renameBranch', oldName: branch.name, newName }),
       }),
     });
-    items.push({ label: tpl(loc.contextMenu.delete, { name: branch.name }), danger: true, action: () => postCommand({ type: 'deleteBranch', branch: branch.name }) });
+    if (!branch.isCurrent) {
+      items.push({
+        label: tpl(loc.contextMenu.delete, { name: branch.name }),
+        danger: true,
+        action: () => showPrompt({
+          title: tpl(loc.dialog.deleteBranchTitle, { branch: branch.name }),
+          message: loc.dialog.deleteBranchMessage,
+          confirmLabel: loc.dialog.delete,
+          danger: true,
+          onConfirm: () => postCommand({ type: 'deleteBranch', branch: branch.name }),
+        }),
+      });
+    }
   }
   items.push({ divider: true });
   items.push({
@@ -49,40 +61,67 @@ export function getBranchMenuItems(branch: Branch, currentBranch: string, loc: L
   return items;
 }
 
-export function getTagMenuItems(tag: Tag, loc: Loc): SgContextMenuItem[] {
+export function getTagMenuItems(tag: Tag, loc: Loc, showPrompt: ShowPrompt): SgContextMenuItem[] {
   return [
     { label: tpl(loc.contextMenu.checkout, { branch: tag.name }), action: () => postCommand({ type: 'checkout', branch: tag.name }) },
     { divider: true },
-    { label: tpl(loc.contextMenu.delete, { name: tag.name }), danger: true, action: () => postCommand({ type: 'deleteTag', name: tag.name }) },
+    {
+      label: tpl(loc.contextMenu.delete, { name: tag.name }),
+      danger: true,
+      action: () => showPrompt({
+        title: tpl(loc.dialog.deleteTagTitle, { tag: tag.name }),
+        confirmLabel: loc.dialog.delete,
+        danger: true,
+        onConfirm: () => postCommand({ type: 'deleteTag', name: tag.name }),
+      }),
+    },
     { divider: true },
     { label: loc.contextMenu.copyName, action: () => navigator.clipboard.writeText(tag.name) },
   ];
 }
 
-export function getStashMenuItems(stash: Stash, loc: Loc, onShowStash?: (index: string) => void): SgContextMenuItem[] {
+export function getStashMenuItems(stash: Stash, loc: Loc, showPrompt: ShowPrompt, onShowStash?: (index: string) => void): SgContextMenuItem[] {
   return [
     { label: loc.contextMenu.stashShow, action: () => onShowStash?.(stash.index) ?? postCommand({ type: 'stashShow', index: stash.index }) },
     { divider: true },
     { label: tpl(loc.contextMenu.stashApply, { stash: stash.message }), action: () => postCommand({ type: 'stashApply', index: stash.index }) },
     { label: tpl(loc.contextMenu.stashPop, { stash: stash.message }), action: () => postCommand({ type: 'stashPopIndex', index: stash.index }) },
     { divider: true },
-    { label: tpl(loc.contextMenu.stashDrop, { stash: stash.message }), danger: true, action: () => postCommand({ type: 'stashDrop', index: stash.index }) },
+    {
+      label: tpl(loc.contextMenu.stashDrop, { stash: stash.message }),
+      danger: true,
+      action: () => showPrompt({
+        title: tpl(loc.contextMenu.stashDrop, { stash: stash.message }),
+        confirmLabel: loc.dialog.delete,
+        danger: true,
+        onConfirm: () => postCommand({ type: 'stashDrop', index: stash.index }),
+      }),
+    },
   ];
 }
 
-export function getRemoteMenuItems(remote: Remote, loc: Loc, showPrompt?: ShowPrompt): SgContextMenuItem[] {
+export function getRemoteMenuItems(remote: Remote, loc: Loc, showPrompt: ShowPrompt): SgContextMenuItem[] {
   return [
     { label: tpl(loc.contextMenu.fetchRemote, { remote: remote.name }), action: () => postCommand({ type: 'fetch', remote: remote.name }) },
     { divider: true },
-    ...(showPrompt ? [{
-      label: `Rename "${remote.name}"...`,
+    {
+      label: tpl(loc.contextMenu.rename, { name: remote.name }),
       action: () => showPrompt({
-        title: `Rename remote "${remote.name}"`,
+        title: tpl(loc.contextMenu.rename, { name: remote.name }),
         defaultValue: remote.name,
-        onConfirm: (newName: string) => postCommand({ type: 'renameRemote', oldName: remote.name, newName }),
+        onConfirm: (newName) => postCommand({ type: 'renameRemote', oldName: remote.name, newName }),
       }),
-    }] : []),
-    { label: `Remove "${remote.name}"`, danger: true, action: () => postCommand({ type: 'removeRemote', name: remote.name }) },
+    },
+    {
+      label: tpl(loc.contextMenu.deleteRemote, { remote: remote.name }),
+      danger: true,
+      action: () => showPrompt({
+        title: tpl(loc.contextMenu.deleteRemote, { remote: remote.name }),
+        confirmLabel: loc.dialog.delete,
+        danger: true,
+        onConfirm: () => postCommand({ type: 'removeRemote', name: remote.name }),
+      }),
+    },
     { divider: true },
     { label: loc.contextMenu.copyName, action: () => navigator.clipboard.writeText(remote.name) },
     { label: loc.contextMenu.copyUrl, action: () => navigator.clipboard.writeText(remote.fetchUrl) },

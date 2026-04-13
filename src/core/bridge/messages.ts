@@ -13,7 +13,7 @@ import {
   MergeState,
   RecoveryIssue,
 } from '../git/types';
-import type { ConflictContent } from '../git/ConflictParser';
+import type { ConflictContent } from '../git/types';
 
 // ─── Renderer → Main (commands via IPC) ───
 
@@ -91,6 +91,7 @@ export type RendererCommand =
   | { type: 'abortMerge' }
   | { type: 'getConflictContent'; file: string }
   | { type: 'resolveConflict'; file: string; resolutions: ('ours' | 'theirs' | 'both-ours-first' | 'both-theirs-first')[] }
+  | { type: 'resolveConflictRaw'; file: string; content: string }
   | { type: 'getMergeState' }
   | { type: 'predictConflicts'; source: string; target: string }
 

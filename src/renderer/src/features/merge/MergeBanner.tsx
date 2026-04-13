@@ -1,17 +1,33 @@
 import { postCommand } from '../../api';
 import { t, tpl } from '../../i18n';
 import type { MergeState } from '../../types';
-import s from './Merge.module.css';
+import type { ShowPrompt } from '../graph/commitMenuItems';
+import s from './MergeBanner.module.css';
 
 interface Props {
   mergeState: MergeState;
+  showPrompt?: ShowPrompt;
 }
 
-export function MergeBanner({ mergeState }: Props) {
+export function MergeBanner({ mergeState, showPrompt }: Props) {
   if (!mergeState.inProgress) return null;
 
   const loc = t();
   const conflicted = mergeState.conflictFiles.filter(f => f.status === 'conflicted').length;
+
+  const handleAbort = () => {
+    if (showPrompt) {
+      showPrompt({
+        title: loc.merge.abort,
+        message: loc.dialog.resetHardMessage,
+        confirmLabel: loc.mergeBanner.abort,
+        danger: true,
+        onConfirm: () => postCommand({ type: 'abortMerge' }),
+      });
+    } else {
+      postCommand({ type: 'abortMerge' });
+    }
+  };
 
   return (
     <div className={s.banner}>
@@ -25,7 +41,7 @@ export function MergeBanner({ mergeState }: Props) {
           ? ` ${tpl(loc.mergeBanner.fixConflicts, { count: conflicted })}`
           : ` ${loc.mergeBanner.allResolved}`}
       </span>
-      <button className={s.bannerAbort} onClick={() => postCommand({ type: 'abortMerge' })}>
+      <button className={s.bannerAbort} onClick={handleAbort}>
         {loc.mergeBanner.abort}
       </button>
     </div>

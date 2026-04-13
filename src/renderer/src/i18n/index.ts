@@ -3,7 +3,8 @@ import { en } from './en';
 export { useLocale } from './useLocale';
 
 type DeepString<T> = { [K in keyof T]: T[K] extends object ? DeepString<T[K]> : string };
-export type Locale = DeepString<typeof ru>;
+export type LocaleMap = DeepString<typeof en>;
+export type Locale = LocaleMap;
 export type LangCode = 'ru' | 'en';
 
 const locales: Record<LangCode, Locale> = { ru, en };
