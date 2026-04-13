@@ -20,7 +20,7 @@ import { SgSplitPane } from './ui/SgSplitPane';
 import { SgToastContainer } from './ui/SgToast';
 import { usePromptDialog, SgPromptDialog } from './ui/SgPromptDialog';
 import { postCommand } from './api';
-import { t, setLang, getLang } from './i18n';
+import { t, tpl, setLang, getLang } from './i18n';
 import { UiShowcase } from './pages/UiShowcase';
 import { SgButton } from './ui';
 import s from './App.module.css';
@@ -38,6 +38,7 @@ export function App() {
     pendingOpenDiff, clearPendingOpenDiff,
     pendingOpenMergeEditor, clearPendingOpenMergeEditor,
     pendingMenuAction, clearPendingMenuAction,
+    lastOpResult, clearLastOpResult,
   } = useAppState();
 
   const { theme, toggleTheme } = useTheme();
@@ -55,6 +56,28 @@ export function App() {
   const [page, setPage] = useState<Page>('app');
   const [lang, setLangState] = useState(getLang);
   const loc = t();
+
+  useEffect(() => {
+    if (!lastOpResult) return;
+    clearLastOpResult();
+    const { operation, success } = lastOpResult;
+    const ops = loc.operations;
+    const silentOps = ['createBranch', 'deleteBranch', 'renameBranch', 'createTag', 'deleteTag',
+      'addRemote', 'removeRemote', 'renameRemote', 'submoduleInit', 'submoduleUpdate',
+      'clone', 'init'];
+    if (silentOps.includes(operation)) return;
+    if (success) {
+      const msg: Record<string, string> = {
+        fetch: ops.fetchSuccess, pull: ops.pullSuccess, push: ops.pushSuccess,
+        stash: ops.stashSuccess, stashPop: ops.stashPopSuccess,
+        commit: ops.commitSuccess, merge: ops.mergeSuccess, rebase: ops.rebaseSuccess,
+        'cherry-pick': ops.cherryPickSuccess, revert: ops.revertSuccess,
+        reset: ops.resetSuccess, checkout: ops.genericSuccess,
+      };
+      const text = msg[operation] || tpl(ops.genericSuccess, { operation });
+      addToast(text, 'success');
+    }
+  }, [lastOpResult, clearLastOpResult, loc, addToast]);
 
   useEffect(() => {
     if (state.repoPath && state.repoName) {

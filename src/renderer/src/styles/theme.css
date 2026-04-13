@@ -59,10 +59,10 @@
 
   --sg-dialog-overlay: rgba(0, 0, 0, 0.5);
 
-  --sg-toast-info-bg: #063b6e;
-  --sg-toast-success-bg: #1b4332;
-  --sg-toast-warning-bg: #5c4813;
-  --sg-toast-error-bg: #6e1a0e;
+  --sg-toast-info-bg: #cce5ff;
+  --sg-toast-success-bg: #d4edda;
+  --sg-toast-warning-bg: #fff3cd;
+  --sg-toast-error-bg: #f8d7da;
 
   --sg-badge-bg: #3c3c3c;
 
@@ -88,6 +88,11 @@
   /* Semantic: diff stats */
   --sg-diff-added: #73c991;
   --sg-diff-deleted: #c74e39;
+
+  /* Diff line colors */
+  --sg-diff-add-bg: #d4edda;
+  --sg-diff-del-bg: #f8d7da;
+  --sg-diff-text: #1a1a1a;
 }
 
 /* Light theme — muted, not pure white */
@@ -158,4 +163,9 @@
 
   --sg-diff-added: #16825d;
   --sg-diff-deleted: #c74e39;
+
+  /* Diff line colors */
+  --sg-diff-add-bg: #d4edda;
+  --sg-diff-del-bg: #f8d7da;
+  --sg-diff-text: #1a1a1a;
 }

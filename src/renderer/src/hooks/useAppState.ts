@@ -6,6 +6,7 @@ import { setLang } from '../i18n';
 export interface OpenDiffEvent { file: string; hash: string }
 export interface OpenMergeEditorEvent { file: string }
 export interface MenuActionEvent { action: string }
+export interface OperationResult { operation: string; success: boolean; error?: string }
 
 const EMPTY_STATE: AppState = {
   repoPath: '',
@@ -39,6 +40,7 @@ export function useAppState() {
   const [pendingOpenDiff, setPendingOpenDiff] = useState<OpenDiffEvent | null>(null);
   const [pendingOpenMergeEditor, setPendingOpenMergeEditor] = useState<OpenMergeEditorEvent | null>(null);
   const [pendingMenuAction, setPendingMenuAction] = useState<MenuActionEvent | null>(null);
+  const [lastOpResult, setLastOpResult] = useState<OperationResult | null>(null);
 
   useEffect(() => {
     const unsubscribe = onMainEvent((msg: MainEvent) => {
@@ -77,6 +79,7 @@ export function useAppState() {
             isOperationRunning: false,
             currentOperation: null,
           }));
+          setLastOpResult({ operation: msg.operation, success: msg.success, error: msg.error });
           if (!msg.success && msg.error) {
             setError(msg.error);
           }
@@ -149,6 +152,7 @@ export function useAppState() {
   const clearPendingOpenMergeEditor = useCallback(() => setPendingOpenMergeEditor(null), []);
   const clearPendingMenuAction = useCallback(() => setPendingMenuAction(null), []);
   const clearRecoveryIssues = useCallback(() => setRecoveryIssues([]), []);
+  const clearLastOpResult = useCallback(() => setLastOpResult(null), []);
 
   return {
     state, commitDetail, mergeState, error, selectCommit, clearError,
@@ -158,5 +162,6 @@ export function useAppState() {
     pendingOpenDiff, clearPendingOpenDiff,
     pendingOpenMergeEditor, clearPendingOpenMergeEditor,
     pendingMenuAction, clearPendingMenuAction,
+    lastOpResult, clearLastOpResult,
   };
 }

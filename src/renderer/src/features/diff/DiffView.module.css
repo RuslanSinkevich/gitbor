@@ -127,15 +127,17 @@
 }
 
 .lineAdd {
-  background: color-mix(in srgb, #2ea043 18%, transparent);
+  background: var(--sg-diff-add-bg, color-mix(in srgb, #2ea043 22%, transparent));
 }
 
 .lineRemove {
-  background: color-mix(in srgb, #f85149 18%, transparent);
+  background: var(--sg-diff-del-bg, color-mix(in srgb, #f85149 22%, transparent));
 }
 
-.lineAdd .lineContent { color: #3fb950; }
-.lineRemove .lineContent { color: #f85149; }
+.lineAdd .lineContent,
+.lineRemove .lineContent {
+  color: var(--sg-diff-text, inherit);
+}
 
 .binary {
   padding: 24px;

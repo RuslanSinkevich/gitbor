@@ -245,12 +245,12 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   animation: sg-toast-in 200ms ease;
 }
-.sg-toast--info { background: var(--sg-toast-info-bg); color: #cfe2ff; }
-.sg-toast--success { background: var(--sg-toast-success-bg); color: #d1e7dd; }
-.sg-toast--warning { background: var(--sg-toast-warning-bg); color: #fff3cd; }
-.sg-toast--error { background: var(--sg-toast-error-bg); color: #f8d7da; }
-.sg-toast-close { background: none; border: none; color: inherit; opacity: 0.6; cursor: pointer; font-size: 16px; }
-.sg-toast-close:hover { opacity: 1; }
+.sg-toast--info { background: var(--sg-toast-info-bg); color: #1a1a1a; }
+.sg-toast--success { background: var(--sg-toast-success-bg); color: #1a1a1a; }
+.sg-toast--warning { background: var(--sg-toast-warning-bg); color: #1a1a1a; }
+.sg-toast--error { background: var(--sg-toast-error-bg); color: #1a1a1a; }
+.sg-toast-close { background: none; border: none; color: #1a1a1a; opacity: 0.5; cursor: pointer; font-size: 16px; }
+.sg-toast-close:hover { opacity: 0.8; }
 @keyframes sg-toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* === Badge === */
