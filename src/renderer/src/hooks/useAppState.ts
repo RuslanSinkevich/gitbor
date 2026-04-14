@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { AppState, CommitDetail, MergeState, MainEvent, RebaseProgress, RecoveryIssue } from '../types';
-import { sendReady, postCommand, onMainEvent, onMenuAction } from '../api';
+import { sendReady, postCommand, onMainEvent } from '../api';
 import { setLang } from '../i18n';
 
 export interface OpenDiffEvent { file: string; hash: string }
 export interface OpenMergeEditorEvent { file: string }
-export interface MenuActionEvent { action: string }
 export interface OperationResult { operation: string; success: boolean; error?: string }
 
 const EMPTY_STATE: AppState = {
@@ -39,7 +38,6 @@ export function useAppState() {
   const [recoveryIssues, setRecoveryIssues] = useState<readonly RecoveryIssue[]>([]);
   const [pendingOpenDiff, setPendingOpenDiff] = useState<OpenDiffEvent | null>(null);
   const [pendingOpenMergeEditor, setPendingOpenMergeEditor] = useState<OpenMergeEditorEvent | null>(null);
-  const [pendingMenuAction, setPendingMenuAction] = useState<MenuActionEvent | null>(null);
   const [lastOpResult, setLastOpResult] = useState<OperationResult | null>(null);
 
   useEffect(() => {
@@ -109,35 +107,14 @@ export function useAppState() {
         case 'openMergeEditor':
           setPendingOpenMergeEditor({ file: msg.file });
           break;
-        case 'openFile':
-          break;
         case 'error':
           setError(msg.message);
           break;
       }
     });
 
-    const unsubMenu = onMenuAction((action) => {
-      switch (action) {
-        case 'fetch': postCommand({ type: 'fetch' }); break;
-        case 'pull': postCommand({ type: 'pull' }); break;
-        case 'push': postCommand({ type: 'push' }); break;
-        case 'stash': postCommand({ type: 'stash' }); break;
-        case 'stashPop': postCommand({ type: 'stashPop' }); break;
-        case 'refresh': postCommand({ type: 'refreshAll' }); break;
-        case 'newBranch':
-        case 'merge':
-        case 'about':
-        case 'closeRepo':
-        case 'openInExplorer':
-        case 'openInTerminal':
-          setPendingMenuAction({ action });
-          break;
-      }
-    });
-
     sendReady();
-    return () => { unsubscribe(); unsubMenu(); };
+    return () => { unsubscribe(); };
   }, []);
 
   const selectCommit = useCallback((hash: string | null) => {
@@ -154,7 +131,6 @@ export function useAppState() {
   const clearViewOverride = useCallback(() => setViewOverride(null), []);
   const clearPendingOpenDiff = useCallback(() => setPendingOpenDiff(null), []);
   const clearPendingOpenMergeEditor = useCallback(() => setPendingOpenMergeEditor(null), []);
-  const clearPendingMenuAction = useCallback(() => setPendingMenuAction(null), []);
   const clearRecoveryIssues = useCallback(() => setRecoveryIssues([]), []);
   const clearLastOpResult = useCallback(() => setLastOpResult(null), []);
 
@@ -165,7 +141,6 @@ export function useAppState() {
     recoveryIssues, clearRecoveryIssues,
     pendingOpenDiff, clearPendingOpenDiff,
     pendingOpenMergeEditor, clearPendingOpenMergeEditor,
-    pendingMenuAction, clearPendingMenuAction,
     lastOpResult, clearLastOpResult,
   };
 }

@@ -1,8 +1,7 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { postCommand } from '../api';
 import { t } from '../i18n';
 import type { AppState } from '../types';
-import type { MenuActionEvent } from './useAppState';
 
 interface Deps {
   state: AppState;
@@ -12,15 +11,13 @@ interface Deps {
   setShowRepoSettings: (v: boolean) => void;
   showPrompt: (opts: { title: string; placeholder: string; onConfirm: (v: string) => void }) => void;
   handleOpenMergeDialog: (source: string) => void;
-  pendingMenuAction: MenuActionEvent | null;
-  clearPendingMenuAction: () => void;
 }
 
 export function useMenuActions({
   state, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings, showPrompt,
-  handleOpenMergeDialog, pendingMenuAction, clearPendingMenuAction,
+  handleOpenMergeDialog,
 }: Deps) {
-  const dispatch = useCallback((action: string) => {
+  return useCallback((action: string) => {
     const loc = t();
     switch (action) {
       case 'fetch': postCommand({ type: 'fetch' }); break;
@@ -59,12 +56,4 @@ export function useMenuActions({
         break;
     }
   }, [state.currentBranch, state.branches, state.openRepos, state.activeRepoIndex, state.repoPath, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings, showPrompt, handleOpenMergeDialog]);
-
-  useEffect(() => {
-    if (!pendingMenuAction) return;
-    clearPendingMenuAction();
-    dispatch(pendingMenuAction.action);
-  }, [pendingMenuAction, clearPendingMenuAction, dispatch]);
-
-  return dispatch;
 }

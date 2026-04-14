@@ -4,8 +4,6 @@ export interface SkyForkAPI {
   invoke(command: unknown): Promise<unknown>;
   onEvent(callback: (event: unknown) => void): void;
   offEvent(): void;
-  onMenuAction(callback: (action: string) => void): void;
-  setLang(lang: string): Promise<void>;
   platform: string;
 }
 
@@ -26,12 +24,6 @@ const api: SkyForkAPI = {
       (api as any)._eventHandler = null;
     }
   },
-
-  onMenuAction: (callback: (action: string) => void) => {
-    ipcRenderer.on('skyfork:menu-action', (_e, action) => callback(action));
-  },
-
-  setLang: (lang: string) => ipcRenderer.invoke('skyfork:set-lang', lang),
 
   platform: process.platform,
 };

@@ -1,8 +1,6 @@
-import { app, BrowserWindow, Menu, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, Menu, dialog } from 'electron';
 import * as path from 'path';
 import * as net from 'net';
-import { buildMenu } from './menu';
-import { initLang, setLang } from './i18n';
 import { GitExecutor } from '../core/git/GitExecutor';
 import { StateManager } from '../core/state/StateManager';
 import { FileWatcher } from '../core/state/FileWatcher';
@@ -48,12 +46,6 @@ function waitForDevTcp(port: number, host = '127.0.0.1', timeoutMs = 45000): Pro
   });
 }
 
-function rebuildMenu(): void {
-  Menu.setApplicationMenu(buildMenu(() => {
-    commandHandler?.openRepoDialog();
-  }));
-}
-
 async function createWindow(): Promise<void> {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -62,7 +54,6 @@ async function createWindow(): Promise<void> {
     minHeight: 600,
     title: 'SkyFork',
     show: false,
-    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       sandbox: true,
@@ -154,16 +145,9 @@ async function autoOpenRepo(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
-  initLang();
-
   await initServices();
 
-  rebuildMenu();
-
-  ipcMain.handle('skyfork:set-lang', (_event, lang: string) => {
-    setLang(lang);
-    rebuildMenu();
-  });
+  Menu.setApplicationMenu(null);
 
   try {
     await createWindow();

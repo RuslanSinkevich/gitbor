@@ -148,7 +148,6 @@ export type MainEvent =
   | { type: 'predictedConflicts'; files: string[] }
   | { type: 'openDiff'; file: string; hash: string; repoPath: string }
   | { type: 'openMergeEditor'; file: string; repoPath: string }
-  | { type: 'openFile'; file: string; repoPath: string }
   | { type: 'showView'; view: 'changes' | 'commits' }
   | { type: 'stashDiff'; data: FileDiff[]; index: string }
   | { type: 'repoSettings'; data: import('../git/GitConfig').RepoSettings }

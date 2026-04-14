@@ -26,7 +26,7 @@ export function ButtonsSection() {
       <h3>Icon Buttons</h3>
       <div className="sg-showcase-row">
         <SgIconButton tooltip={loc.toolbar.fetch} size="sm">&#8635;</SgIconButton>
-        <SgIconButton tooltip={loc.menu.preferences} size="md">&#9881;</SgIconButton>
+        <SgIconButton tooltip={loc.menu.repoSettings} size="md">&#9881;</SgIconButton>
         <SgIconButton tooltip={loc.dialog.close} size="lg">&times;</SgIconButton>
       </div>
     </div>

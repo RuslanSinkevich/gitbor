@@ -4,8 +4,6 @@ interface SkyForkAPI {
   invoke(command: unknown): Promise<unknown>;
   onEvent(callback: (event: unknown) => void): void;
   offEvent(): void;
-  onMenuAction?(callback: (action: string) => void): void;
-  setLang(lang: string): Promise<void>;
   platform: string;
 }
 
@@ -61,30 +59,6 @@ export function onMainEvent(callback: (event: MainEvent) => void): EventUnsubscr
 
 export function sendReady(): void {
   postCommand({ type: 'ready' });
-}
-
-const menuListeners = new Set<(action: string) => void>();
-let menuListenerAttached = false;
-
-export function onMenuAction(callback: (action: string) => void): () => void {
-  if (!menuListenerAttached) {
-    const api = getAPI();
-    if (api?.onMenuAction) {
-      menuListenerAttached = true;
-      api.onMenuAction((action) => {
-        for (const listener of menuListeners) {
-          try { listener(action); } catch { /* ignore */ }
-        }
-      });
-    }
-  }
-  menuListeners.add(callback);
-  return () => { menuListeners.delete(callback); };
-}
-
-export function setRemoteLang(lang: string): void {
-  const api = getAPI();
-  api?.setLang(lang);
 }
 
 export const isElectron = !!window.skyForkAPI;

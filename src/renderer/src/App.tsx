@@ -6,6 +6,7 @@ import { useToasts } from './hooks/useToasts';
 import { useContextMenu } from './hooks/useContextMenu';
 import { useMenuActions } from './hooks/useMenuActions';
 import { useOperationToasts } from './hooks/useOperationToasts';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { TitleBar } from './features/titlebar';
 import { CommitsView, ChangesView, type RightPanel } from './features/layout';
 import { MergeDialog, MergeBanner, MergeEditor } from './features/merge';
@@ -22,7 +23,7 @@ import { AboutDialog } from './ui/AboutDialog';
 import { SshKeysDialog } from './features/ssh';
 import { RepoSettingsDialog } from './features/settings';
 import { postCommand } from './api';
-import { t, setLang, getLang } from './i18n';
+import { t, tpl, setLang, getLang } from './i18n';
 import { UiShowcase } from './pages/UiShowcase';
 import s from './App.module.css';
 
@@ -33,9 +34,9 @@ export function App() {
   const {
     state, commitDetail, mergeState, error, selectCommit, clearError,
     viewOverride, clearViewOverride,
+    rebaseProgress,
     pendingOpenDiff, clearPendingOpenDiff,
     pendingOpenMergeEditor, clearPendingOpenMergeEditor,
-    pendingMenuAction, clearPendingMenuAction,
     lastOpResult, clearLastOpResult,
   } = useAppState();
 
@@ -66,8 +67,10 @@ export function App() {
 
   const handleMenuAction = useMenuActions({
     state, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings, showPrompt,
-    handleOpenMergeDialog, pendingMenuAction, clearPendingMenuAction,
+    handleOpenMergeDialog,
   });
+
+  useKeyboardShortcuts(handleMenuAction);
 
   useEffect(() => {
     if (state.repoPath && state.repoName) addRecentRepo(state.repoName, state.repoPath);
@@ -178,6 +181,24 @@ export function App() {
           )}
 
           {mergeState?.inProgress && <MergeBanner mergeState={mergeState} showPrompt={showPrompt} />}
+
+          {rebaseProgress?.inProgress && (
+            <div className={s.rebaseBanner}>
+              <span className={s.rebaseBannerIcon}>⟳</span>
+              <span className={s.rebaseBannerText}>
+                {tpl(loc.rebaseEditor.progress, { current: rebaseProgress.currentStep, total: rebaseProgress.totalSteps })}
+              </span>
+              <button className={s.rebaseBannerBtn} onClick={() => postCommand({ type: 'continueRebase' })}>
+                {loc.rebaseEditor.continue}
+              </button>
+              <button className={s.rebaseBannerBtn} onClick={() => postCommand({ type: 'skipRebase' })}>
+                {loc.rebaseEditor.skip}
+              </button>
+              <button className={s.rebaseBannerAbort} onClick={() => postCommand({ type: 'abortRebase' })}>
+                {loc.rebaseEditor.abort}
+              </button>
+            </div>
+          )}
 
           <main className={s.main}>
             {hasRepo ? (

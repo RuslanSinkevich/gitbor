@@ -34,6 +34,17 @@ export function TitleBar({ loc, page, setPage, lang, toggleLang, theme, toggleTh
       ],
     },
     {
+      label: loc.menu.edit,
+      items: [
+        { label: loc.menu.undo, accelerator: 'Ctrl+Z', action: () => document.execCommand('undo') },
+        { label: loc.menu.redo, accelerator: 'Ctrl+Y', action: () => document.execCommand('redo') },
+        { type: 'separator', label: '' },
+        { label: loc.menu.cut, accelerator: 'Ctrl+X', action: () => document.execCommand('cut') },
+        { label: loc.menu.copy, accelerator: 'Ctrl+C', action: () => document.execCommand('copy') },
+        { label: loc.menu.paste, accelerator: 'Ctrl+V', action: () => navigator.clipboard.readText().then(t => document.execCommand('insertText', false, t)).catch(() => {}) },
+      ],
+    },
+    {
       label: loc.menu.view,
       items: [
         { label: loc.menu.changes, accelerator: 'Ctrl+1', action: () => onMenuAction('viewChanges') },

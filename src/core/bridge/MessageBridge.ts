@@ -1,8 +1,7 @@
-import { BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { CommandHandler } from '../commands/CommandHandler';
 import { StateManager } from '../state/StateManager';
 import { RendererCommand, MainEvent } from './messages';
-import { getLang } from '../../main/i18n';
 
 type CmdOf<K extends RendererCommand['type']> = Extract<RendererCommand, { type: K }>;
 
@@ -63,12 +62,12 @@ function mergeStateAfter<K extends RendererCommand['type']>(
 const handlers: HandlerTable = {
   ready: async (_cmd, ctx) => {
     const state = ctx.sm.getState();
-    ctx.send({ type: 'config', lang: getLang() });
+    ctx.send({ type: 'config', lang: app.getLocale() });
     ctx.send({ type: 'fullState', data: state });
   },
   getState: async (_cmd, ctx) => {
     const state = ctx.sm.getState();
-    ctx.send({ type: 'config', lang: getLang() });
+    ctx.send({ type: 'config', lang: app.getLocale() });
     ctx.send({ type: 'fullState', data: state });
   },
   refreshAll: async (_cmd, ctx) => {
@@ -229,8 +228,12 @@ const handlers: HandlerTable = {
     ctx.send({ type: 'openMergeEditor', ...payload });
   },
   openFile: async (cmd, ctx) => {
-    const payload = ctx.ch.getFilePayload(cmd.file);
-    ctx.send({ type: 'openFile', ...payload });
+    const path = await import('path');
+    const repoPath = ctx.sm.getState().repoPath;
+    if (repoPath) {
+      const fullPath = path.join(repoPath, cmd.file);
+      shell.openPath(fullPath);
+    }
   },
   switchView: async (cmd, ctx) => {
     ctx.send({ type: 'showView', view: cmd.view });
