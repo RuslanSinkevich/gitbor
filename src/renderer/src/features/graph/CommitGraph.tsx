@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useMemo } from 'react';
+import { useRef, useEffect, useCallback, useMemo, type KeyboardEvent as ReactKBEvent } from 'react';
 import { t, tpl } from '../../i18n';
 import type { Commit, GraphNode, MergeLink } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
@@ -22,9 +22,12 @@ interface Props {
   showPrompt: ShowPrompt;
   onRebase?: OnRebase;
   onLoadMore?: () => void;
+  compareFrom?: string | null;
+  onCompareFrom?: (hash: string) => void;
+  onCompareTo?: (from: string, to: string) => void;
 }
 
-export function CommitGraph({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, currentBranch, onContextMenu, showPrompt, onRebase, onLoadMore }: Props) {
+export function CommitGraph({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, currentBranch, onContextMenu, showPrompt, onRebase, onLoadMore, compareFrom, onCompareFrom, onCompareTo }: Props) {
   const loc = t();
   const graphWidth = LEFT_PAD * 2 + (maxColumns + 1) * COL_WIDTH + 12;
   const totalHeight = commits.length * ROW_HEIGHT;
@@ -89,8 +92,20 @@ export function CommitGraph({ commits, graphNodes, maxColumns, mergeLinks, selec
 
   const visibleCommits = commits.slice(visibleRange.start, visibleRange.end);
 
+  const handleKeyDown = useCallback((e: ReactKBEvent<HTMLDivElement>) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const idx = commits.findIndex(c => hashMatch(c.hash, selectedHash));
+    if (idx < 0) { if (commits.length) onSelect(commits[0].hash); return; }
+    const next = e.key === 'ArrowUp' ? idx - 1 : idx + 1;
+    if (next >= 0 && next < commits.length) {
+      onSelect(commits[next].hash);
+      scrollToRow(next);
+    }
+  }, [commits, selectedHash, onSelect, scrollToRow, hashMatch]);
+
   return (
-    <div className={s.root}>
+    <div className={s.root} tabIndex={0} onKeyDown={handleKeyDown}>
       {search.searchVisible && (
         <div className={s.searchBar}>
           <input ref={search.searchRef} className={s.searchInput} type="text" placeholder={loc.graph.searchPlaceholder}
@@ -145,7 +160,7 @@ export function CommitGraph({ commits, graphNodes, maxColumns, mergeLinks, selec
                 className={`${s.row} ${hashMatch(commit.hash, selectedHash) ? s.rowSelected : ''} ${isHead(commit) ? s.rowHead : ''} ${search.searchMatchSet.has(i) ? s.rowSearchMatch : ''}`}
                 style={{ top: i * ROW_HEIGHT, height: ROW_HEIGHT }}
                 onClick={() => onSelect(commit.hash)}
-                onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getCommitMenuItems(commit, currentBranch, showPrompt, onRebase)); }}>
+                onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getCommitMenuItems(commit, currentBranch, showPrompt, onRebase, compareFrom, onCompareFrom, onCompareTo)); }}>
                 <div className={s.rowDesc} style={{ paddingLeft: descLeft }}>
                   {commit.refs.map((ref) => (
                     <span key={ref.name} className={s.refBadge} style={{ background: nodeColor, color: '#fff', borderColor: nodeColor }}>{ref.name}</span>

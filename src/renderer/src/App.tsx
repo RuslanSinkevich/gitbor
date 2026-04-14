@@ -58,6 +58,7 @@ export function App() {
   const [conflictFile, setConflictFile] = useState<string | null>(null);
   const [mergeEditorFile, setMergeEditorFile] = useState<string | null>(null);
   const [rebaseOnto, setRebaseOnto] = useState<string | null>(null);
+  const [compareFromHash, setCompareFromHash] = useState<string | null>(null);
   const [page, setPage] = useState<Page>('app');
   const [lang, setLangState] = useState(getLang);
   const dlg = useDialogs();
@@ -144,6 +145,11 @@ export function App() {
   const handleSelectRef = useCallback((hash: string) => {
     setViewMode('commits'); setRightPanel('diff'); closeDiff(); selectCommit(hash);
   }, [selectCommit, closeDiff]);
+
+  const handleCompareTo = useCallback((fromHash: string, toHash: string) => {
+    postCommand({ type: 'getCommitDiff', fromHash, toHash });
+    setCompareFromHash(null);
+  }, []);
 
   const openFileHistory = useCallback((file: string) => {
     openDiff(file, diffTarget?.hash || 'WORKING'); setRightPanel('history');
@@ -236,6 +242,9 @@ export function App() {
                         openFileHistory={openFileHistory} openFileBlame={openFileBlame}
                         showContextMenu={showContextMenu} showPrompt={showPrompt}
                         setRebaseOnto={setRebaseOnto}
+                        compareFrom={compareFromHash}
+                        onCompareFrom={setCompareFromHash}
+                        onCompareTo={handleCompareTo}
                       />
                     ) : (
                       <ChangesView

@@ -144,6 +144,9 @@ export type RendererCommand =
   | { type: 'bisectReset' }
   | { type: 'getBisectStatus' }
 
+  // Compare two commits
+  | { type: 'getCommitDiff'; fromHash: string; toHash: string }
+
   // Renderer-handled views
   | { type: 'openDiff'; file: string; hash: string }
   | { type: 'openMergeEditor'; file: string }
@@ -185,4 +188,5 @@ export type MainEvent =
   | { type: 'reflog'; data: ReflogEntry[] }
   | { type: 'bisectStatus'; data: import('../git/BisectManager').BisectStatus }
   | { type: 'bisectOutput'; output: string }
+  | { type: 'commitDiff'; data: { fromHash: string; toHash: string; files: import('../git/types').FileChange[] } }
   | { type: 'error'; message: string };

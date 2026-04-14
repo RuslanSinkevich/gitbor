@@ -23,7 +23,7 @@ function formatCommitInfo(commit: Commit): string {
 
 export type OnRebase = (onto: string) => void;
 
-export function getCommitMenuItems(commit: Commit, currentBranch: string, showPrompt: ShowPrompt, onRebase?: OnRebase): SgContextMenuItem[] {
+export function getCommitMenuItems(commit: Commit, currentBranch: string, showPrompt: ShowPrompt, onRebase?: OnRebase, compareFrom?: string | null, onCompareFrom?: (hash: string) => void, onCompareTo?: (from: string, to: string) => void): SgContextMenuItem[] {
   const loc = t();
   const shortHash = commit.hash.substring(0, 7);
 
@@ -103,6 +103,11 @@ export function getCommitMenuItems(commit: Commit, currentBranch: string, showPr
     { divider: true },
 
     { label: loc.contextMenu.compareToLocal, action: () => postCommand({ type: 'openDiff', file: '.', hash: commit.hash }) },
+    { label: loc.contextMenu.compareFrom, action: () => onCompareFrom?.(commit.hash) },
+    ...(compareFrom && compareFrom !== commit.hash ? [{
+      label: tpl(loc.contextMenu.compareTo, { hash: compareFrom.substring(0, 7) }),
+      action: () => onCompareTo?.(compareFrom, commit.hash),
+    }] : []),
     { divider: true },
 
     { label: loc.contextMenu.copySha, shortcut: 'Ctrl+C', action: () => navigator.clipboard.writeText(commit.hash) },

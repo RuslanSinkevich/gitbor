@@ -268,6 +268,8 @@ export const ru: LocaleMap = {
     resetToHere: "Сбросить «{branch}» сюда...",
     saveAsPatch: 'Сохранить как патч...',
     compareToLocal: 'Сравнить с локальными изменениями',
+    compareFrom: 'Сравнить отсюда',
+    compareTo: "Сравнить с «{hash}»",
     copyCommitInfo: 'Копировать информацию о коммите',
     fileHistory: 'История файла',
     blame: 'Blame',

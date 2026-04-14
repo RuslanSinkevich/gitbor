@@ -1,6 +1,6 @@
 import { dialog, BrowserWindow } from 'electron';
 import { GitExecutor } from '../git/GitExecutor';
-import { CommitDetail, CommitGraphData, FileDiff, BlameResult, FileHistoryResult, Submodule, RebaseTodoEntry, RebaseTodoList, RebaseProgress, MergeOptions, MergeResult, MergeState, OperationResult, ReflogEntry } from '../git/types';
+import { CommitDetail, CommitGraphData, FileDiff, BlameResult, FileHistoryResult, Submodule, RebaseTodoEntry, RebaseTodoList, RebaseProgress, MergeOptions, MergeResult, MergeState, OperationResult, ReflogEntry, FileChange } from '../git/types';
 import { RebaseManager } from '../git/RebaseManager';
 import { BisectManager, type BisectStatus } from '../git/BisectManager';
 import { HooksManager, type HookInfo } from '../git/HooksManager';
@@ -325,6 +325,15 @@ export class CommandHandler {
 
   async getBisectStatus(): Promise<BisectStatus> {
     return this.queue.enqueueRead('getBisectStatus', () => this.bisect.getStatus());
+  }
+
+  // ─── Compare two commits ───
+  async getCommitDiff(fromHash: string, toHash: string): Promise<FileChange[]> {
+    return this.queue.enqueueRead('getCommitDiff', async () => {
+      const r = await this.git.exec(['diff', '--name-status', `${fromHash}..${toHash}`]);
+      const { parseFileChanges } = await import('../git/GitParser');
+      return parseFileChanges(r.stdout);
+    });
   }
 
   // ─── Reflog ───

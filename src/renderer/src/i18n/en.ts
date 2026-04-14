@@ -266,6 +266,8 @@ export const en = {
     resetToHere: "Reset '{branch}' to Here...",
     saveAsPatch: 'Save as Patch...',
     compareToLocal: 'Compare to Local Changes',
+    compareFrom: 'Compare From Here',
+    compareTo: "Compare with '{hash}'",
     copyCommitInfo: 'Copy Commit Info',
     fileHistory: 'File History',
     blame: 'Blame',

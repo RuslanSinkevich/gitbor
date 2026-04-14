@@ -17,12 +17,16 @@ interface Props {
   showContextMenu: (e: React.MouseEvent, items: any[]) => void;
   showPrompt: any;
   setRebaseOnto: (onto: string | null) => void;
+  compareFrom?: string | null;
+  onCompareFrom?: (hash: string) => void;
+  onCompareTo?: (from: string, to: string) => void;
 }
 
 export function CommitsView({
   state, commitDetail, diffTarget, rightPanel, setRightPanel,
   selectCommit, openDiff, openFileHistory, openFileBlame,
   showContextMenu, showPrompt, setRebaseOnto,
+  compareFrom, onCompareFrom, onCompareTo,
 }: Props) {
   return (
     <div className={s.commitsLayout}>
@@ -39,6 +43,9 @@ export function CommitsView({
           showPrompt={showPrompt}
           onRebase={setRebaseOnto}
           onLoadMore={() => postCommand({ type: 'getGraphData', maxCount: state.commits.length + 2000 })}
+          compareFrom={compareFrom}
+          onCompareFrom={onCompareFrom}
+          onCompareTo={onCompareTo}
         />
       </div>
       <div className={s.commitBottomPane}>
