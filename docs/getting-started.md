@@ -33,7 +33,7 @@ Vite serves the React renderer. `tsc` compiles main-process TypeScript into `dis
 | `src/main/` | Electron entry: `main.ts`, `menu.ts`, `i18n/` |
 | `src/preload/` | `contextBridge` — `index.ts` |
 | `src/renderer/` | React UI: `features/`, `hooks/`, `ui/`, `api.ts`, `types/`, `i18n/`, `styles/` |
-| `tests/` | Tests (Vitest): `git/`, `safety/`, `bridge/`, `i18n/` |
+| `tests/` | Tests (Vitest): `git/`, `commands/`, `utils/`, `safety/`, `bridge/`, `i18n/` |
 | `docs/` | Documentation |
 | `dist/` | Compiled output |
 

@@ -25,11 +25,15 @@ npm run build        # Сборка renderer + main
 npm start            # Запуск собранного приложения
 ```
 
-### Тесты
+### Тесты и линтинг
 
 ```bash
 npm test             # Запуск всех тестов (Vitest)
+npm run test:coverage # Тесты с покрытием
 npx vitest           # Watch-режим
+npm run lint         # ESLint проверка
+npm run lint:fix     # ESLint с автофиксом
+npm run format       # Prettier форматирование
 ```
 
 ### Дистрибуция
@@ -50,6 +54,8 @@ npm run dist:linux   # Linux (AppImage + deb)
 | UI | React 18, TypeScript, Vite 5 |
 | Стили | CSS Modules, CSS-переменные `--sg-*` |
 | Файловый наблюдатель | chokidar |
+| Линтинг | ESLint (flat config) + Prettier |
+| CI | GitHub Actions (lint, typecheck, test, build на 3 ОС) |
 | Git | Встроенный git binary (`resources/git/{platform}/git`) |
 
 ---
@@ -123,8 +129,8 @@ skyfork/
 │   │   │   ├── StateManager.ts    # Единый источник состояния, мульти-репо
 │   │   │   └── FileWatcher.ts     # Наблюдатель за файлами (chokidar, debounce 300ms)
 │   │   └── utils/
-│   │       ├── Logger.ts          # Файловое логирование
-│   │       └── pathSecurity.ts    # Защита от path traversal (safePath, isSafeFilename)
+│   │       ├── Logger.ts          # Асинхронное файловое логирование (WriteStream)
+│   │       └── pathSecurity.ts    # Защита от path traversal + symlink + Windows case-insensitive
 │   │
 │   ├── main/                      # Точка входа Electron
 │   │   └── main.ts                # Создание окна, инициализация сервисов, без нативного меню
@@ -134,8 +140,9 @@ skyfork/
 │   │
 │   └── renderer/                  # Фронтенд (React)
 │       ├── src/
-│       │   ├── App.tsx            # Корневой компонент (только композиция)
-│       │   ├── api.ts             # Обёртка над skyForkAPI (invoke, onEvent)
+│       │   ├── App.tsx            # Корневой компонент (композиция)
+│       │   ├── AppDialogs.tsx    # Все модальные диалоги (вынесены из App.tsx)
+│       │   ├── api.ts             # Обёртка над skyForkAPI (invoke, onEvent, setIpcErrorHandler)
 │       │   ├── features/          # Функциональные модули
 │       │   │   ├── graph/         # Граф коммитов (виртуализированный)
 │       │   │   ├── sidebar/       # Боковая панель (ветки, теги, stash, remotes)
@@ -168,8 +175,10 @@ skyfork/
 │       ├── package.json
 │       └── vite.config.ts
 │
-├── tests/                         # Тесты (Vitest)
-│   ├── git/                       # Парсеры, менеджеры
+├── tests/                         # Тесты (Vitest, 208 тестов)
+│   ├── git/                       # Парсеры, менеджеры (GitExecutor, RebaseManager, ...)
+│   ├── commands/                  # writeCommands, ConflictManager
+│   ├── utils/                     # pathSecurity
 │   ├── safety/                    # OperationQueue, AtomicWrite, Journal
 │   ├── bridge/                    # IPC-контракты
 │   └── i18n/                      # Полнота локализации, шаблоны
@@ -181,11 +190,15 @@ skyfork/
 │   ├── contributing.md            # Руководство по контрибьюции
 │   ├── testing.md                 # Тестирование (Vitest)
 │   ├── ru/                        # Русские переводы
-│   └── internal/                  # Внутренняя документация модулей
+│   └── ru/                        # Русские переводы
 │
 ├── dist/                          # Результат сборки
+├── .github/workflows/ci.yml      # GitHub Actions CI
 ├── .gitattributes                 # Нормализация line endings
-├── vitest.config.ts               # Конфигурация Vitest
+├── .editorconfig                  # Единый стиль отступов и EOL
+├── .prettierrc                    # Конфигурация Prettier
+├── eslint.config.mjs              # ESLint flat config
+├── vitest.config.ts               # Конфигурация Vitest + coverage
 ├── package.json                   # Electron 28, TypeScript 5.3
 └── tsconfig.json
 ```
@@ -236,8 +249,11 @@ skyfork/
 
 ### Безопасность ввода
 
-- **Path traversal protection** — `safePath()` валидирует все пути через IPC, не позволяя выйти за пределы репозитория
+- **Path traversal protection** — `safePath()` валидирует пути через IPC: `realpathSync.native` для symlink, регистронезависимость на Windows
 - **Filename validation** — `isSafeFilename()` проверяет имена SSH-ключей и git hooks на спецсимволы
+- **IPC validation** — `handleCommand` валидирует `unknown` → проверка `type: string` перед dispatch
+- **Shell injection protection** — `openInTerminal` использует `execFile`/`spawn` вместо `exec`
+- **Log sanitization** — `sanitizeArgs` редактирует пароли и сообщения коммитов в логах
 - **Safe clipboard** — `copyToClipboard()` обёртка с обработкой ошибок для всех операций буфера обмена
 - **Electron sandbox** — `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`
 - **Атомарная запись** — запись через tmp+rename с fsync, retry на Windows, защита от повреждения при крашe
@@ -261,13 +277,11 @@ skyfork/
 | [Участие в разработке](contributing.md) | Стиль кода, конвенции, чеклист PR |
 | [Тестирование](testing.md) | Vitest, структура тестов, ручное тестирование фич |
 
-Внутренняя документация модулей: [`docs/internal/`](../internal/INDEX.md)
-
 ---
 
 ## Статус
 
-Версия 0.1.0. Бэкенд и UI функционально готовы для MVP. 154 юнит-теста (Vitest). Не протестирован в production.
+Версия 0.1.0. Бэкенд и UI функционально готовы для MVP. **208** юнит-тестов (Vitest), ESLint + Prettier, CI через GitHub Actions. Не протестирован в production.
 
 ## Лицензия
 

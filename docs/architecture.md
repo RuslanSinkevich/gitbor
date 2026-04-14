@@ -27,7 +27,7 @@ User clicks button in React
   → preload/index.ts → ipcRenderer.invoke('skyfork:command', command)
   → MessageBridge.handleCommand(command)
   → CommandHandler.stageFile('src/app.ts')
-  → writeCommands.stageFile() → git.exec(['add', 'src/app.ts'])
+  → writeCommands.stageFile() → git.exec(['add', '--', 'src/app.ts'])
   → StateManager.refreshStatusAndNotify()
   → MessageBridge.send({ type: 'stateUpdate', data: newState })
   → preload → ipcRenderer.on('skyfork:event')
@@ -41,7 +41,7 @@ Modules under `src/core/`:
 
 | Module | Role |
 |--------|------|
-| **GitExecutor** | Runs Git via `execFile`, ~30s timeout, env support, logs to file. |
+| **GitExecutor** | Runs Git via `execFile`, ~30s timeout, env support, logs to file. Sensitive args (messages, passphrases) redacted via `sanitizeArgs`. |
 | **GitParser** | Pure parsers: `parseCommits`, `parseBranches`, `parseTags`, `parseStatus`, `parseFileChanges`. |
 | **GraphLayout** | Lane assignment for commit graph layout. |
 | **DiffParser** | Turns unified diff text into `FileDiff` / `DiffHunk` / `DiffLine`. |
@@ -52,15 +52,16 @@ Modules under `src/core/`:
 | **MessageBridge** | Electron IPC: accepts `RendererCommand`, dispatches to `CommandHandler`, emits `MainEvent` to the renderer. Strictly typed via mapped types. |
 | **OperationQueue** | Read ops may run in parallel; write ops are serialized. |
 | **SafetyNet** | Auto-stash before risky operations; rollback paths on failure. |
-| **FileWatcher** | `chokidar` on `.git` and the working tree; triggers state refresh. |
-| **SshKeyManager** | Lists, generates, deletes SSH keys in `~/.ssh/`. |
+| **FileWatcher** | `chokidar` on `.git` and the working tree (separate watchers); triggers state refresh. |
+| **Logger** | Async file logging via `WriteStream` (non-blocking). |
+| **SshKeyManager** | Lists, generates, deletes SSH keys in `~/.ssh/`. Two-step passphrase generation (no passphrase in argv). |
 | **ReflogParser** | Parses `git reflog` output into structured entries. |
 | **BisectManager** | Manages `git bisect` sessions: start, good, bad, skip, reset. |
 | **HooksManager** | Lists, toggles (enable/disable), reads git hooks content. |
 | **WorktreeManager** | Lists, adds, removes git worktrees. |
 | **LfsManager** | Git LFS status, track/untrack patterns, list managed files. |
-| **pathSecurity** | Path validation utils: `safePath` (path traversal protection), `isSafeFilename` (filename safety). |
-| **AtomicWrite** | Atomic file writes via tmp+rename with fsync and Windows retry logic. |
+| **pathSecurity** | Path validation: `safePath` (traversal + symlink via `realpathSync.native` + Windows case-insensitive), `isSafeFilename`. |
+| **AtomicWrite** | Atomic file writes via tmp+rename with fsync. Windows retry uses `Atomics.wait` (no busy-spin). |
 
 ## Renderer Modules
 
@@ -73,6 +74,7 @@ Feature folders under `src/renderer/src/features/`:
 | **changes/** | `LocalChanges` (tree), `CommitBar` (subject + description). |
 | **diff/** | `DiffPanel`, `DiffView`, `DiffHunkView`, `DiffSideBySide`, `ImageDiff`. |
 | **merge/** | `MergeDialog`, `MergeEditor`, `MergeBanner`, `ConflictPanel`. |
+| — | **`AppDialogs.tsx`** — all modal dialogs extracted from `App.tsx` for cleaner separation of concerns. |
 | **blame/** | `BlameView`. |
 | **file-history/** | `FileHistory`. |
 | **rebase/** | `RebaseEditor`. |
@@ -94,9 +96,9 @@ Custom hooks under `src/renderer/src/hooks/`:
 
 | Hook | Role |
 |------|------|
-| **useAppState** | Global state from main process, IPC event handling. |
+| **useAppState** | Global state from main process, IPC event handling. Language change triggers re-render via `configLang`. |
 | **useMenuActions** | Unified handler for menu bar actions (dispatch by action string). |
-| **useKeyboardShortcuts** | Maps keyboard shortcuts (Ctrl+O, Ctrl+Shift+F, F5, etc.) to menu actions. |
+| **useKeyboardShortcuts** | Maps keyboard shortcuts (Ctrl+O, Ctrl+Shift+F, F5, etc.) to menu actions. Skips in input/textarea/contentEditable. |
 | **useOperationToasts** | Auto-shows toast notifications for git operation results. |
 | **useDiffState** | Manages current diff target (file + hash). |
 | **useTheme** | Dark/light theme toggle with localStorage persistence. |

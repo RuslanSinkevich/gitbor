@@ -23,7 +23,7 @@ SkyFork — настольный Git-клиент на Electron.
 1. Создайте каталог `src/renderer/src/features/your-feature/`
 2. Создайте компонент `.tsx` и CSS Module `.module.css`
 3. Создайте `index.ts` с экспортами
-4. Подключите в `src/renderer/src/App.tsx`
+4. Подключите в `src/renderer/src/App.tsx` (для диалогов — в `src/renderer/src/AppDialogs.tsx`)
 5. Если нужен IPC — следуйте шагам из раздела «Как добавить новую Git-команду»
 
 ### Стиль кода
@@ -60,10 +60,12 @@ SkyFork — настольный Git-клиент на Electron.
 ### Чеклист PR
 
 - [ ] TypeScript собирается без ошибок (`npx tsc -p tsconfig.main.json`)
-- [ ] Нет ошибок линтера в изменённых файлах
+- [ ] ESLint проходит (`npm run lint`)
+- [ ] Форматирование корректно (`npm run format`)
 - [ ] Типы IPC синхронизированы между core и renderer
 - [ ] Новые возможности имеют соответствующие IPC-команды от начала до конца
 - [ ] Тесты проходят (`npm test`)
 - [ ] Пользовательские пути валидируются через `safePath()` / `isSafeFilename()`
 - [ ] Новые ключи i18n добавлены в оба языка (en + ru)
 - [ ] Проверено вручную в Electron (не только в браузере)
+- [ ] CI проходит (GitHub Actions: lint, typecheck, test, build на 3 ОС)

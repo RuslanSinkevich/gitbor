@@ -1,0 +1,16 @@
+docs: sync with codebase, remove outdated internal docs
+
+- Remove docs/internal/ (20 files, ~3200 lines) — obsolete design specs
+  that diverged from actual code (electron-store, IpcBridge, SkyForkAPI,
+  native menu references no longer valid)
+- Update architecture.md (en+ru): stageFile --, sanitizeArgs, pathSecurity
+  symlink/Windows, AppDialogs, Logger WriteStream, Atomics.wait
+- Update testing.md (en+ru): 208 tests/23 files, new test dirs
+  (commands/, utils/), SubmoduleParser conflict status, CI workflow,
+  coverage config
+- Update contributing.md (en+ru): AppDialogs.tsx, ESLint/Prettier in
+  PR checklist, CI requirement
+- Update getting-started.md (en+ru): tests/commands/, tests/utils/
+- Update ru/README.md: 208 tests, ESLint/CI/Prettier, new scripts,
+  project tree, security section
+- Remove dead internal/ links from README.md and ru/README.md

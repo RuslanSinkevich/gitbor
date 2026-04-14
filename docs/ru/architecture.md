@@ -29,7 +29,7 @@ User clicks button in React
   → preload/index.ts → ipcRenderer.invoke('skyfork:command', command)
   → MessageBridge.handleCommand(command)
   → CommandHandler.stageFile('src/app.ts')
-  → writeCommands.stageFile() → git.exec(['add', 'src/app.ts'])
+  → writeCommands.stageFile() → git.exec(['add', '--', 'src/app.ts'])
   → StateManager.refreshStatusAndNotify()
   → MessageBridge.send({ type: 'stateUpdate', data: newState })
   → preload → ipcRenderer.on('skyfork:event')
@@ -43,7 +43,7 @@ User clicks button in React
 
 | Модуль | Назначение |
 |--------|------------|
-| **GitExecutor** | Запуск Git через `execFile`, таймаут ~30 с, поддержка env, лог в файл. |
+| **GitExecutor** | Запуск Git через `execFile`, таймаут ~30 с, поддержка env, лог в файл. Чувствительные аргументы (сообщения, пароли) редактируются через `sanitizeArgs`. |
 | **GitParser** | Чистые парсеры: `parseCommits`, `parseBranches`, `parseTags`, `parseStatus`, `parseFileChanges`. |
 | **GraphLayout** | Распределение дорожек для раскладки графа коммитов. |
 | **DiffParser** | Преобразует unified diff в `FileDiff` / `DiffHunk` / `DiffLine`. |
@@ -54,15 +54,16 @@ User clicks button in React
 | **MessageBridge** | Electron IPC: принимает `RendererCommand`, передаёт в `CommandHandler`, шлёт `MainEvent` в renderer. Строгая типизация через mapped types. |
 | **OperationQueue** | Read-операции могут идти параллельно; write — сериализованы. |
 | **SafetyNet** | Авто-stash перед рискованными операциями; откат при сбое. |
-| **FileWatcher** | `chokidar` на `.git` и рабочее дерево; инициирует обновление состояния. |
-| **SshKeyManager** | Список, генерация, удаление SSH-ключей в `~/.ssh/`. |
+| **FileWatcher** | `chokidar` на `.git` и рабочее дерево (два отдельных watcher-а); обновление состояния. |
+| **Logger** | Асинхронное логирование через `WriteStream` (без блокировки event loop). |
+| **SshKeyManager** | Список, генерация, удаление SSH-ключей в `~/.ssh/`. Двухшаговая генерация (пароль не в argv). |
 | **ReflogParser** | Парсит вывод `git reflog` в структурированные записи. |
 | **BisectManager** | Управляет сессиями `git bisect`: start, good, bad, skip, reset. |
 | **HooksManager** | Список, вкл/выкл (toggle), чтение содержимого git hooks. |
 | **WorktreeManager** | Список, добавление, удаление git worktrees. |
 | **LfsManager** | Статус Git LFS, track/untrack паттернов, список управляемых файлов. |
-| **pathSecurity** | Утилиты валидации путей: `safePath` (защита от path traversal), `isSafeFilename` (безопасность имён файлов). |
-| **AtomicWrite** | Атомарная запись файлов через tmp+rename с fsync и retry на Windows. |
+| **pathSecurity** | Валидация путей: `safePath` (traversal + symlink через `realpathSync.native` + регистронезависимость на Windows), `isSafeFilename`. |
+| **AtomicWrite** | Атомарная запись через tmp+rename с fsync. Retry на Windows через `Atomics.wait` (без busy-spin). |
 
 ## Модули renderer
 
@@ -75,6 +76,7 @@ User clicks button in React
 | **changes/** | `LocalChanges` (tree), `CommitBar` (subject + description). |
 | **diff/** | `DiffPanel`, `DiffView`, `DiffHunkView`, `DiffSideBySide`, `ImageDiff`. |
 | **merge/** | `MergeDialog`, `MergeEditor`, `MergeBanner`, `ConflictPanel`. |
+| — | **`AppDialogs.tsx`** — все модальные диалоги вынесены из `App.tsx` для разделения ответственности. |
 | **blame/** | `BlameView`. |
 | **file-history/** | `FileHistory`. |
 | **rebase/** | `RebaseEditor`. |
@@ -96,9 +98,9 @@ User clicks button in React
 
 | Хук | Назначение |
 |-----|------------|
-| **useAppState** | Глобальное состояние из main process, обработка IPC-событий. |
+| **useAppState** | Глобальное состояние из main process, обработка IPC-событий. Смена языка вызывает ре-рендер через `configLang`. |
 | **useMenuActions** | Единый обработчик для действий кастомного меню (dispatch по строке). |
-| **useKeyboardShortcuts** | Привязка клавиш (Ctrl+O, Ctrl+Shift+F, F5 и т.д.) к действиям меню. |
+| **useKeyboardShortcuts** | Привязка клавиш (Ctrl+O, Ctrl+Shift+F, F5 и т.д.) к действиям меню. Пропускает в input/textarea/contentEditable. |
 | **useOperationToasts** | Автоматические тосты по результатам git-операций. |
 | **useDiffState** | Управление текущим diff target (file + hash). |
 | **useTheme** | Переключение тёмной/светлой темы с сохранением в localStorage. |

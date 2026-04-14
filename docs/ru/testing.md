@@ -53,7 +53,16 @@ tests/
 │   ├── BisectManager.test.ts     # Контракт интерфейса BisectStatus
 │   ├── HooksManager.test.ts      # Контракт интерфейса HookInfo
 │   ├── LfsManager.test.ts        # Контракт интерфейса LfsStatus
-│   └── WorktreeParser.test.ts    # Контракт интерфейса WorktreeInfo
+│   ├── WorktreeManager.test.ts   # Worktree list/add/remove с мокнутым GitExecutor
+│   ├── GitExecutor.test.ts       # Логика sanitizeArgs (редактирование чувствительных данных)
+│   └── RebaseManager.test.ts     # Интерактивный rebase: парсинг todo, GIT_SEQUENCE_EDITOR
+│
+├── commands/
+│   ├── writeCommands.test.ts     # stageFile (--), commit, push, initRepo, checkout, clone
+│   └── ConflictManager.test.ts   # completeMerge, resolveWithOurs/Theirs, merge, predictConflicts
+│
+├── utils/
+│   └── pathSecurity.test.ts      # safePath traversal, isSafeFilename
 │
 ├── safety/
 │   ├── OperationQueue.test.ts    # Очередь операций (read/write, сериализация, ошибки)
@@ -87,7 +96,7 @@ tests/
 | `parseStatus` | Staged/unstaged модификации, `MM` (обе), untracked (`??`), staged add (`A`), delete (`D`), конфликты (`UU`, `AA`), несколько файлов |
 | `parseFileChanges` | Модификация, добавление, удаление, переименование (`R100`), копирование (`C100`) |
 
-**119 тестов / 12 файлов — всё зелёное.**
+**208 тестов / 23 файла — всё зелёное.**
 
 ### 2. DiffParser (`tests/git/DiffParser.test.ts`)
 
@@ -140,6 +149,7 @@ tests/
 - Чистый субмодуль (` ` — статус "clean")
 - Модифицированный (`+` — "modified")
 - Неинициализированный (`-` — "uninitialized")
+- Конфликт (`U` — "conflict")
 - Несколько субмодулей
 
 **`parseGitmodules`:**
@@ -171,7 +181,38 @@ tests/
 
 Модуль: `src/core/git/WorktreeManager.ts`
 
-- Контракт интерфейса `WorktreeInfo` (все обязательные поля)
+- `list()` — парсинг porcelain вывода (main, linked, detached, bare worktrees)
+- `add()` — вызов `git worktree add` с веткой
+- `remove()` — вызов `git worktree remove`
+
+### 9a. GitExecutor (`tests/git/GitExecutor.test.ts`)
+
+- `sanitizeArgs` — редактирование значений после `-m`, `-C`, `-N`
+- Сохранение нечувствительных аргументов
+
+### 9b. RebaseManager (`tests/git/RebaseManager.test.ts`)
+
+- `getTodoList` — парсинг лога, пустой лог
+- `executeRebase` — `GIT_SEQUENCE_EDITOR` с `cp`, фильтрация drop
+- `continueRebase`, `abortRebase`
+
+### 9c. writeCommands (`tests/commands/writeCommands.test.ts`)
+
+- `stageFile` — разделитель `--`, имена файлов на `-`
+- `commit` — сообщение, amend, ошибки
+- `initRepo` — cwd из родительского каталога
+- `push`, `checkout`, `discardFileChanges`, `cloneRepo`
+
+### 9d. ConflictManager (`tests/commands/ConflictManager.test.ts`)
+
+- `completeMerge` — проверка exitCode коммита, неразрешённые конфликты
+- `resolveWithOurs`/`resolveWithTheirs` — `--` перед путями
+- `merge`, `predictConflicts`
+
+### 9e. pathSecurity (`tests/utils/pathSecurity.test.ts`)
+
+- `safePath` — обычные пути, traversal, absolute, вложенные, `..` в именах
+- `isSafeFilename` — безопасные имена, разделители, спецсимволы, пустая строка
 
 ### 10. OperationQueue (`tests/safety/OperationQueue.test.ts`)
 
@@ -218,18 +259,24 @@ tests/
 
 ```ts
 import { defineConfig } from 'vitest/config';
-import path from 'path';
+import { resolve } from 'path';
 
 export default defineConfig({
   test: {
-    globals: true,           // describe/it/expect без импортов
+    globals: true,
     include: ['tests/**/*.test.ts'],
-    environment: 'node',     // без DOM
-    testTimeout: 10000,      // 10 секунд на тест
+    environment: 'node',
+    testTimeout: 10000,
+    coverage: {
+      provider: 'v8',
+      include: ['src/core/**/*.ts'],
+      exclude: ['src/core/**/types/**'],
+      reporter: ['text', 'text-summary'],
+    },
   },
   resolve: {
     alias: {
-      '@core': path.resolve(__dirname, 'src/core'),  // кроссплатформенный путь
+      '@core': resolve(__dirname, 'src/core'),
     },
   },
 });
@@ -294,12 +341,14 @@ npx vitest run tests/git/MyNewParser.test.ts
 |------|--------|--------|
 | Git-парсеры | GitParser, DiffParser, ConflictParser, ReflogParser, BlameParser, SubmoduleParser, FileHistoryParser | ~90 |
 | Граф | GraphLayout | ~5 |
-| Менеджеры | WorktreeManager (контракт) | ~1 |
-| Safety | OperationQueue | ~8 |
+| Git-менеджеры | WorktreeManager, GitExecutor (sanitizeArgs), RebaseManager | ~18 |
+| Команды | writeCommands, ConflictManager | ~20 |
+| Утилиты | pathSecurity (safePath, isSafeFilename) | ~9 |
+| Safety | OperationQueue, AtomicWrite, OperationJournal | ~16 |
 | i18n | Полнота ключей en↔ru, tpl | ~15 |
-| Менеджеры | BisectManager, HooksManager, LfsManager, WorktreeManager (контракты) | ~10 |
+| Менеджеры | BisectManager, HooksManager, LfsManager (контракты) | ~10 |
 | IPC | RendererCommand, MainEvent типы-контракты | ~10 |
-| **Итого** | **19 файлов** | **154** |
+| **Итого** | **23 файла** | **208** |
 
 ---
 
@@ -356,12 +405,27 @@ npx vitest run tests/git/MyNewParser.test.ts
 
 ## CI/CD
 
-Для автоматического запуска в CI:
+GitHub Actions workflow в `.github/workflows/ci.yml` запускается на push/PR в `main` и `develop`:
 
 ```yaml
-# GitHub Actions
-- name: Run tests
-  run: npm test
+# Запуск на ubuntu-latest, windows-latest, macos-latest с Node 20
+steps:
+  - npm ci                              # Установка зависимостей корня
+  - npm ci (src/renderer)               # Установка зависимостей renderer
+  - npm run lint                        # ESLint проверка
+  - npx tsc -p tsconfig.main.json       # TypeScript (main + core)
+  - npx tsc -b (src/renderer)           # TypeScript (renderer)
+  - npm test                            # Vitest (208 тестов)
+  - npm run build:renderer              # Vite сборка
+  - npm run build:main                  # tsc main process
 ```
 
-`npm test` выполняет `vitest run` — однократный прогон без watch-режима, с exit-кодом 0 при успехе и 1 при ошибках.
+`npm test` выполняет `vitest run` — однократный прогон, exit-код 0 при успехе, 1 при ошибках.
+
+### Покрытие
+
+```bash
+npm run test:coverage    # Vitest с v8 coverage
+```
+
+Конфигурация в `vitest.config.ts` в секции `test.coverage`.

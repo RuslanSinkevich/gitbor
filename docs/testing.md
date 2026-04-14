@@ -53,7 +53,16 @@ tests/
 │   ├── BisectManager.test.ts     # BisectStatus interface contract
 │   ├── HooksManager.test.ts      # HookInfo interface contract
 │   ├── LfsManager.test.ts        # LfsStatus interface contract
-│   └── WorktreeParser.test.ts    # WorktreeInfo interface contract
+│   ├── WorktreeManager.test.ts   # Worktree list/add/remove with mocked GitExecutor
+│   ├── GitExecutor.test.ts       # sanitizeArgs redaction logic
+│   └── RebaseManager.test.ts     # Interactive rebase: todo parsing, GIT_SEQUENCE_EDITOR
+│
+├── commands/
+│   ├── writeCommands.test.ts     # stageFile (--), commit, push, initRepo, checkout, clone
+│   └── ConflictManager.test.ts   # completeMerge, resolveWithOurs/Theirs, merge, predictConflicts
+│
+├── utils/
+│   └── pathSecurity.test.ts      # safePath traversal, isSafeFilename validation
 │
 ├── safety/
 │   ├── OperationQueue.test.ts    # Operation queue (read/write, serialization, errors)
@@ -134,7 +143,7 @@ Module: `src/core/git/BlameParser.ts`
 
 Module: `src/core/git/SubmoduleParser.ts`
 
-**`parseSubmoduleStatus`:** clean (` `), modified (`+`), uninitialized (`-`), multiple submodules.
+**`parseSubmoduleStatus`:** clean (` `), modified (`+`), uninitialized (`-`), conflict (`U`), multiple submodules.
 
 **`parseGitmodules`:** empty input, path+URL pairs, multiple submodules, orphan entries without URL.
 
@@ -161,7 +170,52 @@ Module: `src/core/git/GraphLayout.ts`
 
 Module: `src/core/git/WorktreeManager.ts`
 
-- `WorktreeInfo` interface contract (all required fields)
+- `list()` — parses porcelain output (main, linked, detached, bare worktrees)
+- `add()` — calls `git worktree add` with branch
+- `remove()` — calls `git worktree remove`
+
+### 9a. GitExecutor (`tests/git/GitExecutor.test.ts`)
+
+Module: `src/core/git/GitExecutor.ts`
+
+- `sanitizeArgs` redacts values after `-m`, `-C`, `-N` flags
+- Preserves non-sensitive arguments
+- Handles edge cases (flag at end, multiple sensitive flags)
+
+### 9b. RebaseManager (`tests/git/RebaseManager.test.ts`)
+
+Module: `src/core/git/RebaseManager.ts`
+
+- `getTodoList` — parses log output, handles empty
+- `executeRebase` — sets `GIT_SEQUENCE_EDITOR` with `cp`, filters dropped entries
+- `continueRebase`, `abortRebase` — correct git arguments
+
+### 9c. writeCommands (`tests/commands/writeCommands.test.ts`)
+
+Module: `src/core/commands/writeCommands.ts`
+
+- `stageFile` — uses `--` separator, handles filenames starting with `-`
+- `stageAll`, `unstageFile` — correct arguments
+- `commit` — message, amend, failure handling
+- `initRepo` — uses parent dir as cwd
+- `push` — force, upstream options
+- `checkout`, `discardFileChanges`, `cloneRepo`
+
+### 9d. ConflictManager (`tests/commands/ConflictManager.test.ts`)
+
+Module: `src/core/commands/ConflictManager.ts`
+
+- `completeMerge` — checks commit exitCode, handles unresolved conflicts
+- `resolveWithOurs` / `resolveWithTheirs` — uses `--` before paths
+- `merge` — clean merge, options passing
+- `predictConflicts` — error handling
+
+### 9e. pathSecurity (`tests/utils/pathSecurity.test.ts`)
+
+Module: `src/core/utils/pathSecurity.ts`
+
+- `safePath` — normal paths, traversal attempts, absolute paths, nested, filenames with `..`
+- `isSafeFilename` — safe names, separators, `..`, special chars, empty
 
 ### 10. OperationQueue (`tests/safety/OperationQueue.test.ts`)
 
@@ -206,12 +260,14 @@ Modules: `src/renderer/src/i18n/en.ts`, `src/renderer/src/i18n/ru.ts`
 |-------|---------|-------|
 | Git parsers | GitParser, DiffParser, ConflictParser, ReflogParser, BlameParser, SubmoduleParser, FileHistoryParser | ~90 |
 | Graph | GraphLayout | ~5 |
-| Managers | WorktreeManager (contract) | ~1 |
-| Safety | OperationQueue | ~8 |
+| Git managers | WorktreeManager, GitExecutor (sanitizeArgs), RebaseManager | ~18 |
+| Commands | writeCommands, ConflictManager | ~20 |
+| Utils | pathSecurity (safePath, isSafeFilename) | ~9 |
+| Safety | OperationQueue, AtomicWrite, OperationJournal | ~16 |
 | i18n | Key completeness en↔ru, tpl | ~15 |
-| Managers | BisectManager, HooksManager, LfsManager, WorktreeManager (contracts) | ~10 |
+| Managers | BisectManager, HooksManager, LfsManager (contracts) | ~10 |
 | IPC | RendererCommand, MainEvent type contracts | ~10 |
-| **Total** | **19 files** | **154** |
+| **Total** | **23 files** | **208** |
 
 ---
 
@@ -292,10 +348,27 @@ describe('myFunction', () => {
 
 ## CI/CD
 
+GitHub Actions workflow in `.github/workflows/ci.yml` runs on push/PR to `main` and `develop`:
+
 ```yaml
-# GitHub Actions
-- name: Run tests
-  run: npm test
+# Runs on ubuntu-latest, windows-latest, macos-latest with Node 20
+steps:
+  - npm ci                              # Install root deps
+  - npm ci (src/renderer)               # Install renderer deps
+  - npm run lint                        # ESLint check
+  - npx tsc -p tsconfig.main.json       # TypeScript check (main + core)
+  - npx tsc -b (src/renderer)           # TypeScript check (renderer)
+  - npm test                            # Vitest (208 tests)
+  - npm run build:renderer              # Vite build
+  - npm run build:main                  # tsc main process
 ```
 
 `npm test` runs `vitest run` — single pass with exit code 0 on success, 1 on failure.
+
+### Coverage
+
+```bash
+npm run test:coverage    # Vitest with v8 coverage
+```
+
+Configuration in `vitest.config.ts` under `test.coverage`.

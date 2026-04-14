@@ -23,7 +23,7 @@ SkyFork is an Electron desktop Git client.
 1. Create a directory under `src/renderer/src/features/your-feature/`
 2. Create the component `.tsx` and CSS Module `.module.css`
 3. Create `index.ts` with exports
-4. Import and wire into `src/renderer/src/App.tsx`
+4. Import and wire into `src/renderer/src/App.tsx` (for dialogs, use `src/renderer/src/AppDialogs.tsx`)
 5. If it needs IPC — follow the "Add a New Git Command" steps above
 
 ### Code Style
@@ -57,10 +57,12 @@ SkyFork is an Electron desktop Git client.
 
 ### PR Checklist
 - [ ] TypeScript compiles without errors (`npx tsc -p tsconfig.main.json`)
-- [ ] No linter errors in changed files
+- [ ] ESLint passes (`npm run lint`)
+- [ ] Formatting is consistent (`npm run format`)
 - [ ] IPC types synced between core and renderer
 - [ ] New features have corresponding IPC commands wired end-to-end
 - [ ] Tests pass (`npm test`)
 - [ ] User-provided paths validated via `safePath()` / `isSafeFilename()`
 - [ ] New i18n keys added to both languages (en + ru)
 - [ ] Tested manually in Electron (not just browser)
+- [ ] CI passes (GitHub Actions: lint, typecheck, test, build on 3 OS)

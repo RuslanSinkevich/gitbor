@@ -184,7 +184,7 @@ skyfork/
 │   ├── contributing.md            # Contributing guide
 │   ├── testing.md                 # Testing (Vitest)
 │   ├── ru/                        # Russian translations
-│   └── internal/                  # Internal module docs
+│   └── ru/                        # Russian translations
 │
 ├── dist/                          # Build output
 ├── .gitattributes                 # Line ending normalization
@@ -265,8 +265,6 @@ skyfork/
 | [Testing](docs/testing.md) | Vitest setup, test structure, manual feature testing |
 
 Russian translations: [`docs/ru/`](docs/ru/)
-
-Internal module docs: [`docs/internal/`](docs/internal/INDEX.md)
 
 ---
 
