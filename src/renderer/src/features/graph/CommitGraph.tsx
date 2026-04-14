@@ -5,6 +5,7 @@ import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { ROW_HEIGHT, COL_WIDTH, LEFT_PAD, NODE_RADIUS, MERGE_RADIUS, DESC_PAD, colX, formatCommitDate } from './graphConstants';
 import { getCommitMenuItems, type ShowPrompt, type OnRebase } from './commitMenuItems';
 import { groupBranchPaths, getNodeCircles, getMergeLinkPaths } from './branchPaths';
+import { GpgBadge } from './GpgBadge';
 import { useVirtualScroll } from './useVirtualScroll';
 import { useGraphSearch } from './useGraphSearch';
 import s from './CommitGraph.module.css';
@@ -149,6 +150,7 @@ export function CommitGraph({ commits, graphNodes, maxColumns, mergeLinks, selec
                   {commit.refs.map((ref) => (
                     <span key={ref.name} className={s.refBadge} style={{ background: nodeColor, color: '#fff', borderColor: nodeColor }}>{ref.name}</span>
                   ))}
+                  {commit.gpgStatus && <GpgBadge status={commit.gpgStatus} />}
                   <span className={s.subject}>{commit.subject}</span>
                 </div>
                 <div className={s.rowAuthor}>{commit.authorName}</div>

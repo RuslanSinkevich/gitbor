@@ -115,6 +115,51 @@
 - Success/error notifications for Git operations (fetch, pull, push, commit, etc.)
 - Dark text on colored backgrounds for both themes
 
+### Reflog Viewer
+
+- Full `git reflog` history with action badges (checkout, commit, merge, etc.)
+- Copy commit SHA to clipboard
+- Restore (hard reset) to any reflog entry with confirmation
+- Accessible via Repository → Reflog...
+
+### Git Bisect
+
+- Start bisect with bad/good commit hashes
+- Interactive session: Mark Good, Mark Bad, Skip
+- Shows current commit hash, estimated steps remaining
+- Real-time git output log
+- Abort bisect at any time
+- Accessible via Repository → Bisect...
+
+### Git Hooks Manager
+
+- Lists all hooks in `.git/hooks/` (excluding `.sample` files)
+- Enable/disable hooks via toggle (renames with `.disabled` suffix)
+- Expand to view hook contents
+- Accessible via Repository → Git Hooks...
+
+### Signed Commits (GPG/SSH)
+
+- Shows ✓ Signed badge on verified commits in the graph
+- Supports: Good (G), Bad (B), Untrusted (U), Expired (X), Revoked (R)
+- Color-coded: green (verified), orange (untrusted/expired), red (bad/revoked)
+
+### Git Worktrees
+
+- List all worktrees with branch, path, and SHA
+- Add new worktree (existing or new branch)
+- Remove worktree with confirmation
+- Main worktree marked with badge
+- Accessible via Repository → Worktrees...
+
+### Git LFS
+
+- Shows LFS installation status
+- Lists tracked patterns from `.gitattributes`
+- Add/remove tracking patterns
+- Lists all LFS-managed files with OID
+- Accessible via Repository → Git LFS...
+
 ### Shell Integration
 
 - Open in File Explorer (Ctrl+Alt+O)

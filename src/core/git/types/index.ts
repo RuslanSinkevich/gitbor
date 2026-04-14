@@ -1,4 +1,4 @@
-export type { Commit, RefInfo, Branch, Tag, Stash, Remote, FileStatus, FileChange, CommitDetail, RepoInfo } from './git';
+export type { Commit, RefInfo, Branch, Tag, Stash, Remote, FileStatus, FileChange, CommitDetail, RepoInfo, ReflogEntry } from './git';
 export type { GraphNode, GraphConnection, GraphLayoutData, CommitGraphData, MergeLink } from './graph';
 export type { MergeResult, OperationResult, GitExecOptions, GitExecResult, MergeOptions, ConflictFile, MergeState, ConflictResolution, ConflictBlock, ConflictContent } from './operations';
 export type { AppState } from './state';

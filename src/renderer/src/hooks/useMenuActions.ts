@@ -9,13 +9,19 @@ interface Deps {
   setShowAbout: (v: boolean) => void;
   setShowSshKeys: (v: boolean) => void;
   setShowRepoSettings: (v: boolean) => void;
+  setShowReflog: (v: boolean) => void;
+  setShowBisect: (v: boolean) => void;
+  setShowHooks: (v: boolean) => void;
+  setShowWorktrees: (v: boolean) => void;
+  setShowLfs: (v: boolean) => void;
   showPrompt: (opts: { title: string; placeholder: string; onConfirm: (v: string) => void }) => void;
   handleOpenMergeDialog: (source: string) => void;
 }
 
 export function useMenuActions({
-  state, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings, showPrompt,
-  handleOpenMergeDialog,
+  state, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings,
+  setShowReflog, setShowBisect, setShowHooks, setShowWorktrees, setShowLfs,
+  showPrompt, handleOpenMergeDialog,
 }: Deps) {
   return useCallback((action: string) => {
     const loc = t();
@@ -43,6 +49,11 @@ export function useMenuActions({
       case 'about': setShowAbout(true); break;
       case 'sshKeys': setShowSshKeys(true); break;
       case 'repoSettings': setShowRepoSettings(true); break;
+      case 'reflog': setShowReflog(true); break;
+      case 'bisect': setShowBisect(true); break;
+      case 'hooks': setShowHooks(true); break;
+      case 'worktrees': setShowWorktrees(true); break;
+      case 'lfs': setShowLfs(true); break;
       case 'closeRepo':
         if (state.openRepos.length > 0) {
           postCommand({ type: 'closeRepo', index: state.activeRepoIndex });
@@ -55,5 +66,5 @@ export function useMenuActions({
         if (state.repoPath) postCommand({ type: 'openInTerminal' });
         break;
     }
-  }, [state.currentBranch, state.branches, state.openRepos, state.activeRepoIndex, state.repoPath, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings, showPrompt, handleOpenMergeDialog]);
+  }, [state.currentBranch, state.branches, state.openRepos, state.activeRepoIndex, state.repoPath, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings, setShowReflog, setShowBisect, setShowHooks, setShowWorktrees, setShowLfs, showPrompt, handleOpenMergeDialog]);
 }

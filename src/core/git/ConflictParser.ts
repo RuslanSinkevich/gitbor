@@ -4,9 +4,11 @@ import type { ConflictBlock, ConflictContent } from './types';
 
 export type { ConflictBlock, ConflictContent };
 
-const START_MARKER = '<<<<<<<';
-const SPLITTER = '=======';
-const END_MARKER = '>>>>>>>';
+/**
+ * State machine for parsing git conflict markers.
+ * Supports both standard and diff3 format (||||||| base marker).
+ */
+type ParserState = 'clean' | 'ours' | 'base' | 'theirs';
 
 export function parseConflictMarkers(content: string): ConflictBlock[] {
   const lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
@@ -15,7 +17,7 @@ export function parseConflictMarkers(content: string): ConflictBlock[] {
   let cleanLines: string[] = [];
   let oursLines: string[] = [];
   let theirsLines: string[] = [];
-  let state: 'clean' | 'ours' | 'theirs' = 'clean';
+  let state: ParserState = 'clean';
 
   const flushClean = () => {
     if (cleanLines.length > 0) {
@@ -24,34 +26,38 @@ export function parseConflictMarkers(content: string): ConflictBlock[] {
     }
   };
 
+  const flushConflict = () => {
+    blocks.push({
+      type: 'conflict',
+      content: '',
+      ours: oursLines.join('\n'),
+      theirs: theirsLines.join('\n'),
+    });
+    oursLines = [];
+    theirsLines = [];
+  };
+
   for (const line of lines) {
-    if (state === 'clean' && line.startsWith(START_MARKER)) {
+    if (state === 'clean' && line.startsWith('<<<<<<<')) {
       flushClean();
       state = 'ours';
       oursLines = [];
       continue;
     }
 
-    if (state === 'ours' && line.startsWith(START_MARKER)) {
-      cleanLines.push(...oursLines);
-      flushClean();
-      oursLines = [];
-      break;
+    if ((state === 'ours' || state === 'base') && line.startsWith('|||||||')) {
+      state = 'base';
+      continue;
     }
 
-    if (state === 'ours' && line === SPLITTER) {
+    if ((state === 'ours' || state === 'base') && line.startsWith('=======')) {
       state = 'theirs';
       theirsLines = [];
       continue;
     }
 
-    if (state === 'theirs' && line.startsWith(END_MARKER)) {
-      blocks.push({
-        type: 'conflict',
-        content: '',
-        ours: oursLines.join('\n'),
-        theirs: theirsLines.join('\n'),
-      });
+    if (state === 'theirs' && line.startsWith('>>>>>>>')) {
+      flushConflict();
       state = 'clean';
       continue;
     }
@@ -63,6 +69,8 @@ export function parseConflictMarkers(content: string): ConflictBlock[] {
       case 'ours':
         oursLines.push(line);
         break;
+      case 'base':
+        break;
       case 'theirs':
         theirsLines.push(line);
         break;
@@ -70,13 +78,8 @@ export function parseConflictMarkers(content: string): ConflictBlock[] {
   }
 
   if (state === 'theirs') {
-    blocks.push({
-      type: 'conflict',
-      content: '',
-      ours: oursLines.join('\n'),
-      theirs: theirsLines.join('\n'),
-    });
-  } else if (state === 'ours') {
+    flushConflict();
+  } else if (state === 'ours' || state === 'base') {
     cleanLines.push(...oursLines);
     flushClean();
   } else {
@@ -98,39 +101,6 @@ export function readConflictFile(repoPath: string, file: string): ConflictConten
     blocks,
     hasConflicts: blocks.some(b => b.type === 'conflict'),
   };
-}
-
-import type { ConflictResolution } from './types';
-export type { ConflictResolution };
-
-export function buildResolvedContent(blocks: ConflictBlock[], resolutions: ConflictResolution[]): string {
-  const parts: string[] = [];
-  let conflictIdx = 0;
-
-  for (const block of blocks) {
-    if (block.type === 'clean') {
-      parts.push(block.content);
-    } else {
-      const choice = resolutions[conflictIdx] ?? 'ours';
-      switch (choice) {
-        case 'ours':
-          parts.push(block.ours);
-          break;
-        case 'theirs':
-          parts.push(block.theirs);
-          break;
-        case 'both-ours-first':
-          parts.push(block.ours + (block.ours && block.theirs ? '\n' : '') + block.theirs);
-          break;
-        case 'both-theirs-first':
-          parts.push(block.theirs + (block.ours && block.theirs ? '\n' : '') + block.ours);
-          break;
-      }
-      conflictIdx++;
-    }
-  }
-
-  return parts.join('\n');
 }
 
 export function writeResolvedFile(repoPath: string, file: string, content: string): void {

@@ -56,6 +56,11 @@ User clicks button in React
 | **SafetyNet** | Авто-stash перед рискованными операциями; откат при сбое. |
 | **FileWatcher** | `chokidar` на `.git` и рабочее дерево; инициирует обновление состояния. |
 | **SshKeyManager** | Список, генерация, удаление SSH-ключей в `~/.ssh/`. |
+| **ReflogParser** | Парсит вывод `git reflog` в структурированные записи. |
+| **BisectManager** | Управляет сессиями `git bisect`: start, good, bad, skip, reset. |
+| **HooksManager** | Список, вкл/выкл (toggle), чтение содержимого git hooks. |
+| **WorktreeManager** | Список, добавление, удаление git worktrees. |
+| **LfsManager** | Статус Git LFS, track/untrack паттернов, список управляемых файлов. |
 
 ## Модули renderer
 
@@ -78,6 +83,11 @@ User clicks button in React
 | **layout/** | `CommitsView`, `ChangesView`, `RightPanelContent`. |
 | **ssh/** | `SshKeysDialog` — UI управления SSH-ключами. |
 | **settings/** | `RepoSettingsDialog` — настройки user.name/email репозитория. |
+| **reflog/** | `ReflogDialog`, `ReflogTable`, `ReflogRow`, `ActionBadge`. |
+| **bisect/** | `BisectDialog`, `BisectStartForm`, `BisectActiveSession`. |
+| **hooks/** | `HooksDialog`, `HookItem`. |
+| **worktrees/** | `WorktreesDialog`, `WorktreeItem`, `AddWorktreeForm`. |
+| **lfs/** | `LfsDialog`, `LfsPatternList`, `LfsFileList`. |
 
 Кастомные хуки в `src/renderer/src/hooks/`:
 
@@ -91,6 +101,7 @@ User clicks button in React
 | **useTheme** | Переключение тёмной/светлой темы с сохранением в localStorage. |
 | **useToasts** | Очередь тост-уведомлений с автоскрытием. |
 | **useContextMenu** | Состояние контекстного меню (позиция + пункты). |
+| **useDialogs** | Централизованное состояние видимости диалогов (about, ssh, reflog, bisect, hooks, worktrees, lfs). |
 
 ## Протокол IPC
 

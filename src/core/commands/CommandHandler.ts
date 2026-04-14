@@ -1,9 +1,13 @@
 import { dialog, BrowserWindow } from 'electron';
 import { GitExecutor } from '../git/GitExecutor';
-import { CommitDetail, CommitGraphData, FileDiff, BlameResult, FileHistoryResult, Submodule, RebaseTodoEntry, RebaseTodoList, RebaseProgress, MergeOptions, MergeResult, MergeState, OperationResult } from '../git/types';
+import { CommitDetail, CommitGraphData, FileDiff, BlameResult, FileHistoryResult, Submodule, RebaseTodoEntry, RebaseTodoList, RebaseProgress, MergeOptions, MergeResult, MergeState, OperationResult, ReflogEntry } from '../git/types';
 import { RebaseManager } from '../git/RebaseManager';
+import { BisectManager, type BisectStatus } from '../git/BisectManager';
+import { HooksManager, type HookInfo } from '../git/HooksManager';
+import { WorktreeManager, type WorktreeInfo } from '../git/WorktreeManager';
+import { LfsManager, type LfsStatus } from '../git/LfsManager';
 import { ConflictManager } from './ConflictManager';
-import { readConflictFile, buildResolvedContent, writeResolvedFile, type ConflictContent } from '../git/ConflictParser';
+import { readConflictFile, writeResolvedFile, type ConflictContent } from '../git/ConflictParser';
 import { OperationQueue } from '../safety/OperationQueue';
 import { SafetyNet } from '../safety/SafetyNet';
 import { StateManager } from '../state/StateManager';
@@ -13,6 +17,10 @@ import * as Write from './writeCommands';
 export class CommandHandler {
   readonly conflicts: ConflictManager;
   readonly rebase: RebaseManager;
+  readonly bisect: BisectManager;
+  readonly hooks: HooksManager;
+  readonly worktrees: WorktreeManager;
+  readonly lfs: LfsManager;
 
   constructor(
     private readonly git: GitExecutor,
@@ -22,6 +30,10 @@ export class CommandHandler {
   ) {
     this.conflicts = new ConflictManager(git, state);
     this.rebase = new RebaseManager(git);
+    this.bisect = new BisectManager(git);
+    this.hooks = new HooksManager(git);
+    this.worktrees = new WorktreeManager(git);
+    this.lfs = new LfsManager(git);
   }
 
   // ─── Read ───
@@ -39,7 +51,6 @@ export class CommandHandler {
   push(force?: boolean, setUpstream?: boolean): Promise<OperationResult> { return Write.push(this.queue, this.git, this.state, force, setUpstream); }
   stash(message?: string): Promise<OperationResult> { return Write.stash(this.queue, this.git, this.state, message); }
   stashPop(): Promise<OperationResult> { return Write.stashPop(this.queue, this.git, this.state); }
-  merge(branch: string): Promise<OperationResult<MergeResult>> { return Write.merge(this.queue, this.git, this.safety, this.state, branch); }
   createBranch(name: string, from: string): Promise<OperationResult> { return Write.createBranch(this.queue, this.git, this.state, name, from); }
   renameBranch(oldName: string, newName: string): Promise<OperationResult> { return Write.renameBranch(this.queue, this.git, this.state, oldName, newName); }
   deleteBranch(branch: string, force?: boolean): Promise<OperationResult> { return Write.deleteBranch(this.queue, this.git, this.state, branch, force); }
@@ -217,24 +228,127 @@ export class CommandHandler {
     });
   }
 
-  async resolveConflict(file: string, resolutions: ('ours' | 'theirs' | 'both-ours-first' | 'both-theirs-first')[]): Promise<void> {
-    const repoPath = this.state.getState().repoPath;
-    const parsed = readConflictFile(repoPath, file);
-    const resolved = buildResolvedContent(parsed.blocks, resolutions);
-    writeResolvedFile(repoPath, file, resolved);
-    await this.git.exec(['add', file]);
-    await this.state.refreshStatusAndNotify();
-  }
-
   async resolveConflictRaw(file: string, rawContent: string): Promise<void> {
-    const repoPath = this.state.getState().repoPath;
-    writeResolvedFile(repoPath, file, rawContent);
-    await this.git.exec(['add', file]);
-    await this.state.refreshStatusAndNotify();
+    await this.queue.enqueueWrite('resolveConflict', async () => {
+      const repoPath = this.state.getState().repoPath;
+      writeResolvedFile(repoPath, file, rawContent);
+      await this.git.exec(['add', file]);
+      await this.state.refreshStatusAndNotify();
+    });
   }
 
   async predictConflicts(source: string, target: string): Promise<string[]> {
     return this.conflicts.predictConflicts(source, target);
+  }
+
+  // ─── Git LFS ───
+  async getLfsStatus(): Promise<LfsStatus> {
+    return this.queue.enqueueRead('getLfsStatus', () => this.lfs.getStatus());
+  }
+
+  async lfsTrack(pattern: string): Promise<void> {
+    await this.queue.enqueueWrite('lfsTrack', () => this.lfs.track(pattern));
+  }
+
+  async lfsUntrack(pattern: string): Promise<void> {
+    await this.queue.enqueueWrite('lfsUntrack', () => this.lfs.untrack(pattern));
+  }
+
+  // ─── Worktrees ───
+  async getWorktrees(): Promise<WorktreeInfo[]> {
+    return this.queue.enqueueRead('getWorktrees', () => this.worktrees.list());
+  }
+
+  async addWorktree(path: string, branch: string, createBranch: boolean): Promise<string> {
+    return this.queue.enqueueWrite('addWorktree', async () => {
+      const output = await this.worktrees.add(path, branch, createBranch);
+      await this.state.refreshAll();
+      return output;
+    });
+  }
+
+  async removeWorktree(path: string, force: boolean): Promise<void> {
+    await this.queue.enqueueWrite('removeWorktree', async () => {
+      await this.worktrees.remove(path, force);
+      await this.state.refreshAll();
+    });
+  }
+
+  // ─── Git Hooks ───
+  async getHooks(): Promise<HookInfo[]> {
+    return this.queue.enqueueRead('getHooks', () => this.hooks.listHooks());
+  }
+
+  async toggleHook(name: string, enable: boolean): Promise<void> {
+    await this.queue.enqueueWrite('toggleHook', () => this.hooks.toggleHook(name, enable));
+  }
+
+  // ─── Bisect ───
+  async bisectStart(bad: string, good: string): Promise<string> {
+    return this.queue.enqueueWrite('bisectStart', async () => {
+      const output = await this.bisect.start(bad, good);
+      await this.state.refreshAll();
+      return output;
+    });
+  }
+
+  async bisectGood(): Promise<string> {
+    return this.queue.enqueueWrite('bisectGood', async () => {
+      const output = await this.bisect.markGood();
+      await this.state.refreshAll();
+      return output;
+    });
+  }
+
+  async bisectBad(): Promise<string> {
+    return this.queue.enqueueWrite('bisectBad', async () => {
+      const output = await this.bisect.markBad();
+      await this.state.refreshAll();
+      return output;
+    });
+  }
+
+  async bisectSkip(): Promise<string> {
+    return this.queue.enqueueWrite('bisectSkip', async () => {
+      const output = await this.bisect.skip();
+      await this.state.refreshAll();
+      return output;
+    });
+  }
+
+  async bisectReset(): Promise<void> {
+    await this.queue.enqueueWrite('bisectReset', async () => {
+      await this.bisect.reset();
+      await this.state.refreshAll();
+    });
+  }
+
+  async getBisectStatus(): Promise<BisectStatus> {
+    return this.queue.enqueueRead('getBisectStatus', () => this.bisect.getStatus());
+  }
+
+  // ─── Reflog ───
+  async getReflog(maxCount = 100): Promise<ReflogEntry[]> {
+    return this.queue.enqueueRead('getReflog', async () => {
+      const { reflogArgs, parseReflog } = await import('../git/ReflogParser');
+      const r = await this.git.exec(reflogArgs(maxCount));
+      return parseReflog(r.stdout);
+    });
+  }
+
+  /** Restores HEAD to a reflog entry via `git reset --hard`. */
+  async restoreReflog(hash: string): Promise<OperationResult> {
+    return this.queue.enqueueWrite('restoreReflog', async () => {
+      const result = await this.safety.wrapDestructive('restoreReflog', { hash }, async () => {
+        const r = await this.git.exec(['reset', '--hard', hash]);
+        if (r.exitCode !== 0) {
+          const { GitError } = await import('../git/GitExecutor');
+          throw new GitError(`Restore failed: ${r.stderr}`, 'reset', r.exitCode, r.stderr);
+        }
+      });
+      await this.state.refreshAll();
+      return result;
+    });
   }
 
   // ─── Repo Management ───

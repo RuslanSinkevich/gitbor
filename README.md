@@ -25,6 +25,13 @@ npm run build        # Build renderer + main
 npm start            # Run the built app
 ```
 
+### Tests
+
+```bash
+npm test             # Run all tests (Vitest)
+npx vitest           # Watch mode
+```
+
 ---
 
 ## Stack
@@ -196,6 +203,7 @@ skyfork/
 | [Architecture](docs/architecture.md) | 4-layer design, data flow, core & renderer modules |
 | [Features](docs/features.md) | What SkyFork can do: graph, diff, merge, blame, etc. |
 | [Contributing](docs/contributing.md) | Code style, conventions, PR checklist |
+| [Testing](docs/testing.md) | Vitest setup, test structure, manual feature testing |
 
 Russian translations: [`docs/ru/`](docs/ru/)
 
@@ -205,7 +213,7 @@ Internal module docs: [`docs/internal/`](docs/internal/INDEX.md)
 
 ## Status
 
-Version 0.1.0. Backend and UI feature-complete for MVP. Not production-tested.
+Version 0.1.0. Backend and UI feature-complete for MVP. 119 unit tests (Vitest). Not production-tested.
 
 ## License
 

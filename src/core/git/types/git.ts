@@ -6,6 +6,8 @@ export interface Commit {
   authorDate: number;
   refs: RefInfo[];
   subject: string;
+  /** GPG signature status: G=good, B=bad, U=untrusted, N=none, etc. */
+  gpgStatus?: string;
 }
 
 export interface RefInfo {
@@ -68,4 +70,14 @@ export interface CommitDetail {
 export interface RepoInfo {
   name: string;
   path: string;
+}
+
+/** Single entry from `git reflog`. */
+export interface ReflogEntry {
+  hash: string;
+  shortHash: string;
+  action: string;
+  message: string;
+  date: string;
+  index: number;
 }

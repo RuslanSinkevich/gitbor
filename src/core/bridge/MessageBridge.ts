@@ -64,11 +64,19 @@ const handlers: HandlerTable = {
     const state = ctx.sm.getState();
     ctx.send({ type: 'config', lang: app.getLocale() });
     ctx.send({ type: 'fullState', data: state });
+    if (state.repoPath) {
+      const ms = await ctx.ch.getMergeState();
+      if (ms.inProgress) ctx.send({ type: 'mergeState', data: ms });
+    }
   },
   getState: async (_cmd, ctx) => {
     const state = ctx.sm.getState();
     ctx.send({ type: 'config', lang: app.getLocale() });
     ctx.send({ type: 'fullState', data: state });
+    if (state.repoPath) {
+      const ms = await ctx.ch.getMergeState();
+      if (ms.inProgress) ctx.send({ type: 'mergeState', data: ms });
+    }
   },
   refreshAll: async (_cmd, ctx) => {
     await ctx.sm.refreshAll();
@@ -109,7 +117,7 @@ const handlers: HandlerTable = {
   push:         op('push', (cmd, ctx) => ctx.ch.push(cmd.force, cmd.setUpstream)),
   stash:        op('stash', (cmd, ctx) => ctx.ch.stash(cmd.message)),
   stashPop:     op('stashPop', (_cmd, ctx) => ctx.ch.stashPop()),
-  merge:        op('merge', (cmd, ctx) => ctx.ch.merge(cmd.branch)),
+  merge: opWithPostMerge('merge', (cmd, ctx) => ctx.ch.startMerge(cmd.branch, { noCommit: false, squash: false, ffOnly: false, noFf: false })),
   createBranch: op('createBranch', (cmd, ctx) => ctx.ch.createBranch(cmd.name, cmd.from)),
   cherryPick:   op('cherry-pick', (cmd, ctx) => ctx.ch.cherryPick(cmd.hash)),
   revert:       op('revert', (cmd, ctx) => ctx.ch.revert(cmd.hash)),
@@ -171,7 +179,6 @@ const handlers: HandlerTable = {
 
   resolveWithOurs:   mergeStateAfter((cmd, ctx) => ctx.ch.resolveWithOurs(cmd.file)),
   resolveWithTheirs: mergeStateAfter((cmd, ctx) => ctx.ch.resolveWithTheirs(cmd.file)),
-  resolveConflict:   mergeStateAfter((cmd, ctx) => ctx.ch.resolveConflict(cmd.file, cmd.resolutions)),
   resolveConflictRaw: mergeStateAfter((cmd, ctx) => ctx.ch.resolveConflictRaw(cmd.file, cmd.content)),
   getMergeState: mergeStateAfter(async () => {}),
 
@@ -195,6 +202,89 @@ const handlers: HandlerTable = {
   predictConflicts: async (cmd, ctx) => {
     const files = await ctx.ch.predictConflicts(cmd.source, cmd.target);
     ctx.send({ type: 'predictedConflicts', files });
+  },
+
+  getLfsStatus: async (_cmd, ctx) => {
+    const data = await ctx.ch.getLfsStatus();
+    ctx.send({ type: 'lfsStatus', data });
+  },
+  lfsTrack: async (cmd, ctx) => {
+    await ctx.ch.lfsTrack(cmd.pattern);
+    const data = await ctx.ch.getLfsStatus();
+    ctx.send({ type: 'lfsStatus', data });
+  },
+  lfsUntrack: async (cmd, ctx) => {
+    await ctx.ch.lfsUntrack(cmd.pattern);
+    const data = await ctx.ch.getLfsStatus();
+    ctx.send({ type: 'lfsStatus', data });
+  },
+
+  getWorktrees: async (_cmd, ctx) => {
+    const data = await ctx.ch.getWorktrees();
+    ctx.send({ type: 'worktrees', data });
+  },
+  addWorktree: async (cmd, ctx) => {
+    await ctx.ch.addWorktree(cmd.path, cmd.branch, cmd.createBranch);
+    const data = await ctx.ch.getWorktrees();
+    ctx.send({ type: 'worktrees', data });
+  },
+  removeWorktree: async (cmd, ctx) => {
+    try {
+      await ctx.ch.removeWorktree(cmd.path, cmd.force);
+      const data = await ctx.ch.getWorktrees();
+      ctx.send({ type: 'worktrees', data });
+    } catch (e: any) {
+      ctx.send({ type: 'error', message: e?.message || 'Remove worktree failed' });
+    }
+  },
+
+  getHooks: async (_cmd, ctx) => {
+    const data = await ctx.ch.getHooks();
+    ctx.send({ type: 'hooks', data });
+  },
+  toggleHook: async (cmd, ctx) => {
+    await ctx.ch.toggleHook(cmd.name, cmd.enable);
+    const data = await ctx.ch.getHooks();
+    ctx.send({ type: 'hooks', data });
+  },
+
+  getReflog: async (cmd, ctx) => {
+    const data = await ctx.ch.getReflog(cmd.maxCount);
+    ctx.send({ type: 'reflog', data });
+  },
+  restoreReflog: op('restoreReflog', (cmd, ctx) => ctx.ch.restoreReflog(cmd.hash)),
+
+  bisectStart: async (cmd, ctx) => {
+    const output = await ctx.ch.bisectStart(cmd.bad, cmd.good);
+    ctx.send({ type: 'bisectOutput', output });
+    const status = await ctx.ch.getBisectStatus();
+    ctx.send({ type: 'bisectStatus', data: status });
+  },
+  bisectGood: async (_cmd, ctx) => {
+    const output = await ctx.ch.bisectGood();
+    ctx.send({ type: 'bisectOutput', output });
+    const status = await ctx.ch.getBisectStatus();
+    ctx.send({ type: 'bisectStatus', data: status });
+  },
+  bisectBad: async (_cmd, ctx) => {
+    const output = await ctx.ch.bisectBad();
+    ctx.send({ type: 'bisectOutput', output });
+    const status = await ctx.ch.getBisectStatus();
+    ctx.send({ type: 'bisectStatus', data: status });
+  },
+  bisectSkip: async (_cmd, ctx) => {
+    const output = await ctx.ch.bisectSkip();
+    ctx.send({ type: 'bisectOutput', output });
+    const status = await ctx.ch.getBisectStatus();
+    ctx.send({ type: 'bisectStatus', data: status });
+  },
+  bisectReset: async (_cmd, ctx) => {
+    await ctx.ch.bisectReset();
+    ctx.send({ type: 'bisectStatus', data: { active: false, current: '', stepsLeft: 0, goodCount: 0, badCount: 0, log: [] } });
+  },
+  getBisectStatus: async (_cmd, ctx) => {
+    const status = await ctx.ch.getBisectStatus();
+    ctx.send({ type: 'bisectStatus', data: status });
   },
 
   openRepo:       async (cmd, ctx) => { await ctx.ch.openRepo(cmd.path); },
@@ -246,13 +336,13 @@ const handlers: HandlerTable = {
   openInTerminal: async (_cmd, ctx) => {
     const repoPath = ctx.sm.getState().repoPath;
     if (!repoPath) return;
-    const { spawn } = await import('child_process');
+    const { exec } = await import('child_process');
     if (process.platform === 'win32') {
-      spawn('cmd.exe', [], { cwd: repoPath, detached: true, stdio: 'ignore', shell: false }).unref();
+      exec(`start cmd.exe /K "cd /d ${repoPath}"`, { cwd: repoPath });
     } else if (process.platform === 'darwin') {
-      spawn('open', ['-a', 'Terminal', repoPath], { detached: true, stdio: 'ignore' }).unref();
+      exec(`open -a Terminal "${repoPath}"`);
     } else {
-      spawn('x-terminal-emulator', [], { cwd: repoPath, detached: true, stdio: 'ignore' }).unref();
+      exec(`x-terminal-emulator --working-directory="${repoPath}" || xterm -e "cd '${repoPath}' && bash"`, { cwd: repoPath });
     }
   },
 

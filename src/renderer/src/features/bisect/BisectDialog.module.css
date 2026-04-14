@@ -1,0 +1,223 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  width: 500px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 2px;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.footer {
+  padding: 10px 20px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ─── Form fields ─── */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.input {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: var(--font-mono, 'Consolas', monospace);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent-color, #58a6ff);
+}
+
+/* ─── Active session ─── */
+
+.statusBox {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.statusLine {
+  font-size: 13px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.statusHash {
+  font-family: var(--font-mono, 'Consolas', monospace);
+  color: var(--accent-color, #58a6ff);
+  font-weight: 600;
+}
+
+.statusMeta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.actionGroup {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ─── Output log ─── */
+
+.outputLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.output {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-family: var(--font-mono, 'Consolas', monospace);
+  color: var(--text-secondary);
+  max-height: 120px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ─── Buttons ─── */
+
+.btnPrimary {
+  background: var(--accent-color, #58a6ff);
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btnPrimary:hover { opacity: 0.85; }
+.btnPrimary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btnGood {
+  background: rgba(63, 185, 80, 0.2);
+  color: #3fb950;
+  border: 1px solid rgba(63, 185, 80, 0.4);
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  flex: 1;
+}
+
+.btnGood:hover { background: rgba(63, 185, 80, 0.3); }
+
+.btnBad {
+  background: rgba(255, 99, 71, 0.2);
+  color: #ff6347;
+  border: 1px solid rgba(255, 99, 71, 0.4);
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  flex: 1;
+}
+
+.btnBad:hover { background: rgba(255, 99, 71, 0.3); }
+
+.btnSkip {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btnSkip:hover { color: var(--text-primary); }
+
+.btnSecondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btnSecondary:hover { background: var(--bg-hover); }
+
+.btnDanger {
+  background: rgba(255, 99, 71, 0.15);
+  color: #ff6347;
+  border: 1px solid rgba(255, 99, 71, 0.3);
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btnDanger:hover { background: rgba(255, 99, 71, 0.25); }

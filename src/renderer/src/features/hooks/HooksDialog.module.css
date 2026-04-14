@@ -1,0 +1,153 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  width: 640px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.title { font-size: 16px; font-weight: 600; margin: 0 0 2px; color: var(--text-primary); }
+.subtitle { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.footer {
+  padding: 10px 20px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.hookItem {
+  border-bottom: 1px solid var(--border-color-light, rgba(255, 255, 255, 0.04));
+  cursor: pointer;
+}
+
+.hookHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+}
+
+.hookHeader:hover {
+  background: var(--bg-hover);
+}
+
+.hookName {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  font-family: var(--font-mono, 'Consolas', monospace);
+}
+
+.hookBadge {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 4px;
+}
+
+.hookEnabled {
+  background: rgba(63, 185, 80, 0.15);
+  color: #3fb950;
+}
+
+.hookDisabled {
+  background: rgba(139, 148, 158, 0.15);
+  color: #8b949e;
+}
+
+.toggle {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.toggleOn {
+  background: var(--accent-color, #58a6ff);
+}
+
+.toggleOff {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+}
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s;
+}
+
+.toggleOn::after { left: 18px; }
+.toggleOff::after { left: 2px; }
+
+.hookContent {
+  padding: 0 20px 12px 20px;
+}
+
+.codeBlock {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-family: var(--font-mono, 'Consolas', monospace);
+  color: var(--text-secondary);
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.btnSecondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btnSecondary:hover { background: var(--bg-hover); }

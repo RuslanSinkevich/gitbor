@@ -1,7 +1,7 @@
 import { GitExecutor, GitError } from '../git/GitExecutor';
 import { parseDiff } from '../git/DiffParser';
-import * as GitParser from '../git/GitParser';
-import { MergeResult, OperationResult, DiffHunk, DiffLine } from '../git/types';
+
+import { OperationResult, DiffHunk, DiffLine } from '../git/types';
 import { OperationQueue } from '../safety/OperationQueue';
 import { SafetyNet } from '../safety/SafetyNet';
 import { StateManager } from '../state/StateManager';
@@ -74,23 +74,6 @@ export async function stash(queue: OperationQueue, git: GitExecutor, state: Stat
 
 export async function stashPop(queue: OperationQueue, git: GitExecutor, state: StateManager): Promise<OperationResult> {
   return gitExecSimple(queue, git, state, 'stashPop', ['stash', 'pop']);
-}
-
-export async function merge(queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager, branch: string): Promise<OperationResult<MergeResult>> {
-  return queue.enqueueWrite('merge', async () => {
-    const result = await safety.wrapDestructive('merge', { branch }, async () => {
-      const r = await git.exec(['merge', branch]);
-      if (r.exitCode !== 0 && (r.stdout.includes('CONFLICT') || r.stderr.includes('CONFLICT'))) {
-        const statusResult = await git.exec(['status', '--porcelain=v1']);
-        const conflicts = GitParser.parseStatus(statusResult.stdout).filter(f => f.status === 'U').map(f => f.path);
-        return { success: false, conflicts } satisfies MergeResult;
-      }
-      if (r.exitCode !== 0) throw new GitError(`Merge failed: ${r.stderr}`, 'merge', r.exitCode, r.stderr);
-      return { success: true, conflicts: [] } satisfies MergeResult;
-    });
-    await state.refreshAll();
-    return result;
-  });
 }
 
 export async function createBranch(queue: OperationQueue, git: GitExecutor, state: StateManager, name: string, from: string): Promise<OperationResult> {

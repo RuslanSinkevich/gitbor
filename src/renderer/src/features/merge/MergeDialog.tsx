@@ -44,14 +44,25 @@ export function MergeDialog({ source, target, onClose }: Props) {
     return unsub;
   }, [source, target]);
 
+  useEffect(() => {
+    if (!loading) return;
+    const unsub = onMainEvent((msg) => {
+      if (msg.type === 'operationEnd' && msg.operation === 'merge') {
+        unsub();
+        setLoading(false);
+        onClose();
+      }
+    });
+    return unsub;
+  }, [loading, onClose]);
+
   const handleMerge = () => {
     setLoading(true);
     postCommand({ type: 'startMerge', source, options: modeToOptions(mode) });
-    onClose();
   };
 
   return (
-    <div className={s.overlay} onClick={onClose}>
+    <div className={s.overlay} onClick={loading ? undefined : onClose}>
       <div className={s.dialog} onClick={e => e.stopPropagation()}>
         <div className={s.dialogHeader}>
           <h3 className={s.dialogTitle}>{loc.mergeDialog.title}</h3>
@@ -69,7 +80,7 @@ export function MergeDialog({ source, target, onClose }: Props) {
           </div>
           <div className={s.field}>
             <label className={s.label}>{loc.mergeDialog.optionLabel}</label>
-            <select className={s.select} value={mode} onChange={e => setMode(e.target.value as MergeMode)}>
+            <select className={s.select} value={mode} onChange={e => setMode(e.target.value as MergeMode)} disabled={loading}>
               {(Object.keys(modeLabels) as MergeMode[]).map(m => (
                 <option key={m} value={m}>{modeLabels[m]}</option>
               ))}
@@ -87,7 +98,7 @@ export function MergeDialog({ source, target, onClose }: Props) {
           <button className={s.btnPrimary} onClick={handleMerge} disabled={loading}>
             {loading ? loc.mergeDialog.merging : loc.mergeEditor.merge}
           </button>
-          <button className={s.btnSecondary} onClick={onClose}>{loc.mergeEditor.cancel}</button>
+          <button className={s.btnSecondary} onClick={onClose} disabled={loading}>{loc.mergeEditor.cancel}</button>
         </div>
       </div>
     </div>

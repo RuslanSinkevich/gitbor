@@ -261,3 +261,32 @@
   background: var(--sg-primary);
   color: var(--sg-primary-foreground);
 }
+
+/* ─── GPG signature badges ─── */
+
+.gpgBadge {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  margin-right: 4px;
+  vertical-align: middle;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.gpgGood {
+  background: rgba(63, 185, 80, 0.15);
+  color: #3fb950;
+}
+
+.gpgUntrusted {
+  background: rgba(255, 166, 87, 0.15);
+  color: #ffa657;
+}
+
+.gpgBad {
+  background: rgba(255, 99, 71, 0.15);
+  color: #ff6347;
+}

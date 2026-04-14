@@ -52,10 +52,10 @@ export function parseCommits(stdout: string): Commit[] {
     const parts = nulFields(raw);
     if (parts.length < 7) continue;
 
-    const [hash, parents, authorName, authorEmail, authorDate, refs, subject] = parts;
+    const [hash, parents, authorName, authorEmail, authorDate, refs, subject, gpg] = parts;
     const ts = parseInt(authorDate, 10);
 
-    result.push({
+    const commit: Commit = {
       hash,
       parents: parents ? parents.split(' ').filter(Boolean) : [],
       authorName,
@@ -63,7 +63,11 @@ export function parseCommits(stdout: string): Commit[] {
       authorDate: Number.isNaN(ts) ? 0 : ts * 1000,
       refs: refs ? parseRefs(refs) : [],
       subject,
-    });
+    };
+
+    if (gpg && gpg !== 'N') commit.gpgStatus = gpg;
+
+    result.push(commit);
   }
   return result;
 }

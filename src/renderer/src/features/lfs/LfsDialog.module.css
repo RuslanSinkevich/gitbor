@@ -1,0 +1,31 @@
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.dialog { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 10px; width: 600px; max-width: 90vw; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.35); }
+.header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border-color); }
+.title { font-size: 16px; font-weight: 600; margin: 0 0 2px; color: var(--text-primary); }
+.subtitle { font-size: 12px; color: var(--text-secondary); margin: 0; }
+.body { flex: 1; overflow-y: auto; padding: 12px 20px; display: flex; flex-direction: column; gap: 16px; }
+.footer { padding: 10px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; }
+.empty { padding: 40px 20px; text-align: center; color: var(--text-secondary); font-size: 13px; }
+.warning { padding: 12px 16px; background: rgba(255,166,87,0.1); border: 1px solid rgba(255,166,87,0.3); border-radius: 8px; color: #ffa657; font-size: 13px; text-align: center; }
+
+.section { display: flex; flex-direction: column; gap: 6px; }
+.sectionTitle { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+
+.patternRow { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.patternName { flex: 1; font-size: 13px; font-family: var(--font-mono, 'Consolas', monospace); color: var(--text-primary); }
+.untrackBtn { background: none; border: 1px solid var(--border-color); color: var(--text-secondary); border-radius: 4px; padding: 2px 10px; font-size: 11px; cursor: pointer; }
+.untrackBtn:hover { color: #ff6347; border-color: rgba(255,99,71,0.4); }
+
+.trackRow { display: flex; gap: 8px; margin-top: 4px; }
+.input { background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 10px; font-size: 13px; flex: 1; font-family: var(--font-mono, 'Consolas', monospace); }
+.input:focus { outline: none; border-color: var(--accent-color, #58a6ff); }
+.trackBtn { background: var(--accent-color, #58a6ff); color: #000; border: none; border-radius: 6px; padding: 6px 14px; font-size: 13px; font-weight: 500; cursor: pointer; }
+.trackBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.fileItem { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 12px; }
+.fileName { flex: 1; color: var(--text-primary); font-family: var(--font-mono, 'Consolas', monospace); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fileOid { color: var(--accent-color, #58a6ff); font-family: var(--font-mono, 'Consolas', monospace); font-size: 11px; flex-shrink: 0; }
+.noItems { font-size: 12px; color: var(--text-secondary); padding: 4px 0; }
+
+.btnSecondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 16px; font-size: 13px; cursor: pointer; }
+.btnSecondary:hover { background: var(--bg-hover); }

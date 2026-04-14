@@ -12,6 +12,7 @@ import {
   MergeOptions,
   MergeState,
   RecoveryIssue,
+  ReflogEntry,
 } from '../git/types';
 import type { ConflictContent } from '../git/types';
 
@@ -91,7 +92,6 @@ export type RendererCommand =
   | { type: 'completeMerge'; message?: string }
   | { type: 'abortMerge' }
   | { type: 'getConflictContent'; file: string }
-  | { type: 'resolveConflict'; file: string; resolutions: ('ours' | 'theirs' | 'both-ours-first' | 'both-theirs-first')[] }
   | { type: 'resolveConflictRaw'; file: string; content: string }
   | { type: 'getMergeState' }
   | { type: 'predictConflicts'; source: string; target: string }
@@ -117,6 +117,32 @@ export type RendererCommand =
   | { type: 'generateSshKey'; name: string; keyType: 'ed25519' | 'rsa'; passphrase: string; comment: string }
   | { type: 'deleteSshKey'; name: string }
   | { type: 'getPublicKey'; name: string }
+
+  // LFS
+  | { type: 'getLfsStatus' }
+  | { type: 'lfsTrack'; pattern: string }
+  | { type: 'lfsUntrack'; pattern: string }
+
+  // Worktrees
+  | { type: 'getWorktrees' }
+  | { type: 'addWorktree'; path: string; branch: string; createBranch: boolean }
+  | { type: 'removeWorktree'; path: string; force: boolean }
+
+  // Git Hooks
+  | { type: 'getHooks' }
+  | { type: 'toggleHook'; name: string; enable: boolean }
+
+  // Reflog
+  | { type: 'getReflog'; maxCount?: number }
+  | { type: 'restoreReflog'; hash: string }
+
+  // Bisect
+  | { type: 'bisectStart'; bad: string; good: string }
+  | { type: 'bisectGood' }
+  | { type: 'bisectBad' }
+  | { type: 'bisectSkip' }
+  | { type: 'bisectReset' }
+  | { type: 'getBisectStatus' }
 
   // Renderer-handled views
   | { type: 'openDiff'; file: string; hash: string }
@@ -153,4 +179,10 @@ export type MainEvent =
   | { type: 'repoSettings'; data: import('../git/GitConfig').RepoSettings }
   | { type: 'sshKeys'; data: import('../ssh/SshKeyManager').SshKeyInfo[] }
   | { type: 'publicKey'; name: string; content: string }
+  | { type: 'lfsStatus'; data: import('../git/LfsManager').LfsStatus }
+  | { type: 'worktrees'; data: import('../git/WorktreeManager').WorktreeInfo[] }
+  | { type: 'hooks'; data: import('../git/HooksManager').HookInfo[] }
+  | { type: 'reflog'; data: ReflogEntry[] }
+  | { type: 'bisectStatus'; data: import('../git/BisectManager').BisectStatus }
+  | { type: 'bisectOutput'; output: string }
   | { type: 'error'; message: string };

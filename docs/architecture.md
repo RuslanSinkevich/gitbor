@@ -54,6 +54,11 @@ Modules under `src/core/`:
 | **SafetyNet** | Auto-stash before risky operations; rollback paths on failure. |
 | **FileWatcher** | `chokidar` on `.git` and the working tree; triggers state refresh. |
 | **SshKeyManager** | Lists, generates, deletes SSH keys in `~/.ssh/`. |
+| **ReflogParser** | Parses `git reflog` output into structured entries. |
+| **BisectManager** | Manages `git bisect` sessions: start, good, bad, skip, reset. |
+| **HooksManager** | Lists, toggles (enable/disable), reads git hooks content. |
+| **WorktreeManager** | Lists, adds, removes git worktrees. |
+| **LfsManager** | Git LFS status, track/untrack patterns, list managed files. |
 
 ## Renderer Modules
 
@@ -76,6 +81,11 @@ Feature folders under `src/renderer/src/features/`:
 | **layout/** | `CommitsView`, `ChangesView`, `RightPanelContent`. |
 | **ssh/** | `SshKeysDialog` — SSH key management UI. |
 | **settings/** | `RepoSettingsDialog` — repository user.name/email settings. |
+| **reflog/** | `ReflogDialog`, `ReflogTable`, `ReflogRow`, `ActionBadge`. |
+| **bisect/** | `BisectDialog`, `BisectStartForm`, `BisectActiveSession`. |
+| **hooks/** | `HooksDialog`, `HookItem`. |
+| **worktrees/** | `WorktreesDialog`, `WorktreeItem`, `AddWorktreeForm`. |
+| **lfs/** | `LfsDialog`, `LfsPatternList`, `LfsFileList`. |
 
 Custom hooks under `src/renderer/src/hooks/`:
 
@@ -89,6 +99,7 @@ Custom hooks under `src/renderer/src/hooks/`:
 | **useTheme** | Dark/light theme toggle with localStorage persistence. |
 | **useToasts** | Toast notification queue with auto-dismiss. |
 | **useContextMenu** | Context menu state (position + items). |
+| **useDialogs** | Centralized dialog visibility states (about, ssh, reflog, bisect, hooks, worktrees, lfs). |
 
 ## IPC Protocol
 

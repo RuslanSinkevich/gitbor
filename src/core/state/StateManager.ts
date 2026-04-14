@@ -12,7 +12,7 @@ type StateListener = (state: AppState) => void;
 type RepoSwitchListener = (newPath: string) => void;
 
 const LOG_FORMAT =
-  '%H%x00%P%x00%an%x00%ae%x00%at%x00%D%x00%s';
+  '%H%x00%P%x00%an%x00%ae%x00%at%x00%D%x00%s%x00%G?';
 const REF_FORMAT =
   '%(refname:short)%00%(objectname)%00%(upstream:short)%00%(HEAD)';
 const TAG_REF_FORMAT =

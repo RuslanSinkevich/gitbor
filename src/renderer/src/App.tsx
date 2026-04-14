@@ -7,6 +7,7 @@ import { useContextMenu } from './hooks/useContextMenu';
 import { useMenuActions } from './hooks/useMenuActions';
 import { useOperationToasts } from './hooks/useOperationToasts';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useDialogs } from './hooks/useDialogs';
 import { TitleBar } from './features/titlebar';
 import { CommitsView, ChangesView, type RightPanel } from './features/layout';
 import { MergeDialog, MergeBanner, MergeEditor } from './features/merge';
@@ -22,7 +23,12 @@ import { usePromptDialog, SgPromptDialog } from './ui/SgPromptDialog';
 import { AboutDialog } from './ui/AboutDialog';
 import { SshKeysDialog } from './features/ssh';
 import { RepoSettingsDialog } from './features/settings';
-import { postCommand } from './api';
+import { ReflogDialog } from './features/reflog';
+import { BisectDialog } from './features/bisect';
+import { HooksDialog } from './features/hooks';
+import { WorktreesDialog } from './features/worktrees';
+import { LfsDialog } from './features/lfs';
+import { postCommand, onMainEvent } from './api';
 import { t, tpl, setLang, getLang } from './i18n';
 import { UiShowcase } from './pages/UiShowcase';
 import s from './App.module.css';
@@ -54,9 +60,7 @@ export function App() {
   const [rebaseOnto, setRebaseOnto] = useState<string | null>(null);
   const [page, setPage] = useState<Page>('app');
   const [lang, setLangState] = useState(getLang);
-  const [showAbout, setShowAbout] = useState(false);
-  const [showSshKeys, setShowSshKeys] = useState(false);
-  const [showRepoSettings, setShowRepoSettings] = useState(false);
+  const dlg = useDialogs();
   const loc = t();
 
   useOperationToasts(lastOpResult, clearLastOpResult, addToast);
@@ -66,8 +70,7 @@ export function App() {
   }, []);
 
   const handleMenuAction = useMenuActions({
-    state, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings, showPrompt,
-    handleOpenMergeDialog,
+    state, setViewMode, ...dlg, showPrompt, handleOpenMergeDialog,
   });
 
   useKeyboardShortcuts(handleMenuAction);
@@ -128,10 +131,15 @@ export function App() {
   }, []);
 
   const handleConflictResolved = useCallback((resolvedPath: string) => {
+    const unsub = onMainEvent((msg) => {
+      if (msg.type === 'mergeState') {
+        unsub();
+        const next = msg.data.conflictFiles.find(f => f.status === 'conflicted' && f.path !== resolvedPath);
+        setConflictFile(next ? next.path : null);
+      }
+    });
     postCommand({ type: 'getMergeState' });
-    const remaining = mergeState?.conflictFiles.filter(f => f.status === 'conflicted' && f.path !== resolvedPath);
-    setConflictFile(remaining && remaining.length > 0 ? remaining[0].path : null);
-  }, [mergeState]);
+  }, []);
 
   const handleSelectRef = useCallback((hash: string) => {
     setViewMode('commits'); setRightPanel('diff'); closeDiff(); selectCommit(hash);
@@ -289,9 +297,14 @@ export function App() {
 
       <SgPromptDialog prompt={prompt} onClose={closePrompt} />
       <SgToastContainer toasts={toasts} onDismiss={dismissToast} />
-      {showAbout && <AboutDialog onClose={() => setShowAbout(false)} loc={loc} />}
-      {showSshKeys && <SshKeysDialog onClose={() => setShowSshKeys(false)} />}
-      {showRepoSettings && <RepoSettingsDialog onClose={() => setShowRepoSettings(false)} />}
+      {dlg.showAbout && <AboutDialog onClose={() => dlg.setShowAbout(false)} loc={loc} />}
+      {dlg.showSshKeys && <SshKeysDialog onClose={() => dlg.setShowSshKeys(false)} />}
+      {dlg.showRepoSettings && <RepoSettingsDialog onClose={() => dlg.setShowRepoSettings(false)} />}
+      {dlg.showReflog && <ReflogDialog onClose={() => dlg.setShowReflog(false)} showPrompt={showPrompt} />}
+      {dlg.showBisect && <BisectDialog onClose={() => dlg.setShowBisect(false)} />}
+      {dlg.showHooks && <HooksDialog onClose={() => dlg.setShowHooks(false)} />}
+      {dlg.showWorktrees && <WorktreesDialog onClose={() => dlg.setShowWorktrees(false)} showPrompt={showPrompt} />}
+      {dlg.showLfs && <LfsDialog onClose={() => dlg.setShowLfs(false)} />}
     </div>
   );
 }

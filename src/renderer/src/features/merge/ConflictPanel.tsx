@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { postCommand } from '../../api';
+import { useState, useEffect, useCallback } from 'react';
+import { postCommand, onMainEvent } from '../../api';
 import { t } from '../../i18n';
 import type { MergeState } from '../../types';
 import s from './ConflictPanel.module.css';
@@ -17,23 +17,38 @@ export function ConflictPanel({ file, mergeState, onOpenEditor, onResolved }: Pr
 
   const [oursSelected, setOursSelected] = useState(false);
   const [theirsSelected, setTheirsSelected] = useState(false);
+  const [resolving, setResolving] = useState(false);
 
   useEffect(() => {
     setOursSelected(false);
     setTheirsSelected(false);
+    setResolving(false);
   }, [file]);
+
+  useEffect(() => {
+    if (!resolving) return;
+    const unsub = onMainEvent((msg) => {
+      if (msg.type === 'mergeState') {
+        setResolving(false);
+        unsub();
+        onResolved?.();
+      }
+    });
+    return unsub;
+  }, [resolving, onResolved]);
 
   const bothSelected = oursSelected && theirsSelected;
   const oneSelected = (oursSelected || theirsSelected) && !bothSelected;
 
-  const handleChoose = () => {
+  const handleChoose = useCallback(() => {
+    if (resolving) return;
+    setResolving(true);
     if (oursSelected) {
       postCommand({ type: 'resolveWithOurs', file });
     } else {
       postCommand({ type: 'resolveWithTheirs', file });
     }
-    onResolved?.();
-  };
+  }, [file, oursSelected, resolving]);
 
   const oursLabel = mergeState.targetBranch || loc.mergeEditor.ours;
   const theirsLabel = mergeState.sourceBranch || loc.mergeEditor.theirs;
@@ -77,8 +92,8 @@ export function ConflictPanel({ file, mergeState, onOpenEditor, onResolved }: Pr
       </div>
 
       {oneSelected && (
-        <button className={s.cpActionBtn} onClick={handleChoose}>
-          {cp.choose} {oursSelected ? oursLabel : theirsLabel}
+        <button className={s.cpActionBtn} onClick={handleChoose} disabled={resolving}>
+          {resolving ? '...' : `${cp.choose} ${oursSelected ? oursLabel : theirsLabel}`}
         </button>
       )}
 

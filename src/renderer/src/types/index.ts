@@ -1,5 +1,5 @@
 export type {
-  Commit, RefInfo, Branch, Tag, Stash, Remote, FileStatus, FileChange, CommitDetail, RepoInfo,
+  Commit, RefInfo, Branch, Tag, Stash, Remote, FileStatus, FileChange, CommitDetail, RepoInfo, ReflogEntry,
   GraphNode, GraphConnection, GraphLayoutData, CommitGraphData, MergeLink,
   MergeOptions, ConflictFile, MergeState, ConflictResolution, ConflictBlock, ConflictContent,
   AppState,
