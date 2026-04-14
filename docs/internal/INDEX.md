@@ -36,7 +36,7 @@ Bundled Git               → resources/git/{platform}/git
 | 13 | [13-COMMAND-HANDLER.md](13-COMMAND-HANDLER.md) | CommandHandler | Application Layer | Адаптирован (собственный diff/merge) |
 | 14 | [14-MESSAGES.md](14-MESSAGES.md) | messages.ts (IPC протокол) | Bridge Layer | Расширен (45+ команд, 30+ событий) |
 | 15 | [15-IPC-BRIDGE.md](15-IPC-BRIDGE.md) | IPC Bridge | Bridge Layer | Новый (mapped types, строгая типизация) |
-| 16 | [16-MAIN-PROCESS.md](16-MAIN-PROCESS.md) | main.ts (Electron) | Integration | Новый (autoHideMenuBar) |
+| 16 | [16-MAIN-PROCESS.md](16-MAIN-PROCESS.md) | main.ts (Electron) | Integration | Новый (нативное меню удалено) |
 | 17 | [17-CONFLICT-MANAGER.md](17-CONFLICT-MANAGER.md) | ConflictManager | Application + UI | Адаптирован (ConflictPanel + MergeEditor) |
 | 18 | [18-CONTEXT-MENUS.md](18-CONTEXT-MENUS.md) | Контекстные меню | UI | Адаптирован (подтверждения для опасных действий) |
 
@@ -46,15 +46,16 @@ Bundled Git               → resources/git/{platform}/git
 |--------|------|----------|
 | **GitConfig** | Git Layer | Чтение/запись git config (user.name, user.email, local/global) |
 | **SshKeyManager** | Core | Управление SSH-ключами (~/.ssh/): list, generate, delete, read public |
-| **MenuBar** | UI | Кастомное HTML/CSS меню (замена нативного Electron-меню) |
-| **TitleBar** | UI | Заголовок окна с меню, переключателями темы и языка |
+| **MenuBar** | UI | Кастомное HTML/CSS меню (нативное меню полностью удалено) |
+| **TitleBar** | UI | Заголовок окна с меню (File, Edit, View, Repository, Branch, Help), тема, язык |
 | **AboutDialog** | UI | Диалог "О программе" |
 | **SshKeysDialog** | UI | Менеджер SSH-ключей: просмотр, генерация, копирование, удаление |
 | **RepoSettingsDialog** | UI | Настройки репозитория: user.name/email, global/local |
 | **ErrorBoundary** | UI | React error boundary — защита от белого экрана |
 | **CommitsView** | Layout | Вид коммитов: граф + детали + diff |
 | **ChangesView** | Layout | Вид изменений: файлы + commit bar + diff/conflict |
-| **useMenuActions** | Hook | Обработка действий из кастомного меню и клавиатурных ускорителей |
+| **useMenuActions** | Hook | Обработка действий из кастомного меню |
+| **useKeyboardShortcuts** | Hook | Привязка клавиш (Ctrl+O, Ctrl+Shift+F, F5…) к действиям меню |
 | **useOperationToasts** | Hook | Тост-уведомления о результатах git-операций |
 
 ## Что переиспользуется из SkyFork без изменений
@@ -85,15 +86,16 @@ Bundled Git               → resources/git/{platform}/git
 
 | Модуль | Описание |
 |--------|----------|
-| main.ts | Точка входа Electron, lifecycle, autoHideMenuBar |
+| main.ts | Точка входа Electron, lifecycle, `Menu.setApplicationMenu(null)` |
 | IPC Bridge | Electron IPC (ipcMain/ipcRenderer) вместо postMessage |
-| Preload | contextBridge.exposeInMainWorld |
-| MenuBar | Кастомное HTML/CSS меню в рендерере |
+| Preload | contextBridge.exposeInMainWorld (`invoke`, `onEvent`, `platform`) |
+| MenuBar | Кастомное HTML/CSS меню в рендерере (File, Edit, View, Repository, Branch, Help) |
 | TitleBar | Заголовок окна с интегрированным меню |
 | Diff Viewer | Собственный diff-рендерер (inline + split) |
 | Merge Editor | ConflictPanel + MergeEditor с двухколоночным UI |
 | SSH Manager | Генерация, просмотр, удаление SSH-ключей |
 | Repo Settings | Настройки user.name/email с global/local toggle |
+| Keyboard Shortcuts | Хук `useKeyboardShortcuts` — привязка горячих клавиш к действиям |
 | Error Boundary | React ErrorBoundary для защиты от белого экрана |
 | Toast System | Уведомления о результатах операций |
 

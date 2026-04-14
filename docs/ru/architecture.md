@@ -12,11 +12,11 @@ SkyFork — четырёхслойное приложение на Electron. З�
 Renderer (React) → Preload (contextBridge) → Main (Node.js) → Git binary
 ```
 
-- **Renderer** — React 18, Vite, CSS Modules. Папки фич: graph, sidebar, changes, diff, merge, blame, file-history, rebase, repo-manager, repo-tabs, toolbar, titlebar, layout, ssh, settings. Состояние ведётся хуками: `useAppState`, `useMenuActions`, `useOperationToasts`, `useDiffState`, `useTheme`, `useToasts`, `useContextMenu`.
+- **Renderer** — React 18, Vite, CSS Modules. Папки фич: graph, sidebar, changes, diff, merge, blame, file-history, rebase, repo-manager, repo-tabs, toolbar, titlebar, layout, ssh, settings. Состояние ведётся хуками: `useAppState`, `useMenuActions`, `useKeyboardShortcuts`, `useOperationToasts`, `useDiffState`, `useTheme`, `useToasts`, `useContextMenu`.
 
-- **Preload** — `contextBridge.exposeInMainWorld('skyForkAPI', …)` отдаёт в изолированный renderer `invoke`, `onEvent`, `setLang` и `platform`.
+- **Preload** — `contextBridge.exposeInMainWorld('skyForkAPI', …)` отдаёт в изолированный renderer `invoke`, `onEvent` и `platform`.
 
-- **Main process** — Сервисы инициализируются в `main.ts`: `GitExecutor`, `StateManager`, `OperationQueue`, `SafetyNet`, `CommandHandler`, `MessageBridge`, `FileWatcher`. IPC обрабатывается через `MessageBridge`. Нативное меню скрыто (`autoHideMenuBar`), но клавиатурные ускорители сохранены.
+- **Main process** — Сервисы инициализируются в `main.ts`: `GitExecutor`, `StateManager`, `OperationQueue`, `SafetyNet`, `CommandHandler`, `MessageBridge`, `FileWatcher`. IPC обрабатывается через `MessageBridge`. Нативное меню полностью убрано — `Menu.setApplicationMenu(null)`. Все меню и клавиатурные шорткаты обрабатываются в renderer.
 
 - **Git** — Запускается дочерним процессом через `execFile('git', args)`. `GitExecutor` отвечает за выполнение, таймаут, передачу env и логирование.
 
@@ -84,7 +84,8 @@ User clicks button in React
 | Хук | Назначение |
 |-----|------------|
 | **useAppState** | Глобальное состояние из main process, обработка IPC-событий. |
-| **useMenuActions** | Единый обработчик для кастомного меню + клавиатурных ускорителей. |
+| **useMenuActions** | Единый обработчик для действий кастомного меню (dispatch по строке). |
+| **useKeyboardShortcuts** | Привязка клавиш (Ctrl+O, Ctrl+Shift+F, F5 и т.д.) к действиям меню. |
 | **useOperationToasts** | Автоматические тосты по результатам git-операций. |
 | **useDiffState** | Управление текущим diff target (file + hash). |
 | **useTheme** | Переключение тёмной/светлой темы с сохранением в localStorage. |

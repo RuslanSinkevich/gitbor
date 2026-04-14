@@ -10,11 +10,11 @@ SkyFork is a 4-layer Electron application. Dependencies flow downward only.
 Renderer (React) → Preload (contextBridge) → Main (Node.js) → Git binary
 ```
 
-- **Renderer** — React 18, Vite, CSS Modules. Feature folders: graph, sidebar, changes, diff, merge, blame, file-history, rebase, repo-manager, repo-tabs, toolbar, titlebar, layout, ssh, settings. State is driven by hooks: `useAppState`, `useMenuActions`, `useOperationToasts`, `useDiffState`, `useTheme`, `useToasts`, `useContextMenu`.
+- **Renderer** — React 18, Vite, CSS Modules. Feature folders: graph, sidebar, changes, diff, merge, blame, file-history, rebase, repo-manager, repo-tabs, toolbar, titlebar, layout, ssh, settings. State is driven by hooks: `useAppState`, `useMenuActions`, `useKeyboardShortcuts`, `useOperationToasts`, `useDiffState`, `useTheme`, `useToasts`, `useContextMenu`.
 
-- **Preload** — `contextBridge.exposeInMainWorld('skyForkAPI', …)` exposes `invoke`, `onEvent`, `setLang`, and `platform` to the isolated renderer.
+- **Preload** — `contextBridge.exposeInMainWorld('skyForkAPI', …)` exposes `invoke`, `onEvent`, and `platform` to the isolated renderer.
 
-- **Main process** — Services are initialized in `main.ts`: `GitExecutor`, `StateManager`, `OperationQueue`, `SafetyNet`, `CommandHandler`, `MessageBridge`, `FileWatcher`. IPC handlers are wired through `MessageBridge`. Native menu is hidden (`autoHideMenuBar`) but retains keyboard accelerators.
+- **Main process** — Services are initialized in `main.ts`: `GitExecutor`, `StateManager`, `OperationQueue`, `SafetyNet`, `CommandHandler`, `MessageBridge`, `FileWatcher`. IPC handlers are wired through `MessageBridge`. No native menu — `Menu.setApplicationMenu(null)`. All menus and keyboard shortcuts are handled in the renderer.
 
 - **Git** — Invoked as a child process via `execFile('git', args)`. `GitExecutor` handles execution, timeout, env passing, and logging.
 
@@ -82,7 +82,8 @@ Custom hooks under `src/renderer/src/hooks/`:
 | Hook | Role |
 |------|------|
 | **useAppState** | Global state from main process, IPC event handling. |
-| **useMenuActions** | Unified handler for menu bar + keyboard accelerator actions. |
+| **useMenuActions** | Unified handler for menu bar actions (dispatch by action string). |
+| **useKeyboardShortcuts** | Maps keyboard shortcuts (Ctrl+O, Ctrl+Shift+F, F5, etc.) to menu actions. |
 | **useOperationToasts** | Auto-shows toast notifications for git operation results. |
 | **useDiffState** | Manages current diff target (file + hash). |
 | **useTheme** | Dark/light theme toggle with localStorage persistence. |

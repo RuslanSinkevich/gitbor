@@ -106,9 +106,7 @@ skyfork/
 │   │       └── Logger.ts          # File logging
 │   │
 │   ├── main/                      # Electron entry point
-│   │   ├── main.ts                # Window creation, service init, autoHideMenuBar
-│   │   ├── menu.ts                # Hidden native menu (keyboard accelerators only)
-│   │   └── i18n/                  # Menu localization (ru, en)
+│   │   └── main.ts                # Window creation, service init, no native menu
 │   │
 │   ├── preload/
 │   │   └── index.ts               # contextBridge.exposeInMainWorld('skyForkAPI')
@@ -166,9 +164,9 @@ skyfork/
 - **Diff viewer** — inline + split, ignore whitespace, stage hunk
 - **Merge conflict resolution** — two-column editor, auto-advance, conflict prediction
 - **File history & Git blame** — per-file commit history, line-by-line annotations
-- **Interactive rebase** — pick/reword/edit/squash/fixup/drop
+- **Interactive rebase** — pick/reword/edit/squash/fixup/drop, progress banner
 - **Multi-repo tabs** — open multiple repositories simultaneously
-- **Custom menu bar** — stable HTML/CSS menu (replaces native Electron menu)
+- **Custom menu bar** — HTML/CSS menu with Edit actions, keyboard shortcuts (no native menu)
 - **SSH Keys Manager** — generate, view, copy, delete SSH keys
 - **Repository Settings** — user.name/email, global/local toggle
 - **Toast notifications** — success/error feedback for all git operations

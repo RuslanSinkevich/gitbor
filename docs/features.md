@@ -76,6 +76,7 @@
 ### Interactive Rebase
 
 - Rebase editor with pick/reword/edit/squash/fixup/drop actions
+- Rebase progress banner with step counter and Continue/Skip/Abort buttons
 - Accessible from commit context menu
 
 ### Toolbar
@@ -85,9 +86,10 @@
 
 ### Custom Menu Bar
 
-- HTML/CSS menu in the renderer (replaces unstable native Electron menu on Windows)
-- Menus: File, View, Repository, Branch, Help
-- Keyboard accelerators still work via hidden native menu
+- HTML/CSS menu in the renderer (native Electron menu fully removed)
+- Menus: File, Edit, View, Repository, Branch, Help
+- Edit menu: Undo, Redo, Cut, Copy, Paste
+- Keyboard shortcuts via `useKeyboardShortcuts` hook (Ctrl+O, Ctrl+Shift+F, F5, etc.)
 - Smooth hover behavior across all platforms
 
 ### SSH Keys Manager
