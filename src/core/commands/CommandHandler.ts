@@ -1,6 +1,7 @@
 import { dialog, BrowserWindow } from 'electron';
 import { GitExecutor } from '../git/GitExecutor';
 import { CommitDetail, CommitGraphData, FileDiff, BlameResult, FileHistoryResult, Submodule, RebaseTodoEntry, RebaseTodoList, RebaseProgress, MergeOptions, MergeResult, MergeState, OperationResult, ReflogEntry, FileChange } from '../git/types';
+import type { RepoStats } from '../bridge/messages';
 import { RebaseManager } from '../git/RebaseManager';
 import { BisectManager, type BisectStatus } from '../git/BisectManager';
 import { HooksManager, type HookInfo } from '../git/HooksManager';
@@ -45,6 +46,7 @@ export class CommandHandler {
   getFileBlame(file: string, hash?: string): Promise<BlameResult> { return Read.getFileBlame(this.queue, this.git, file, hash); }
   getFileHistory(file: string): Promise<FileHistoryResult> { return Read.getFileHistory(this.queue, this.git, file); }
   getSubmodules(): Promise<Submodule[]> { return Read.getSubmodules(this.queue, this.git); }
+  getRepoStats(): Promise<RepoStats> { return Read.getRepoStats(this.queue, this.git); }
 
   // ─── Write ───
   checkout(branch: string): Promise<OperationResult> { return Write.checkout(this.queue, this.git, this.safety, this.state, branch); }

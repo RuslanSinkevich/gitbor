@@ -1,7 +1,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--sg-dialog-overlay, rgba(0, 0, 0, 0.4));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9,24 +9,24 @@
 }
 
 .dialog {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: var(--sg-surface, #252526);
+  border: 1px solid var(--sg-border, #3c3c3c);
   border-radius: 10px;
-  width: 640px;
+  width: 620px;
   max-width: 90vw;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--sg-shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.3));
 }
 
 .header {
   padding: 16px 20px 12px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--sg-border, #3c3c3c);
 }
 
-.title { font-size: 16px; font-weight: 600; margin: 0 0 2px; color: var(--text-primary); }
-.subtitle { font-size: 12px; color: var(--text-secondary); margin: 0; }
+.title { font-size: 16px; font-weight: 600; margin: 0 0 2px; color: var(--sg-foreground, #ccc); }
+.subtitle { font-size: 12px; color: var(--sg-foreground-muted, #888); margin: 0; }
 
 .body {
   flex: 1;
@@ -36,104 +36,71 @@
 
 .footer {
   padding: 10px 20px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--sg-border, #3c3c3c);
   display: flex;
   justify-content: flex-end;
 }
 
-.empty {
-  padding: 40px 20px;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 13px;
-}
+.empty { padding: 40px 20px; text-align: center; color: var(--sg-foreground-muted, #888); font-size: 13px; }
 
 .hookItem {
-  border-bottom: 1px solid var(--border-color-light, rgba(255, 255, 255, 0.04));
+  border-bottom: 1px solid var(--sg-border, #3c3c3c);
   cursor: pointer;
 }
 
 .hookHeader {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 10px 20px;
 }
 
 .hookHeader:hover {
-  background: var(--bg-hover);
+  background: var(--sg-surface-hover, #2a2d2e);
 }
 
 .hookName {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--sg-foreground, #ccc);
   flex: 1;
-  font-family: var(--font-mono, 'Consolas', monospace);
 }
 
-.hookBadge {
-  font-size: 11px;
-  padding: 1px 8px;
-  border-radius: 4px;
-}
-
-.hookEnabled {
-  background: rgba(63, 185, 80, 0.15);
-  color: #3fb950;
-}
-
-.hookDisabled {
-  background: rgba(139, 148, 158, 0.15);
-  color: #8b949e;
-}
-
-.toggle {
-  width: 36px;
-  height: 20px;
-  border-radius: 10px;
+.toggleBtn {
   border: none;
+  border-radius: 4px;
+  padding: 2px 10px;
+  font-size: 11px;
   cursor: pointer;
-  position: relative;
-  transition: background 0.2s;
-  flex-shrink: 0;
+  transition: all 0.15s;
 }
 
 .toggleOn {
-  background: var(--accent-color, #58a6ff);
+  background: rgba(63, 185, 80, 0.15);
+  color: #3fb950;
+  border: 1px solid rgba(63, 185, 80, 0.3);
 }
 
 .toggleOff {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
+  background: var(--sg-surface-raised, #2d2d2d);
+  border: 1px solid var(--sg-border, #3c3c3c);
+  color: var(--sg-foreground-muted, #888);
 }
 
-.toggle::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  transition: left 0.2s;
-}
-
-.toggleOn::after { left: 18px; }
-.toggleOff::after { left: 2px; }
+.toggleBtn:hover { opacity: 0.85; }
 
 .hookContent {
-  padding: 0 20px 12px 20px;
+  padding: 0 20px 12px;
 }
 
 .codeBlock {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
+  background: var(--sg-background, #1e1e1e);
+  border: 1px solid var(--sg-border, #3c3c3c);
   border-radius: 6px;
-  padding: 8px 10px;
+  padding: 10px 12px;
+  font-family: var(--sg-font-mono, 'Consolas', monospace);
   font-size: 11px;
-  font-family: var(--font-mono, 'Consolas', monospace);
-  color: var(--text-secondary);
+  color: var(--sg-foreground-muted, #888);
   max-height: 200px;
   overflow-y: auto;
   white-space: pre-wrap;
@@ -141,13 +108,13 @@
 }
 
 .btnSecondary {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  background: var(--sg-surface-raised, #2d2d2d);
+  color: var(--sg-foreground, #ccc);
+  border: 1px solid var(--sg-border, #3c3c3c);
   border-radius: 6px;
   padding: 6px 16px;
   font-size: 13px;
   cursor: pointer;
 }
 
-.btnSecondary:hover { background: var(--bg-hover); }
+.btnSecondary:hover { background: var(--sg-surface-hover, #2a2d2e); }

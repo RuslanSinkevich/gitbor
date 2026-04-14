@@ -1,7 +1,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--sg-dialog-overlay, rgba(0, 0, 0, 0.4));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9,32 +9,32 @@
 }
 
 .dialog {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: var(--sg-surface, #252526);
+  border: 1px solid var(--sg-border, #3c3c3c);
   border-radius: 10px;
   width: 500px;
   max-width: 90vw;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--sg-shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.3));
 }
 
 .header {
   padding: 16px 20px 12px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--sg-border, #3c3c3c);
 }
 
 .title {
   font-size: 16px;
   font-weight: 600;
   margin: 0 0 2px;
-  color: var(--text-primary);
+  color: var(--sg-foreground, #ccc);
 }
 
 .subtitle {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--sg-foreground-muted, #888);
   margin: 0;
 }
 
@@ -47,7 +47,7 @@
 
 .footer {
   padding: 10px 20px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--sg-border, #3c3c3c);
   display: flex;
   justify-content: flex-end;
   gap: 8px;
@@ -64,29 +64,29 @@
 .label {
   font-size: 12px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--sg-foreground-muted, #888);
 }
 
 .input {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  background: var(--sg-input-bg, #3c3c3c);
+  color: var(--sg-foreground, #ccc);
+  border: 1px solid var(--sg-input-border, #5a5a5a);
   border-radius: 6px;
   padding: 6px 10px;
   font-size: 13px;
-  font-family: var(--font-mono, 'Consolas', monospace);
+  font-family: var(--sg-font-mono, 'Consolas', monospace);
 }
 
 .input:focus {
   outline: none;
-  border-color: var(--accent-color, #58a6ff);
+  border-color: var(--sg-primary, #0078d4);
 }
 
 /* ─── Active session ─── */
 
 .statusBox {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
+  background: var(--sg-background, #1e1e1e);
+  border: 1px solid var(--sg-border, #3c3c3c);
   border-radius: 8px;
   padding: 14px 16px;
   display: flex;
@@ -96,21 +96,21 @@
 
 .statusLine {
   font-size: 13px;
-  color: var(--text-primary);
+  color: var(--sg-foreground, #ccc);
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
 .statusHash {
-  font-family: var(--font-mono, 'Consolas', monospace);
-  color: var(--accent-color, #58a6ff);
+  font-family: var(--sg-font-mono, 'Consolas', monospace);
+  color: var(--sg-primary, #0078d4);
   font-weight: 600;
 }
 
 .statusMeta {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--sg-foreground-muted, #888);
 }
 
 .actionGroup {
@@ -124,17 +124,17 @@
 .outputLabel {
   font-size: 12px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--sg-foreground-muted, #888);
 }
 
 .output {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
+  background: var(--sg-background, #1e1e1e);
+  border: 1px solid var(--sg-border, #3c3c3c);
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 11px;
-  font-family: var(--font-mono, 'Consolas', monospace);
-  color: var(--text-secondary);
+  font-family: var(--sg-font-mono, 'Consolas', monospace);
+  color: var(--sg-foreground-muted, #888);
   max-height: 120px;
   overflow-y: auto;
   white-space: pre-wrap;
@@ -144,8 +144,8 @@
 /* ─── Buttons ─── */
 
 .btnPrimary {
-  background: var(--accent-color, #58a6ff);
-  color: #000;
+  background: var(--sg-primary, #0078d4);
+  color: var(--sg-primary-foreground, #fff);
   border: none;
   border-radius: 6px;
   padding: 6px 16px;
@@ -187,28 +187,28 @@
 .btnBad:hover { background: rgba(255, 99, 71, 0.3); }
 
 .btnSkip {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
+  background: var(--sg-surface-raised, #2d2d2d);
+  color: var(--sg-foreground-muted, #888);
+  border: 1px solid var(--sg-border, #3c3c3c);
   border-radius: 6px;
   padding: 6px 16px;
   font-size: 13px;
   cursor: pointer;
 }
 
-.btnSkip:hover { color: var(--text-primary); }
+.btnSkip:hover { color: var(--sg-foreground, #ccc); }
 
 .btnSecondary {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  background: var(--sg-surface-raised, #2d2d2d);
+  color: var(--sg-foreground, #ccc);
+  border: 1px solid var(--sg-border, #3c3c3c);
   border-radius: 6px;
   padding: 6px 16px;
   font-size: 13px;
   cursor: pointer;
 }
 
-.btnSecondary:hover { background: var(--bg-hover); }
+.btnSecondary:hover { background: var(--sg-surface-hover, #2a2d2e); }
 
 .btnDanger {
   background: rgba(255, 99, 71, 0.15);

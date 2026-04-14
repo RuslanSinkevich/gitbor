@@ -15,6 +15,7 @@ interface Deps {
   setShowWorktrees: (v: boolean) => void;
   setShowLfs: (v: boolean) => void;
   setShowGitignore: (v: boolean) => void;
+  setShowRepoStats: (v: boolean) => void;
   showPrompt: (opts: { title: string; placeholder: string; onConfirm: (v: string) => void }) => void;
   handleOpenMergeDialog: (source: string) => void;
 }
@@ -22,7 +23,7 @@ interface Deps {
 export function useMenuActions({
   state, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings,
   setShowReflog, setShowBisect, setShowHooks, setShowWorktrees, setShowLfs, setShowGitignore,
-  showPrompt, handleOpenMergeDialog,
+  setShowRepoStats, showPrompt, handleOpenMergeDialog,
 }: Deps) {
   return useCallback((action: string) => {
     const loc = t();
@@ -56,6 +57,7 @@ export function useMenuActions({
       case 'worktrees': setShowWorktrees(true); break;
       case 'lfs': setShowLfs(true); break;
       case 'gitignore': setShowGitignore(true); break;
+      case 'repoStats': setShowRepoStats(true); break;
       case 'closeRepo':
         if (state.openRepos.length > 0) {
           postCommand({ type: 'closeRepo', index: state.activeRepoIndex });
@@ -68,5 +70,5 @@ export function useMenuActions({
         if (state.repoPath) postCommand({ type: 'openInTerminal' });
         break;
     }
-  }, [state.currentBranch, state.branches, state.openRepos, state.activeRepoIndex, state.repoPath, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings, setShowReflog, setShowBisect, setShowHooks, setShowWorktrees, setShowLfs, setShowGitignore, showPrompt, handleOpenMergeDialog]);
+  }, [state.currentBranch, state.branches, state.openRepos, state.activeRepoIndex, state.repoPath, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings, setShowReflog, setShowBisect, setShowHooks, setShowWorktrees, setShowLfs, setShowGitignore, setShowRepoStats, showPrompt, handleOpenMergeDialog]);
 }

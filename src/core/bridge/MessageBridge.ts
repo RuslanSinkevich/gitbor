@@ -276,6 +276,11 @@ const handlers: HandlerTable = {
     ctx.send({ type: 'commitDiff', data: { fromHash: cmd.fromHash, toHash: cmd.toHash, files } });
   },
 
+  getRepoStats: async (_cmd, ctx) => {
+    const data = await ctx.ch.getRepoStats();
+    ctx.send({ type: 'repoStats', data });
+  },
+
   getReflog: async (cmd, ctx) => {
     const data = await ctx.ch.getReflog(cmd.maxCount);
     ctx.send({ type: 'reflog', data });

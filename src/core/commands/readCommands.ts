@@ -5,6 +5,7 @@ import { parseBlame } from '../git/BlameParser';
 import { parseFileHistory, FILE_HISTORY_FORMAT } from '../git/FileHistoryParser';
 import { parseSubmoduleStatus, parseGitmodules } from '../git/SubmoduleParser';
 import { CommitDetail, CommitGraphData, FileDiff, BlameResult, FileHistoryResult, Submodule } from '../git/types';
+import type { RepoStats, AuthorStats, MonthlyCount } from '../bridge/messages';
 import { OperationQueue } from '../safety/OperationQueue';
 import { StateManager } from '../state/StateManager';
 
@@ -144,5 +145,116 @@ export async function getSubmodules(
     }
 
     return submodules;
+  });
+}
+
+// ─── Repository Statistics ───
+
+interface RawCommitEntry {
+  name: string;
+  email: string;
+  date: string;
+}
+
+export function parseRepoStats(raw: string): RepoStats {
+  const lines = raw.split('\n').filter(Boolean);
+  if (lines.length === 0) {
+    return { totalCommits: 0, period: { from: '', to: '' }, monthlyCounts: [], authors: [] };
+  }
+
+  const entries: RawCommitEntry[] = [];
+  for (const line of lines) {
+    const parts = line.split('\x00');
+    if (parts.length < 3) continue;
+    entries.push({ name: parts[0], email: parts[1], date: parts[2] });
+  }
+
+  if (entries.length === 0) {
+    return { totalCommits: 0, period: { from: '', to: '' }, monthlyCounts: [], authors: [] };
+  }
+
+  const totalCounts: Record<string, number> = {};
+  const authorMap = new Map<string, {
+    name: string;
+    email: string;
+    dates: string[];
+    dailyCounts: Record<string, number>;
+    monthCounts: Record<string, number>;
+  }>();
+
+  for (const entry of entries) {
+    const dayKey = entry.date.slice(0, 10);
+    const monthKey = entry.date.slice(0, 7);
+
+    totalCounts[monthKey] = (totalCounts[monthKey] || 0) + 1;
+
+    const key = `${entry.name}\x00${entry.email}`;
+    let author = authorMap.get(key);
+    if (!author) {
+      author = { name: entry.name, email: entry.email, dates: [], dailyCounts: {}, monthCounts: {} };
+      authorMap.set(key, author);
+    }
+    author.dates.push(dayKey);
+    author.dailyCounts[dayKey] = (author.dailyCounts[dayKey] || 0) + 1;
+    author.monthCounts[monthKey] = (author.monthCounts[monthKey] || 0) + 1;
+  }
+
+  const sortedMonths = Object.keys(totalCounts).sort();
+  const monthlyCounts: MonthlyCount[] = sortedMonths.map(m => ({ month: m, count: totalCounts[m] }));
+
+  const allDates = entries.map(e => e.date.slice(0, 10)).sort();
+  const from = allDates[0];
+  const to = allDates[allDates.length - 1];
+
+  const totalCommits = entries.length;
+  const authors: AuthorStats[] = [];
+
+  for (const a of authorMap.values()) {
+    const sortedDates = a.dates.sort();
+    const firstDate = sortedDates[0];
+    const lastDate = sortedDates[sortedDates.length - 1];
+    const commits = a.dates.length;
+
+    const mostActiveDay = Object.entries(a.dailyCounts).reduce(
+      (best, [day, cnt]) => cnt > best[1] ? [day, cnt] : best,
+      ['', 0],
+    )[0];
+
+    const firstMs = new Date(firstDate).getTime();
+    const lastMs = new Date(lastDate).getTime();
+    const weeks = Math.max(1, (lastMs - firstMs) / (7 * 24 * 3600 * 1000));
+    const avgPerWeek = Math.round((commits / weeks) * 10) / 10;
+
+    const authorMonthlyCounts: MonthlyCount[] = Object.keys(a.monthCounts)
+      .sort()
+      .map(m => ({ month: m, count: a.monthCounts[m] }));
+
+    authors.push({
+      name: a.name,
+      email: a.email,
+      commits,
+      percentage: Math.round((commits / totalCommits) * 1000) / 10,
+      firstDate,
+      lastDate,
+      dailyCounts: a.dailyCounts,
+      monthlyCounts: authorMonthlyCounts,
+      mostActiveDay,
+      avgPerWeek,
+    });
+  }
+
+  authors.sort((a, b) => b.commits - a.commits);
+
+  return { totalCommits, period: { from, to }, monthlyCounts, authors };
+}
+
+export async function getRepoStats(
+  queue: OperationQueue, git: GitExecutor,
+): Promise<RepoStats> {
+  return queue.enqueueRead('getRepoStats', async () => {
+    const result = await git.exec([
+      'log', '--all', '--format=%aN%x00%aE%x00%aI', '--no-merges',
+    ]);
+    return parseRepoStats(result.stdout);
   });
 }

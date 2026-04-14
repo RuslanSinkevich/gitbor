@@ -9,4 +9,4 @@ export type {
   Submodule,
 } from '@core/git/types';
 
-export type { RendererCommand, MainEvent } from '@core/bridge/messages';
+export type { RendererCommand, MainEvent, RepoStats, AuthorStats, MonthlyCount } from '@core/bridge/messages';

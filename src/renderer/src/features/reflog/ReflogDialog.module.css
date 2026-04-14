@@ -1,7 +1,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--sg-dialog-overlay, rgba(0, 0, 0, 0.4));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9,32 +9,32 @@
 }
 
 .dialog {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: var(--sg-surface, #252526);
+  border: 1px solid var(--sg-border, #3c3c3c);
   border-radius: 10px;
   width: 720px;
   max-width: 90vw;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--sg-shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.3));
 }
 
 .header {
   padding: 16px 20px 12px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--sg-border, #3c3c3c);
 }
 
 .title {
   font-size: 16px;
   font-weight: 600;
   margin: 0 0 2px;
-  color: var(--text-primary);
+  color: var(--sg-foreground, #ccc);
 }
 
 .subtitle {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--sg-foreground-muted, #888);
   margin: 0;
 }
 
@@ -46,7 +46,7 @@
 
 .footer {
   padding: 10px 20px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--sg-border, #3c3c3c);
   display: flex;
   justify-content: flex-end;
   gap: 8px;
@@ -55,7 +55,7 @@
 .empty {
   padding: 40px 20px;
   text-align: center;
-  color: var(--text-secondary);
+  color: var(--sg-foreground-muted, #888);
   font-size: 13px;
 }
 
@@ -70,12 +70,12 @@
 .tableHead th {
   position: sticky;
   top: 0;
-  background: var(--bg-secondary);
+  background: var(--sg-surface, #252526);
   padding: 8px 12px;
   text-align: left;
   font-weight: 600;
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--border-color);
+  color: var(--sg-foreground-muted, #888);
+  border-bottom: 1px solid var(--sg-border, #3c3c3c);
   white-space: nowrap;
 }
 
@@ -86,18 +86,18 @@
 }
 
 .row:hover {
-  background: var(--bg-hover);
+  background: var(--sg-surface-hover, #2a2d2e);
 }
 
 .row td {
   padding: 6px 12px;
   vertical-align: middle;
-  border-bottom: 1px solid var(--border-color-light, rgba(255, 255, 255, 0.04));
+  border-bottom: 1px solid var(--sg-border, #3c3c3c);
 }
 
 .colHash {
-  font-family: var(--font-mono, 'Consolas', monospace);
-  color: var(--accent-color, #58a6ff);
+  font-family: var(--sg-font-mono, 'Consolas', monospace);
+  color: var(--sg-primary, #0078d4);
   cursor: pointer;
   user-select: none;
 }
@@ -126,7 +126,7 @@
 .badgeOther    { background: rgba(139, 148, 158, 0.15); color: #8b949e; }
 
 .colMessage {
-  color: var(--text-primary);
+  color: var(--sg-foreground, #ccc);
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -134,7 +134,7 @@
 }
 
 .colDate {
-  color: var(--text-secondary);
+  color: var(--sg-foreground-muted, #888);
   white-space: nowrap;
   font-size: 11px;
 }
@@ -143,8 +143,8 @@
 
 .restoreBtn {
   background: none;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
+  border: 1px solid var(--sg-border, #3c3c3c);
+  color: var(--sg-foreground-muted, #888);
   border-radius: 4px;
   padding: 2px 10px;
   font-size: 11px;
@@ -153,17 +153,17 @@
 }
 
 .restoreBtn:hover {
-  color: var(--text-primary);
-  border-color: var(--accent-color, #58a6ff);
-  background: rgba(88, 166, 255, 0.1);
+  color: var(--sg-foreground, #ccc);
+  border-color: var(--sg-primary, #0078d4);
+  background: rgba(0, 120, 212, 0.1);
 }
 
 /* ─── Footer button ─── */
 
 .btnSecondary {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  background: var(--sg-surface-raised, #2d2d2d);
+  color: var(--sg-foreground, #ccc);
+  border: 1px solid var(--sg-border, #3c3c3c);
   border-radius: 6px;
   padding: 6px 16px;
   font-size: 13px;
@@ -172,12 +172,12 @@
 }
 
 .btnSecondary:hover {
-  background: var(--bg-hover);
+  background: var(--sg-surface-hover, #2a2d2e);
 }
 
 .loading {
   padding: 40px 20px;
   text-align: center;
-  color: var(--text-secondary);
+  color: var(--sg-foreground-muted, #888);
   font-size: 13px;
 }

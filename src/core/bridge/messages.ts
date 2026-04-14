@@ -148,6 +148,9 @@ export type RendererCommand =
   | { type: 'getGitignore' }
   | { type: 'writeGitignore'; content: string }
 
+  // Repository Statistics
+  | { type: 'getRepoStats' }
+
   // Compare two commits
   | { type: 'getCommitDiff'; fromHash: string; toHash: string }
 
@@ -194,4 +197,32 @@ export type MainEvent =
   | { type: 'bisectOutput'; output: string }
   | { type: 'commitDiff'; data: { fromHash: string; toHash: string; files: import('../git/types').FileChange[] } }
   | { type: 'gitignoreContent'; data: string }
+  | { type: 'repoStats'; data: RepoStats }
   | { type: 'error'; message: string };
+
+// ─── Repository Statistics types ───
+
+export interface MonthlyCount {
+  month: string;
+  count: number;
+}
+
+export interface AuthorStats {
+  name: string;
+  email: string;
+  commits: number;
+  percentage: number;
+  firstDate: string;
+  lastDate: string;
+  dailyCounts: Record<string, number>;
+  monthlyCounts: MonthlyCount[];
+  mostActiveDay: string;
+  avgPerWeek: number;
+}
+
+export interface RepoStats {
+  totalCommits: number;
+  period: { from: string; to: string };
+  monthlyCounts: MonthlyCount[];
+  authors: AuthorStats[];
+}

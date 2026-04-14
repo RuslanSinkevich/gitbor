@@ -12,6 +12,7 @@ import { HooksDialog } from './features/hooks';
 import { WorktreesDialog } from './features/worktrees';
 import { LfsDialog } from './features/lfs';
 import { GitignoreDialog } from './features/gitignore';
+import { StatisticsDialog } from './features/statistics';
 import type { MergeState } from './types';
 import type { useDialogs } from './hooks/useDialogs';
 import type { useContextMenu } from './hooks/useContextMenu';
@@ -90,6 +91,7 @@ export function AppDialogs(props: AppDialogsProps) {
       {dlg.showWorktrees && <WorktreesDialog onClose={() => dlg.setShowWorktrees(false)} showPrompt={showPrompt} />}
       {dlg.showLfs && <LfsDialog onClose={() => dlg.setShowLfs(false)} />}
       {dlg.showGitignore && <GitignoreDialog onClose={() => dlg.setShowGitignore(false)} />}
+      {dlg.showRepoStats && <StatisticsDialog onClose={() => dlg.setShowRepoStats(false)} />}
     </>
   );
 }
