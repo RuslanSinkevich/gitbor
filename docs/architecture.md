@@ -59,6 +59,8 @@ Modules under `src/core/`:
 | **HooksManager** | Lists, toggles (enable/disable), reads git hooks content. |
 | **WorktreeManager** | Lists, adds, removes git worktrees. |
 | **LfsManager** | Git LFS status, track/untrack patterns, list managed files. |
+| **pathSecurity** | Path validation utils: `safePath` (path traversal protection), `isSafeFilename` (filename safety). |
+| **AtomicWrite** | Atomic file writes via tmp+rename with fsync and Windows retry logic. |
 
 ## Renderer Modules
 

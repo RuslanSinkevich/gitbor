@@ -118,7 +118,8 @@ skyfork/
 │   │   │   ├── StateManager.ts    # Single source of truth, multi-repo
 │   │   │   └── FileWatcher.ts     # File watcher (chokidar, debounce 300ms)
 │   │   └── utils/
-│   │       └── Logger.ts          # File logging
+│   │       ├── Logger.ts          # File logging
+│   │       └── pathSecurity.ts    # Path traversal protection (safePath, isSafeFilename)
 │   │
 │   ├── main/                      # Electron entry point
 │   │   └── main.ts                # Window creation, service init, no native menu
@@ -203,13 +204,30 @@ skyfork/
 
 ---
 
-## Safety: 5 Levels of Protection
+## Data Safety
+
+### 5 Levels of Protection
 
 1. **Git reflog** — built-in, 90 days
 2. **Auto-stash** — saves uncommitted changes before destructive operations
 3. **HEAD hash** — saved for rollback
 4. **WAL journal** — `.git/SkyFork-journal.json`, begin/complete/fail
 5. **RecoveryManager** — startup checks: lock files, incomplete operations, rebase, merge
+
+### Input Safety
+
+- **Path traversal protection** — `safePath()` validates all IPC paths, preventing access outside the repository
+- **Filename validation** — `isSafeFilename()` checks SSH key and git hook names for special characters
+- **Safe clipboard** — `copyToClipboard()` wrapper with error handling for all clipboard operations
+- **Electron sandbox** — `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`
+- **Atomic writes** — writes via tmp+rename with fsync, Windows retry logic, crash-safe
+
+### Cross-Platform
+
+- `.gitattributes` for consistent line endings (LF for source, CRLF for .bat/.cmd)
+- Cross-platform paths via `path.join()` / `path.resolve()` throughout the codebase
+- Terminal: fallback chain for Linux (gnome-terminal, konsole, xfce4-terminal, xterm)
+- `NUL` / `/dev/null` auto-selection per platform
 
 ---
 

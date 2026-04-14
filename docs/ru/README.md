@@ -118,7 +118,8 @@ skyfork/
 │   │   │   ├── StateManager.ts    # Единый источник состояния, мульти-репо
 │   │   │   └── FileWatcher.ts     # Наблюдатель за файлами (chokidar, debounce 300ms)
 │   │   └── utils/
-│   │       └── Logger.ts          # Файловое логирование
+│   │       ├── Logger.ts          # Файловое логирование
+│   │       └── pathSecurity.ts    # Защита от path traversal (safePath, isSafeFilename)
 │   │
 │   ├── main/                      # Точка входа Electron
 │   │   └── main.ts                # Создание окна, инициализация сервисов, без нативного меню
@@ -203,13 +204,30 @@ skyfork/
 
 ---
 
-## Безопасность: 5 уровней защиты
+## Безопасность данных
+
+### 5 уровней защиты от потери данных
 
 1. **Git reflog** — встроенный, 90 дней
 2. **Auto-stash** — автоматическое сохранение незакоммиченных изменений перед деструктивными операциями
 3. **HEAD hash** — сохранение для rollback
 4. **WAL-журнал** — `.git/SkyFork-journal.json`, begin/complete/fail
 5. **RecoveryManager** — проверки при старте: lock-файлы, незавершённые операции, rebase, merge
+
+### Безопасность ввода
+
+- **Path traversal protection** — `safePath()` валидирует все пути через IPC, не позволяя выйти за пределы репозитория
+- **Filename validation** — `isSafeFilename()` проверяет имена SSH-ключей и git hooks на спецсимволы
+- **Safe clipboard** — `copyToClipboard()` обёртка с обработкой ошибок для всех операций буфера обмена
+- **Electron sandbox** — `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`
+- **Атомарная запись** — запись через tmp+rename с fsync, retry на Windows, защита от повреждения при крашe
+
+### Кроссплатформенность
+
+- `.gitattributes` для нормализации line endings (LF для исходников, CRLF для .bat/.cmd)
+- Кроссплатформенные пути через `path.join()` / `path.resolve()` во всём проекте
+- Терминал: fallback chain для Linux (gnome-terminal, konsole, xfce4-terminal, xterm)
+- `NUL` / `/dev/null` автовыбор по платформе
 
 ---
 

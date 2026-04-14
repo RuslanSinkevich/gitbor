@@ -61,6 +61,8 @@ User clicks button in React
 | **HooksManager** | Список, вкл/выкл (toggle), чтение содержимого git hooks. |
 | **WorktreeManager** | Список, добавление, удаление git worktrees. |
 | **LfsManager** | Статус Git LFS, track/untrack паттернов, список управляемых файлов. |
+| **pathSecurity** | Утилиты валидации путей: `safePath` (защита от path traversal), `isSafeFilename` (безопасность имён файлов). |
+| **AtomicWrite** | Атомарная запись файлов через tmp+rename с fsync и retry на Windows. |
 
 ## Модули renderer
 
