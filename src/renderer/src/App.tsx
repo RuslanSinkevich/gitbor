@@ -28,6 +28,7 @@ import { BisectDialog } from './features/bisect';
 import { HooksDialog } from './features/hooks';
 import { WorktreesDialog } from './features/worktrees';
 import { LfsDialog } from './features/lfs';
+import { GitignoreDialog } from './features/gitignore';
 import { postCommand, onMainEvent } from './api';
 import { t, tpl, setLang, getLang } from './i18n';
 import { UiShowcase } from './pages/UiShowcase';
@@ -314,6 +315,7 @@ export function App() {
       {dlg.showHooks && <HooksDialog onClose={() => dlg.setShowHooks(false)} />}
       {dlg.showWorktrees && <WorktreesDialog onClose={() => dlg.setShowWorktrees(false)} showPrompt={showPrompt} />}
       {dlg.showLfs && <LfsDialog onClose={() => dlg.setShowLfs(false)} />}
+      {dlg.showGitignore && <GitignoreDialog onClose={() => dlg.setShowGitignore(false)} />}
     </div>
   );
 }

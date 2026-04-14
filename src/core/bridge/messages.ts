@@ -144,6 +144,10 @@ export type RendererCommand =
   | { type: 'bisectReset' }
   | { type: 'getBisectStatus' }
 
+  // Gitignore
+  | { type: 'getGitignore' }
+  | { type: 'writeGitignore'; content: string }
+
   // Compare two commits
   | { type: 'getCommitDiff'; fromHash: string; toHash: string }
 
@@ -189,4 +193,5 @@ export type MainEvent =
   | { type: 'bisectStatus'; data: import('../git/BisectManager').BisectStatus }
   | { type: 'bisectOutput'; output: string }
   | { type: 'commitDiff'; data: { fromHash: string; toHash: string; files: import('../git/types').FileChange[] } }
+  | { type: 'gitignoreContent'; data: string }
   | { type: 'error'; message: string };

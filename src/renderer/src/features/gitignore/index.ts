@@ -1,0 +1,1 @@
+export { GitignoreDialog } from './GitignoreDialog';

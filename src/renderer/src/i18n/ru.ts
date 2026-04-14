@@ -41,6 +41,7 @@ export const ru: LocaleMap = {
     hooks: 'Git Hooks...',
     worktrees: 'Рабочие деревья...',
     lfs: 'Git LFS...',
+    gitignore: '.gitignore...',
     docs: 'Документация',
     about: 'О программе SkyFork',
   },
@@ -476,6 +477,13 @@ export const ru: LocaleMap = {
     pull: 'pull',
     cherryPick: 'cherry-pick',
     copyHash: 'Копировать SHA',
+  },
+  gitignore: {
+    title: 'Редактор .gitignore',
+    subtitle: 'Выберите шаблоны или редактируйте вручную',
+    existsWarning: 'Существующий .gitignore будет перезаписан',
+    save: 'Сохранить',
+    cancel: 'Отмена',
   },
   showcase: {
     title: 'UI Kit',

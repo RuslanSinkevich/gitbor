@@ -10,6 +10,7 @@ export interface DialogStates {
   showHooks: boolean;
   showWorktrees: boolean;
   showLfs: boolean;
+  showGitignore: boolean;
 }
 
 export interface DialogActions {
@@ -21,6 +22,7 @@ export interface DialogActions {
   setShowHooks: (v: boolean) => void;
   setShowWorktrees: (v: boolean) => void;
   setShowLfs: (v: boolean) => void;
+  setShowGitignore: (v: boolean) => void;
 }
 
 /**
@@ -36,6 +38,7 @@ export function useDialogs(): DialogStates & DialogActions {
   const [showHooks, setShowHooks] = useState(false);
   const [showWorktrees, setShowWorktrees] = useState(false);
   const [showLfs, setShowLfs] = useState(false);
+  const [showGitignore, setShowGitignore] = useState(false);
 
   return {
     showAbout, setShowAbout,
@@ -46,5 +49,6 @@ export function useDialogs(): DialogStates & DialogActions {
     showHooks, setShowHooks,
     showWorktrees, setShowWorktrees,
     showLfs, setShowLfs,
+    showGitignore, setShowGitignore,
   };
 }

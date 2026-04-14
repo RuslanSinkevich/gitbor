@@ -39,6 +39,7 @@ export const en = {
     hooks: 'Git Hooks...',
     worktrees: 'Worktrees...',
     lfs: 'Git LFS...',
+    gitignore: '.gitignore...',
     docs: 'Documentation',
     about: 'About SkyFork',
   },
@@ -474,6 +475,13 @@ export const en = {
     pull: 'pull',
     cherryPick: 'cherry-pick',
     copyHash: 'Copy SHA',
+  },
+  gitignore: {
+    title: '.gitignore Editor',
+    subtitle: 'Select templates or edit manually',
+    existsWarning: 'Existing .gitignore will be overwritten',
+    save: 'Save',
+    cancel: 'Cancel',
   },
   showcase: {
     title: 'UI Kit',

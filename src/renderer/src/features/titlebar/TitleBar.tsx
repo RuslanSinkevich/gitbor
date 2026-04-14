@@ -68,6 +68,7 @@ export function TitleBar({ loc, page, setPage, lang, toggleLang, theme, toggleTh
         { label: loc.menu.hooks, action: () => onMenuAction('hooks') },
         { label: loc.menu.worktrees, action: () => onMenuAction('worktrees') },
         { label: loc.menu.lfs, action: () => onMenuAction('lfs') },
+        { label: loc.menu.gitignore ?? '.gitignore...', action: () => onMenuAction('gitignore') },
         { type: 'separator', label: '' },
         { label: loc.menu.openInExplorer, accelerator: 'Ctrl+Alt+O', action: () => onMenuAction('openInExplorer') },
         { label: loc.menu.openInTerminal, accelerator: 'Ctrl+Alt+T', action: () => onMenuAction('openInTerminal') },

@@ -248,6 +248,26 @@ const handlers: HandlerTable = {
     ctx.send({ type: 'hooks', data });
   },
 
+  getGitignore: async (_cmd, ctx) => {
+    const { readFile } = await import('fs/promises');
+    const { join } = await import('path');
+    const gitignorePath = join(ctx.ch.getRepoPath(), '.gitignore');
+    try {
+      const content = await readFile(gitignorePath, 'utf-8');
+      ctx.send({ type: 'gitignoreContent', data: content });
+    } catch {
+      ctx.send({ type: 'gitignoreContent', data: '' });
+    }
+  },
+
+  writeGitignore: async (cmd, ctx) => {
+    const { writeFile } = await import('fs/promises');
+    const { join } = await import('path');
+    const gitignorePath = join(ctx.ch.getRepoPath(), '.gitignore');
+    await writeFile(gitignorePath, cmd.content, 'utf-8');
+    ctx.send({ type: 'operationEnd', operation: 'writeGitignore', success: true });
+  },
+
   getCommitDiff: async (cmd, ctx) => {
     const files = await ctx.ch.getCommitDiff(cmd.fromHash, cmd.toHash);
     ctx.send({ type: 'commitDiff', data: { fromHash: cmd.fromHash, toHash: cmd.toHash, files } });

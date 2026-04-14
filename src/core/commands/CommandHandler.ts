@@ -36,6 +36,8 @@ export class CommandHandler {
     this.lfs = new LfsManager(git);
   }
 
+  getRepoPath(): string { return this.git.getCwd(); }
+
   // ─── Read ───
   getGraphData(maxCount: number): Promise<CommitGraphData> { return Read.getGraphData(this.queue, this.state, maxCount); }
   getCommitDetails(hash: string): Promise<CommitDetail> { return Read.getCommitDetails(this.queue, this.git, hash); }
