@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { SgDialog } from './SgDialog';
+import { t } from '../i18n';
 
 interface PromptState {
   title: string;
@@ -57,7 +58,8 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
     if (prompt) {
       setValue(prompt.defaultValue);
       if (!isConfirmOnly) {
-        setTimeout(() => inputRef.current?.focus(), 50);
+        const timer = setTimeout(() => inputRef.current?.focus(), 50);
+        return () => clearTimeout(timer);
       }
     }
   }, [prompt, isConfirmOnly]);
@@ -83,13 +85,13 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
   return (
     <SgDialog open={true} title={prompt.title} onClose={onClose} width={400} footer={
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button className="sg-button sg-button--md sg-button--ghost" onClick={onClose}>Cancel</button>
+        <button className="sg-button sg-button--md sg-button--ghost" onClick={onClose}>{t().dialog.cancel}</button>
         <button
           className={confirmBtnClass}
           onClick={handleSubmit}
           disabled={!isConfirmOnly && !value.trim()}
         >
-          {prompt.confirmLabel || 'OK'}
+          {prompt.confirmLabel || t().dialog.confirm}
         </button>
       </div>
     }>

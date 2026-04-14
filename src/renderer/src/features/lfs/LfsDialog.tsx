@@ -47,7 +47,7 @@ export function LfsDialog({ onClose }: Props) {
 
         <div className={s.body}>
           {!status ? (
-            <div className={s.empty}>Loading...</div>
+            <div className={s.empty}>{t().app.loading}</div>
           ) : !status.installed ? (
             <div className={s.warning}>{ll.notInstalled}</div>
           ) : (

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { postCommand, onMainEvent } from '../../api';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { postCommand, onMainEvent, copyToClipboard } from '../../api';
 import { t, tpl } from '../../i18n';
 import type { MainEvent } from '../../types';
 import s from './SshKeysDialog.module.css';
@@ -21,15 +21,18 @@ export function SshKeysDialog({ onClose }: Props) {
   const [keys, setKeys] = useState<SshKeyInfo[]>([]);
   const [showGenerate, setShowGenerate] = useState(false);
   const [copiedName, setCopiedName] = useState<string | null>(null);
+  const copyTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(copyTimer.current), []);
 
   useEffect(() => {
     postCommand({ type: 'listSshKeys' });
     const unsub = onMainEvent((msg: MainEvent) => {
       if (msg.type === 'sshKeys') setKeys(msg.data as SshKeyInfo[]);
       if (msg.type === 'publicKey') {
-        navigator.clipboard.writeText((msg as any).content);
+        copyToClipboard((msg as any).content);
         setCopiedName((msg as any).name);
-        setTimeout(() => setCopiedName(null), 2000);
+        clearTimeout(copyTimer.current);
+        copyTimer.current = setTimeout(() => setCopiedName(null), 2000);
       }
     });
     return unsub;
@@ -137,6 +140,18 @@ function GenerateForm({ loc, onDone }: { loc: ReturnType<typeof t>['sshKeys']; o
   const [comment, setComment] = useState('');
   const [generating, setGenerating] = useState(false);
 
+  useEffect(() => {
+    if (!generating) return;
+    const unsub = onMainEvent((msg) => {
+      if (msg.type === 'sshKeys') {
+        setGenerating(false);
+        onDone();
+      }
+    });
+    const fallback = setTimeout(() => { setGenerating(false); onDone(); }, 5000);
+    return () => { unsub(); clearTimeout(fallback); };
+  }, [generating, onDone]);
+
   const handleGenerate = () => {
     if (!name.trim()) return;
     setGenerating(true);
@@ -147,7 +162,6 @@ function GenerateForm({ loc, onDone }: { loc: ReturnType<typeof t>['sshKeys']; o
       passphrase,
       comment: comment || name.trim(),
     });
-    setTimeout(() => { setGenerating(false); onDone(); }, 2000);
   };
 
   return (

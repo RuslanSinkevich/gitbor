@@ -46,11 +46,10 @@ export class RebaseManager {
     const todoPath = join(tmpdir(), `skyfork-rebase-todo-${Date.now()}.txt`);
     await writeFile(todoPath, todoContent, 'utf-8');
 
-    const escapedTodoPath = todoPath.replace(/\\/g, '/');
-
     const editorCmd = process.platform === 'win32'
       ? `cmd /c copy /y "${todoPath.replace(/\//g, '\\')}"` 
-      : `cp "${escapedTodoPath}"`;
+      : `cp "${todoPath.replace(/\\/g, '/')}"`;
+
 
     try {
       const result = await this.git.exec(
@@ -85,28 +84,40 @@ export class RebaseManager {
     const repoPath = this.git.getCwd();
     const gitDir = join(repoPath, '.git');
 
+    let dir = '';
     try {
       await access(join(gitDir, 'rebase-merge'));
+      dir = join(gitDir, 'rebase-merge');
     } catch {
       try {
         await access(join(gitDir, 'rebase-apply'));
+        dir = join(gitDir, 'rebase-apply');
       } catch {
         return { inProgress: false, currentStep: 0, totalSteps: 0, currentHash: '', currentAction: '' };
       }
     }
 
-    const dir = join(gitDir, 'rebase-merge');
     let step = 0, total = 0, hash = '', action = '';
 
     try {
       const msgnum = await readFile(join(dir, 'msgnum'), 'utf-8');
       step = parseInt(msgnum.trim(), 10);
-    } catch { /* empty */ }
+    } catch {
+      try {
+        const next = await readFile(join(dir, 'next'), 'utf-8');
+        step = parseInt(next.trim(), 10);
+      } catch { /* empty */ }
+    }
 
     try {
       const end = await readFile(join(dir, 'end'), 'utf-8');
       total = parseInt(end.trim(), 10);
-    } catch { /* empty */ }
+    } catch {
+      try {
+        const last = await readFile(join(dir, 'last'), 'utf-8');
+        total = parseInt(last.trim(), 10);
+      } catch { /* empty */ }
+    }
 
     try {
       const stopped = await readFile(join(dir, 'stopped-sha'), 'utf-8');

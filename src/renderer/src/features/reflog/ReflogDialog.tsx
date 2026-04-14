@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { postCommand, onMainEvent } from '../../api';
+import { postCommand, onMainEvent, copyToClipboard } from '../../api';
 import { t, tpl } from '../../i18n';
 import type { ReflogEntry } from '../../types';
 import type { ShowPrompt } from '../graph/commitMenuItems';
@@ -30,7 +30,7 @@ export function ReflogDialog({ onClose, showPrompt }: Props) {
   }, []);
 
   const handleCopyHash = useCallback((hash: string) => {
-    navigator.clipboard.writeText(hash);
+    copyToClipboard(hash);
   }, []);
 
   const handleRestore = useCallback((entry: ReflogEntry) => {
@@ -56,7 +56,7 @@ export function ReflogDialog({ onClose, showPrompt }: Props) {
 
         <div className={s.body}>
           {loading ? (
-            <div className={s.loading}>Loading...</div>
+            <div className={s.loading}>{loc.app.loading}</div>
           ) : entries.length === 0 ? (
             <div className={s.empty}>{rl.empty}</div>
           ) : (

@@ -31,11 +31,12 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
   }, [searchMatches, searchMatchIdx, commits, onSelect, scrollToRow]);
 
   useEffect(() => {
+    let focusTimer: ReturnType<typeof setTimeout>;
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault();
         setSearchVisible(true);
-        setTimeout(() => searchRef.current?.focus(), 50);
+        focusTimer = setTimeout(() => searchRef.current?.focus(), 50);
       }
       if (e.key === 'Escape' && searchVisible) {
         setSearchVisible(false);
@@ -43,7 +44,10 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
       }
     };
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      clearTimeout(focusTimer);
+    };
   }, [searchVisible]);
 
   useEffect(() => { setSearchMatchIdx(0); }, [searchQuery]);

@@ -343,10 +343,10 @@ const handlers: HandlerTable = {
     ctx.send({ type: 'openMergeEditor', ...payload });
   },
   openFile: async (cmd, ctx) => {
-    const path = await import('path');
+    const { safePath } = await import('../utils/pathSecurity');
     const repoPath = ctx.sm.getState().repoPath;
     if (repoPath) {
-      const fullPath = path.join(repoPath, cmd.file);
+      const fullPath = safePath(repoPath, cmd.file);
       shell.openPath(fullPath);
     }
   },
@@ -363,11 +363,18 @@ const handlers: HandlerTable = {
     if (!repoPath) return;
     const { exec } = await import('child_process');
     if (process.platform === 'win32') {
-      exec(`start cmd.exe /K "cd /d ${repoPath}"`, { cwd: repoPath });
+      exec(`start "" cmd.exe /K "cd /d "${repoPath}""`, { cwd: repoPath });
     } else if (process.platform === 'darwin') {
       exec(`open -a Terminal "${repoPath}"`);
     } else {
-      exec(`x-terminal-emulator --working-directory="${repoPath}" || xterm -e "cd '${repoPath}' && bash"`, { cwd: repoPath });
+      const cmd = [
+        `x-terminal-emulator --working-directory="${repoPath}"`,
+        `gnome-terminal --working-directory="${repoPath}"`,
+        `konsole --workdir "${repoPath}"`,
+        `xfce4-terminal --working-directory="${repoPath}"`,
+        `xterm -e 'cd "${repoPath}" && exec bash'`,
+      ].join(' || ');
+      exec(cmd, { cwd: repoPath });
     }
   },
 

@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'fs';
-import { join, resolve, normalize } from 'path';
 import type { ConflictBlock, ConflictContent } from './types';
+import { safePath } from '../utils/pathSecurity';
 
 export type { ConflictBlock, ConflictContent };
 
@@ -90,10 +90,7 @@ export function parseConflictMarkers(content: string): ConflictBlock[] {
 }
 
 export function readConflictFile(repoPath: string, file: string): ConflictContent {
-  const fullPath = resolve(join(repoPath, file));
-  if (!fullPath.startsWith(normalize(repoPath))) {
-    throw new Error('Path traversal detected');
-  }
+  const fullPath = safePath(repoPath, file);
   const content = readFileSync(fullPath, 'utf-8');
   const blocks = parseConflictMarkers(content);
   return {
@@ -104,9 +101,6 @@ export function readConflictFile(repoPath: string, file: string): ConflictConten
 }
 
 export function writeResolvedFile(repoPath: string, file: string, content: string): void {
-  const fullPath = resolve(join(repoPath, file));
-  if (!fullPath.startsWith(normalize(repoPath))) {
-    throw new Error('Path traversal detected');
-  }
+  const fullPath = safePath(repoPath, file);
   writeFileSync(fullPath, content, 'utf-8');
 }

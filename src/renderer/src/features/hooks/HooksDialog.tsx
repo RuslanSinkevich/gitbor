@@ -46,7 +46,7 @@ export function HooksDialog({ onClose }: Props) {
 
         <div className={s.body}>
           {loading ? (
-            <div className={s.empty}>Loading...</div>
+            <div className={s.empty}>{t().app.loading}</div>
           ) : hooks.length === 0 ? (
             <div className={s.empty}>{hl.empty}</div>
           ) : (

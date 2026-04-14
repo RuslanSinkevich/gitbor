@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { t, tpl } from '../../i18n';
-import { postCommand } from '../../api';
+import { postCommand, copyToClipboard } from '../../api';
 import type { FileStatus } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import type { ShowPrompt } from '../graph/commitMenuItems';
@@ -34,8 +34,8 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
     { label: loc.contextMenu.fileHistory, action: () => onFileHistory?.(file.path) },
     { label: loc.contextMenu.blame, action: () => onFileBlame?.(file.path) },
     { divider: true },
-    { label: loc.contextMenu.copyPath, action: () => navigator.clipboard.writeText(file.path) },
-    { label: loc.contextMenu.copyFileName, action: () => navigator.clipboard.writeText(fileName(file.path)) },
+    { label: loc.contextMenu.copyPath, action: () => copyToClipboard(file.path) },
+    { label: loc.contextMenu.copyFileName, action: () => copyToClipboard(fileName(file.path)) },
   ], [loc, onFileHistory, onFileBlame, onOpenDiff]);
 
   const getUnstagedMenuItems = useCallback((file: FileStatus): SgContextMenuItem[] => {
@@ -79,8 +79,8 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
     }
     items.push(
       { divider: true },
-      { label: loc.contextMenu.copyPath, action: () => navigator.clipboard.writeText(file.path) },
-      { label: loc.contextMenu.copyFileName, action: () => navigator.clipboard.writeText(fileName(file.path)) },
+      { label: loc.contextMenu.copyPath, action: () => copyToClipboard(file.path) },
+      { label: loc.contextMenu.copyFileName, action: () => copyToClipboard(fileName(file.path)) },
     );
     return items;
   }, [loc, onFileHistory, onFileBlame, onOpenDiff, showPrompt]);
@@ -91,8 +91,8 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
     { label: loc.contextMenu.resolveOurs, action: () => postCommand({ type: 'resolveWithOurs', file: file.path }) },
     { label: loc.contextMenu.resolveTheirs, action: () => postCommand({ type: 'resolveWithTheirs', file: file.path }) },
     { divider: true },
-    { label: loc.contextMenu.copyPath, action: () => navigator.clipboard.writeText(file.path) },
-    { label: loc.contextMenu.copyFileName, action: () => navigator.clipboard.writeText(fileName(file.path)) },
+    { label: loc.contextMenu.copyPath, action: () => copyToClipboard(file.path) },
+    { label: loc.contextMenu.copyFileName, action: () => copyToClipboard(fileName(file.path)) },
   ], [loc, onOpenMergeEditor]);
 
   const handleStageAll = () => {

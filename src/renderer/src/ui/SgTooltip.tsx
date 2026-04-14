@@ -1,4 +1,4 @@
-import { useState, useRef, type ReactNode } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 
 interface SgTooltipProps {
   text: string;
@@ -9,6 +9,8 @@ interface SgTooltipProps {
 export function SgTooltip({ text, position = 'top', children }: SgTooltipProps) {
   const [visible, setVisible] = useState(false);
   const timeout = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => () => clearTimeout(timeout.current), []);
 
   const show = () => {
     timeout.current = setTimeout(() => setVisible(true), 400);

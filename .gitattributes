@@ -1,0 +1,22 @@
+# Normalize line endings across all platforms
+* text=auto eol=lf
+
+# Ensure shell scripts always have LF
+*.sh text eol=lf
+*.mjs text eol=lf
+
+# Windows batch files need CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

@@ -6,6 +6,10 @@ export const ru: LocaleMap = {
     openRepo: 'Открыть репозиторий',
     noRepo: 'Нет репозитория',
     welcomeText: 'Откройте репозиторий, чтобы начать работу.',
+    somethingWentWrong: 'Что-то пошло не так',
+    unknownError: 'Неизвестная ошибка',
+    reloadUi: 'Перезагрузить UI',
+    loading: 'Загрузка...',
   },
   menu: {
     file: 'Файл',

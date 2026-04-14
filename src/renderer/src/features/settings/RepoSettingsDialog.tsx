@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { postCommand, onMainEvent } from '../../api';
 import { t } from '../../i18n';
 import type { MainEvent } from '../../types';
@@ -55,10 +55,14 @@ export function RepoSettingsDialog({ onClose }: Props) {
     }
   }, [useGlobal, settings]);
 
+  const savedTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(savedTimer.current), []);
+
   const handleSave = useCallback(() => {
     postCommand({ type: 'setRepoSettings', useGlobal, name, email });
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setSaved(false), 2000);
   }, [useGlobal, name, email]);
 
   if (!settings) return null;

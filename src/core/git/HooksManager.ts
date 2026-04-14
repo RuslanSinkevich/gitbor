@@ -1,6 +1,7 @@
 import { readdir, readFile, rename, chmod, stat } from 'fs/promises';
 import { join } from 'path';
 import { GitExecutor } from './GitExecutor';
+import { isSafeFilename } from '../utils/pathSecurity';
 
 /** Known git hook names. */
 const KNOWN_HOOKS = [
@@ -66,6 +67,7 @@ export class HooksManager {
 
   /** Toggles a hook by renaming it with/without `.disabled` suffix. */
   async toggleHook(name: string, enable: boolean): Promise<void> {
+    if (!isSafeFilename(name)) throw new Error(`Invalid hook name: ${name}`);
     const dir = this.getHooksDir();
     const enabledPath = join(dir, name);
     const disabledPath = join(dir, `${name}.disabled`);

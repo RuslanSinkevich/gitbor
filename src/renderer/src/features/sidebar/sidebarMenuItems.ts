@@ -1,5 +1,5 @@
 import { tpl } from '../../i18n';
-import { postCommand } from '../../api';
+import { postCommand, copyToClipboard } from '../../api';
 import type { Branch, Tag, Stash, Remote } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import type { ShowPrompt } from '../graph/commitMenuItems';
@@ -57,7 +57,7 @@ export function getBranchMenuItems(branch: Branch, currentBranch: string, loc: L
     }),
   });
   items.push({ divider: true });
-  items.push({ label: loc.contextMenu.copyName, action: () => navigator.clipboard.writeText(branch.name) });
+  items.push({ label: loc.contextMenu.copyName, action: () => copyToClipboard(branch.name) });
   return items;
 }
 
@@ -76,7 +76,7 @@ export function getTagMenuItems(tag: Tag, loc: Loc, showPrompt: ShowPrompt): SgC
       }),
     },
     { divider: true },
-    { label: loc.contextMenu.copyName, action: () => navigator.clipboard.writeText(tag.name) },
+    { label: loc.contextMenu.copyName, action: () => copyToClipboard(tag.name) },
   ];
 }
 
@@ -123,7 +123,7 @@ export function getRemoteMenuItems(remote: Remote, loc: Loc, showPrompt: ShowPro
       }),
     },
     { divider: true },
-    { label: loc.contextMenu.copyName, action: () => navigator.clipboard.writeText(remote.name) },
-    { label: loc.contextMenu.copyUrl, action: () => navigator.clipboard.writeText(remote.fetchUrl) },
+    { label: loc.contextMenu.copyName, action: () => copyToClipboard(remote.name) },
+    { label: loc.contextMenu.copyUrl, action: () => copyToClipboard(remote.fetchUrl) },
   ];
 }

@@ -4,6 +4,10 @@ export const en = {
     openRepo: 'Open Repository',
     noRepo: 'No repository',
     welcomeText: 'Open a repository to get started.',
+    somethingWentWrong: 'Something went wrong',
+    unknownError: 'Unknown error',
+    reloadUi: 'Reload UI',
+    loading: 'Loading...',
   },
   menu: {
     file: 'File',

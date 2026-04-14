@@ -1,5 +1,5 @@
 import { t, tpl } from '../../i18n';
-import { postCommand } from '../../api';
+import { postCommand, copyToClipboard } from '../../api';
 import type { Commit } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 
@@ -110,8 +110,8 @@ export function getCommitMenuItems(commit: Commit, currentBranch: string, showPr
     }] : []),
     { divider: true },
 
-    { label: loc.contextMenu.copySha, shortcut: 'Ctrl+C', action: () => navigator.clipboard.writeText(commit.hash) },
-    { label: loc.contextMenu.copyCommitInfo, shortcut: 'Ctrl+Shift+C', action: () => navigator.clipboard.writeText(formatCommitInfo(commit)) },
+    { label: loc.contextMenu.copySha, shortcut: 'Ctrl+C', action: () => copyToClipboard(commit.hash) },
+    { label: loc.contextMenu.copyCommitInfo, shortcut: 'Ctrl+Shift+C', action: () => copyToClipboard(formatCommitInfo(commit)) },
   );
 
   return items;

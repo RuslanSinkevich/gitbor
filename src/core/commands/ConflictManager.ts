@@ -150,7 +150,7 @@ export class ConflictManager {
 
     const conflictFiles = await this.getConflictFiles();
     const resolvedPaths = conflictFiles
-      .filter(f => f.status === 'resolved' || f.status === 'staged')
+      .filter(f => f.status === 'resolved')
       .map(f => f.path);
 
     if (resolvedPaths.length > 0) {

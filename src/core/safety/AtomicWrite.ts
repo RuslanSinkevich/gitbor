@@ -50,11 +50,11 @@ export function atomicWriteFileSync(filePath: string, data: string): void {
   const tmpPath = join(dir, `.tmp-${randomBytes(8).toString('hex')}`);
 
   writeFileSync(tmpPath, data, 'utf-8');
-  const fd = openSync(tmpPath, 'r');
   try {
-    fsyncSync(fd);
-  } finally {
-    closeSync(fd);
+    const fd = openSync(tmpPath, 'r+');
+    try { fsyncSync(fd); } finally { closeSync(fd); }
+  } catch {
+    // fsync may fail on some platforms (e.g. Windows EPERM) — write already flushed
   }
 
   try {

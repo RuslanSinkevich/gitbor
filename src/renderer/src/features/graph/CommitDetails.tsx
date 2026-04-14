@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { t } from '../../i18n';
-import { postCommand } from '../../api';
+import { postCommand, copyToClipboard } from '../../api';
 import type { CommitDetail, FileChange } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import s from './CommitDetails.module.css';
@@ -115,14 +115,14 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
     if (onFileBlame) items.push({ label: loc2.contextMenu.blame, action: () => onFileBlame(file.path) });
     items.push(
       { divider: true },
-      { label: loc2.contextMenu.copyPath, action: () => navigator.clipboard.writeText(file.path) },
-      { label: loc2.contextMenu.copyFileName, action: () => navigator.clipboard.writeText(file.path.split('/').pop() || file.path) },
+      { label: loc2.contextMenu.copyPath, action: () => copyToClipboard(file.path) },
+      { label: loc2.contextMenu.copyFileName, action: () => copyToClipboard(file.path.split('/').pop() || file.path) },
     );
     return items;
   }, [onOpenDiff, onFileHistory, onFileBlame]);
 
   const copySha = useCallback(() => {
-    if (detail) navigator.clipboard.writeText(detail.hash);
+    if (detail) copyToClipboard(detail.hash);
   }, [detail]);
 
   const goToParent = useCallback((hash: string) => {

@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { t } from '../../i18n';
-import { postCommand } from '../../api';
+import { postCommand, copyToClipboard } from '../../api';
 import type { RepoInfo } from '../../types';
 import { SgContextMenu, type SgContextMenuItem } from '../../ui/SgContextMenu';
 import { useState } from 'react';
@@ -21,7 +21,7 @@ export function RepoTabs({ repos, activeIndex, hasChanges }: Props) {
     const repo = repos[index];
     const items: SgContextMenuItem[] = [
       { label: loc.menu.closeRepo, action: () => postCommand({ type: 'closeRepo', index }) },
-      { label: loc.contextMenu.copyPath, action: () => navigator.clipboard.writeText(repo.path) },
+      { label: loc.contextMenu.copyPath, action: () => copyToClipboard(repo.path) },
     ];
     if (repos.length > 1) {
       items.splice(1, 0, {

@@ -74,8 +74,9 @@ export async function getFileDiff(
       const result = await git.exec(['diff', ...wsFlag, '--', file]);
       if (result.stdout.trim()) return parseDiff(result.stdout);
 
+      const nullDev = process.platform === 'win32' ? 'NUL' : '/dev/null';
       const untrackedResult = await git.exec(
-        ['diff', '--no-index', ...wsFlag, '--', '/dev/null', file]
+        ['diff', '--no-index', ...wsFlag, '--', nullDev, file]
       );
       return parseDiff(untrackedResult.stdout);
     }

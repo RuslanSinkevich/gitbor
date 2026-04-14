@@ -61,7 +61,7 @@ export function WorktreesDialog({ onClose, showPrompt }: Props) {
 
         <div className={s.body}>
           {loading ? (
-            <div className={s.empty}>Loading...</div>
+            <div className={s.empty}>{t().app.loading}</div>
           ) : items.length === 0 ? (
             <div className={s.empty}>{wl.empty}</div>
           ) : (

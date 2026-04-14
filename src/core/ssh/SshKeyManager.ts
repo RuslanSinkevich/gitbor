@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { execFile } from 'child_process';
+import { isSafeFilename } from '../utils/pathSecurity';
 
 export interface SshKeyInfo {
   name: string;
@@ -85,6 +86,10 @@ export async function generateSshKey(opts: {
   passphrase: string;
   comment: string;
 }): Promise<SshKeyInfo> {
+  if (!isSafeFilename(opts.name)) {
+    throw new Error(`Invalid key name: ${opts.name}`);
+  }
+
   const sshDir = getSshDir();
   if (!fs.existsSync(sshDir)) {
     fs.mkdirSync(sshDir, { recursive: true, mode: 0o700 });
@@ -126,12 +131,14 @@ export async function generateSshKey(opts: {
 }
 
 export function readPublicKey(name: string): string {
+  if (!isSafeFilename(name)) throw new Error(`Invalid key name: ${name}`);
   const pubPath = path.join(getSshDir(), name + '.pub');
   if (!fs.existsSync(pubPath)) throw new Error(`Public key not found: ${name}`);
   return fs.readFileSync(pubPath, 'utf-8').trim();
 }
 
 export function deleteSshKey(name: string): void {
+  if (!isSafeFilename(name)) throw new Error(`Invalid key name: ${name}`);
   const sshDir = getSshDir();
   const privPath = path.join(sshDir, name);
   const pubPath = privPath + '.pub';
