@@ -9,12 +9,10 @@ import {
   MergeState,
   OperationResult,
 } from '../git/types';
-import { StateManager } from '../state/StateManager';
 
 export class ConflictManager {
   constructor(
     private readonly git: GitExecutor,
-    _state: StateManager
   ) {}
 
   async predictConflicts(source: string, target: string): Promise<string[]> {
@@ -104,7 +102,7 @@ export class ConflictManager {
 
     const targetBranch = (await this.git.exec(['rev-parse', '--abbrev-ref', 'HEAD'])).stdout.trim();
 
-    let sourceBranch = '';
+    let sourceBranch: string;
     try {
       const mergeHeadHash = (await this.git.exec(['rev-parse', 'MERGE_HEAD'])).stdout.trim();
       const branchResult = await this.git.exec(['branch', '--points-at', mergeHeadHash, '--format=%(refname:short)']);

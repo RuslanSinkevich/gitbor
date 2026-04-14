@@ -71,8 +71,8 @@ export class GitExecutor {
           }
 
           const exitCode = error
-            ? typeof (error as { code?: unknown }).code === 'number'
-              ? ((error as { code: number }).code)
+            ? typeof (error as NodeJS.ErrnoException & { status?: number }).status === 'number'
+              ? (error as NodeJS.ErrnoException & { status: number }).status
               : 1
             : 0;
 

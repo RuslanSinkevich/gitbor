@@ -513,6 +513,8 @@ export const en = {
     thu: 'Thu',
     fri: 'Fri',
     sat: 'Sat',
+    commitsOnDay: 'commits',
+    clickToExpand: 'Click a cell to view commits',
   },
   showcase: {
     title: 'UI Kit',
@@ -530,5 +532,8 @@ export const en = {
     badge: 'Badge',
     table: 'Table',
     graphPreview: 'Graph Preview',
+  },
+  autoFetch: {
+    newCommits: '{count} new commit(s) on remote',
   },
 } as const;

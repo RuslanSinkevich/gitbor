@@ -96,7 +96,7 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
       </div>
     }>
       {isConfirmOnly ? (
-        prompt.message && <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>{prompt.message}</p>
+        prompt.message && <p style={{ margin: 0, fontSize: 13, color: 'var(--sg-foreground-muted)' }}>{prompt.message}</p>
       ) : (
         <>
           {prompt.label && <label style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>{prompt.label}</label>}

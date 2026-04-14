@@ -78,13 +78,14 @@ interface FileTreeItemProps {
   node: FileTreeNode;
   depth: number;
   activePath?: string;
+  focusedPath?: string | null;
   onClickFile: (file: FileStatus) => void;
   onDoubleClickFile?: (file: FileStatus) => void;
   onDoubleClickFolder?: (files: FileStatus[]) => void;
   onContextMenu: (e: React.MouseEvent, file: FileStatus) => void;
 }
 
-export function FileTreeItem({ node, depth, activePath, onClickFile, onDoubleClickFile, onDoubleClickFolder, onContextMenu }: FileTreeItemProps) {
+export function FileTreeItem({ node, depth, activePath, focusedPath, onClickFile, onDoubleClickFile, onDoubleClickFolder, onContextMenu }: FileTreeItemProps) {
   const [expanded, setExpanded] = useState(true);
   const isDir = node.children.length > 0 && !node.file;
   const paddingLeft = 12 + depth * 16;
@@ -101,7 +102,7 @@ export function FileTreeItem({ node, depth, activePath, onClickFile, onDoubleCli
           </span>
         </div>
         {expanded && node.children.map(child => (
-          <FileTreeItem key={child.path} node={child} depth={depth + 1} activePath={activePath}
+          <FileTreeItem key={child.path} node={child} depth={depth + 1} activePath={activePath} focusedPath={focusedPath}
             onClickFile={onClickFile} onDoubleClickFile={onDoubleClickFile}
             onDoubleClickFolder={onDoubleClickFolder} onContextMenu={onContextMenu} />
         ))}
@@ -111,8 +112,9 @@ export function FileTreeItem({ node, depth, activePath, onClickFile, onDoubleCli
 
   if (node.file) {
     const file = node.file;
+    const isFocused = focusedPath === file.path;
     return (
-      <div className={`${s.fileItem} ${file.status === 'U' ? s.fileItemConflict : ''} ${activePath === file.path ? s.fileItemActive : ''}`}
+      <div className={`${s.fileItem} ${file.status === 'U' ? s.fileItemConflict : ''} ${activePath === file.path ? s.fileItemActive : ''} ${isFocused ? s.fileItemFocused : ''}`}
         style={{ paddingLeft }} onClick={() => onClickFile(file)}
         onDoubleClick={() => onDoubleClickFile?.(file)}
         onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, file); }}>

@@ -5,7 +5,7 @@ import { parseBlame } from '../git/BlameParser';
 import { parseFileHistory, FILE_HISTORY_FORMAT } from '../git/FileHistoryParser';
 import { parseSubmoduleStatus, parseGitmodules } from '../git/SubmoduleParser';
 import { CommitDetail, CommitGraphData, FileDiff, BlameResult, FileHistoryResult, Submodule } from '../git/types';
-import type { RepoStats, AuthorStats, MonthlyCount } from '../bridge/messages';
+import type { RepoStats, AuthorStats, MonthlyCount, DayCommitEntry } from '../bridge/messages';
 import { OperationQueue } from '../safety/OperationQueue';
 import { StateManager } from '../state/StateManager';
 
@@ -256,5 +256,27 @@ export async function getRepoStats(
       'log', '--all', '--format=%aN%x00%aE%x00%aI', '--no-merges',
     ]);
     return parseRepoStats(result.stdout);
+  });
+}
+
+export async function getDayCommits(
+  queue: OperationQueue, git: GitExecutor, author: string, date: string,
+): Promise<DayCommitEntry[]> {
+  return queue.enqueueRead('getDayCommits', async () => {
+    const nextDay = new Date(date);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const after = date;
+    const before = nextDay.toISOString().slice(0, 10);
+    const result = await git.exec([
+      'log', '--all', '--no-merges',
+      `--author=${author}`,
+      `--after=${after}`, `--before=${before}`,
+      '--format=%H%x00%s%x00%aI',
+    ]);
+    const lines = result.stdout.split('\n').filter(Boolean);
+    return lines.map(line => {
+      const parts = line.split('\x00');
+      return { hash: parts[0], subject: parts[1] || '', date: parts[2] || '' };
+    });
   });
 }

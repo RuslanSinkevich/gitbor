@@ -7,21 +7,23 @@ export interface SkyForkAPI {
   platform: string;
 }
 
+type EventHandler = (_e: Electron.IpcRendererEvent, data: unknown) => void;
+let currentHandler: EventHandler | null = null;
+
 const api: SkyForkAPI = {
   invoke: (command: unknown) =>
     ipcRenderer.invoke('skyfork:command', command),
 
   onEvent: (callback: (event: unknown) => void) => {
-    const handler = (_e: Electron.IpcRendererEvent, data: unknown) => callback(data);
+    const handler: EventHandler = (_e, data) => callback(data);
     ipcRenderer.on('skyfork:event', handler);
-    (api as any)._eventHandler = handler;
+    currentHandler = handler;
   },
 
   offEvent: () => {
-    const handler = (api as any)._eventHandler;
-    if (handler) {
-      ipcRenderer.removeListener('skyfork:event', handler);
-      (api as any)._eventHandler = null;
+    if (currentHandler) {
+      ipcRenderer.removeListener('skyfork:event', currentHandler);
+      currentHandler = null;
     }
   },
 

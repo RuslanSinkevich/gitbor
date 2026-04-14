@@ -90,7 +90,7 @@ describe('OperationQueue', () => {
     const q = new OperationQueue();
     try {
       await q.enqueueWrite('fail', async () => { throw new Error('x'); });
-    } catch {}
+    } catch { /* expected error */ }
     const result = await q.enqueueWrite('ok', async () => 'recovered');
     expect(result).toBe('recovered');
   });

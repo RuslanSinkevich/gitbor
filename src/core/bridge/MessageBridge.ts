@@ -70,13 +70,7 @@ const handlers: HandlerTable = {
     }
   },
   getState: async (_cmd, ctx) => {
-    const state = ctx.sm.getState();
-    ctx.send({ type: 'config', lang: app.getLocale() });
-    ctx.send({ type: 'fullState', data: state });
-    if (state.repoPath) {
-      const ms = await ctx.ch.getMergeState();
-      if (ms.inProgress) ctx.send({ type: 'mergeState', data: ms });
-    }
+    await handlers.ready!({ type: 'ready' }, ctx);
   },
   refreshAll: async (_cmd, ctx) => {
     await ctx.sm.refreshAll();
@@ -279,6 +273,11 @@ const handlers: HandlerTable = {
   getRepoStats: async (_cmd, ctx) => {
     const data = await ctx.ch.getRepoStats();
     ctx.send({ type: 'repoStats', data });
+  },
+
+  getDayCommits: async (cmd, ctx) => {
+    const data = await ctx.ch.getDayCommits(cmd.author, cmd.date);
+    ctx.send({ type: 'dayCommits', data });
   },
 
   getReflog: async (cmd, ctx) => {

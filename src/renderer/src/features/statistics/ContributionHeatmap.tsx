@@ -1,9 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { t } from '../../i18n';
+import { postCommand, onMainEvent } from '../../api';
+import type { DayCommitEntry } from '../../types';
 import s from './Statistics.module.css';
 
 interface Props {
   dailyCounts: Record<string, number>;
+  authorName: string;
 }
 
 function getLevel(count: number, max: number): number {
@@ -15,9 +18,31 @@ function getLevel(count: number, max: number): number {
   return 4;
 }
 
-export function ContributionHeatmap({ dailyCounts }: Props) {
+export function ContributionHeatmap({ dailyCounts, authorName }: Props) {
   const loc = t();
   const sl = loc.stats;
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [dayCommits, setDayCommits] = useState<DayCommitEntry[]>([]);
+  const [loadingDay, setLoadingDay] = useState(false);
+  const pendingDayRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const unsub = onMainEvent((msg) => {
+      if (msg.type === 'dayCommits' && pendingDayRef.current) {
+        setDayCommits(msg.data);
+        setLoadingDay(false);
+        pendingDayRef.current = null;
+      }
+    });
+    return unsub;
+  }, []);
+
+  const fetchDay = (date: string) => {
+    pendingDayRef.current = date;
+    setLoadingDay(true);
+    setDayCommits([]);
+    postCommand({ type: 'getDayCommits', author: authorName, date });
+  };
 
   const { weeks, dayLabels } = useMemo(() => {
     const today = new Date();
@@ -52,20 +77,20 @@ export function ContributionHeatmap({ dailyCounts }: Props) {
     const shortDays = [sl.sun, sl.mon, sl.tue, sl.wed, sl.thu, sl.fri, sl.sat];
     const dayLbls = [shortDays[1], shortDays[3], shortDays[5]];
 
-    const months: { label: string; col: number }[] = [];
-    let lastMonth = '';
-    for (let w = 0; w < weekCols.length; w++) {
-      const firstDay = weekCols[w][0];
-      if (!firstDay) continue;
-      const m = firstDay.date.slice(0, 7);
-      if (m !== lastMonth) {
-        months.push({ label: m, col: w });
-        lastMonth = m;
-      }
-    }
-
-    return { weeks: weekCols, dayLabels: dayLbls, monthLabels: months };
+    return { weeks: weekCols, dayLabels: dayLbls };
   }, [dailyCounts, sl]);
+
+  const handleCellClick = (date: string, count: number) => {
+    if (count === 0) return;
+    if (selectedDay === date) {
+      setSelectedDay(null);
+      setDayCommits([]);
+      setLoadingDay(false);
+    } else {
+      setSelectedDay(date);
+      fetchDay(date);
+    }
+  };
 
   return (
     <div>
@@ -81,9 +106,10 @@ export function ContributionHeatmap({ dailyCounts }: Props) {
               {week.map((day, di) => (
                 <div
                   key={di}
-                  className={s.heatmapCell}
+                  className={`${s.heatmapCell} ${day.count > 0 ? s.heatmapCellClickable : ''} ${selectedDay === day.date ? s.heatmapCellSelected : ''}`}
                   data-level={day.level}
                   title={`${day.date}: ${day.count}`}
+                  onClick={() => handleCellClick(day.date, day.count)}
                 />
               ))}
             </div>
@@ -98,6 +124,30 @@ export function ContributionHeatmap({ dailyCounts }: Props) {
         ))}
         <span>{sl.more}</span>
       </div>
+
+      {selectedDay && (
+        <div className={s.dayPopup}>
+          <div className={s.dayPopupHeader}>
+            <strong>{selectedDay}</strong>
+            <span className={s.dayPopupCount}>{dailyCounts[selectedDay] || 0} {sl.commitsOnDay}</span>
+            <button className={s.dayPopupClose} onClick={() => { setSelectedDay(null); setDayCommits([]); setLoadingDay(false); }}>✕</button>
+          </div>
+          {loadingDay && <div className={s.dayPopupLoading}>{loc.app.loading}</div>}
+          {!loadingDay && dayCommits.length > 0 && (
+            <ul className={s.dayCommitList}>
+              {dayCommits.map(c => (
+                <li key={c.hash} className={s.dayCommitItem}>
+                  <span className={s.dayCommitHash}>{c.hash.slice(0, 7)}</span>
+                  <span className={s.dayCommitSubject}>{c.subject}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!loadingDay && dayCommits.length === 0 && (
+            <div className={s.dayPopupLoading}>{sl.noData}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

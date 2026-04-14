@@ -515,6 +515,8 @@ export const ru: LocaleMap = {
     thu: 'Чт',
     fri: 'Пт',
     sat: 'Сб',
+    commitsOnDay: 'коммитов',
+    clickToExpand: 'Кликни на ячейку для просмотра коммитов',
   },
   showcase: {
     title: 'UI Kit',
@@ -532,5 +534,8 @@ export const ru: LocaleMap = {
     badge: 'Бейджи',
     table: 'Таблица',
     graphPreview: 'Граф (превью)',
+  },
+  autoFetch: {
+    newCommits: '{count} новых коммит(ов) на remote',
   },
 } as const;

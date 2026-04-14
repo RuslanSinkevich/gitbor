@@ -46,7 +46,7 @@ export function AuthorDetailView({ author }: Props) {
 
       <div className={s.heatmapSection}>
         <h3 className={s.sectionTitle}>{sl.heatmap}</h3>
-        <ContributionHeatmap dailyCounts={author.dailyCounts} />
+        <ContributionHeatmap dailyCounts={author.dailyCounts} authorName={author.name} />
       </div>
 
       {author.monthlyCounts.length > 0 && (

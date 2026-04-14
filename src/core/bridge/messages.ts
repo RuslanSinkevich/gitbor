@@ -150,6 +150,7 @@ export type RendererCommand =
 
   // Repository Statistics
   | { type: 'getRepoStats' }
+  | { type: 'getDayCommits'; author: string; date: string }
 
   // Compare two commits
   | { type: 'getCommitDiff'; fromHash: string; toHash: string }
@@ -198,7 +199,14 @@ export type MainEvent =
   | { type: 'commitDiff'; data: { fromHash: string; toHash: string; files: import('../git/types').FileChange[] } }
   | { type: 'gitignoreContent'; data: string }
   | { type: 'repoStats'; data: RepoStats }
+  | { type: 'dayCommits'; data: DayCommitEntry[] }
   | { type: 'error'; message: string };
+
+export interface DayCommitEntry {
+  hash: string;
+  subject: string;
+  date: string;
+}
 
 // ─── Repository Statistics types ───
 

@@ -30,10 +30,10 @@ export class FileWatcher {
     this.worktreeWatcher = chokidar.watch(repoPath, {
       ignoreInitial: true,
       ignored: [
-        /(^|[\/\\])\.git([\/\\]|$)/,
-        /(^|[\/\\])node_modules([\/\\]|$)/,
-        /(^|[\/\\])\.DS_Store$/,
-        /(^|[\/\\])Thumbs\.db$/,
+        /(^|[/\\])\.git([/\\]|$)/,
+        /(^|[/\\])node_modules([/\\]|$)/,
+        /(^|[/\\])\.DS_Store$/,
+        /(^|[/\\])Thumbs\.db$/,
       ],
       depth: 5,
       awaitWriteFinish: { stabilityThreshold: 200 },

@@ -84,7 +84,7 @@ export class RebaseManager {
     const repoPath = this.git.getCwd();
     const gitDir = join(repoPath, '.git');
 
-    let dir = '';
+    let dir: string;
     try {
       await access(join(gitDir, 'rebase-merge'));
       dir = join(gitDir, 'rebase-merge');
@@ -97,7 +97,8 @@ export class RebaseManager {
       }
     }
 
-    let step = 0, total = 0, hash = '', action = '';
+    let step = 0, total = 0, hash = '';
+    const action = '';
 
     try {
       const msgnum = await readFile(join(dir, 'msgnum'), 'utf-8');

@@ -8,6 +8,7 @@ import { useMenuActions } from './hooks/useMenuActions';
 import { useOperationToasts } from './hooks/useOperationToasts';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useDialogs } from './hooks/useDialogs';
+import { useAutoFetch } from './hooks/useAutoFetch';
 import { TitleBar } from './features/titlebar';
 import { CommitsView, ChangesView, type RightPanel } from './features/layout';
 import { MergeBanner } from './features/merge';
@@ -55,6 +56,7 @@ export function App() {
   const loc = t();
 
   useOperationToasts(lastOpResult, clearLastOpResult, addToast);
+  useAutoFetch(state.repoPath, !!state.repoPath, (msg) => addToast(msg, 'info'));
 
   const handleOpenMergeDialog = useCallback((source: string) => {
     setMergeDialogSource(source);

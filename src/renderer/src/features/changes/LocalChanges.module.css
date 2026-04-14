@@ -122,6 +122,12 @@
   background: color-mix(in srgb, var(--sg-primary) 22%, transparent);
 }
 
+.fileItemFocused {
+  outline: 1px solid var(--sg-primary, #0078d4);
+  outline-offset: -1px;
+  background: color-mix(in srgb, var(--sg-primary) 8%, transparent);
+}
+
 /* Tree folder */
 .treeFolder {
   display: flex;
