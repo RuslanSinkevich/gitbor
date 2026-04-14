@@ -40,6 +40,10 @@ SkyFork is an Electron desktop Git client.
 - **IPC types**: Always keep `src/core/bridge/messages.ts` and `src/renderer/src/types/ipc.ts` in sync
 - **State**: Global state lives in `StateManager` (main). UI-only state in React `useState`
 - **Error handling**: Git errors caught in `MessageBridge.handleCommand()`, sent as `{ type: 'error', message }` event
+- **Path safety**: Validate all user-provided IPC paths with `safePath()` from `src/core/utils/pathSecurity.ts`; filenames with `isSafeFilename()`
+- **Clipboard**: Use `copyToClipboard()` from `src/renderer/src/api.ts` instead of raw `navigator.clipboard.writeText`
+- **Timers**: Always clean up `setTimeout` in React components via `clearTimeout` in `useEffect` cleanup or `useRef`
+- **Dialogs**: Add new dialogs via `useDialogs` hook (`src/renderer/src/hooks/useDialogs.ts`)
 
 ### Branch Naming
 - `feat/description` — new features
@@ -56,4 +60,7 @@ SkyFork is an Electron desktop Git client.
 - [ ] No linter errors in changed files
 - [ ] IPC types synced between core and renderer
 - [ ] New features have corresponding IPC commands wired end-to-end
+- [ ] Tests pass (`npm test`)
+- [ ] User-provided paths validated via `safePath()` / `isSafeFilename()`
+- [ ] New i18n keys added to both languages (en + ru)
 - [ ] Tested manually in Electron (not just browser)

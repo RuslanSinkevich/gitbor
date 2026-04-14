@@ -106,6 +106,11 @@ skyfork/
 │   │   │   ├── FileHistoryParser.ts # История файла
 │   │   │   ├── RebaseManager.ts   # Rebase-операции
 │   │   │   ├── SubmoduleParser.ts # Парсинг submodules
+│   │   │   ├── ReflogParser.ts    # Парсинг git reflog
+│   │   │   ├── BisectManager.ts   # Git bisect: start/good/bad/skip/reset
+│   │   │   ├── HooksManager.ts    # Git hooks: list, toggle
+│   │   │   ├── WorktreeManager.ts # Git worktrees: list, add, remove
+│   │   │   ├── LfsManager.ts      # Git LFS: status, track, untrack
 │   │   │   └── types/             # Типы: Commit, Branch, Tag, GraphNode и др.
 │   │   ├── ssh/                   # Управление SSH-ключами
 │   │   │   └── SshKeyManager.ts   # Список, генерация, удаление SSH-ключей
@@ -146,7 +151,13 @@ skyfork/
 │       │   │   ├── titlebar/      # Кастомное меню (замена нативного меню Electron)
 │       │   │   ├── layout/        # CommitsView, ChangesView, RightPanelContent
 │       │   │   ├── ssh/           # Менеджер SSH-ключей
-│       │   │   └── settings/      # Настройки репозитория
+│       │   │   ├── settings/      # Настройки репозитория
+│       │   │   ├── reflog/        # Git Reflog
+│       │   │   ├── bisect/        # Git Bisect
+│       │   │   ├── hooks/         # Git Hooks
+│       │   │   ├── worktrees/     # Git Worktrees
+│       │   │   ├── lfs/           # Git LFS
+│       │   │   └── gitignore/     # Редактор .gitignore
 │       │   ├── ui/                # UI-kit (SgButton, SgDialog, SgToast, MenuBar...)
 │       │   ├── hooks/             # React-хуки (useAppState, useMenuActions, useOperationToasts...)
 │       │   ├── i18n/              # Локализация UI (ru, en)
@@ -157,15 +168,24 @@ skyfork/
 │       ├── package.json
 │       └── vite.config.ts
 │
+├── tests/                         # Тесты (Vitest)
+│   ├── git/                       # Парсеры, менеджеры
+│   ├── safety/                    # OperationQueue, AtomicWrite, Journal
+│   ├── bridge/                    # IPC-контракты
+│   └── i18n/                      # Полнота локализации, шаблоны
+│
 ├── docs/                          # Документация
 │   ├── getting-started.md         # Установка и рабочий процесс
 │   ├── architecture.md            # Обзор архитектуры
 │   ├── features.md                # Список возможностей
 │   ├── contributing.md            # Руководство по контрибьюции
+│   ├── testing.md                 # Тестирование (Vitest)
 │   ├── ru/                        # Русские переводы
 │   └── internal/                  # Внутренняя документация модулей
 │
 ├── dist/                          # Результат сборки
+├── .gitattributes                 # Нормализация line endings
+├── vitest.config.ts               # Конфигурация Vitest
 ├── package.json                   # Electron 28, TypeScript 5.3
 └── tsconfig.json
 ```

@@ -6,7 +6,7 @@
 
 | Component | Version |
 |-----------|---------|
-| Framework | [Vitest](https://vitest.dev/) 3.x |
+| Framework | [Vitest](https://vitest.dev/) 4.x |
 | Config | `vitest.config.ts` (project root) |
 | Tests | `tests/**/*.test.ts` |
 | Environment | Node.js (no DOM) |
@@ -50,10 +50,18 @@ tests/
 │   ├── SubmoduleParser.test.ts   # Submodule status & .gitmodules
 │   ├── FileHistoryParser.test.ts # File history entries
 │   ├── GraphLayout.test.ts       # Commit graph layout algorithm
-│   └── WorktreeManager.test.ts   # WorktreeInfo interface contract
+│   ├── BisectManager.test.ts     # BisectStatus interface contract
+│   ├── HooksManager.test.ts      # HookInfo interface contract
+│   ├── LfsManager.test.ts        # LfsStatus interface contract
+│   └── WorktreeParser.test.ts    # WorktreeInfo interface contract
 │
 ├── safety/
-│   └── OperationQueue.test.ts    # Operation queue (read/write, serialization, errors)
+│   ├── OperationQueue.test.ts    # Operation queue (read/write, serialization, errors)
+│   ├── AtomicWrite.test.ts       # Atomic file writes (sync + async)
+│   └── OperationJournal.test.ts  # WAL journal (lifecycle, cleanup, concurrency)
+│
+├── bridge/
+│   └── messages.test.ts          # IPC contracts (RendererCommand, MainEvent)
 │
 └── i18n/
     ├── i18n.test.ts              # Localization completeness (en ↔ ru keys, placeholders)

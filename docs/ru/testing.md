@@ -6,7 +6,7 @@
 
 | Компонент | Версия |
 |-----------|--------|
-| Фреймворк | [Vitest](https://vitest.dev/) 3.x |
+| Фреймворк | [Vitest](https://vitest.dev/) 4.x |
 | Конфиг | `vitest.config.ts` (корень проекта) |
 | Тесты | `tests/**/*.test.ts` |
 | Среда | Node.js (без DOM) |
@@ -50,10 +50,18 @@ tests/
 │   ├── SubmoduleParser.test.ts   # Парсинг submodule status и .gitmodules
 │   ├── FileHistoryParser.test.ts # Парсинг истории файла
 │   ├── GraphLayout.test.ts       # Алгоритм раскладки графа коммитов
-│   └── WorktreeManager.test.ts   # Контракт интерфейса WorktreeInfo
+│   ├── BisectManager.test.ts     # Контракт интерфейса BisectStatus
+│   ├── HooksManager.test.ts      # Контракт интерфейса HookInfo
+│   ├── LfsManager.test.ts        # Контракт интерфейса LfsStatus
+│   └── WorktreeParser.test.ts    # Контракт интерфейса WorktreeInfo
 │
 ├── safety/
-│   └── OperationQueue.test.ts    # Очередь операций (read/write, сериализация, ошибки)
+│   ├── OperationQueue.test.ts    # Очередь операций (read/write, сериализация, ошибки)
+│   ├── AtomicWrite.test.ts       # Атомарная запись файлов (sync + async)
+│   └── OperationJournal.test.ts  # WAL-журнал (lifecycle, cleanup, concurrency)
+│
+├── bridge/
+│   └── messages.test.ts          # IPC-контракты (RendererCommand, MainEvent)
 │
 └── i18n/
     ├── i18n.test.ts              # Полнота локализации (en ↔ ru ключи, плейсхолдеры)
@@ -210,6 +218,7 @@ tests/
 
 ```ts
 import { defineConfig } from 'vitest/config';
+import path from 'path';
 
 export default defineConfig({
   test: {
@@ -220,7 +229,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@core': '/src/core',
+      '@core': path.resolve(__dirname, 'src/core'),  // кроссплатформенный путь
     },
   },
 });

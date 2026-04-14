@@ -40,6 +40,10 @@ SkyFork — настольный Git-клиент на Electron.
 - **IPC types**: всегда синхронизируйте `src/core/bridge/messages.ts` и `src/renderer/src/types/ipc.ts`
 - **State**: глобальное состояние в `StateManager` (main); только UI — в React `useState`
 - **Error handling**: ошибки Git перехватываются в `MessageBridge.handleCommand()`, отправляются событием `{ type: 'error', message }`
+- **Безопасность путей**: все пользовательские пути через IPC валидируйте через `safePath()` из `src/core/utils/pathSecurity.ts`; имена файлов — через `isSafeFilename()`
+- **Clipboard**: используйте `copyToClipboard()` из `src/renderer/src/api.ts` вместо прямого `navigator.clipboard.writeText`
+- **Таймеры**: `setTimeout` в React-компонентах всегда чистите через `clearTimeout` в `useEffect` cleanup или `useRef`
+- **Диалоги**: новые диалоги добавляйте через хук `useDialogs` (`src/renderer/src/hooks/useDialogs.ts`)
 
 ### Именование веток
 
@@ -59,4 +63,7 @@ SkyFork — настольный Git-клиент на Electron.
 - [ ] Нет ошибок линтера в изменённых файлах
 - [ ] Типы IPC синхронизированы между core и renderer
 - [ ] Новые возможности имеют соответствующие IPC-команды от начала до конца
+- [ ] Тесты проходят (`npm test`)
+- [ ] Пользовательские пути валидируются через `safePath()` / `isSafeFilename()`
+- [ ] Новые ключи i18n добавлены в оба языка (en + ru)
 - [ ] Проверено вручную в Electron (не только в браузере)

@@ -45,18 +45,32 @@ Bundled Git               → resources/git/{platform}/git
 | Модуль | Слой | Описание |
 |--------|------|----------|
 | **GitConfig** | Git Layer | Чтение/запись git config (user.name, user.email, local/global) |
+| **ReflogParser** | Git Layer | Парсинг вывода `git reflog` в структурированные записи |
+| **BisectManager** | Git Layer | Управление сессиями `git bisect`: start, good, bad, skip, reset |
+| **HooksManager** | Git Layer | Список, вкл/выкл, чтение содержимого git hooks |
+| **WorktreeManager** | Git Layer | Список, добавление, удаление git worktrees |
+| **LfsManager** | Git Layer | Git LFS: статус, track/untrack паттернов, список файлов |
+| **pathSecurity** | Utils | `safePath()` — защита от path traversal, `isSafeFilename()` — валидация имён |
 | **SshKeyManager** | Core | Управление SSH-ключами (~/.ssh/): list, generate, delete, read public |
 | **MenuBar** | UI | Кастомное HTML/CSS меню (нативное меню полностью удалено) |
 | **TitleBar** | UI | Заголовок окна с меню (File, Edit, View, Repository, Branch, Help), тема, язык |
 | **AboutDialog** | UI | Диалог "О программе" |
 | **SshKeysDialog** | UI | Менеджер SSH-ключей: просмотр, генерация, копирование, удаление |
 | **RepoSettingsDialog** | UI | Настройки репозитория: user.name/email, global/local |
+| **ReflogDialog** | UI | Просмотр reflog, копирование SHA, восстановление (hard reset) |
+| **BisectDialog** | UI | Интерактивный git bisect: start/good/bad/skip/abort |
+| **HooksDialog** | UI | Просмотр и вкл/выкл git hooks |
+| **WorktreesDialog** | UI | Управление git worktrees: список, добавление, удаление |
+| **LfsDialog** | UI | Управление Git LFS: паттерны, файлы, статус |
+| **GitignoreDialog** | UI | Редактор .gitignore с шаблонами (Node, Python, Java, Rust, Go, IDE, OS) |
+| **GpgBadge** | UI | Бейдж подписи GPG/SSH на коммитах в графе |
 | **ErrorBoundary** | UI | React error boundary — защита от белого экрана |
 | **CommitsView** | Layout | Вид коммитов: граф + детали + diff |
 | **ChangesView** | Layout | Вид изменений: файлы + commit bar + diff/conflict |
 | **useMenuActions** | Hook | Обработка действий из кастомного меню |
 | **useKeyboardShortcuts** | Hook | Привязка клавиш (Ctrl+O, Ctrl+Shift+F, F5…) к действиям меню |
 | **useOperationToasts** | Hook | Тост-уведомления о результатах git-операций |
+| **useDialogs** | Hook | Централизованное состояние видимости всех диалогов |
 
 ## Что переиспользуется из SkyFork без изменений
 
@@ -99,10 +113,26 @@ Bundled Git               → resources/git/{platform}/git
 | Error Boundary | React ErrorBoundary для защиты от белого экрана |
 | Toast System | Уведомления о результатах операций |
 
-## Принцип безопасности: 5 уровней защиты
+## Принцип безопасности
+
+### 5 уровней защиты данных
 
 1. Git reflog (встроенный, 90 дней)
 2. Auto-stash незакоммиченных изменений
 3. Сохранение HEAD hash для rollback
 4. Write-Ahead Log журнал операций
 5. RecoveryManager при старте — обнаружение аномалий
+
+### Безопасность ввода
+
+- `safePath()` — все пути через IPC валидируются на path traversal
+- `isSafeFilename()` — имена SSH-ключей и git hooks проверяются на спецсимволы
+- `copyToClipboard()` — обёртка clipboard с обработкой ошибок
+- Electron sandbox: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`
+- Атомарная запись файлов через tmp+rename с fsync
+
+### Кроссплатформенность
+
+- `.gitattributes` для нормализации line endings
+- `NUL` / `/dev/null` автовыбор по платформе
+- Терминал: fallback chain для Linux (gnome-terminal, konsole, xfce4-terminal, xterm)
