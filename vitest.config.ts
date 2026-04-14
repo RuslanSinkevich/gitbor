@@ -7,6 +7,12 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     environment: 'node',
     testTimeout: 10000,
+    coverage: {
+      provider: 'v8',
+      include: ['src/core/**/*.ts'],
+      exclude: ['src/core/git/types/**'],
+      reporter: ['text', 'text-summary'],
+    },
   },
   resolve: {
     alias: {

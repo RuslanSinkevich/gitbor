@@ -39,6 +39,7 @@ export function useAppState() {
   const [pendingOpenDiff, setPendingOpenDiff] = useState<OpenDiffEvent | null>(null);
   const [pendingOpenMergeEditor, setPendingOpenMergeEditor] = useState<OpenMergeEditorEvent | null>(null);
   const [lastOpResult, setLastOpResult] = useState<OperationResult | null>(null);
+  const [configLang, setConfigLang] = useState<string>('');
 
   useEffect(() => {
     const unsubscribe = onMainEvent((msg: MainEvent) => {
@@ -52,7 +53,7 @@ export function useAppState() {
         case 'commitDetails':
           setState(prev => {
             if (prev.selectedCommitHash && (msg.hash === prev.selectedCommitHash || msg.data.hash === prev.selectedCommitHash)) {
-              setCommitDetail(msg.data);
+              queueMicrotask(() => setCommitDetail(msg.data));
             }
             return prev;
           });
@@ -84,6 +85,7 @@ export function useAppState() {
           break;
         case 'config':
           setLang(msg.lang);
+          setConfigLang(msg.lang);
           break;
         case 'mergeState':
           setMergeState(msg.data);
@@ -142,5 +144,6 @@ export function useAppState() {
     pendingOpenDiff, clearPendingOpenDiff,
     pendingOpenMergeEditor, clearPendingOpenMergeEditor,
     lastOpResult, clearLastOpResult,
+    configLang,
   };
 }

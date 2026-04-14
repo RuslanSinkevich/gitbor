@@ -4,6 +4,9 @@ import { postCommand } from '../api';
 export function useKeyboardShortcuts(dispatch: (action: string) => void) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isEditable = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
       const ctrl = e.ctrlKey || e.metaKey;
       const shift = e.shiftKey;
       const alt = e.altKey;
@@ -15,6 +18,7 @@ export function useKeyboardShortcuts(dispatch: (action: string) => void) {
         return;
       }
 
+      if (isEditable) return;
       if (!ctrl) return;
 
       if (shift) {

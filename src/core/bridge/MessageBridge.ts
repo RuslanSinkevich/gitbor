@@ -160,7 +160,10 @@ const handlers: HandlerTable = {
     ctx.send({ type: 'stashDiff', data: diffs, index: cmd.index });
   },
 
-  saveAsPatch: async (cmd, ctx) => { await ctx.ch.saveAsPatch(cmd.hash); },
+  saveAsPatch: async (cmd, ctx) => {
+    const result = await ctx.ch.saveAsPatch(cmd.hash);
+    if (!result.success) ctx.send({ type: 'error', message: result.error || 'Save patch failed' });
+  },
 
   stageFile:           async (cmd, ctx) => { await ctx.ch.stageFile(cmd.file); },
   stageAll:            async (cmd, ctx) => { await ctx.ch.stageAll(cmd.files); },
@@ -233,8 +236,8 @@ const handlers: HandlerTable = {
       await ctx.ch.removeWorktree(cmd.path, cmd.force);
       const data = await ctx.ch.getWorktrees();
       ctx.send({ type: 'worktrees', data });
-    } catch (e: any) {
-      ctx.send({ type: 'error', message: e?.message || 'Remove worktree failed' });
+    } catch (e: unknown) {
+      ctx.send({ type: 'error', message: e instanceof Error ? e.message : 'Remove worktree failed' });
     }
   },
 
@@ -361,20 +364,27 @@ const handlers: HandlerTable = {
   openInTerminal: async (_cmd, ctx) => {
     const repoPath = ctx.sm.getState().repoPath;
     if (!repoPath) return;
-    const { exec } = await import('child_process');
+    const { execFile, spawn } = await import('child_process');
     if (process.platform === 'win32') {
-      exec(`start "" cmd.exe /K "cd /d "${repoPath}""`, { cwd: repoPath });
+      execFile('cmd.exe', ['/K', `cd /d "${repoPath}"`], { cwd: repoPath, windowsHide: false });
     } else if (process.platform === 'darwin') {
-      exec(`open -a Terminal "${repoPath}"`);
+      execFile('open', ['-a', 'Terminal', repoPath]);
     } else {
-      const cmd = [
-        `x-terminal-emulator --working-directory="${repoPath}"`,
-        `gnome-terminal --working-directory="${repoPath}"`,
-        `konsole --workdir "${repoPath}"`,
-        `xfce4-terminal --working-directory="${repoPath}"`,
-        `xterm -e 'cd "${repoPath}" && exec bash'`,
-      ].join(' || ');
-      exec(cmd, { cwd: repoPath });
+      const terminals = [
+        { cmd: 'x-terminal-emulator', args: ['--working-directory', repoPath] },
+        { cmd: 'gnome-terminal', args: ['--working-directory', repoPath] },
+        { cmd: 'konsole', args: ['--workdir', repoPath] },
+        { cmd: 'xfce4-terminal', args: ['--working-directory', repoPath] },
+        { cmd: 'xterm', args: ['-e', 'bash'] },
+      ];
+      const tryTerminal = (index: number) => {
+        if (index >= terminals.length) return;
+        const t = terminals[index];
+        const proc = spawn(t.cmd, t.args, { cwd: repoPath, detached: true, stdio: 'ignore' });
+        proc.on('error', () => tryTerminal(index + 1));
+        proc.unref();
+      };
+      tryTerminal(0);
     }
   },
 
@@ -448,7 +458,7 @@ export class MessageBridge {
       this.send({ type: 'stateUpdate', data: state });
     });
 
-    ipcMain.handle('skyfork:command', (_event, command: RendererCommand) => {
+    ipcMain.handle('skyfork:command', (_event, command: unknown) => {
       return this.handleCommand(command);
     });
 
@@ -472,14 +482,19 @@ export class MessageBridge {
     this.window = null;
   }
 
-  private async handleCommand(command: RendererCommand): Promise<void> {
+  private async handleCommand(command: unknown): Promise<void> {
     try {
+      if (!command || typeof command !== 'object' || !('type' in command) || typeof (command as Record<string, unknown>).type !== 'string') {
+        this.send({ type: 'error', message: 'Invalid command: missing or non-string type field' });
+        return;
+      }
+      const cmd = command as RendererCommand;
       type AnyHandler = (cmd: RendererCommand, ctx: HandlerContext) => Promise<void>;
-      const handler = handlers[command.type] as AnyHandler | undefined;
+      const handler = handlers[cmd.type] as AnyHandler | undefined;
       if (handler) {
-        await handler(command, { ch: this.commandHandler, sm: this.stateManager, send: e => this.send(e) });
+        await handler(cmd, { ch: this.commandHandler, sm: this.stateManager, send: e => this.send(e) });
       } else {
-        this.send({ type: 'error', message: `Unknown command: ${(command as { type: string }).type}` });
+        this.send({ type: 'error', message: `Unknown command: ${cmd.type}` });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

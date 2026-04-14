@@ -46,10 +46,10 @@ export class RebaseManager {
     const todoPath = join(tmpdir(), `skyfork-rebase-todo-${Date.now()}.txt`);
     await writeFile(todoPath, todoContent, 'utf-8');
 
-    const editorCmd = process.platform === 'win32'
-      ? `cmd /c copy /y "${todoPath.replace(/\//g, '\\')}"` 
-      : `cp "${todoPath.replace(/\\/g, '/')}"`;
-
+    // Git invokes $GIT_SEQUENCE_EDITOR <file> through a POSIX shell
+    // (even on Windows via Git-for-Windows MSYS2), so `cp` works everywhere.
+    const safeTodoPath = todoPath.replace(/\\/g, '/');
+    const editorCmd = `cp "${safeTodoPath}"`;
 
     try {
       const result = await this.git.exec(

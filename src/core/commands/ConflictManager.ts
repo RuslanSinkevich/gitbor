@@ -126,16 +126,16 @@ export class ConflictManager {
 
   async resolveWithOurs(file: string): Promise<void> {
     await this.git.exec(['checkout', '--ours', '--', file]);
-    await this.git.exec(['add', file]);
+    await this.git.exec(['add', '--', file]);
   }
 
   async resolveWithTheirs(file: string): Promise<void> {
     await this.git.exec(['checkout', '--theirs', '--', file]);
-    await this.git.exec(['add', file]);
+    await this.git.exec(['add', '--', file]);
   }
 
   async stageResolved(file: string): Promise<void> {
-    await this.git.exec(['add', file]);
+    await this.git.exec(['add', '--', file]);
   }
 
   async completeMerge(message?: string): Promise<OperationResult> {
@@ -157,10 +157,12 @@ export class ConflictManager {
       await this.git.exec(['add', '--', ...resolvedPaths]);
     }
 
-    if (message) {
-      await this.git.exec(['commit', '-m', message]);
-    } else {
-      await this.git.exec(['commit', '--no-edit']);
+    const commitResult = message
+      ? await this.git.exec(['commit', '-m', message])
+      : await this.git.exec(['commit', '--no-edit']);
+
+    if (commitResult.exitCode !== 0) {
+      return { success: false, error: `Commit failed: ${commitResult.stderr}`, rollbackAvailable: false };
     }
 
     return { success: true, rollbackAvailable: true };

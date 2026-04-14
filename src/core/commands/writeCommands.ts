@@ -132,7 +132,7 @@ export async function commit(queue: OperationQueue, git: GitExecutor, state: Sta
 }
 
 export async function stageFile(queue: OperationQueue, git: GitExecutor, state: StateManager, file: string): Promise<OperationResult> {
-  return gitExecSimple(queue, git, state, 'stageFile', ['add', file], 'refreshStatusAndNotify');
+  return gitExecSimple(queue, git, state, 'stageFile', ['add', '--', file], 'refreshStatusAndNotify');
 }
 
 export async function stageAll(queue: OperationQueue, git: GitExecutor, state: StateManager, files: string[]): Promise<OperationResult> {
@@ -165,7 +165,9 @@ export async function cloneRepo(queue: OperationQueue, git: GitExecutor, state: 
 
 export async function initRepo(queue: OperationQueue, git: GitExecutor, state: StateManager, targetPath: string): Promise<OperationResult> {
   return gitWrite(queue, state, 'init', async () => {
-    const r = await git.exec(['init', targetPath], { cwd: targetPath });
+    const { dirname } = await import('path');
+    const parentDir = dirname(targetPath);
+    const r = await git.exec(['init', targetPath], { cwd: parentDir });
     if (r.exitCode !== 0) return simpleResult(r.exitCode, r.stderr);
     state.setRepoPath(targetPath);
     await state.switchRepo(targetPath);

@@ -10,25 +10,14 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useDialogs } from './hooks/useDialogs';
 import { TitleBar } from './features/titlebar';
 import { CommitsView, ChangesView, type RightPanel } from './features/layout';
-import { MergeDialog, MergeBanner, MergeEditor } from './features/merge';
-import { RebaseEditor } from './features/rebase';
+import { MergeBanner } from './features/merge';
 import { Toolbar } from './features/toolbar';
 import { Sidebar, BranchStatus } from './features/sidebar';
 import { RepoTabs } from './features/repo-tabs';
 import { RepoManager, addRecentRepo } from './features/repo-manager';
-import { SgContextMenu } from './ui/SgContextMenu';
 import { SgSplitPane } from './ui/SgSplitPane';
-import { SgToastContainer } from './ui/SgToast';
-import { usePromptDialog, SgPromptDialog } from './ui/SgPromptDialog';
-import { AboutDialog } from './ui/AboutDialog';
-import { SshKeysDialog } from './features/ssh';
-import { RepoSettingsDialog } from './features/settings';
-import { ReflogDialog } from './features/reflog';
-import { BisectDialog } from './features/bisect';
-import { HooksDialog } from './features/hooks';
-import { WorktreesDialog } from './features/worktrees';
-import { LfsDialog } from './features/lfs';
-import { GitignoreDialog } from './features/gitignore';
+import { usePromptDialog } from './ui/SgPromptDialog';
+import { AppDialogs } from './AppDialogs';
 import { postCommand, onMainEvent } from './api';
 import { t, tpl, setLang, getLang } from './i18n';
 import { UiShowcase } from './pages/UiShowcase';
@@ -282,40 +271,17 @@ export function App() {
         </>
       )}
 
-      {contextMenu && <SgContextMenu x={contextMenu.x} y={contextMenu.y} items={contextMenu.items} onClose={closeContextMenu} />}
-
-      {rebaseOnto && (
-        <div className={s.overlay}>
-          <div className={s.overlayContent}>
-            <RebaseEditor onto={rebaseOnto} onClose={() => setRebaseOnto(null)} />
-          </div>
-        </div>
-      )}
-
-      {mergeEditorFile && (
-        <MergeEditor
-          file={mergeEditorFile}
-          sourceBranch={mergeState?.sourceBranch || ''} targetBranch={mergeState?.targetBranch || ''}
-          onResolved={() => { setMergeEditorFile(null); handleConflictResolved(mergeEditorFile); }}
-          onCancel={() => setMergeEditorFile(null)}
-        />
-      )}
-
-      {mergeDialogSource && (
-        <MergeDialog source={mergeDialogSource} target={state.currentBranch} onClose={() => setMergeDialogSource(null)} />
-      )}
-
-      <SgPromptDialog prompt={prompt} onClose={closePrompt} />
-      <SgToastContainer toasts={toasts} onDismiss={dismissToast} />
-      {dlg.showAbout && <AboutDialog onClose={() => dlg.setShowAbout(false)} loc={loc} />}
-      {dlg.showSshKeys && <SshKeysDialog onClose={() => dlg.setShowSshKeys(false)} />}
-      {dlg.showRepoSettings && <RepoSettingsDialog onClose={() => dlg.setShowRepoSettings(false)} />}
-      {dlg.showReflog && <ReflogDialog onClose={() => dlg.setShowReflog(false)} showPrompt={showPrompt} />}
-      {dlg.showBisect && <BisectDialog onClose={() => dlg.setShowBisect(false)} />}
-      {dlg.showHooks && <HooksDialog onClose={() => dlg.setShowHooks(false)} />}
-      {dlg.showWorktrees && <WorktreesDialog onClose={() => dlg.setShowWorktrees(false)} showPrompt={showPrompt} />}
-      {dlg.showLfs && <LfsDialog onClose={() => dlg.setShowLfs(false)} />}
-      {dlg.showGitignore && <GitignoreDialog onClose={() => dlg.setShowGitignore(false)} />}
+      <AppDialogs
+        contextMenu={contextMenu} closeContextMenu={closeContextMenu}
+        rebaseOnto={rebaseOnto} setRebaseOnto={setRebaseOnto}
+        mergeEditorFile={mergeEditorFile} setMergeEditorFile={setMergeEditorFile}
+        mergeState={mergeState} handleConflictResolved={handleConflictResolved}
+        mergeDialogSource={mergeDialogSource} setMergeDialogSource={setMergeDialogSource}
+        currentBranch={state.currentBranch}
+        prompt={prompt} closePrompt={closePrompt}
+        toasts={toasts} dismissToast={dismissToast}
+        dlg={dlg} showPrompt={showPrompt} loc={loc}
+      />
     </div>
   );
 }

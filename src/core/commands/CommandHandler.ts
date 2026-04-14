@@ -79,34 +79,32 @@ export class CommandHandler {
   discardFileChanges(file: string): Promise<OperationResult> { return Write.discardFileChanges(this.queue, this.git, this.state, file); }
   async deleteUntrackedFile(file: string): Promise<void> {
     await this.queue.enqueueWrite('deleteUntrackedFile', async () => {
-      const { join, resolve, normalize } = await import('path');
       const { rm, stat } = await import('fs/promises');
+      const { safePath } = await import('../utils/pathSecurity');
       const repoPath = this.state.getState().repoPath;
-      const fullPath = resolve(join(repoPath, file));
-      const normalizedRepo = normalize(repoPath);
-      if (!fullPath.startsWith(normalizedRepo)) {
-        throw new Error('Path traversal detected');
-      }
+      const fullPath = safePath(repoPath, file);
       const fileStat = await stat(fullPath);
       await rm(fullPath, { recursive: fileStat.isDirectory(), force: false });
       await this.state.refreshStatusAndNotify();
     });
   }
 
-  async saveAsPatch(hash: string): Promise<void> {
+  async saveAsPatch(hash: string): Promise<OperationResult> {
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
-    if (!win) return;
+    if (!win) return { success: false, error: 'No window available', rollbackAvailable: false };
     const shortHash = hash.substring(0, 7);
     const result = await dialog.showSaveDialog(win, {
       defaultPath: `${shortHash}.patch`,
       filters: [{ name: 'Patch files', extensions: ['patch', 'diff'] }],
     });
-    if (result.canceled || !result.filePath) return;
+    if (result.canceled || !result.filePath) return { success: true, rollbackAvailable: false };
     const r = await this.git.exec(['format-patch', '-1', hash, '--stdout']);
-    if (r.exitCode === 0) {
-      const { writeFile } = await import('fs/promises');
-      await writeFile(result.filePath, r.stdout, 'utf-8');
+    if (r.exitCode !== 0) {
+      return { success: false, error: `format-patch failed: ${r.stderr}`, rollbackAvailable: false };
     }
+    const { writeFile } = await import('fs/promises');
+    await writeFile(result.filePath, r.stdout, 'utf-8');
+    return { success: true, rollbackAvailable: false };
   }
 
   cloneRepo(url: string, path: string): Promise<OperationResult> { return Write.cloneRepo(this.queue, this.git, this.state, url, path); }
@@ -234,7 +232,7 @@ export class CommandHandler {
     await this.queue.enqueueWrite('resolveConflict', async () => {
       const repoPath = this.state.getState().repoPath;
       writeResolvedFile(repoPath, file, rawContent);
-      await this.git.exec(['add', file]);
+      await this.git.exec(['add', '--', file]);
       await this.state.refreshStatusAndNotify();
     });
   }

@@ -25,11 +25,14 @@ npm run build        # Build renderer + main
 npm start            # Run the built app
 ```
 
-### Tests
+### Tests & Lint
 
 ```bash
 npm test             # Run all tests (Vitest)
 npx vitest           # Watch mode
+npm run lint         # ESLint check
+npm run lint:fix     # ESLint auto-fix
+npm run format       # Prettier format
 ```
 
 ### Distribution
@@ -269,7 +272,7 @@ Internal module docs: [`docs/internal/`](docs/internal/INDEX.md)
 
 ## Status
 
-Version 0.1.0. Backend and UI feature-complete for MVP. 154 unit tests (Vitest). Not production-tested.
+Version 0.1.0. Backend and UI feature-complete for MVP. 208 unit tests (Vitest). ESLint + Prettier configured. CI via GitHub Actions. Not production-tested.
 
 ## License
 

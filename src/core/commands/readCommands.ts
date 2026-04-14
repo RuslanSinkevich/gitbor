@@ -137,7 +137,7 @@ export async function getSubmodules(
       const urlMap = parseGitmodules(modulesResult.stdout);
       for (const sm of submodules) {
         const url = urlMap.get(sm.path);
-        if (url) (sm as any).url = url;
+        if (url) sm.url = url;
       }
     } catch {
       // .gitmodules might not exist

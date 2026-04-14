@@ -22,6 +22,7 @@ export function parseSubmoduleStatus(stdout: string): Submodule[] {
     let status: Submodule['status'] = 'clean';
     if (statusChar === '+') status = 'modified';
     else if (statusChar === '-') status = 'uninitialized';
+    else if (statusChar === 'U') status = 'conflict';
 
     result.push({ name, path, url: '', hash, status });
   }

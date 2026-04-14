@@ -35,7 +35,7 @@ export class GitExecutor {
       return this.execWithStdin(fullArgs, options.stdin, cwd, timeout, maxBuffer, args, options?.env);
     }
 
-    this.logger.log(`exec: git ${args.join(' ')}  [cwd: ${cwd}]`);
+    this.logger.log(`exec: git ${this.sanitizeArgs(args)}  [cwd: ${cwd}]`);
 
     return new Promise<GitExecResult>((resolve, reject) => {
       const proc = execFile(
@@ -92,7 +92,7 @@ export class GitExecutor {
     env?: Record<string, string>,
   ): Promise<GitExecResult> {
     const startTime = Date.now();
-    this.logger.log(`exec(stdin): git ${displayArgs.join(' ')}  [cwd: ${cwd}]`);
+    this.logger.log(`exec(stdin): git ${this.sanitizeArgs(displayArgs)}  [cwd: ${cwd}]`);
 
     return new Promise<GitExecResult>((resolve, reject) => {
       const proc = spawn('git', fullArgs, { cwd, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: env ? { ...process.env, ...env } : undefined });
@@ -129,6 +129,24 @@ export class GitExecutor {
       proc.stdin.write(stdin);
       proc.stdin.end();
     });
+  }
+
+  private sanitizeArgs(args: string[]): string {
+    const REDACT_FLAGS = new Set(['-m', '-N', '-C', '--message']);
+    const sanitized: string[] = [];
+    let redactNext = false;
+    for (const arg of args) {
+      if (redactNext) {
+        sanitized.push('<redacted>');
+        redactNext = false;
+      } else if (REDACT_FLAGS.has(arg)) {
+        sanitized.push(arg);
+        redactNext = true;
+      } else {
+        sanitized.push(arg);
+      }
+    }
+    return sanitized.join(' ');
   }
 
   killAll(): void {

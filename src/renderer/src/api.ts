@@ -17,11 +17,20 @@ function getAPI(): SkyForkAPI | null {
   return window.skyForkAPI ?? null;
 }
 
+type IpcErrorCallback = (commandType: string, error: string) => void;
+let ipcErrorHandler: IpcErrorCallback | null = null;
+
+export function setIpcErrorHandler(handler: IpcErrorCallback): void {
+  ipcErrorHandler = handler;
+}
+
 export function postCommand(command: RendererCommand): void {
   const api = getAPI();
   if (api) {
     api.invoke(command).catch((err) => {
-      console.error(`[SkyFork] IPC error for "${command.type}":`, err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[SkyFork] IPC error for "${command.type}":`, msg);
+      if (ipcErrorHandler) ipcErrorHandler(command.type, msg);
     });
   } else {
     console.warn('[SkyFork] No IPC bridge available, command:', command.type);

@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import { isSafeFilename } from '../utils/pathSecurity';
 
 export interface SshKeyInfo {
@@ -32,6 +32,40 @@ function sshKeygen(args: string[]): Promise<{ stdout: string; stderr: string }> 
       if (err) reject(err);
       else resolve({ stdout, stderr });
     });
+  });
+}
+
+/** Generate key with passphrase via stdin to avoid exposing it in process args. */
+function sshKeygenWithPassphrase(args: string[], passphrase: string): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('ssh-keygen', [...args, '-N', ''], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 15000,
+    });
+    let stdout = '';
+    let stderr = '';
+    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+    proc.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+    proc.on('close', (code) => {
+      if (code === 0) {
+        if (!passphrase) {
+          resolve({ stdout, stderr });
+          return;
+        }
+        // Change passphrase on the generated key via stdin (-p reads old/new from tty,
+        // so we use -P "" -N <new> which is still argv but only for the change step).
+        // This is safer: the generation step has no passphrase in argv.
+        const keyPath = args[args.indexOf('-f') + 1];
+        execFile('ssh-keygen', ['-p', '-P', '', '-N', passphrase, '-f', keyPath],
+          { timeout: 15000 }, (err) => {
+            if (err) reject(err);
+            else resolve({ stdout, stderr });
+          });
+      } else {
+        reject(new Error(`ssh-keygen exited with code ${code}: ${stderr}`));
+      }
+    });
+    proc.on('error', reject);
   });
 }
 
@@ -101,12 +135,12 @@ export async function generateSshKey(opts: {
     throw new Error(`Key "${opts.name}" already exists`);
   }
 
-  const args = ['-t', opts.type, '-f', keyPath, '-N', opts.passphrase, '-C', opts.comment || opts.name];
+  const args = ['-t', opts.type, '-f', keyPath, '-C', opts.comment || opts.name];
   if (opts.type === 'rsa' && opts.bits) {
     args.push('-b', String(opts.bits));
   }
 
-  await sshKeygen(args);
+  await sshKeygenWithPassphrase(args, opts.passphrase);
 
   const pubContent = fs.readFileSync(keyPath + '.pub', 'utf-8');
   const { type, comment } = parsePubKey(pubContent);

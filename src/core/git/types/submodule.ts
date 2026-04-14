@@ -3,6 +3,6 @@ export interface Submodule {
   path: string;
   url: string;
   hash: string;
-  status: 'clean' | 'modified' | 'uninitialized';
+  status: 'clean' | 'modified' | 'uninitialized' | 'conflict';
   branch?: string;
 }

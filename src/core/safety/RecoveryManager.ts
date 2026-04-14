@@ -145,6 +145,16 @@ export class RecoveryManager {
 
   private removeLockFile(): void {
     const lockPath = join(this.git.getCwd(), '.git', 'index.lock');
-    try { unlinkSync(lockPath); } catch { /* already removed */ }
+    try {
+      const { statSync } = require('fs');
+      const stat = statSync(lockPath);
+      const ageMs = Date.now() - stat.mtimeMs;
+      if (ageMs < 2000) {
+        throw new Error('Lock file is fresh — git may still be running');
+      }
+      unlinkSync(lockPath);
+    } catch {
+      // lock gone, too fresh, or fs error — skip
+    }
   }
 }

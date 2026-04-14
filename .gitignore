@@ -36,5 +36,10 @@ npm-debug.log*
 out/
 release/
 
+# Test artifacts
+tests/**/__atomic_test__/
+tests/**/__journal_test__/
+coverage/
+
 # Bundled git (downloaded at build time)
 resources/git/

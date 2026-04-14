@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [20]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install renderer dependencies
+        run: npm ci
+        working-directory: src/renderer
+
+      - name: Lint
+        run: npm run lint
+
+      - name: TypeScript check (main + core)
+        run: npx tsc -p tsconfig.main.json --noEmit
+
+      - name: TypeScript check (renderer)
+        run: npx tsc -b --noEmit
+        working-directory: src/renderer
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build renderer
+        run: npm run build:renderer
+
+      - name: Build main
+        run: npm run build:main

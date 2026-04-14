@@ -1,9 +1,9 @@
-import { appendFileSync, mkdirSync } from 'fs';
+import { mkdirSync, createWriteStream, type WriteStream } from 'fs';
 import { join } from 'path';
 import { app } from 'electron';
 
 export class Logger {
-  private logPath: string | null = null;
+  private logStream: WriteStream | null = null;
 
   constructor(private readonly prefix: string) {}
 
@@ -12,9 +12,13 @@ export class Logger {
       const logsDir = join(app.getPath('userData'), 'logs');
       mkdirSync(logsDir, { recursive: true });
       const date = new Date().toISOString().slice(0, 10);
-      this.logPath = join(logsDir, `${date}.log`);
+      const logPath = join(logsDir, `${date}.log`);
+      this.logStream = createWriteStream(logPath, { flags: 'a' });
+      this.logStream.on('error', () => {
+        this.logStream = null;
+      });
     } catch {
-      this.logPath = null;
+      this.logStream = null;
     }
   }
 
@@ -24,12 +28,8 @@ export class Logger {
 
     console.log(line);
 
-    if (this.logPath) {
-      try {
-        appendFileSync(this.logPath, line + '\n');
-      } catch {
-        // file write failed — console only
-      }
+    if (this.logStream) {
+      this.logStream.write(line + '\n');
     }
   }
 
@@ -39,5 +39,12 @@ export class Logger {
 
   warn(message: string): void {
     this.log(`WARN: ${message}`);
+  }
+
+  dispose(): void {
+    if (this.logStream) {
+      this.logStream.end();
+      this.logStream = null;
+    }
   }
 }

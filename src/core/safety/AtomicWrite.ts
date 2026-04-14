@@ -6,6 +6,7 @@ import {
   closeSync,
   mkdirSync,
   unlinkSync,
+  readdirSync,
 } from 'fs';
 import { open, rename, mkdir } from 'fs/promises';
 import { dirname, join } from 'path';
@@ -77,6 +78,8 @@ async function renameWithRetry(from: string, to: string): Promise<void> {
   }
 }
 
+const syncSleepBuffer = new Int32Array(new SharedArrayBuffer(4));
+
 function renameSyncWithRetry(from: string, to: string): void {
   for (let attempt = 0; attempt < MAX_RETRIES_WIN; attempt++) {
     try {
@@ -84,9 +87,7 @@ function renameSyncWithRetry(from: string, to: string): void {
       return;
     } catch (err) {
       if (attempt === MAX_RETRIES_WIN - 1) throw err;
-      const waitMs = RETRY_DELAY_MS * (attempt + 1);
-      const end = Date.now() + waitMs;
-      while (Date.now() < end) { /* busy wait for sync context */ }
+      Atomics.wait(syncSleepBuffer, 0, 0, RETRY_DELAY_MS * (attempt + 1));
     }
   }
 }
@@ -110,7 +111,6 @@ function sleep(ms: number): Promise<void> {
 
 export function cleanupTmpFiles(dir: string): void {
   try {
-    const { readdirSync } = require('fs') as typeof import('fs');
     for (const f of readdirSync(dir)) {
       if (f.startsWith('.tmp-')) {
         try {

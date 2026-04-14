@@ -15,12 +15,16 @@
     "build:renderer": "npm run build --prefix src/renderer",
     "start": "npx electron .",
     "clean": "rimraf dist",
+    "lint": "eslint src/ tests/",
+    "lint:fix": "eslint src/ tests/ --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"tests/**/*.ts\"",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win",
-    "dist:mac": "npm run build && electron-builder --mac",
-    "dist:linux": "npm run build && electron-builder --linux"
+    "dist": "npm run build && npm test && electron-builder",
+    "dist:win": "npm run build && npm test && electron-builder --win",
+    "dist:mac": "npm run build && npm test && electron-builder --mac",
+    "dist:linux": "npm run build && npm test && electron-builder --linux"
   },
   "build": {
     "appId": "com.skycode.skyfork",
@@ -35,16 +39,24 @@
       "package.json"
     ],
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "resources/icon.ico"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "resources/icon.icns",
       "category": "public.app-category.developer-tools"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "resources/icon.png",
       "category": "Development"
     },
@@ -56,17 +68,21 @@
     }
   },
   "dependencies": {
-    "chokidar": "^3.6.0",
-    "electron-store": "^8.2.0"
+    "chokidar": "^3.6.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^20.0.0",
     "concurrently": "^8.2.0",
     "cross-env": "^7.0.3",
     "electron": "^28.0.0",
+    "electron-builder": "^24.0.0",
+    "eslint": "^10.2.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.2",
     "rimraf": "^5.0.0",
     "typescript": "^5.3.0",
-    "electron-builder": "^24.0.0",
+    "typescript-eslint": "^8.58.2",
     "vitest": "^4.1.4"
   }
 }

@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
-// tpl uses localStorage via module init, so we replicate the function logic
-function tpl(template: string, params: Record<string, string | number>): string {
-  return template.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? `{${key}}`));
-}
+// Mock browser globals that i18n/index.ts accesses on load
+vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
+
+const { tpl } = await import('../../src/renderer/src/i18n/index');
 
 describe('tpl (template interpolation)', () => {
   it('replaces single placeholder', () => {
