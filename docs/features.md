@@ -160,6 +160,25 @@
 - Lists all LFS-managed files with OID
 - Accessible via Repository → Git LFS...
 
+### .gitignore Editor
+
+- Create or edit `.gitignore` from the UI
+- Predefined templates: Node.js, Python, Java, C/C++, Rust, Go, IDE, OS
+- Click templates to add/remove patterns
+- Manual editing in built-in textarea
+- Warning if existing `.gitignore` will be overwritten
+- Accessible via Repository → .gitignore...
+
+### Compare Two Commits
+
+- Right-click a commit → "Compare From Here"
+- Right-click another commit → "Compare with 'abc1234'" to see file changes between them
+
+### Arrow Key Navigation
+
+- Use ↑/↓ arrows to navigate between commits in the graph
+- Auto-scrolls to keep the selected commit visible
+
 ### Shell Integration
 
 - Open in File Explorer (Ctrl+Alt+O)
@@ -181,3 +200,8 @@
 - Dark and Light mode
 - Theme toggle in title bar
 - CSS variables (`--sg-*`) for consistent theming
+
+### Distribution
+
+- Electron-builder config for Windows (NSIS + portable), macOS (DMG), Linux (AppImage + deb)
+- Build: `npm run dist:win`, `npm run dist:mac`, `npm run dist:linux`

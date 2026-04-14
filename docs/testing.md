@@ -201,7 +201,9 @@ Modules: `src/renderer/src/i18n/en.ts`, `src/renderer/src/i18n/ru.ts`
 | Managers | WorktreeManager (contract) | ~1 |
 | Safety | OperationQueue | ~8 |
 | i18n | Key completeness en↔ru, tpl | ~15 |
-| **Total** | **12 files** | **119** |
+| Managers | BisectManager, HooksManager, LfsManager, WorktreeManager (contracts) | ~10 |
+| IPC | RendererCommand, MainEvent type contracts | ~10 |
+| **Total** | **19 files** | **154** |
 
 ---
 

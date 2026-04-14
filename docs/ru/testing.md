@@ -288,7 +288,9 @@ npx vitest run tests/git/MyNewParser.test.ts
 | Менеджеры | WorktreeManager (контракт) | ~1 |
 | Safety | OperationQueue | ~8 |
 | i18n | Полнота ключей en↔ru, tpl | ~15 |
-| **Итого** | **12 файлов** | **119** |
+| Менеджеры | BisectManager, HooksManager, LfsManager, WorktreeManager (контракты) | ~10 |
+| IPC | RendererCommand, MainEvent типы-контракты | ~10 |
+| **Итого** | **19 файлов** | **154** |
 
 ---
 

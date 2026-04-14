@@ -88,6 +88,7 @@ User clicks button in React
 | **hooks/** | `HooksDialog`, `HookItem`. |
 | **worktrees/** | `WorktreesDialog`, `WorktreeItem`, `AddWorktreeForm`. |
 | **lfs/** | `LfsDialog`, `LfsPatternList`, `LfsFileList`. |
+| **gitignore/** | `GitignoreDialog`, шаблоны. |
 
 Кастомные хуки в `src/renderer/src/hooks/`:
 
@@ -101,7 +102,7 @@ User clicks button in React
 | **useTheme** | Переключение тёмной/светлой темы с сохранением в localStorage. |
 | **useToasts** | Очередь тост-уведомлений с автоскрытием. |
 | **useContextMenu** | Состояние контекстного меню (позиция + пункты). |
-| **useDialogs** | Централизованное состояние видимости диалогов (about, ssh, reflog, bisect, hooks, worktrees, lfs). |
+| **useDialogs** | Централизованное состояние видимости диалогов (about, ssh, reflog, bisect, hooks, worktrees, lfs, gitignore). |
 
 ## Протокол IPC
 

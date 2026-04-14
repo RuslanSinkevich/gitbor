@@ -86,6 +86,7 @@ Feature folders under `src/renderer/src/features/`:
 | **hooks/** | `HooksDialog`, `HookItem`. |
 | **worktrees/** | `WorktreesDialog`, `WorktreeItem`, `AddWorktreeForm`. |
 | **lfs/** | `LfsDialog`, `LfsPatternList`, `LfsFileList`. |
+| **gitignore/** | `GitignoreDialog`, templates. |
 
 Custom hooks under `src/renderer/src/hooks/`:
 
@@ -99,7 +100,7 @@ Custom hooks under `src/renderer/src/hooks/`:
 | **useTheme** | Dark/light theme toggle with localStorage persistence. |
 | **useToasts** | Toast notification queue with auto-dismiss. |
 | **useContextMenu** | Context menu state (position + items). |
-| **useDialogs** | Centralized dialog visibility states (about, ssh, reflog, bisect, hooks, worktrees, lfs). |
+| **useDialogs** | Centralized dialog visibility states (about, ssh, reflog, bisect, hooks, worktrees, lfs, gitignore). |
 
 ## IPC Protocol
 

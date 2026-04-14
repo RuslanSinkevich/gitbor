@@ -32,6 +32,14 @@ npm test             # Run all tests (Vitest)
 npx vitest           # Watch mode
 ```
 
+### Distribution
+
+```bash
+npm run dist:win     # Windows (NSIS + portable)
+npm run dist:mac     # macOS (DMG)
+npm run dist:linux   # Linux (AppImage + deb)
+```
+
 ---
 
 ## Stack
@@ -180,8 +188,18 @@ skyfork/
 - **Confirmation dialogs** — destructive actions require confirmation
 - **Shell integration** — open in Explorer/Terminal, refresh (F5)
 - **Error boundary** — React ErrorBoundary prevents blank screens
+- **Reflog** — HEAD history with restore
+- **Git Bisect** — interactive binary search for buggy commits
+- **Git Hooks** — view and enable/disable hooks
+- **Signed commits** — GPG/SSH verification badges in graph
+- **Worktrees** — manage multiple working trees
+- **Git LFS** — large file tracking
+- **.gitignore editor** — templates for Node, Python, Java, Rust, Go, IDE, OS
+- **Compare two commits** — diff between arbitrary commits
+- **Arrow key navigation** — ↑/↓ in commit graph
 - **i18n** — English and Russian
 - **Themes** — dark and light mode
+- **Distribution** — electron-builder for Win/Mac/Linux
 
 ---
 
@@ -213,7 +231,7 @@ Internal module docs: [`docs/internal/`](docs/internal/INDEX.md)
 
 ## Status
 
-Version 0.1.0. Backend and UI feature-complete for MVP. 119 unit tests (Vitest). Not production-tested.
+Version 0.1.0. Backend and UI feature-complete for MVP. 154 unit tests (Vitest). Not production-tested.
 
 ## License
 
