@@ -64,6 +64,8 @@ export function countLeaves(node: BranchTreeNode): number {
 interface BranchTreeItemProps {
   node: BranchTreeNode;
   depth: number;
+  /** Top-level строки в «Ветках» (не внутри .treeChildren). Все потомки — nested. */
+  nested: boolean;
   currentBranch: string;
   loc: ReturnType<typeof t>;
   onContextMenu: (e: React.MouseEvent, items: SgContextMenuItem[]) => void;
@@ -72,27 +74,32 @@ interface BranchTreeItemProps {
   showPrompt: ShowPrompt;
 }
 
-export function BranchTreeItem({ node, depth, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt }: BranchTreeItemProps) {
+export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt }: BranchTreeItemProps) {
   const [expanded, setExpanded] = useState(() => node.branch?.isCurrent ? true : depth < 1);
 
   const isFolder = node.children.length > 0;
   const branch = node.branch;
-  const paddingLeft = 28 + depth * 16;
+  const rowFolder = nested ? s.branchTreeFolderNested : s.branchTreeFolderRoot;
+  const rowItem = nested ? s.branchTreeItemNested : s.branchTreeItemRoot;
 
   if (isFolder && !branch) {
     return (
       <>
-        <div className={s.treeFolder} style={{ paddingLeft }} onClick={() => setExpanded(e => !e)}>
+        <div className={`${s.treeFolder} ${rowFolder}`} onClick={() => setExpanded(e => !e)}>
           <span className={`${s.arrow} ${expanded ? s.arrowExpanded : ''}`}>&#9656;</span>
           <span className={s.treeFolderIcon}>📁</span>
           <span className={s.treeFolderName}>{node.segment}</span>
           <span className={s.treeFolderCount}>{countLeaves(node)}</span>
         </div>
-        {expanded && node.children.map(child => (
-          <BranchTreeItem key={child.fullPath} node={child} depth={depth + 1}
-            currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu}
-            onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
-        ))}
+        {expanded && (
+          <div className={s.treeChildren}>
+            {node.children.map(child => (
+              <BranchTreeItem key={child.fullPath} node={child} depth={depth + 1} nested
+                currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu}
+                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
+            ))}
+          </div>
+        )}
       </>
     );
   }
@@ -100,7 +107,7 @@ export function BranchTreeItem({ node, depth, currentBranch, loc, onContextMenu,
   if (branch) {
     return (
       <>
-        <div className={`${s.item} ${branch.isCurrent ? s.itemCurrent : ''}`} style={{ paddingLeft }}
+        <div className={`${s.item} ${rowItem} ${branch.isCurrent ? s.itemCurrent : ''}`}
           onClick={() => onSelectRef?.(branch.hash)}
           onDoubleClick={() => !branch.isCurrent && postCommand({ type: 'checkout', branch: branch.name })}
           onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getBranchMenuItems(branch, currentBranch, loc, showPrompt, onMerge)); }}>
@@ -108,11 +115,15 @@ export function BranchTreeItem({ node, depth, currentBranch, loc, onContextMenu,
           {branch.isCurrent && <span className={s.itemBadge}>{loc.sidebar.current}</span>}
           {branch.upstream && <span className={s.itemUpstream} title={branch.upstream}>↔</span>}
         </div>
-        {node.children.length > 0 && expanded && node.children.map(child => (
-          <BranchTreeItem key={child.fullPath} node={child} depth={depth + 1}
-            currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu}
-            onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
-        ))}
+        {node.children.length > 0 && expanded && (
+          <div className={s.treeChildren}>
+            {node.children.map(child => (
+              <BranchTreeItem key={child.fullPath} node={child} depth={depth + 1} nested
+                currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu}
+                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
+            ))}
+          </div>
+        )}
       </>
     );
   }

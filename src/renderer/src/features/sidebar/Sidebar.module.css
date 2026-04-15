@@ -106,13 +106,17 @@
 }
 
 .arrow {
-  font-size: 8px;
-  width: 14px;
+  font-size: 16px;
+  line-height: 1;
+  width: 22px;
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   color: var(--sg-foreground-muted);
   flex-shrink: 0;
   transition: transform 0.15s;
-  display: inline-block;
 }
 
 .arrowExpanded {
@@ -145,6 +149,10 @@
 
 .sectionBody {
   padding: 2px 0;
+  /* Глубина = только вложенные .treeChildren; смещение до колонки имени папки — одна константа (не × глубина) */
+  --branch-tree-indent-step: 14px;
+  /* ширина колонки стрелки + gap + иконка + gap (см. .treeFolder .arrow) */
+  --branch-tree-folder-label-offset: 30px;
 }
 
 .emptySection {
@@ -210,13 +218,22 @@
 .treeFolder {
   display: flex;
   align-items: center;
-  padding: 3px 10px;
+  padding: 3px 8px;
   cursor: pointer;
-  gap: 4px;
+  gap: 2px;
   font-size: 12px;
   color: var(--sg-foreground-muted);
   transition: background var(--sg-transition);
   user-select: none;
+}
+
+/* Крупнее глиф ▶ у папок/ремоутов (только font-size + ячейка под размер) */
+.treeFolder .arrow {
+  font-size: 18px;
+  width: 18px;
+  min-height: 24px;
+  padding: 0;
+  justify-content: center;
 }
 
 .treeFolder:hover {
@@ -224,11 +241,16 @@
 }
 
 .treeFolderIcon {
-  font-size: 11px;
-  width: 14px;
+  font-size: 15px;
+  line-height: 1;
+  width: 20px;
+  min-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   flex-shrink: 0;
-  opacity: 0.7;
+  opacity: 0.85;
 }
 
 .treeFolderName {
@@ -245,4 +267,28 @@
   color: var(--sg-foreground-muted);
   opacity: 0.6;
   flex-shrink: 0;
+}
+
+/* Каждый уровень вложенности — отдельная обёртка (10 уровней = 10× step слева) */
+.treeChildren {
+  padding-left: var(--branch-tree-indent-step);
+}
+
+/* Compound selectors: выше специфичность, чем у .item / .treeFolder */
+.treeFolder.branchTreeFolderRoot {
+  padding: 3px 8px 3px 15px;
+}
+
+.treeFolder.branchTreeFolderNested {
+  padding: 3px 8px 3px 8px;
+}
+
+/* Корневой лист: текст на одной вертикали с .treeFolderName у корневой папки */
+.item.branchTreeItemRoot {
+  padding: 3px 10px 3px calc(15px + var(--branch-tree-folder-label-offset));
+}
+
+/* Лист внутри .treeChildren: 8px как у вложенной папки + блок до имени папки */
+.item.branchTreeItemNested {
+  padding: 3px 10px 3px calc(8px + var(--branch-tree-folder-label-offset));
 }

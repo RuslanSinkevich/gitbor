@@ -1,0 +1,90 @@
+/**
+ * Стрелки раскрытия (▶). Состояние — только aria-expanded (без второго класса),
+ * чтобы порядок правил в сборке не сбрасывал transform.
+ */
+
+.arrow {
+  font-size: 16px;
+  line-height: 1;
+  width: 22px;
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--sg-foreground-muted);
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.arrowTreeFolder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-size: 18px;
+  width: 18px;
+  min-height: 24px;
+  padding: 0;
+  text-align: center;
+  color: var(--sg-foreground-muted);
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.arrowDense {
+  font-size: 8px;
+  width: 14px;
+  text-align: center;
+  color: var(--sg-foreground-muted);
+  flex-shrink: 0;
+  display: inline-block;
+  line-height: 1;
+  transition: transform 0.12s;
+}
+
+.arrowDenseToggle {
+  font-size: 10px;
+  width: 16px;
+  min-height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  text-align: center;
+  color: var(--sg-foreground-muted);
+  flex-shrink: 0;
+  line-height: 1;
+  transition: transform 0.12s;
+}
+
+.arrowDenseToggle:hover {
+  background: rgba(128, 128, 128, 0.2);
+}
+
+.arrowCompact {
+  font-size: 10px;
+  width: 14px;
+  text-align: center;
+  color: var(--sg-foreground-muted);
+  flex-shrink: 0;
+  display: inline-block;
+  line-height: 1;
+  transition: transform var(--sg-transition);
+}
+
+.arrowPlaceholder {
+  width: 14px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.arrow[aria-expanded='true'],
+.arrowTreeFolder[aria-expanded='true'],
+.arrowDense[aria-expanded='true'],
+.arrowDenseToggle[aria-expanded='true'],
+.arrowCompact[aria-expanded='true'] {
+  transform: rotate(90deg);
+}

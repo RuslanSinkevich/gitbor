@@ -72,7 +72,7 @@ export function Sidebar({
       <SidebarSection title={loc.sidebar.branches} icon={ICONS.branch} count={filteredLocal.length} expanded={sections.branches} onToggle={() => toggle('branches')}>
         {filteredLocal.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noBranches}</div>}
         {localTree.map(node => (
-          <BranchTreeItem key={node.fullPath} node={node} depth={0} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
+          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
         ))}
       </SidebarSection>
 
@@ -132,10 +132,14 @@ function RemoteFolder({ remote, tree, currentBranch, loc, onContextMenu, onSelec
         <span className={s.treeFolderName}>{remote.name}</span>
         <span className={s.treeFolderCount}>{tree.reduce((sum, n) => sum + countLeaves(n), 0)}</span>
       </div>
-      {expanded && tree.map(node => (
-        <BranchTreeItem key={node.fullPath} node={node} depth={1} currentBranch={currentBranch} loc={loc}
-          onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
-      ))}
+      {expanded && (
+        <div className={s.treeChildren}>
+          {tree.map(node => (
+            <BranchTreeItem key={node.fullPath} node={node} depth={0} nested currentBranch={currentBranch} loc={loc}
+              onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
+          ))}
+        </div>
+      )}
     </>
   );
 }
