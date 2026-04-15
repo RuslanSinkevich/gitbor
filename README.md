@@ -6,6 +6,12 @@ Free, open-source, cross-platform desktop Git client built on Electron. A Fork/G
 
 Part of the Sky Platform ecosystem.
 
+## Screenshot
+
+Visual overview: commit graph, branch sidebar (Russian UI), and diff viewer.
+
+![SkyFork — main window](docs/images/skyfork-screenshot.png)
+
 ---
 
 ## Quick Start
