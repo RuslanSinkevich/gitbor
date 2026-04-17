@@ -12,15 +12,24 @@ interface SgToastProps {
   onDismiss: (id: string) => void;
 }
 
+function decodeHtmlEntities(input: string): string {
+  if (!input.includes('&')) return input;
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = input;
+  return textarea.value;
+}
+
 export function SgToast({ toast, onDismiss }: SgToastProps) {
   useEffect(() => {
     const timer = setTimeout(() => onDismiss(toast.id), toast.duration || 4000);
     return () => clearTimeout(timer);
   }, [toast, onDismiss]);
 
+  const message = decodeHtmlEntities(toast.message);
+
   return (
     <div className={`sg-toast sg-toast--${toast.type || 'info'}`}>
-      <span className="sg-toast-message">{toast.message}</span>
+      <span className="sg-toast-message">{message}</span>
       <button className="sg-toast-close" onClick={() => onDismiss(toast.id)}>&times;</button>
     </div>
   );

@@ -16,7 +16,7 @@ export function useOperationToasts(
   useEffect(() => {
     if (!lastOpResult) return;
     clearLastOpResult();
-    const { operation, success } = lastOpResult;
+    const { operation, success, error } = lastOpResult;
     if (SILENT_OPS.includes(operation)) return;
 
     const ops = t().operations;
@@ -29,6 +29,10 @@ export function useOperationToasts(
         reset: ops.resetSuccess, checkout: ops.genericSuccess,
       };
       addToast(msg[operation] || tpl(ops.genericSuccess, { operation }), 'success');
+      return;
     }
+
+    // Явный toast при неудачной операции (включая push), даже если backend не прислал подробный текст.
+    addToast(error || tpl(ops.genericError, { operation }), 'error');
   }, [lastOpResult, clearLastOpResult, addToast]);
 }

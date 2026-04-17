@@ -6,6 +6,7 @@ import s from './Toolbar.module.css';
 interface Props {
   isOperationRunning: boolean;
   hasUpstream?: boolean;
+  onPull?: (rebase?: boolean) => void;
 }
 
 const IconFetch = () => (
@@ -71,8 +72,12 @@ function DropdownButton({ label, icon, disabled, mainAction, items }: {
   );
 }
 
-export function Toolbar({ isOperationRunning, hasUpstream }: Props) {
+export function Toolbar({ isOperationRunning, hasUpstream, onPull }: Props) {
   const loc = t();
+  const runPull = (rebase?: boolean) => {
+    if (onPull) onPull(rebase);
+    else postCommand({ type: 'pull', rebase });
+  };
 
   return (
     <div className={s.root}>
@@ -86,10 +91,10 @@ export function Toolbar({ isOperationRunning, hasUpstream }: Props) {
           label={loc.toolbar.pull}
           icon={<IconPull />}
           disabled={isOperationRunning}
-          mainAction={() => postCommand({ type: 'pull' })}
+          mainAction={() => runPull(false)}
           items={[
-            { label: loc.toolbar.pull, action: () => postCommand({ type: 'pull' }) },
-            { label: loc.toolbar.pullRebase, action: () => postCommand({ type: 'pull', rebase: true }) },
+            { label: loc.toolbar.pull, action: () => runPull(false) },
+            { label: loc.toolbar.pullRebase, action: () => runPull(true) },
           ]}
         />
 

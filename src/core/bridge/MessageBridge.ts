@@ -107,7 +107,8 @@ const handlers: HandlerTable = {
 
   checkout:     op('checkout', (cmd, ctx) => ctx.ch.checkout(cmd.branch)),
   fetch:        op('fetch', (cmd, ctx) => ctx.ch.fetch(cmd.remote)),
-  pull:         op('pull', (cmd, ctx) => ctx.ch.pull(cmd.rebase)),
+  pull:         op('pull', (cmd, ctx) => ctx.ch.pull(cmd.rebase, cmd.autostash)),
+  pullFrom:     op('pull', (cmd, ctx) => ctx.ch.pullFrom(cmd.remote, cmd.branch, cmd.rebase, cmd.autostash)),
   push:         op('push', (cmd, ctx) => ctx.ch.push(cmd.force, cmd.setUpstream)),
   stash:        op('stash', (cmd, ctx) => ctx.ch.stash(cmd.message)),
   stashPop:     op('stashPop', (_cmd, ctx) => ctx.ch.stashPop()),

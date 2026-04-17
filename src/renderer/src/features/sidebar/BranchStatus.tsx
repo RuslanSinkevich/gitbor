@@ -10,12 +10,13 @@ interface Props {
   unstagedCount: number;
   isOperationRunning: boolean;
   currentOperation: string | null;
+  onPull?: () => void;
 }
 
 export function BranchStatus({
   currentBranch, ahead, behind,
   stagedCount, unstagedCount,
-  isOperationRunning, currentOperation,
+  isOperationRunning, currentOperation, onPull,
 }: Props) {
   const loc = t();
   const totalChanges = stagedCount + unstagedCount;
@@ -47,7 +48,7 @@ export function BranchStatus({
         {(ahead > 0 || behind > 0) && (
           <div className={s.syncActions}>
             {behind > 0 && (
-              <button className={s.syncBtn} onClick={() => postCommand({ type: 'pull' })} disabled={isOperationRunning} title={loc.toolbar.pull}>
+              <button className={s.syncBtn} onClick={() => onPull ? onPull() : postCommand({ type: 'pull' })} disabled={isOperationRunning} title={loc.toolbar.pull}>
                 ↓ {loc.toolbar.pull}
               </button>
             )}

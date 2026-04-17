@@ -52,7 +52,12 @@ export class CommandHandler {
   // ─── Write ───
   checkout(branch: string): Promise<OperationResult> { return Write.checkout(this.queue, this.git, this.safety, this.state, branch); }
   fetch(remote?: string): Promise<OperationResult> { return Write.fetch(this.queue, this.git, this.state, remote); }
-  pull(rebase?: boolean): Promise<OperationResult> { return Write.pull(this.queue, this.git, this.safety, this.state, rebase); }
+  pull(rebase?: boolean, autostash?: boolean): Promise<OperationResult> {
+    return Write.pull(this.queue, this.git, this.safety, this.state, rebase, undefined, undefined, autostash);
+  }
+  pullFrom(remote: string, branch: string, rebase?: boolean, autostash?: boolean): Promise<OperationResult> {
+    return Write.pull(this.queue, this.git, this.safety, this.state, rebase, remote, branch, autostash);
+  }
   push(force?: boolean, setUpstream?: boolean): Promise<OperationResult> { return Write.push(this.queue, this.git, this.state, force, setUpstream); }
   stash(message?: string): Promise<OperationResult> { return Write.stash(this.queue, this.git, this.state, message); }
   stashPop(): Promise<OperationResult> { return Write.stashPop(this.queue, this.git, this.state); }

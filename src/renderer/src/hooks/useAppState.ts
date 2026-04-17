@@ -78,9 +78,6 @@ export function useAppState() {
             currentOperation: null,
           }));
           setLastOpResult({ operation: msg.operation, success: msg.success, error: msg.error });
-          if (!msg.success && msg.error) {
-            setError(msg.error);
-          }
           break;
         case 'config':
           setLang(msg.lang);

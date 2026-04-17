@@ -18,6 +18,9 @@ import { RepoTabs } from './features/repo-tabs';
 import { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo, sameRepoPath } from './features/repo-manager';
 import { SgSplitPane } from './ui/SgSplitPane';
 import { usePromptDialog } from './ui/SgPromptDialog';
+import { SgDialog } from './ui/SgDialog';
+import { SgSelect } from './ui/SgSelect';
+import { SgCheckbox } from './ui/SgCheckbox';
 import { AppDialogs } from './AppDialogs';
 import { postCommand, onMainEvent } from './api';
 import { t, tpl, setLang, getLang } from './i18n';
@@ -26,6 +29,12 @@ import s from './App.module.css';
 
 type Page = 'app' | 'ui-kit';
 type ViewMode = 'changes' | 'commits';
+interface PullDialogState {
+  rebase: boolean;
+  autostash: boolean;
+  remote: string;
+  branch: string;
+}
 
 export function App() {
   const {
@@ -52,8 +61,55 @@ export function App() {
   const [compareFromHash, setCompareFromHash] = useState<string | null>(null);
   const [page, setPage] = useState<Page>('app');
   const [lang, setLangState] = useState(getLang);
+  const [pullDialog, setPullDialog] = useState<PullDialogState | null>(null);
   const dlg = useDialogs();
   const loc = t();
+
+  const remoteOptions = state.remotes.map((r) => ({ value: r.name, label: r.name }));
+  const remoteBranchOptions = useCallback((remote: string) => {
+    const prefix = `${remote}/`;
+    const options = state.branches
+      .filter((b) => b.isRemote && b.name.startsWith(prefix))
+      .map((b) => {
+        const shortName = b.name.slice(prefix.length);
+        return { value: shortName, label: b.name };
+      });
+    return options.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true }));
+  }, [state.branches]);
+
+  const pickDefaultBranchForRemote = useCallback((remote: string) => {
+    const options = remoteBranchOptions(remote);
+    if (options.length === 0) return '';
+
+    const currentLocal = state.branches.find((b) => b.isCurrent && !b.isRemote);
+    const currentName = state.currentBranch || '';
+
+    // 1) Если upstream уже был задан и совпадает с remote — берём его.
+    if (currentLocal?.upstream?.startsWith(`${remote}/`)) {
+      const upstreamShort = currentLocal.upstream.slice(remote.length + 1);
+      const upstreamMatch = options.find((o) => o.value === upstreamShort);
+      if (upstreamMatch) return upstreamMatch.value;
+    }
+
+    // 2) Иначе пробуем одноимённую ветку (частый кейс feature/...).
+    const sameName = options.find((o) => o.value === currentName);
+    if (sameName) return sameName.value;
+
+    // 3) Если нет — fallback на первую.
+    return options[0].value;
+  }, [remoteBranchOptions, state.branches, state.currentBranch]);
+
+  const runPull = useCallback((rebase?: boolean) => {
+    const hasUpstream = state.branches.some(b => b.isCurrent && !!b.upstream);
+    if (hasUpstream) {
+      postCommand({ type: 'pull', rebase });
+      return;
+    }
+
+    const defaultRemote = state.remotes[0]?.name || 'origin';
+    const defaultBranch = pickDefaultBranchForRemote(defaultRemote) || state.currentBranch || '';
+    setPullDialog({ rebase: !!rebase, autostash: false, remote: defaultRemote, branch: defaultBranch });
+  }, [state.branches, state.remotes, state.currentBranch, pickDefaultBranchForRemote]);
 
   useOperationToasts(lastOpResult, clearLastOpResult, addToast);
   useAutoFetch(state.repoPath, !!state.repoPath, (msg) => addToast(msg, 'info'));
@@ -63,7 +119,7 @@ export function App() {
   }, []);
 
   const handleMenuAction = useMenuActions({
-    state, setViewMode, ...dlg, showPrompt, handleOpenMergeDialog,
+    state, setViewMode, ...dlg, showPrompt, handleOpenMergeDialog, runPull,
   });
 
   useKeyboardShortcuts(handleMenuAction);
@@ -217,7 +273,11 @@ export function App() {
           <RepoTabs repos={state.openRepos} activeIndex={state.activeRepoIndex} hasChanges={stagedCount + unstagedCount > 0} />
 
           {hasRepo && (
-            <Toolbar isOperationRunning={state.isOperationRunning} hasUpstream={state.branches.some(b => b.isCurrent && b.upstream)} />
+            <Toolbar
+              isOperationRunning={state.isOperationRunning}
+              hasUpstream={state.branches.some(b => b.isCurrent && b.upstream)}
+              onPull={runPull}
+            />
           )}
 
           {mergeState?.inProgress && <MergeBanner mergeState={mergeState} showPrompt={showPrompt} />}
@@ -300,6 +360,7 @@ export function App() {
                 currentBranch={state.currentBranch} ahead={state.ahead} behind={state.behind}
                 stagedCount={stagedCount} unstagedCount={unstagedCount}
                 isOperationRunning={state.isOperationRunning} currentOperation={state.currentOperation}
+                onPull={() => runPull(false)}
               />
             ) : (
               <span>{loc.statusbar.noRepo}</span>
@@ -319,6 +380,66 @@ export function App() {
         toasts={toasts} dismissToast={dismissToast}
         dlg={dlg} showPrompt={showPrompt} loc={loc}
       />
+
+      {pullDialog && (
+        <SgDialog
+          open={true}
+          title={loc.toolbar.pull}
+          onClose={() => setPullDialog(null)}
+          width={520}
+          footer={
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="sg-button sg-button--md sg-button--ghost" onClick={() => setPullDialog(null)}>
+                {loc.dialog.cancel}
+              </button>
+              <button
+                className="sg-button sg-button--md sg-button--primary"
+                onClick={() => {
+                  postCommand({
+                    type: 'pullFrom',
+                    remote: pullDialog.remote,
+                    branch: pullDialog.branch,
+                    rebase: pullDialog.rebase || undefined,
+                    autostash: pullDialog.autostash || undefined,
+                  });
+                  setPullDialog(null);
+                }}
+                disabled={!pullDialog.remote || !pullDialog.branch}
+              >
+                {loc.toolbar.pull}
+              </button>
+            </div>
+          }
+        >
+          <SgSelect
+            label={loc.toolbar.pullRemote}
+            value={pullDialog.remote}
+            options={remoteOptions}
+            onChange={(e) => {
+              const remote = e.target.value;
+              setPullDialog((prev) => prev ? { ...prev, remote, branch: pickDefaultBranchForRemote(remote) } : prev);
+            }}
+          />
+          <SgSelect
+            label={loc.toolbar.pullBranch}
+            value={pullDialog.branch}
+            options={remoteBranchOptions(pullDialog.remote)}
+            onChange={(e) => setPullDialog((prev) => prev ? { ...prev, branch: e.target.value } : prev)}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+            <SgCheckbox
+              label={loc.toolbar.pullRebaseInsteadOfMerge}
+              checked={pullDialog.rebase}
+              onChange={(e) => setPullDialog((prev) => prev ? { ...prev, rebase: e.target.checked } : prev)}
+            />
+            <SgCheckbox
+              label={loc.toolbar.pullAutostash}
+              checked={pullDialog.autostash}
+              onChange={(e) => setPullDialog((prev) => prev ? { ...prev, autostash: e.target.checked } : prev)}
+            />
+          </div>
+        </SgDialog>
+      )}
     </div>
   );
 }

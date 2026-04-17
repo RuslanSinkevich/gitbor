@@ -53,8 +53,12 @@ export const ru: LocaleMap = {
   toolbar: {
     fetch: 'Получить',
     pull: 'Стянуть',
+    pullRemote: 'Удаленный',
+    pullBranch: 'Ветка',
     push: 'Отправить',
     pullRebase: 'Стянуть --rebase',
+    pullRebaseInsteadOfMerge: 'Rebase вместо merge',
+    pullAutostash: 'Спрятать и вернуть локальные изменения',
     pushForce: 'Отправить --force',
     pushSetUpstream: 'Отправить -u origin',
     stash: 'Отложить',

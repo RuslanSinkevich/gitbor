@@ -54,8 +54,21 @@ export async function fetch(queue: OperationQueue, git: GitExecutor, state: Stat
   return gitExecSimple(queue, git, state, 'fetch', args);
 }
 
-export async function pull(queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager, rebase?: boolean): Promise<OperationResult> {
-  const args = rebase ? ['pull', '--rebase'] : ['pull'];
+export async function pull(
+  queue: OperationQueue,
+  git: GitExecutor,
+  safety: SafetyNet,
+  state: StateManager,
+  rebase?: boolean,
+  remote?: string,
+  branch?: string,
+  autostash?: boolean,
+): Promise<OperationResult> {
+  const args: string[] = ['pull'];
+  if (rebase) args.push('--rebase');
+  if (autostash) args.push('--autostash');
+  if (remote) args.push(remote);
+  if (branch) args.push(branch);
   return safeWrite(queue, git, safety, state, 'pull', {}, args, 'Pull failed');
 }
 

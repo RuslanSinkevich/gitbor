@@ -45,7 +45,8 @@ export type RendererCommand =
   // Git operations
   | { type: 'checkout'; branch: string }
   | { type: 'fetch'; remote?: string }
-  | { type: 'pull'; rebase?: boolean }
+  | { type: 'pull'; rebase?: boolean; autostash?: boolean }
+  | { type: 'pullFrom'; remote: string; branch: string; rebase?: boolean; autostash?: boolean }
   | { type: 'push'; force?: boolean; setUpstream?: boolean }
   | { type: 'stash'; message?: string }
   | { type: 'stashPop' }

@@ -51,8 +51,12 @@ export const en = {
   toolbar: {
     fetch: 'Fetch',
     pull: 'Pull',
+    pullRemote: 'Remote',
+    pullBranch: 'Branch',
     push: 'Push',
     pullRebase: 'Pull --rebase',
+    pullRebaseInsteadOfMerge: 'Rebase instead of merge',
+    pullAutostash: 'Stash and reapply local changes',
     pushForce: 'Push --force',
     pushSetUpstream: 'Push -u origin',
     stash: 'Stash',
