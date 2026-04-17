@@ -5,7 +5,42 @@ export interface RecentRepo {
 }
 
 const STORAGE_KEY = 'sg-recent-repos';
+const LAST_ACTIVE_REPO_KEY = 'sg-last-active-repo';
 const MAX_RECENT = 20;
+
+function normRepoPath(p: string): string {
+  return p.replace(/\\/g, '/').toLowerCase();
+}
+
+/** Последний открытый репозиторий (для восстановления при следующем запуске). Renderer: localStorage. */
+export function loadLastActiveRepo(): string | null {
+  try {
+    const p = localStorage.getItem(LAST_ACTIVE_REPO_KEY);
+    return p && p.length > 0 ? p : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveLastActiveRepo(path: string): void {
+  try {
+    localStorage.setItem(LAST_ACTIVE_REPO_KEY, path);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+export function clearLastActiveRepo(): void {
+  try {
+    localStorage.removeItem(LAST_ACTIVE_REPO_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function sameRepoPath(a: string, b: string): boolean {
+  return normRepoPath(a) === normRepoPath(b);
+}
 
 export function loadRecent(): RecentRepo[] {
   try {

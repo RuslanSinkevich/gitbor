@@ -17,11 +17,16 @@ interface Props {
   onFileHistory?: (file: string) => void;
   onFileBlame?: (file: string) => void;
   onOpenMergeEditor?: (file: string) => void;
+  onSelectFolder?: (folderPath: string, section: 'unstaged' | 'staged') => void;
   showPrompt?: ShowPrompt;
   activePath?: string;
+  activeSection?: 'unstaged' | 'staged' | 'conflict';
 }
 
-export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onContextMenu, onOpenDiff, onFileHistory, onFileBlame, onOpenMergeEditor, showPrompt, activePath }: Props) {
+export function LocalChanges({
+  stagedFiles, unstagedFiles, mergeInProgress, onContextMenu, onOpenDiff, onFileHistory, onFileBlame,
+  onOpenMergeEditor, onSelectFolder, showPrompt, activePath, activeSection,
+}: Props) {
   const loc = t();
 
   const conflictFiles = useMemo(() => unstagedFiles.filter(f => f.status === 'U'), [unstagedFiles]);
@@ -166,7 +171,7 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
           <div className={s.fileList}>
             {conflictFiles.map(file => (
               <div key={file.path}
-                className={`${s.fileItem} ${s.fileItemConflict} ${activePath === file.path ? s.fileItemActive : ''} ${kb.focusedPath === file.path ? s.fileItemFocused : ''}`}
+                className={`${s.fileItem} ${s.fileItemConflict} ${(activePath === file.path && activeSection === 'conflict') ? s.fileItemActive : ''} ${kb.focusedPath === file.path ? s.fileItemFocused : ''}`}
                 onClick={() => handleConflictClick(file)}
                 onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getConflictMenuItems(file)); }}>
                 <span className={`${s.statusIcon} ${s.statusConflict}`}>!</span>
@@ -191,8 +196,9 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
         </div>
         <div className={s.fileList}>
           {unstagedTree.map(node => (
-            <FileTreeItem key={node.path} node={node} depth={0} activePath={activePath} focusedPath={kb.focusedPath}
+            <FileTreeItem key={node.path} node={node} depth={0} section="unstaged" activePath={activePath} activeSection={activeSection} focusedPath={kb.focusedPath}
               onClickFile={handleUnstagedClick}
+              onClickFolder={(folderPath) => onSelectFolder?.(folderPath, 'unstaged')}
               onDoubleClickFile={(file) => postCommand({ type: 'stageFile', file: file.path })}
               onDoubleClickFolder={(files) => postCommand({ type: 'stageAll', files: files.map(f => f.path) })}
               onContextMenu={(e, file) => onContextMenu(e, getUnstagedMenuItems(file))} />
@@ -209,8 +215,9 @@ export function LocalChanges({ stagedFiles, unstagedFiles, mergeInProgress, onCo
         </div>
         <div className={s.fileList}>
           {stagedTree.map(node => (
-            <FileTreeItem key={node.path} node={node} depth={0} activePath={activePath} focusedPath={kb.focusedPath}
+            <FileTreeItem key={node.path} node={node} depth={0} section="staged" activePath={activePath} activeSection={activeSection} focusedPath={kb.focusedPath}
               onClickFile={handleStagedClick}
+              onClickFolder={(folderPath) => onSelectFolder?.(folderPath, 'staged')}
               onDoubleClickFile={(file) => postCommand({ type: 'unstageFile', file: file.path })}
               onDoubleClickFolder={(files) => postCommand({ type: 'unstageAll', files: files.map(f => f.path) })}
               onContextMenu={(e, file) => onContextMenu(e, getStagedMenuItems(file))} />

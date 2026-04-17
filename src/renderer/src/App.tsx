@@ -15,7 +15,7 @@ import { MergeBanner } from './features/merge';
 import { Toolbar } from './features/toolbar';
 import { Sidebar, BranchStatus } from './features/sidebar';
 import { RepoTabs } from './features/repo-tabs';
-import { RepoManager, addRecentRepo } from './features/repo-manager';
+import { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo, sameRepoPath } from './features/repo-manager';
 import { SgSplitPane } from './ui/SgSplitPane';
 import { usePromptDialog } from './ui/SgPromptDialog';
 import { AppDialogs } from './AppDialogs';
@@ -68,8 +68,33 @@ export function App() {
 
   useKeyboardShortcuts(handleMenuAction);
 
+  const restoreLastRepoAttempted = useRef(false);
+
   useEffect(() => {
-    if (state.repoPath && state.repoName) addRecentRepo(state.repoName, state.repoPath);
+    if (restoreLastRepoAttempted.current) return;
+    const last = loadLastActiveRepo();
+    if (!last) {
+      restoreLastRepoAttempted.current = true;
+      return;
+    }
+    if (!state.repoPath) {
+      restoreLastRepoAttempted.current = true;
+      postCommand({ type: 'openRepo', path: last });
+      return;
+    }
+    if (!sameRepoPath(state.repoPath, last)) {
+      restoreLastRepoAttempted.current = true;
+      postCommand({ type: 'openRepo', path: last });
+      return;
+    }
+    restoreLastRepoAttempted.current = true;
+  }, [state.repoPath]);
+
+  useEffect(() => {
+    if (state.repoPath && state.repoName) {
+      saveLastActiveRepo(state.repoPath);
+      addRecentRepo(state.repoName, state.repoPath);
+    }
   }, [state.repoPath, state.repoName]);
 
   useEffect(() => {
@@ -97,7 +122,16 @@ export function App() {
     if (!diffTarget || viewMode !== 'changes') return;
     const { file, hash } = diffTarget;
     if (hash !== 'WORKING' && hash !== 'STAGED') return;
-    if (![...state.unstagedFiles, ...state.stagedFiles].some(f => f.path === file)) closeDiff();
+    const inUnstaged = state.unstagedFiles.some(f => f.path === file);
+    const inStaged = state.stagedFiles.some(f => f.path === file);
+    if (!inUnstaged && !inStaged) {
+      closeDiff();
+      return;
+    }
+    // Файл переехал между секциями (stage/unstage): старый diff-контекст невалиден, очищаем правую панель.
+    if ((hash === 'WORKING' && !inUnstaged) || (hash === 'STAGED' && !inStaged)) {
+      closeDiff();
+    }
   }, [state.unstagedFiles, state.stagedFiles, diffTarget, viewMode, closeDiff]);
 
   const prevMergeRef = useRef(false);
@@ -213,6 +247,7 @@ export function App() {
                 left={
                   <aside className={s.sidebar}>
                     <Sidebar
+                      repoPath={state.repoPath}
                       currentBranch={state.currentBranch} branches={state.branches}
                       remotes={state.remotes} tags={state.tags} stashes={state.stashes}
                       ahead={state.ahead} behind={state.behind}
@@ -244,7 +279,7 @@ export function App() {
                         rightPanel={rightPanel} setRightPanel={setRightPanel}
                         conflictFile={conflictFile} setConflictFile={setConflictFile}
                         setMergeEditorFile={setMergeEditorFile}
-                        showContextMenu={showContextMenu} openDiff={openDiff}
+                        showContextMenu={showContextMenu} openDiff={openDiff} closeDiff={closeDiff}
                         openFileHistory={openFileHistory} openFileBlame={openFileBlame}
                         handleOpenMergeEditor={handleOpenMergeEditor}
                         handleConflictResolved={handleConflictResolved}

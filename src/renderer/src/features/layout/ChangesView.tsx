@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { LocalChanges, CommitBar } from '../changes';
 import { ConflictPanel } from '../merge';
 import { RightPanelContent, type RightPanel } from './RightPanelContent';
@@ -16,6 +17,7 @@ interface Props {
   setMergeEditorFile: (f: string | null) => void;
   showContextMenu: (e: React.MouseEvent, items: any[]) => void;
   openDiff: (file: string, hash: string) => void;
+  closeDiff: () => void;
   openFileHistory: (file: string) => void;
   openFileBlame: (file: string) => void;
   handleOpenMergeEditor: (file: string) => void;
@@ -28,10 +30,23 @@ interface Props {
 export function ChangesView({
   state, mergeState, diffTarget, rightPanel, setRightPanel,
   conflictFile, setConflictFile, setMergeEditorFile,
-  showContextMenu, openDiff, openFileHistory, openFileBlame,
+  showContextMenu, openDiff, closeDiff, openFileHistory, openFileBlame,
   handleOpenMergeEditor, handleConflictResolved, selectCommit,
   showPrompt, loc,
 }: Props) {
+  const [selectedFolder, setSelectedFolder] = useState<{ path: string; section: 'unstaged' | 'staged' } | null>(null);
+
+  const activeSection: 'unstaged' | 'staged' | 'conflict' | undefined =
+    selectedFolder
+      ? selectedFolder.section
+      : conflictFile
+        ? 'conflict'
+        : diffTarget?.hash === 'WORKING'
+          ? 'unstaged'
+          : diffTarget?.hash === 'STAGED'
+            ? 'staged'
+            : undefined;
+
   return (
     <div className={s.changesLayout}>
       <div className={s.changesFileList}>
@@ -40,12 +55,25 @@ export function ChangesView({
           stagedFiles={state.stagedFiles}
           mergeInProgress={mergeState?.inProgress}
           onContextMenu={showContextMenu}
-          onOpenDiff={(f, h) => { openDiff(f, h); setConflictFile(null); setMergeEditorFile(null); setRightPanel('diff'); }}
+          onOpenDiff={(f, h) => {
+            setSelectedFolder(null);
+            openDiff(f, h);
+            setConflictFile(null);
+            setMergeEditorFile(null);
+            setRightPanel('diff');
+          }}
           onFileHistory={openFileHistory}
           onFileBlame={(f) => openFileBlame(f)}
-          onOpenMergeEditor={handleOpenMergeEditor}
+          onOpenMergeEditor={(f) => { setSelectedFolder(null); handleOpenMergeEditor(f); }}
+          onSelectFolder={(folderPath, section) => {
+            setSelectedFolder({ path: folderPath, section });
+            setConflictFile(null);
+            setMergeEditorFile(null);
+            closeDiff();
+          }}
           showPrompt={showPrompt}
-          activePath={conflictFile || diffTarget?.file}
+          activePath={selectedFolder?.path || conflictFile || diffTarget?.file}
+          activeSection={activeSection}
         />
         <CommitBar stagedCount={state.stagedFiles.length} isOperationRunning={state.isOperationRunning} />
       </div>

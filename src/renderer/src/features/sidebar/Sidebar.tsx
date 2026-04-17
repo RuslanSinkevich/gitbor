@@ -1,15 +1,20 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { t } from '../../i18n';
 import { postCommand } from '../../api';
 import type { Branch, Tag, Stash, Remote } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { getTagMenuItems, getStashMenuItems, getRemoteMenuItems } from './sidebarMenuItems';
-import { buildBranchTree, countLeaves, BranchTreeItem } from './BranchTree';
+import {
+  buildBranchTree, countLeaves, BranchTreeItem,
+  type BranchFolderExpand,
+} from './BranchTree';
 import { SubmodulesList } from './SubmodulesList';
 import type { ShowPrompt } from '../graph/commitMenuItems';
+import { loadSidebarSections, saveSidebarSections, loadBranchFolderExpanded, saveBranchFolderExpanded } from './sidebarPersist';
 import s from './Sidebar.module.css';
 
 interface Props {
+  repoPath: string;
   currentBranch: string;
   branches: Branch[];
   tags: Tag[];
@@ -32,13 +37,56 @@ interface SectionState { branches: boolean; remotes: boolean; tags: boolean; sta
 const ICONS = { branch: '⎇', remote: '☁', tag: '🏷', stash: '📦', changes: '●' } as const;
 
 export function Sidebar({
-  currentBranch, branches, tags, stashes, remotes,
+  repoPath, currentBranch, branches, tags, stashes, remotes,
   stagedCount, unstagedCount, activeView, onContextMenu, onSwitchView, onSelectRef, onMerge, showPrompt,
 }: Props) {
   const loc = t();
   const [filter, setFilter] = useState('');
-  const [sections, setSections] = useState<SectionState>({ branches: true, remotes: false, tags: false, stashes: false });
-  const toggle = useCallback((key: keyof SectionState) => setSections(prev => ({ ...prev, [key]: !prev[key] })), []);
+  const [sections, setSections] = useState<SectionState>(() => {
+    const p = loadSidebarSections();
+    return {
+      branches: p?.branches ?? true,
+      remotes: p?.remotes ?? false,
+      tags: p?.tags ?? false,
+      stashes: p?.stashes ?? false,
+    };
+  });
+  const toggleSection = useCallback((key: keyof SectionState) => {
+    setSections(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      saveSidebarSections(next);
+      return next;
+    });
+  }, []);
+
+  const [branchFoldersExpanded, setBranchFoldersExpanded] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    if (!repoPath) {
+      setBranchFoldersExpanded(new Set());
+      return;
+    }
+    const saved = loadBranchFolderExpanded(repoPath, '');
+    if (saved !== null) {
+      setBranchFoldersExpanded(new Set(saved));
+      return;
+    }
+    // Первый запуск без истории: все папки локальных веток свёрнуты.
+    setBranchFoldersExpanded(new Set());
+  }, [repoPath]);
+
+  const folderExpandLocal = useMemo<BranchFolderExpand>(() => ({
+    isExpanded: (fullPath: string) => branchFoldersExpanded.has(fullPath),
+    toggle: (fullPath: string) => {
+      setBranchFoldersExpanded(prev => {
+        const next = new Set(prev);
+        if (next.has(fullPath)) next.delete(fullPath);
+        else next.add(fullPath);
+        saveBranchFolderExpanded(repoPath, next, '');
+        return next;
+      });
+    },
+  }), [repoPath, branchFoldersExpanded]);
 
   const localBranches = useMemo(() => branches.filter(b => !b.isRemote), [branches]);
   const remoteBranches = useMemo(() => branches.filter(b => b.isRemote), [branches]);
@@ -69,26 +117,28 @@ export function Sidebar({
         <input className={s.filterInput} type="text" placeholder={loc.sidebar.filter} value={filter} onChange={(e) => setFilter(e.target.value)} />
       </div>
 
-      <SidebarSection title={loc.sidebar.branches} icon={ICONS.branch} count={filteredLocal.length} expanded={sections.branches} onToggle={() => toggle('branches')}>
+      <SidebarSection title={loc.sidebar.branches} icon={ICONS.branch} count={filteredLocal.length} expanded={sections.branches} onToggle={() => toggleSection('branches')}>
         {filteredLocal.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noBranches}</div>}
         {localTree.map(node => (
-          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
+          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} folderExpand={folderExpandLocal} />
         ))}
       </SidebarSection>
 
-      <SidebarSection title={loc.sidebar.remotes} icon={ICONS.remote} count={remotes.length} expanded={sections.remotes} onToggle={() => toggle('remotes')}>
+      <SidebarSection title={loc.sidebar.remotes} icon={ICONS.remote} count={remotes.length} expanded={sections.remotes} onToggle={() => toggleSection('remotes')}>
         {remotes.length === 0 && <div className={s.emptySection}>{loc.sidebar.noRemotes}</div>}
         {remotes.map(remote => {
           const remoteBranchesForRemote = filteredRemote.filter(b => b.name.startsWith(remote.name + '/'));
           const remoteTree = buildBranchTree(remoteBranchesForRemote, remote.name + '/');
+          const remoteBranchSig = remoteBranchesForRemote.map(b => b.name).join('\n');
           return (
-            <RemoteFolder key={remote.name} remote={remote} tree={remoteTree} currentBranch={currentBranch}
+            <RemoteFolder key={remote.name} repoPath={repoPath} remote={remote} tree={remoteTree} remoteBranchSig={remoteBranchSig}
+              currentBranch={currentBranch}
               loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
           );
         })}
       </SidebarSection>
 
-      <SidebarSection title={loc.sidebar.tags} icon={ICONS.tag} count={filteredTags.length} expanded={sections.tags} onToggle={() => toggle('tags')}>
+      <SidebarSection title={loc.sidebar.tags} icon={ICONS.tag} count={filteredTags.length} expanded={sections.tags} onToggle={() => toggleSection('tags')}>
         {filteredTags.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noTags}</div>}
         {filteredTags.map(tag => (
           <div key={tag.name} className={s.item}
@@ -100,7 +150,7 @@ export function Sidebar({
         ))}
       </SidebarSection>
 
-      <SidebarSection title={loc.sidebar.stashes} icon={ICONS.stash} count={stashes.length} expanded={sections.stashes} onToggle={() => toggle('stashes')}>
+      <SidebarSection title={loc.sidebar.stashes} icon={ICONS.stash} count={stashes.length} expanded={sections.stashes} onToggle={() => toggleSection('stashes')}>
         {stashes.length === 0 && <div className={s.emptySection}>{loc.sidebar.noStashes}</div>}
         {stashes.map(stash => (
           <div key={stash.index} className={s.item}
@@ -118,11 +168,37 @@ export function Sidebar({
 
 /* ─── Sub-components ─── */
 
-function RemoteFolder({ remote, tree, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt }: {
-  remote: Remote; tree: ReturnType<typeof buildBranchTree>; currentBranch: string;
+function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt }: {
+  repoPath: string;
+  remote: Remote; tree: ReturnType<typeof buildBranchTree>; remoteBranchSig: string; currentBranch: string;
   loc: ReturnType<typeof t>; onContextMenu: Props['onContextMenu']; onSelectRef?: (hash: string) => void; onMerge?: (source: string) => void; showPrompt: ShowPrompt;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [innerFolders, setInnerFolders] = useState<Set<string>>(() => {
+    const saved = loadBranchFolderExpanded(repoPath, remote.name);
+    if (saved !== null) return new Set(saved);
+    return new Set();
+  });
+
+  useEffect(() => {
+    const saved = loadBranchFolderExpanded(repoPath, remote.name);
+    if (saved !== null) setInnerFolders(new Set(saved));
+    else setInnerFolders(new Set());
+  }, [repoPath, remote.name, remoteBranchSig]);
+
+  const folderExpandRemote = useMemo<BranchFolderExpand>(() => ({
+    isExpanded: (fullPath: string) => innerFolders.has(fullPath),
+    toggle: (fullPath: string) => {
+      setInnerFolders(prev => {
+        const next = new Set(prev);
+        if (next.has(fullPath)) next.delete(fullPath);
+        else next.add(fullPath);
+        saveBranchFolderExpanded(repoPath, next, remote.name);
+        return next;
+      });
+    },
+  }), [repoPath, remote.name, innerFolders]);
+
   return (
     <>
       <div className={s.treeFolder} style={{ paddingLeft: 20 }} onClick={() => setExpanded(e => !e)}
@@ -136,7 +212,7 @@ function RemoteFolder({ remote, tree, currentBranch, loc, onContextMenu, onSelec
         <div className={s.treeChildren}>
           {tree.map(node => (
             <BranchTreeItem key={node.fullPath} node={node} depth={0} nested currentBranch={currentBranch} loc={loc}
-              onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
+              onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} folderExpand={folderExpandRemote} />
           ))}
         </div>
       )}
