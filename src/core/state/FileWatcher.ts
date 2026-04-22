@@ -2,8 +2,8 @@ import * as path from 'path';
 import chokidar from 'chokidar';
 import { StateManager } from './StateManager';
 
-const GIT_DEBOUNCE_MS = 300;
-const WORKTREE_DEBOUNCE_MS = 500;
+const GIT_DEBOUNCE_MS = 120;
+const WORKTREE_DEBOUNCE_MS = 150;
 
 export class FileWatcher {
   private gitWatcher: chokidar.FSWatcher | null = null;
@@ -20,7 +20,7 @@ export class FileWatcher {
     this.gitWatcher = chokidar.watch(gitDir, {
       ignoreInitial: true,
       depth: 3,
-      awaitWriteFinish: { stabilityThreshold: 100 },
+      awaitWriteFinish: { stabilityThreshold: 50, pollInterval: 20 },
     });
 
     this.gitWatcher.on('change', () => this.scheduleGitRefresh());
@@ -35,8 +35,8 @@ export class FileWatcher {
         /(^|[/\\])\.DS_Store$/,
         /(^|[/\\])Thumbs\.db$/,
       ],
-      depth: 5,
-      awaitWriteFinish: { stabilityThreshold: 200 },
+      depth: 20,
+      awaitWriteFinish: false,
     });
 
     this.worktreeWatcher.on('change', () => this.scheduleStatusRefresh());

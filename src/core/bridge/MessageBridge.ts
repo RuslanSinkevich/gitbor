@@ -110,6 +110,7 @@ const handlers: HandlerTable = {
   pull:         op('pull', (cmd, ctx) => ctx.ch.pull(cmd.rebase, cmd.autostash)),
   pullFrom:     op('pull', (cmd, ctx) => ctx.ch.pullFrom(cmd.remote, cmd.branch, cmd.rebase, cmd.autostash)),
   push:         op('push', (cmd, ctx) => ctx.ch.push(cmd.force, cmd.setUpstream)),
+  pushTo:       op('push', (cmd, ctx) => ctx.ch.push(cmd.force, cmd.setUpstream, cmd.remote, cmd.branch)),
   stash:        op('stash', (cmd, ctx) => ctx.ch.stash(cmd.message)),
   stashPop:     op('stashPop', (_cmd, ctx) => ctx.ch.stashPop()),
   merge: opWithPostMerge('merge', (cmd, ctx) => ctx.ch.startMerge(cmd.branch, { noCommit: false, squash: false, ffOnly: false, noFf: false })),
@@ -450,6 +451,8 @@ const handlers: HandlerTable = {
 export class MessageBridge {
   private window: BrowserWindow | null = null;
   private unsubscribeState: (() => void) | null = null;
+  private lastCommitsRef: ReturnType<StateManager['getState']>['commits'] | null = null;
+  private lastGraphLayoutRef: ReturnType<StateManager['getState']>['graphLayout'] | null = null;
 
   constructor(
     private readonly commandHandler: CommandHandler,
@@ -460,7 +463,20 @@ export class MessageBridge {
     this.window = win;
 
     this.unsubscribeState = this.stateManager.subscribe(state => {
-      this.send({ type: 'stateUpdate', data: state });
+      const { commits, graphLayout, ...lightState } = state;
+      this.send({ type: 'stateUpdate', data: lightState });
+
+      if (this.lastCommitsRef !== commits || this.lastGraphLayoutRef !== graphLayout) {
+        this.lastCommitsRef = commits;
+        this.lastGraphLayoutRef = graphLayout;
+        this.send({
+          type: 'graphData',
+          data: {
+            commits,
+            layout: graphLayout,
+          },
+        });
+      }
     });
 
     ipcMain.handle('skyfork:command', (_event, command: unknown) => {
@@ -484,6 +500,8 @@ export class MessageBridge {
       this.unsubscribeState = null;
     }
     ipcMain.removeHandler('skyfork:command');
+    this.lastCommitsRef = null;
+    this.lastGraphLayoutRef = null;
     this.window = null;
   }
 

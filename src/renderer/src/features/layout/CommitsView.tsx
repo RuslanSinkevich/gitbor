@@ -42,7 +42,7 @@ export function CommitsView({
           onContextMenu={showContextMenu}
           showPrompt={showPrompt}
           onRebase={setRebaseOnto}
-          onLoadMore={() => postCommand({ type: 'getGraphData', maxCount: state.commits.length + 2000 })}
+          onLoadMore={() => postCommand({ type: 'getGraphData', maxCount: state.commits.length + 50000 })}
           compareFrom={compareFrom}
           onCompareFrom={onCompareFrom}
           onCompareTo={onCompareTo}

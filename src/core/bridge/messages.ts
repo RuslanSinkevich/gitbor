@@ -48,6 +48,7 @@ export type RendererCommand =
   | { type: 'pull'; rebase?: boolean; autostash?: boolean }
   | { type: 'pullFrom'; remote: string; branch: string; rebase?: boolean; autostash?: boolean }
   | { type: 'push'; force?: boolean; setUpstream?: boolean }
+  | { type: 'pushTo'; remote: string; branch: string; force?: boolean; setUpstream?: boolean }
   | { type: 'stash'; message?: string }
   | { type: 'stashPop' }
   | { type: 'merge'; branch: string }

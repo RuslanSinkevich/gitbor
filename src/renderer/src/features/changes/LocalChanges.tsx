@@ -3,6 +3,7 @@ import { t, tpl } from '../../i18n';
 import { postCommand, copyToClipboard } from '../../api';
 import type { FileStatus } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
+import { SgSplitPane } from '../../ui/SgSplitPane';
 import type { ShowPrompt } from '../graph/commitMenuItems';
 import { buildFileTree, FileTreeItem, fileName } from './FileTree';
 import { useFileListKeyboard } from './useFileListKeyboard';
@@ -163,66 +164,82 @@ export function LocalChanges({
 
   return (
     <div className={s.root} tabIndex={0} onKeyDown={kb.handleKeyDown}>
-      {mergeInProgress && conflictFiles.length > 0 && (
-        <div className={s.section}>
-          <div className={`${s.sectionHeader} ${s.sectionHeaderConflict}`}>
-            <span className={s.sectionTitle}>⚠ {loc.changes.conflicts} ({conflictFiles.length})</span>
-          </div>
-          <div className={s.fileList}>
-            {conflictFiles.map(file => (
-              <div key={file.path}
-                className={`${s.fileItem} ${s.fileItemConflict} ${(activePath === file.path && activeSection === 'conflict') ? s.fileItemActive : ''} ${kb.focusedPath === file.path ? s.fileItemFocused : ''}`}
-                onClick={() => handleConflictClick(file)}
-                onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getConflictMenuItems(file)); }}>
-                <span className={`${s.statusIcon} ${s.statusConflict}`}>!</span>
-                <span className={s.fileName}>{file.path}</span>
+      <div className={s.mainSplit}>
+        <SgSplitPane
+          direction="vertical"
+          defaultSize={280}
+          minSize={120}
+          maxSize={2000}
+          minOpposite={100}
+          left={
+            <div className={s.splitTopStack}>
+              {mergeInProgress && conflictFiles.length > 0 && (
+                <div className={`${s.section} ${s.sectionConflictCompact}`}>
+                  <div className={`${s.sectionHeader} ${s.sectionHeaderConflict}`}>
+                    <span className={s.sectionTitle}>⚠ {loc.changes.conflicts} ({conflictFiles.length})</span>
+                  </div>
+                  <div className={s.fileList}>
+                    {conflictFiles.map(file => (
+                      <div key={file.path}
+                        className={`${s.fileItem} ${s.fileItemConflict} ${(activePath === file.path && activeSection === 'conflict') ? s.fileItemActive : ''} ${kb.focusedPath === file.path ? s.fileItemFocused : ''}`}
+                        onClick={() => handleConflictClick(file)}
+                        onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getConflictMenuItems(file)); }}>
+                        <span className={`${s.statusIcon} ${s.statusConflict}`}>!</span>
+                        <span className={s.fileName}>{file.path}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className={`${s.section} ${s.sectionUnstagedGrow}`}>
+                <div className={s.sectionHeader}>
+                  <span className={s.sectionTitle}>{loc.changes.unstaged} ({normalUnstaged.length})</span>
+                  <div className={s.sectionActions}>
+                    {normalUnstaged.some(f => f.status !== '?') && (
+                      <button className={`${s.sectionAction} ${s.sectionActionDanger}`} onClick={handleDiscardAll} title={loc.changes.discardAll}>✕</button>
+                    )}
+                    {normalUnstaged.length > 0 && (
+                      <button className={s.sectionAction} onClick={handleStageAll} title={loc.changes.stageAll}>{loc.contextMenu.stage}</button>
+                    )}
+                  </div>
+                </div>
+                <div className={s.fileList}>
+                  {unstagedTree.map(node => (
+                    <FileTreeItem key={node.path} node={node} depth={0} section="unstaged" activePath={activePath} activeSection={activeSection} focusedPath={kb.focusedPath}
+                      onClickFile={handleUnstagedClick}
+                      onClickFolder={(folderPath) => onSelectFolder?.(folderPath, 'unstaged')}
+                      onDoubleClickFile={(file) => postCommand({ type: 'stageFile', file: file.path })}
+                      onDoubleClickFolder={(files) => postCommand({ type: 'stageAll', files: files.map(f => f.path) })}
+                      onContextMenu={(e, file) => onContextMenu(e, getUnstagedMenuItems(file))} />
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className={s.section}>
-        <div className={s.sectionHeader}>
-          <span className={s.sectionTitle}>{loc.changes.unstaged} ({normalUnstaged.length})</span>
-          <div className={s.sectionActions}>
-            {normalUnstaged.some(f => f.status !== '?') && (
-              <button className={`${s.sectionAction} ${s.sectionActionDanger}`} onClick={handleDiscardAll} title={loc.changes.discardAll}>✕</button>
-            )}
-            {normalUnstaged.length > 0 && (
-              <button className={s.sectionAction} onClick={handleStageAll} title={loc.changes.stageAll}>{loc.contextMenu.stage}</button>
-            )}
-          </div>
-        </div>
-        <div className={s.fileList}>
-          {unstagedTree.map(node => (
-            <FileTreeItem key={node.path} node={node} depth={0} section="unstaged" activePath={activePath} activeSection={activeSection} focusedPath={kb.focusedPath}
-              onClickFile={handleUnstagedClick}
-              onClickFolder={(folderPath) => onSelectFolder?.(folderPath, 'unstaged')}
-              onDoubleClickFile={(file) => postCommand({ type: 'stageFile', file: file.path })}
-              onDoubleClickFolder={(files) => postCommand({ type: 'stageAll', files: files.map(f => f.path) })}
-              onContextMenu={(e, file) => onContextMenu(e, getUnstagedMenuItems(file))} />
-          ))}
-        </div>
-      </div>
-
-      <div className={s.section}>
-        <div className={s.sectionHeader}>
-          <span className={s.sectionTitle}>{loc.changes.staged} ({stagedFiles.length})</span>
-          {stagedFiles.length > 0 && (
-            <button className={s.sectionAction} onClick={handleUnstageAll} title={loc.changes.unstageAll}>{loc.contextMenu.unstage}</button>
-          )}
-        </div>
-        <div className={s.fileList}>
-          {stagedTree.map(node => (
-            <FileTreeItem key={node.path} node={node} depth={0} section="staged" activePath={activePath} activeSection={activeSection} focusedPath={kb.focusedPath}
-              onClickFile={handleStagedClick}
-              onClickFolder={(folderPath) => onSelectFolder?.(folderPath, 'staged')}
-              onDoubleClickFile={(file) => postCommand({ type: 'unstageFile', file: file.path })}
-              onDoubleClickFolder={(files) => postCommand({ type: 'unstageAll', files: files.map(f => f.path) })}
-              onContextMenu={(e, file) => onContextMenu(e, getStagedMenuItems(file))} />
-          ))}
-        </div>
+            </div>
+          }
+          right={
+            <div className={s.splitBottomWrap}>
+              <div className={s.section}>
+                <div className={s.sectionHeader}>
+                  <span className={s.sectionTitle}>{loc.changes.staged} ({stagedFiles.length})</span>
+                  {stagedFiles.length > 0 && (
+                    <button className={s.sectionAction} onClick={handleUnstageAll} title={loc.changes.unstageAll}>{loc.contextMenu.unstage}</button>
+                  )}
+                </div>
+                <div className={s.fileList}>
+                  {stagedTree.map(node => (
+                    <FileTreeItem key={node.path} node={node} depth={0} section="staged" activePath={activePath} activeSection={activeSection} focusedPath={kb.focusedPath}
+                      onClickFile={handleStagedClick}
+                      onClickFolder={(folderPath) => onSelectFolder?.(folderPath, 'staged')}
+                      onDoubleClickFile={(file) => postCommand({ type: 'unstageFile', file: file.path })}
+                      onDoubleClickFolder={(files) => postCommand({ type: 'unstageAll', files: files.map(f => f.path) })}
+                      onContextMenu={(e, file) => onContextMenu(e, getStagedMenuItems(file))} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          }
+        />
       </div>
     </div>
   );

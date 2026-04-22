@@ -7,6 +7,7 @@ interface Props {
   isOperationRunning: boolean;
   hasUpstream?: boolean;
   onPull?: (rebase?: boolean) => void;
+  onPush?: (force?: boolean) => void;
 }
 
 const IconFetch = () => (
@@ -72,11 +73,15 @@ function DropdownButton({ label, icon, disabled, mainAction, items }: {
   );
 }
 
-export function Toolbar({ isOperationRunning, hasUpstream, onPull }: Props) {
+export function Toolbar({ isOperationRunning, hasUpstream, onPull, onPush }: Props) {
   const loc = t();
   const runPull = (rebase?: boolean) => {
     if (onPull) onPull(rebase);
     else postCommand({ type: 'pull', rebase });
+  };
+  const runPush = (force?: boolean) => {
+    if (onPush) onPush(force);
+    else postCommand({ type: 'push', force });
   };
 
   return (
@@ -102,11 +107,11 @@ export function Toolbar({ isOperationRunning, hasUpstream, onPull }: Props) {
           label={loc.toolbar.push}
           icon={<IconPush />}
           disabled={isOperationRunning}
-          mainAction={() => postCommand({ type: 'push' })}
+          mainAction={() => runPush(false)}
           items={[
-            { label: loc.toolbar.push, action: () => postCommand({ type: 'push' }) },
-            { label: loc.toolbar.pushForce, action: () => postCommand({ type: 'push', force: true }) },
-            ...(!hasUpstream ? [{ label: loc.toolbar.pushSetUpstream, action: () => postCommand({ type: 'push', setUpstream: true }) }] : []),
+            { label: loc.toolbar.push, action: () => runPush(false) },
+            { label: loc.toolbar.pushForce, action: () => runPush(true) },
+            ...(!hasUpstream ? [{ label: loc.toolbar.pushSetUpstream, action: () => runPush(false) }] : []),
           ]}
         />
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LocalChanges, CommitBar } from '../changes';
 import { ConflictPanel } from '../merge';
 import { RightPanelContent, type RightPanel } from './RightPanelContent';
+import { SgSplitPane } from '../../ui/SgSplitPane';
 import type { AppState, MergeState } from '../../types';
 import type { t } from '../../i18n';
 import s from '../../App.module.css';
@@ -49,54 +50,64 @@ export function ChangesView({
 
   return (
     <div className={s.changesLayout}>
-      <div className={s.changesFileList}>
-        <LocalChanges
-          unstagedFiles={state.unstagedFiles}
-          stagedFiles={state.stagedFiles}
-          mergeInProgress={mergeState?.inProgress}
-          onContextMenu={showContextMenu}
-          onOpenDiff={(f, h) => {
-            setSelectedFolder(null);
-            openDiff(f, h);
-            setConflictFile(null);
-            setMergeEditorFile(null);
-            setRightPanel('diff');
-          }}
-          onFileHistory={openFileHistory}
-          onFileBlame={(f) => openFileBlame(f)}
-          onOpenMergeEditor={(f) => { setSelectedFolder(null); handleOpenMergeEditor(f); }}
-          onSelectFolder={(folderPath, section) => {
-            setSelectedFolder({ path: folderPath, section });
-            setConflictFile(null);
-            setMergeEditorFile(null);
-            closeDiff();
-          }}
-          showPrompt={showPrompt}
-          activePath={selectedFolder?.path || conflictFile || diffTarget?.file}
-          activeSection={activeSection}
-        />
-        <CommitBar stagedCount={state.stagedFiles.length} isOperationRunning={state.isOperationRunning} />
-      </div>
-      <div className={s.changesDiff}>
-        {conflictFile && mergeState ? (
-          <ConflictPanel
-            file={conflictFile}
-            mergeState={mergeState}
-            onOpenEditor={(f: string) => setMergeEditorFile(f)}
-            onResolved={() => handleConflictResolved(conflictFile)}
-          />
-        ) : diffTarget ? (
-          <RightPanelContent
-            rightPanel={rightPanel}
-            setRightPanel={setRightPanel}
-            diffTarget={diffTarget}
-            selectCommit={selectCommit}
-            openDiff={openDiff}
-          />
-        ) : (
-          <div className={s.emptyDiff}>{loc.details.selectCommit}</div>
-        )}
-      </div>
+      <SgSplitPane
+        defaultSize={360}
+        minSize={220}
+        maxSize={720}
+        minOpposite={280}
+        left={
+          <div className={s.changesFileListPane}>
+            <LocalChanges
+              unstagedFiles={state.unstagedFiles}
+              stagedFiles={state.stagedFiles}
+              mergeInProgress={mergeState?.inProgress}
+              onContextMenu={showContextMenu}
+              onOpenDiff={(f, h) => {
+                setSelectedFolder(null);
+                openDiff(f, h);
+                setConflictFile(null);
+                setMergeEditorFile(null);
+                setRightPanel('diff');
+              }}
+              onFileHistory={openFileHistory}
+              onFileBlame={(f) => openFileBlame(f)}
+              onOpenMergeEditor={(f) => { setSelectedFolder(null); handleOpenMergeEditor(f); }}
+              onSelectFolder={(folderPath, section) => {
+                setSelectedFolder({ path: folderPath, section });
+                setConflictFile(null);
+                setMergeEditorFile(null);
+                closeDiff();
+              }}
+              showPrompt={showPrompt}
+              activePath={selectedFolder?.path || conflictFile || diffTarget?.file}
+              activeSection={activeSection}
+            />
+            <CommitBar stagedCount={state.stagedFiles.length} isOperationRunning={state.isOperationRunning} />
+          </div>
+        }
+        right={
+          <div className={s.changesDiff}>
+            {conflictFile && mergeState ? (
+              <ConflictPanel
+                file={conflictFile}
+                mergeState={mergeState}
+                onOpenEditor={(f: string) => setMergeEditorFile(f)}
+                onResolved={() => handleConflictResolved(conflictFile)}
+              />
+            ) : diffTarget ? (
+              <RightPanelContent
+                rightPanel={rightPanel}
+                setRightPanel={setRightPanel}
+                diffTarget={diffTarget}
+                selectCommit={selectCommit}
+                openDiff={openDiff}
+              />
+            ) : (
+              <div className={s.emptyDiff}>{loc.details.selectCommit}</div>
+            )}
+          </div>
+        }
+      />
     </div>
   );
 }

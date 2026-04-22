@@ -58,7 +58,9 @@ export class CommandHandler {
   pullFrom(remote: string, branch: string, rebase?: boolean, autostash?: boolean): Promise<OperationResult> {
     return Write.pull(this.queue, this.git, this.safety, this.state, rebase, remote, branch, autostash);
   }
-  push(force?: boolean, setUpstream?: boolean): Promise<OperationResult> { return Write.push(this.queue, this.git, this.state, force, setUpstream); }
+  push(force?: boolean, setUpstream?: boolean, remote?: string, branch?: string): Promise<OperationResult> {
+    return Write.push(this.queue, this.git, this.state, force, setUpstream, remote, branch);
+  }
   stash(message?: string): Promise<OperationResult> { return Write.stash(this.queue, this.git, this.state, message); }
   stashPop(): Promise<OperationResult> { return Write.stashPop(this.queue, this.git, this.state); }
   createBranch(name: string, from: string): Promise<OperationResult> { return Write.createBranch(this.queue, this.git, this.state, name, from); }

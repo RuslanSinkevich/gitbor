@@ -2,6 +2,7 @@ import { basename } from 'path';
 import { GitExecutor } from '../git/GitExecutor';
 import * as GitParser from '../git/GitParser';
 import { computeGraphLayout } from '../git/GraphLayout';
+import { loadGraphCache, saveGraphCache } from './GraphCache';
 import {
   AppState,
   Commit,
@@ -10,6 +11,24 @@ import {
 
 type StateListener = (state: AppState) => void;
 type RepoSwitchListener = (newPath: string) => void;
+type RepoSnapshot = Pick<
+  AppState,
+  | 'currentBranch'
+  | 'branches'
+  | 'tags'
+  | 'stashes'
+  | 'remotes'
+  | 'stagedFiles'
+  | 'unstagedFiles'
+  | 'conflicts'
+  | 'ahead'
+  | 'behind'
+  | 'commits'
+  | 'graphLayout'
+  | 'selectedCommitHash'
+> & {
+  headHash: string | null;
+};
 
 const LOG_FORMAT =
   '%H%x00%P%x00%an%x00%ae%x00%at%x00%D%x00%s%x00%G?';
@@ -25,6 +44,14 @@ export class StateManager {
   private cachedHeadHash: string | null = null;
   private readonly listeners = new Set<StateListener>();
   private readonly repoSwitchListeners = new Set<RepoSwitchListener>();
+  private readonly repoSnapshots = new Map<string, RepoSnapshot>();
+  /**
+   * Монотонный токен, инкрементится на каждый switchRepo/clearRepo.
+   * Любая async-операция, которая планирует писать в state,
+   * должна сверить свой захваченный токен с текущим и молча выйти,
+   * если репо уже сменилось. Иначе копится race + утечки памяти.
+   */
+  private repoToken = 0;
 
   constructor(
     private readonly git: GitExecutor
@@ -41,8 +68,28 @@ export class StateManager {
   }
 
   private static readonly INITIAL_COMMIT_LIMIT = 2000;
+  /** Первая быстрая выборка графа — сразу виден топ истории. */
+  private static readonly PROGRESSIVE_FIRST_LIMIT = 500;
+  /** Полная выборка — «весь граф», догружается в бэкграунде. */
+  private static readonly PROGRESSIVE_FULL_LIMIT = 50000;
 
+  /**
+   * Полное обновление репо: быстрые запросы (ветки/теги/статус) —
+   * сразу notify, граф — прогрессивно, двумя фазами.
+   *
+   * На вызов из switchRepo/autoOpenRepo даёт первый фрейм UI
+   * через ~100–300 мс вместо 2–5 сек на больших репо.
+   */
   async refreshAll(): Promise<void> {
+    const token = this.repoToken;
+    await this.refreshFast();
+    if (token !== this.repoToken) return;
+    this.notify();
+    await this.refreshGraphProgressive(token);
+  }
+
+  /** Параллельные дешёвые запросы. Без notify. */
+  private async refreshFast(): Promise<void> {
     await Promise.all([
       this.refreshBranches(),
       this.refreshTags(),
@@ -50,8 +97,34 @@ export class StateManager {
       this.refreshRemotes(),
       this.refreshStatus(),
     ]);
-    await this.refreshGraph(StateManager.INITIAL_COMMIT_LIMIT);
+  }
+
+  /**
+   * Двухфазная загрузка графа.
+   * Фаза A: 500 коммитов — мгновенная отрисовка.
+   * Фаза B: до 50k коммитов — плавное расширение истории.
+   * После фазы B сохраняем кэш на диск.
+   */
+  private async refreshGraphProgressive(token: number): Promise<void> {
+    await this.refreshGraph(StateManager.PROGRESSIVE_FIRST_LIMIT);
+    if (token !== this.repoToken) return;
     this.notify();
+
+    if (this.state.commits.length >= StateManager.PROGRESSIVE_FIRST_LIMIT) {
+      await this.refreshGraph(StateManager.PROGRESSIVE_FULL_LIMIT);
+      if (token !== this.repoToken) return;
+      this.notify();
+    }
+
+    if (token !== this.repoToken) return;
+    if (this.cachedHeadHash && this.state.commits.length > 0 && this.state.repoPath) {
+      void saveGraphCache(
+        this.state.repoPath,
+        this.cachedHeadHash,
+        this.state.commits,
+        this.state.graphLayout,
+      );
+    }
   }
 
   async refreshBranches(): Promise<void> {
@@ -82,14 +155,16 @@ export class StateManager {
 
   /** Refresh status and notify listeners (for standalone calls) */
   async refreshStatusAndNotify(): Promise<void> {
+    const token = this.repoToken;
     await this.refreshStatus();
+    if (token !== this.repoToken) return;
     this.notify();
   }
 
   async refreshStatus(): Promise<void> {
     try {
       const statusResult = await this.git.exec([
-        'status', '--porcelain=v1',
+        'status', '--porcelain=v1', '--untracked-files=all',
       ]);
       const allFiles = GitParser.parseStatus(statusResult.stdout);
       this.state.stagedFiles = allFiles.filter(f => f.staged);
@@ -167,6 +242,14 @@ export class StateManager {
   }
 
   async switchRepo(repoPath: string): Promise<void> {
+    if (this.state.repoPath) {
+      this.repoSnapshots.set(this.state.repoPath, this.captureRepoSnapshot());
+    }
+
+    // Инвалидируем все running async-операции предыдущего репо.
+    this.repoToken++;
+    const token = this.repoToken;
+
     this.git.setCwd(repoPath);
     this.state.repoPath = repoPath;
     this.state.repoName = basename(repoPath);
@@ -175,9 +258,78 @@ export class StateManager {
       this.state.activeRepoIndex = idx;
       this.state.openRepos = [...this.state.openRepos];
     }
-    this.cachedHeadHash = null;
+
+    const inMemory = this.repoSnapshots.get(repoPath);
+    if (inMemory) {
+      this.applyRepoSnapshot(inMemory);
+    } else {
+      this.state.currentBranch = '';
+      this.state.branches = [];
+      this.state.tags = [];
+      this.state.stashes = [];
+      this.state.remotes = [];
+      this.state.stagedFiles = [];
+      this.state.unstagedFiles = [];
+      this.state.conflicts = [];
+      this.state.ahead = 0;
+      this.state.behind = 0;
+      this.state.commits = [];
+      this.state.graphLayout = { nodes: [], maxColumns: 0, mergeLinks: [] };
+      this.state.selectedCommitHash = null;
+    }
     this.notifyRepoSwitch(repoPath);
+    this.notify();
+
+    if (!inMemory) {
+      this.cachedHeadHash = null;
+      const cache = await loadGraphCache(repoPath);
+      if (token !== this.repoToken) return;
+      if (cache) {
+        this.state.commits = cache.commits;
+        this.state.graphLayout = cache.layout;
+        this.cachedHeadHash = cache.headHash;
+        this.notify();
+      }
+    } else {
+      this.cachedHeadHash = inMemory.headHash;
+    }
+
     await this.refreshAll();
+  }
+
+  private captureRepoSnapshot(): RepoSnapshot {
+    return {
+      currentBranch: this.state.currentBranch,
+      branches: this.state.branches,
+      tags: this.state.tags,
+      stashes: this.state.stashes,
+      remotes: this.state.remotes,
+      stagedFiles: this.state.stagedFiles,
+      unstagedFiles: this.state.unstagedFiles,
+      conflicts: this.state.conflicts,
+      ahead: this.state.ahead,
+      behind: this.state.behind,
+      commits: this.state.commits,
+      graphLayout: this.state.graphLayout,
+      selectedCommitHash: this.state.selectedCommitHash,
+      headHash: this.cachedHeadHash,
+    };
+  }
+
+  private applyRepoSnapshot(snapshot: RepoSnapshot): void {
+    this.state.currentBranch = snapshot.currentBranch;
+    this.state.branches = snapshot.branches;
+    this.state.tags = snapshot.tags;
+    this.state.stashes = snapshot.stashes;
+    this.state.remotes = snapshot.remotes;
+    this.state.stagedFiles = snapshot.stagedFiles;
+    this.state.unstagedFiles = snapshot.unstagedFiles;
+    this.state.conflicts = snapshot.conflicts;
+    this.state.ahead = snapshot.ahead;
+    this.state.behind = snapshot.behind;
+    this.state.commits = snapshot.commits;
+    this.state.graphLayout = snapshot.graphLayout;
+    this.state.selectedCommitHash = snapshot.selectedCommitHash;
   }
 
   setRepoPath(repoPath: string): void {
@@ -198,6 +350,7 @@ export class StateManager {
   }
 
   clearRepo(): void {
+    this.repoToken++;
     const empty = this.emptyState();
     this.state = empty;
     this.cachedHeadHash = null;
@@ -253,23 +406,11 @@ export class StateManager {
   }
 
   private notify(): void {
-    const snapshot: AppState = {
-      ...this.state,
-      branches: [...this.state.branches],
-      tags: [...this.state.tags],
-      stashes: [...this.state.stashes],
-      remotes: [...this.state.remotes],
-      stagedFiles: [...this.state.stagedFiles],
-      unstagedFiles: [...this.state.unstagedFiles],
-      conflicts: [...this.state.conflicts],
-      commits: [...this.state.commits],
-      openRepos: [...this.state.openRepos],
-      graphLayout: {
-        ...this.state.graphLayout,
-        nodes: [...this.state.graphLayout.nodes],
-        mergeLinks: [...(this.state.graphLayout.mergeLinks ?? [])],
-      },
-    };
+    // Shallow-копия верхнего уровня достаточна: React-потребители сравнивают
+    // ссылки на массивы; сами массивы мы всегда пересобираем в refresh*-методах
+    // (через присваивание новых массивов), поэтому глубокое копирование 50k
+    // коммитов здесь — лишняя нагрузка GC и источник тормозов при переключении.
+    const snapshot: AppState = { ...this.state };
     for (const listener of this.listeners) {
       try {
         listener(snapshot);

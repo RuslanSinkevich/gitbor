@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useMemo, type KeyboardEvent as ReactKBEvent } from 'react';
-import { t, tpl } from '../../i18n';
+import { t } from '../../i18n';
 import type { Commit, GraphNode, MergeLink } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { ROW_HEIGHT, COL_WIDTH, LEFT_PAD, NODE_RADIUS, MERGE_RADIUS, DESC_PAD, colX, formatCommitDate } from './graphConstants';
@@ -175,13 +175,6 @@ export function CommitGraph({ commits, graphNodes, maxColumns, mergeLinks, selec
             );
           })}
 
-          {onLoadMore && commits.length > 0 && commits.length % 2000 === 0 && (
-            <div className={s.loadMore} style={{ top: commits.length * ROW_HEIGHT }}>
-              <button className={s.loadMoreBtn} onClick={onLoadMore}>
-                {tpl(loc.graph.loadMore, { loaded: commits.length })}
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </div>

@@ -222,6 +222,16 @@ describe('parseStatus', () => {
     expect(result[0]).toEqual({ path: 'new-file.ts', status: '?', staged: false });
   });
 
+  it('parses nested untracked files from --untracked-files=all', () => {
+    const input = '?? shared/techConn/a.ts\n?? shared/techConn/b.ts\n?? shared/techConn/c.ts\n';
+    const result = parseStatus(input);
+    expect(result).toEqual([
+      { path: 'shared/techConn/a.ts', status: '?', staged: false },
+      { path: 'shared/techConn/b.ts', status: '?', staged: false },
+      { path: 'shared/techConn/c.ts', status: '?', staged: false },
+    ]);
+  });
+
   it('parses staged addition', () => {
     const result = parseStatus('A  added.ts\n');
     expect(result).toHaveLength(1);

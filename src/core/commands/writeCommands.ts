@@ -72,10 +72,20 @@ export async function pull(
   return safeWrite(queue, git, safety, state, 'pull', {}, args, 'Pull failed');
 }
 
-export async function push(queue: OperationQueue, git: GitExecutor, state: StateManager, force?: boolean, setUpstream?: boolean): Promise<OperationResult> {
+export async function push(
+  queue: OperationQueue,
+  git: GitExecutor,
+  state: StateManager,
+  force?: boolean,
+  setUpstream?: boolean,
+  remote?: string,
+  branch?: string,
+): Promise<OperationResult> {
   const args = ['push'];
   if (force) args.push('--force-with-lease');
-  if (setUpstream) args.push('-u', 'origin', 'HEAD');
+  if (setUpstream) args.push('-u');
+  if (remote) args.push(remote);
+  if (branch) args.push(`HEAD:${branch}`);
   return gitExecSimple(queue, git, state, 'push', args);
 }
 

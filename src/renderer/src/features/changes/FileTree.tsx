@@ -16,7 +16,9 @@ export interface FileTreeNode {
 export function buildFileTree(files: FileStatus[]): FileTreeNode[] {
   const root: FileTreeNode[] = [];
   for (const file of files) {
-    const parts = file.path.split('/');
+    const normalizedPath = file.path.replace(/\/+$/, '');
+    const parts = normalizedPath.split('/').filter(Boolean);
+    if (parts.length === 0) continue;
     let current = root;
     for (let i = 0; i < parts.length; i++) {
       const name = parts[i];
@@ -26,12 +28,12 @@ export function buildFileTree(files: FileStatus[]): FileTreeNode[] {
         existing = {
           name,
           path: parts.slice(0, i + 1).join('/'),
-          file: isFile ? file : null,
+          file: isFile ? { ...file, path: normalizedPath } : null,
           children: [],
         };
         current.push(existing);
       }
-      if (isFile) existing.file = file;
+      if (isFile) existing.file = { ...file, path: normalizedPath };
       current = existing.children;
     }
   }
