@@ -83,9 +83,17 @@ export async function push(
 ): Promise<OperationResult> {
   const args = ['push'];
   if (force) args.push('--force-with-lease');
-  if (setUpstream) args.push('-u');
-  if (remote) args.push(remote);
-  if (branch) args.push(`HEAD:${branch}`);
+  if (setUpstream) {
+    args.push('-u');
+    if (remote && branch) {
+      args.push(remote, `HEAD:${branch}`);
+    } else {
+      args.push('origin', 'HEAD');
+    }
+  } else {
+    if (remote) args.push(remote);
+    if (branch) args.push(`HEAD:${branch}`);
+  }
   return gitExecSimple(queue, git, state, 'push', args);
 }
 
