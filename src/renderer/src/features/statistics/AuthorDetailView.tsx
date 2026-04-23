@@ -1,16 +1,24 @@
 import { t } from '../../i18n';
-import type { AuthorStats } from '../../types';
+import type { AuthorStats, AuthorCodeStatsResult } from '../../types';
 import { ContributionHeatmap } from './ContributionHeatmap';
 import { ActivityBars } from './ActivityBars';
 import s from './Statistics.module.css';
 
 interface Props {
   author: AuthorStats;
+  codeStats: AuthorCodeStatsResult | null;
+  codeStatsLoading: boolean;
+  onCalculateCodeStats: (force?: boolean) => void;
 }
 
-export function AuthorDetailView({ author }: Props) {
+export function AuthorDetailView({ author, codeStats, codeStatsLoading, onCalculateCodeStats }: Props) {
   const loc = t();
   const sl = loc.stats;
+  const stats = codeStats?.stats;
+  const dash = '—';
+  const lastCalculated = stats
+    ? new Date(stats.calculatedAt).toLocaleString()
+    : sl.notCalculated;
 
   return (
     <>
@@ -31,9 +39,6 @@ export function AuthorDetailView({ author }: Props) {
           <div className={s.metricValue}>{author.mostActiveDay}</div>
           <div className={s.metricLabel}>{sl.mostActiveDay}</div>
         </div>
-      </div>
-
-      <div className={s.metricsRow}>
         <div className={s.metricCard}>
           <div className={s.metricValue}>{author.firstDate}</div>
           <div className={s.metricLabel}>{sl.firstCommit}</div>
@@ -44,17 +49,76 @@ export function AuthorDetailView({ author }: Props) {
         </div>
       </div>
 
-      <div className={s.heatmapSection}>
-        <h3 className={s.sectionTitle}>{sl.heatmap}</h3>
-        <ContributionHeatmap dailyCounts={author.dailyCounts} authorName={author.name} />
-      </div>
-
       {author.monthlyCounts.length > 0 && (
         <div className={s.barsSection}>
           <h3 className={s.sectionTitle}>{sl.monthlyActivity}</h3>
           <ActivityBars data={author.monthlyCounts} />
         </div>
       )}
+
+      <div className={s.heatmapSection}>
+        <h3 className={s.sectionTitle}>{sl.heatmap}</h3>
+        <ContributionHeatmap dailyCounts={author.dailyCounts} authorName={author.name} />
+      </div>
+
+      <div className={s.codeStatsSection}>
+        <div className={s.codeStatsHeader}>
+          <h3 className={s.sectionTitle}>{sl.codeStats}</h3>
+          <button
+            className={s.btnSecondary}
+            onClick={() => onCalculateCodeStats(!!stats)}
+            disabled={codeStatsLoading}
+          >
+            {codeStatsLoading && <span className={s.inlineSpinner} aria-hidden="true" />}
+            {codeStatsLoading ? sl.loadingCodeStats : stats ? sl.recalculateCodeStats : sl.calculateCodeStats}
+          </button>
+        </div>
+        <div className={s.codeStatsList}>
+          <div className={s.codeStatsRow}>
+            <span className={s.codeStatsName}>{sl.changedLines}</span>
+            <span className={s.codeStatsDots} aria-hidden="true" />
+            <span className={s.codeStatsValue}>
+              {stats ? `+${stats.addedLines.toLocaleString()} / -${stats.deletedLines.toLocaleString()}` : dash}
+            </span>
+          </div>
+          <div className={s.codeStatsRow}>
+            <span className={s.codeStatsName}>{sl.addedLines}</span>
+            <span className={s.codeStatsDots} aria-hidden="true" />
+            <span className={s.codeStatsValue}>{stats ? `+${stats.addedLines.toLocaleString()}` : dash}</span>
+          </div>
+          <div className={s.codeStatsRow}>
+            <span className={s.codeStatsName}>{sl.deletedLines}</span>
+            <span className={s.codeStatsDots} aria-hidden="true" />
+            <span className={s.codeStatsValue}>{stats ? `-${stats.deletedLines.toLocaleString()}` : dash}</span>
+          </div>
+          <div className={s.codeStatsRow}>
+            <span className={s.codeStatsName}>{sl.netLines}</span>
+            <span className={s.codeStatsDots} aria-hidden="true" />
+            <span className={s.codeStatsValue}>{stats ? stats.netLines.toLocaleString() : dash}</span>
+          </div>
+          <div className={s.codeStatsRow}>
+            <span className={s.codeStatsName}>{sl.touchedFiles}</span>
+            <span className={s.codeStatsDots} aria-hidden="true" />
+            <span className={s.codeStatsValue}>{stats ? stats.touchedFiles.toLocaleString() : dash}</span>
+          </div>
+          <div className={s.codeStatsRow}>
+            <span className={s.codeStatsName}>{sl.binaryFiles}</span>
+            <span className={s.codeStatsDots} aria-hidden="true" />
+            <span className={s.codeStatsValue}>{stats ? stats.binaryFiles.toLocaleString() : dash}</span>
+          </div>
+          <div className={s.codeStatsRow}>
+            <span className={s.codeStatsName}>{sl.lastCalculated}</span>
+            <span className={s.codeStatsDots} aria-hidden="true" />
+            <span className={s.codeStatsStatus}>
+              {codeStatsLoading && <span className={s.inlineSpinner} aria-hidden="true" />}
+              <span className={s.codeStatsValue}>
+                {codeStatsLoading ? sl.loadingCodeStats : lastCalculated}
+              </span>
+              {!codeStatsLoading && codeStats?.fromCache && stats ? ` (${sl.fromCache})` : ''}
+            </span>
+          </div>
+        </div>
+      </div>
     </>
   );
 }

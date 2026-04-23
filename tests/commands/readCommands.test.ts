@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseRepoStats } from '../../src/core/commands/readCommands';
+import { parseRepoStats, parseAuthorCodeStats } from '../../src/core/commands/readCommands';
 
 describe('parseRepoStats', () => {
   it('returns empty stats for empty input', () => {
@@ -111,5 +111,37 @@ describe('parseRepoStats', () => {
     const dev = result.authors[0];
     expect(dev.avgPerWeek).toBeGreaterThan(0);
     expect(dev.avgPerWeek).toBeLessThanOrEqual(4);
+  });
+});
+
+describe('parseAuthorCodeStats', () => {
+  const head = 'abc123';
+
+  it('skips SKYFORK commit header lines and aggregates numstat', () => {
+    const raw = [
+      'SKYFORK1111111111111111111111111111111111',
+      '',
+      '10\t5\tfoo.ts',
+      '1\t1\tbar.ts',
+      'SKYFORK2222222222222222222222222222222222',
+      '',
+      '3\t0\tbaz.ts',
+    ].join('\n');
+
+    const stats = parseAuthorCodeStats(raw, 'Dev', 'dev@test.com', head);
+    expect(stats.addedLines).toBe(14);
+    expect(stats.deletedLines).toBe(6);
+    expect(stats.netLines).toBe(8);
+    expect(stats.touchedFiles).toBe(3);
+    expect(stats.binaryFiles).toBe(0);
+  });
+
+  it('counts binary numstat rows', () => {
+    const raw = ['SKYFORK' + 'a'.repeat(40), '', '-\t-\timg.png'].join('\n');
+    const stats = parseAuthorCodeStats(raw, 'Dev', 'dev@test.com', head);
+    expect(stats.binaryFiles).toBe(1);
+    expect(stats.touchedFiles).toBe(1);
+    expect(stats.addedLines).toBe(0);
+    expect(stats.deletedLines).toBe(0);
   });
 });

@@ -24,16 +24,23 @@ export function setIpcErrorHandler(handler: IpcErrorCallback): void {
   ipcErrorHandler = handler;
 }
 
-export function postCommand(command: RendererCommand): void {
+export interface PostCommandHooks {
+  /** Called only when `ipcRenderer.invoke` rejects (no main handler completion). Main `error` events use `onMainEvent`. */
+  onInvokeRejected?: () => void;
+}
+
+export function postCommand(command: RendererCommand, hooks?: PostCommandHooks): void {
   const api = getAPI();
   if (api) {
-    api.invoke(command).catch((err) => {
+    void api.invoke(command).catch((err) => {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[SkyFork] IPC error for "${command.type}":`, msg);
       if (ipcErrorHandler) ipcErrorHandler(command.type, msg);
+      hooks?.onInvokeRejected?.();
     });
   } else {
     console.warn('[SkyFork] No IPC bridge available, command:', command.type);
+    hooks?.onInvokeRejected?.();
   }
 }
 

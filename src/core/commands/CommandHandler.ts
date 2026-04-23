@@ -1,7 +1,7 @@
 import { dialog, BrowserWindow } from 'electron';
 import { GitExecutor } from '../git/GitExecutor';
 import { CommitDetail, CommitGraphData, FileDiff, BlameResult, FileHistoryResult, Submodule, RebaseTodoEntry, RebaseTodoList, RebaseProgress, MergeOptions, MergeResult, MergeState, OperationResult, ReflogEntry, FileChange } from '../git/types';
-import type { RepoStats, DayCommitEntry } from '../bridge/messages';
+import type { RepoStats, DayCommitEntry, AuthorCodeStatsResult } from '../bridge/messages';
 import { RebaseManager } from '../git/RebaseManager';
 import { BisectManager, type BisectStatus } from '../git/BisectManager';
 import { HooksManager, type HookInfo } from '../git/HooksManager';
@@ -48,6 +48,9 @@ export class CommandHandler {
   getSubmodules(): Promise<Submodule[]> { return Read.getSubmodules(this.queue, this.git); }
   getRepoStats(): Promise<RepoStats> { return Read.getRepoStats(this.queue, this.git); }
   getDayCommits(author: string, date: string): Promise<DayCommitEntry[]> { return Read.getDayCommits(this.queue, this.git, author, date); }
+  getAuthorCodeStats(authorName: string, authorEmail: string, cacheOnly?: boolean, force?: boolean): Promise<AuthorCodeStatsResult> {
+    return Read.getAuthorCodeStats(this.queue, this.git, this.state, authorName, authorEmail, cacheOnly, force);
+  }
 
   // ─── Write ───
   checkout(branch: string): Promise<OperationResult> { return Write.checkout(this.queue, this.git, this.safety, this.state, branch); }

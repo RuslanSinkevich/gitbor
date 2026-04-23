@@ -153,6 +153,7 @@ export type RendererCommand =
   // Repository Statistics
   | { type: 'getRepoStats' }
   | { type: 'getDayCommits'; author: string; date: string }
+  | { type: 'getAuthorCodeStats'; authorName: string; authorEmail: string; cacheOnly?: boolean; force?: boolean }
 
   // Compare two commits
   | { type: 'getCommitDiff'; fromHash: string; toHash: string }
@@ -202,6 +203,7 @@ export type MainEvent =
   | { type: 'gitignoreContent'; data: string }
   | { type: 'repoStats'; data: RepoStats }
   | { type: 'dayCommits'; data: DayCommitEntry[] }
+  | { type: 'authorCodeStats'; data: AuthorCodeStatsResult }
   | { type: 'error'; message: string };
 
 export interface DayCommitEntry {
@@ -235,4 +237,23 @@ export interface RepoStats {
   period: { from: string; to: string };
   monthlyCounts: MonthlyCount[];
   authors: AuthorStats[];
+}
+
+export interface AuthorCodeStats {
+  authorName: string;
+  authorEmail: string;
+  headHash: string;
+  addedLines: number;
+  deletedLines: number;
+  netLines: number;
+  touchedFiles: number;
+  binaryFiles: number;
+  calculatedAt: number;
+}
+
+export interface AuthorCodeStatsResult {
+  authorName: string;
+  authorEmail: string;
+  stats: AuthorCodeStats | null;
+  fromCache: boolean;
 }

@@ -13,6 +13,9 @@ export function ActivityBars({ data, height = 80 }: Props) {
   if (data.length === 0) return null;
 
   const max = Math.max(...data.map(d => d.count), 1);
+  const maxVisibleLabels = 10;
+  const labelStep = Math.max(1, Math.ceil(data.length / maxVisibleLabels));
+  const lastIndex = data.length - 1;
 
   return (
     <div>
@@ -29,9 +32,28 @@ export function ActivityBars({ data, height = 80 }: Props) {
         ))}
       </div>
       <div className={s.barsLabels}>
-        {data.map(d => (
-          <span key={d.month}>{d.month}</span>
-        ))}
+        {data.map((d, index) => {
+          const showLabel = index === 0 || index === lastIndex || index % labelStep === 0;
+          if (!showLabel) return null;
+
+          const positionPercent = lastIndex === 0 ? 0 : (index / lastIndex) * 100;
+          const edgeClassName = index === 0
+            ? s.barsLabelStart
+            : index === lastIndex
+              ? s.barsLabelEnd
+              : s.barsLabelCenter;
+
+          return (
+            <span
+              key={d.month}
+              className={`${s.barsLabel} ${edgeClassName}`}
+              style={{ left: `${positionPercent}%` }}
+              title={d.month}
+            >
+              {d.month}
+            </span>
+          );
+        })}
       </div>
       {tooltip && (
         <div className={s.fixedTooltip} style={{ left: tooltip.x + 12, top: tooltip.y - 8 }}>

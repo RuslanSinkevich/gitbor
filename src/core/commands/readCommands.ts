@@ -5,9 +5,17 @@ import { parseBlame } from '../git/BlameParser';
 import { parseFileHistory, FILE_HISTORY_FORMAT } from '../git/FileHistoryParser';
 import { parseSubmoduleStatus, parseGitmodules } from '../git/SubmoduleParser';
 import { CommitDetail, CommitGraphData, FileDiff, BlameResult, FileHistoryResult, Submodule } from '../git/types';
-import type { RepoStats, AuthorStats, MonthlyCount, DayCommitEntry } from '../bridge/messages';
+import type {
+  RepoStats,
+  AuthorStats,
+  MonthlyCount,
+  DayCommitEntry,
+  AuthorCodeStats,
+  AuthorCodeStatsResult,
+} from '../bridge/messages';
 import { OperationQueue } from '../safety/OperationQueue';
 import { StateManager } from '../state/StateManager';
+import { loadAuthorStatsCache, saveAuthorStatsCache } from '../state/AuthorStatsCache';
 
 const COMMIT_DETAIL_FORMAT = [
   '%H', '%P', '%an', '%ae', '%at',
@@ -278,5 +286,84 @@ export async function getDayCommits(
       const parts = line.split('\x00');
       return { hash: parts[0], subject: parts[1] || '', date: parts[2] || '' };
     });
+  });
+}
+
+/** Parses `git log --numstat` output when each commit is prefixed with `SKYFORK%H` (see getAuthorCodeStats). */
+export function parseAuthorCodeStats(
+  raw: string,
+  authorName: string,
+  authorEmail: string,
+  headHash: string,
+): AuthorCodeStats {
+  const touchedFiles = new Set<string>();
+  let addedLines = 0;
+  let deletedLines = 0;
+  let binaryFiles = 0;
+
+  for (const line of raw.split('\n')) {
+    if (!line || line.startsWith('SKYFORK')) continue;
+    const parts = line.split('\t');
+    if (parts.length < 3) continue;
+    const [added, deleted, filePath] = parts;
+    if (!filePath) continue;
+    touchedFiles.add(filePath);
+    if (added === '-' || deleted === '-') {
+      binaryFiles++;
+      continue;
+    }
+    const addedNum = Number.parseInt(added, 10);
+    const deletedNum = Number.parseInt(deleted, 10);
+    addedLines += Number.isNaN(addedNum) ? 0 : addedNum;
+    deletedLines += Number.isNaN(deletedNum) ? 0 : deletedNum;
+  }
+
+  return {
+    authorName,
+    authorEmail,
+    headHash,
+    addedLines,
+    deletedLines,
+    netLines: addedLines - deletedLines,
+    touchedFiles: touchedFiles.size,
+    binaryFiles,
+    calculatedAt: Date.now(),
+  };
+}
+
+export async function getAuthorCodeStats(
+  queue: OperationQueue,
+  git: GitExecutor,
+  state: StateManager,
+  authorName: string,
+  authorEmail: string,
+  cacheOnly?: boolean,
+  force?: boolean,
+): Promise<AuthorCodeStatsResult> {
+  return queue.enqueueRead('getAuthorCodeStats', async () => {
+    const repoPath = state.getState().repoPath;
+    if (!repoPath) return { authorName, authorEmail, stats: null, fromCache: false };
+
+    const headResult = await git.exec(['rev-parse', 'HEAD']);
+    const headHash = headResult.stdout.trim();
+    if (!force) {
+      const cached = await loadAuthorStatsCache(repoPath, authorName, authorEmail, headHash);
+      if (cached) return { authorName, authorEmail, stats: cached, fromCache: true };
+    }
+    if (cacheOnly) return { authorName, authorEmail, stats: null, fromCache: false };
+
+    const result = await git.exec([
+      'log',
+      '--all',
+      '--no-merges',
+      `--author=${authorName} <${authorEmail}>`,
+      '--numstat',
+      // Git requires at least one `%` placeholder in `--format`; plain text is rejected (fatal).
+      '--format=SKYFORK%H%n',
+    ], { maxBuffer: 200 * 1024 * 1024, timeout: 120_000 });
+
+    const stats = parseAuthorCodeStats(result.stdout, authorName, authorEmail, headHash);
+    await saveAuthorStatsCache(repoPath, stats);
+    return { authorName, authorEmail, stats, fromCache: false };
   });
 }

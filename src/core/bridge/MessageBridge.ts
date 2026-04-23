@@ -282,6 +282,11 @@ const handlers: HandlerTable = {
     ctx.send({ type: 'dayCommits', data });
   },
 
+  getAuthorCodeStats: async (cmd, ctx) => {
+    const data = await ctx.ch.getAuthorCodeStats(cmd.authorName, cmd.authorEmail, cmd.cacheOnly, cmd.force);
+    ctx.send({ type: 'authorCodeStats', data });
+  },
+
   getReflog: async (cmd, ctx) => {
     const data = await ctx.ch.getReflog(cmd.maxCount);
     ctx.send({ type: 'reflog', data });

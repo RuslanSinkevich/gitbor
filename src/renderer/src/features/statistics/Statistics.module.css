@@ -14,8 +14,8 @@
   background: var(--sg-surface, #252526);
   border: 1px solid var(--sg-border, #3c3c3c);
   border-radius: 10px;
-  width: 800px;
-  max-width: 92vw;
+  width: 980px;
+  max-width: 96vw;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
@@ -146,6 +146,77 @@
   margin-bottom: 20px;
 }
 
+.codeStatsSection {
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--sg-border, #3c3c3c);
+  border-radius: 8px;
+  background: transparent;
+  width: min(100%, 480px);
+}
+
+.codeStatsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.codeStatsList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.codeStatsRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.codeStatsName {
+  color: var(--sg-foreground-muted, #888);
+  flex-shrink: 0;
+}
+
+.codeStatsDots {
+  flex: 1;
+  min-width: 16px;
+  border-bottom: 1px dotted color-mix(in srgb, var(--sg-foreground-muted, #888) 45%, transparent);
+  opacity: 0.7;
+}
+
+.codeStatsValue {
+  color: var(--sg-foreground, #ccc);
+  font-weight: 600;
+  text-align: right;
+  flex-shrink: 0;
+  min-width: 120px;
+}
+
+.codeStatsStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--sg-foreground, #ccc);
+  flex-shrink: 0;
+  min-width: 120px;
+}
+
+.inlineSpinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid color-mix(in srgb, var(--sg-foreground-muted, #888) 45%, transparent);
+  border-top-color: var(--sg-primary, #0078d4);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: sg-spin 0.7s linear infinite;
+}
+
 .sectionTitle {
   font-size: 13px;
   font-weight: 600;
@@ -193,12 +264,39 @@
 }
 
 .barsLabels {
-  display: flex;
-  justify-content: space-around;
+  position: relative;
   font-size: 10px;
   color: var(--sg-foreground-muted, #888);
   margin-top: 4px;
   padding: 0 2px;
+  width: 100%;
+  overflow: hidden;
+  height: 14px;
+}
+
+.barsLabel {
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.barsLabelStart {
+  left: 0;
+  transform: none;
+  text-align: left;
+}
+
+.barsLabelCenter {
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.barsLabelEnd {
+  transform: translateX(-100%);
+  text-align: right;
 }
 
 /* ─── Author list (overview) ─── */
@@ -294,6 +392,11 @@
   margin-bottom: 20px;
 }
 
+@keyframes sg-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .heatmapGrid {
   display: flex;
   gap: 2px;
@@ -368,7 +471,8 @@
   border: 1px solid var(--sg-border, #3c3c3c);
   border-radius: 6px;
   padding: 10px 14px;
-  min-width: 120px;
+  flex: 1 1 140px;
+  min-width: 140px;
 }
 
 .metricValue {
