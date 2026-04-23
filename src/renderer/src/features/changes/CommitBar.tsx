@@ -46,23 +46,25 @@ export function CommitBar({ stagedCount, isOperationRunning }: Props) {
 
   return (
     <div className={s.root}>
-      <input
-        className={s.subject}
-        type="text"
-        placeholder={loc.changes.commitSubject}
-        value={subject}
-        onChange={(e) => setSubject(e.target.value)}
-        onKeyDown={onSubjectKeyDown}
-      />
-      <textarea
-        ref={descRef}
-        className={s.description}
-        placeholder={loc.changes.commitDescription}
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        onKeyDown={onKeyDown}
-        rows={2}
-      />
+      <div className={s.fields}>
+        <input
+          className={s.subject}
+          type="text"
+          placeholder={loc.changes.commitSubject}
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          onKeyDown={onSubjectKeyDown}
+        />
+        <textarea
+          ref={descRef}
+          className={s.description}
+          placeholder={loc.changes.commitDescription}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          onKeyDown={onKeyDown}
+          rows={1}
+        />
+      </div>
       <div className={s.actions}>
         <label className={s.amend}>
           <input type="checkbox" checked={amend} onChange={(e) => setAmend(e.target.checked)} />

@@ -82,29 +82,31 @@ export function ChangesView({
               activePath={selectedFolder?.path || conflictFile || diffTarget?.file}
               activeSection={activeSection}
             />
-            <CommitBar stagedCount={state.stagedFiles.length} isOperationRunning={state.isOperationRunning} />
           </div>
         }
         right={
-          <div className={s.changesDiff}>
-            {conflictFile && mergeState ? (
-              <ConflictPanel
-                file={conflictFile}
-                mergeState={mergeState}
-                onOpenEditor={(f: string) => setMergeEditorFile(f)}
-                onResolved={() => handleConflictResolved(conflictFile)}
-              />
-            ) : diffTarget ? (
-              <RightPanelContent
-                rightPanel={rightPanel}
-                setRightPanel={setRightPanel}
-                diffTarget={diffTarget}
-                selectCommit={selectCommit}
-                openDiff={openDiff}
-              />
-            ) : (
-              <div className={s.emptyDiff}>{loc.details.selectCommit}</div>
-            )}
+          <div className={s.changesRightPane}>
+            <div className={s.changesDiff}>
+              {conflictFile && mergeState ? (
+                <ConflictPanel
+                  file={conflictFile}
+                  mergeState={mergeState}
+                  onOpenEditor={(f: string) => setMergeEditorFile(f)}
+                  onResolved={() => handleConflictResolved(conflictFile)}
+                />
+              ) : diffTarget ? (
+                <RightPanelContent
+                  rightPanel={rightPanel}
+                  setRightPanel={setRightPanel}
+                  diffTarget={diffTarget}
+                  selectCommit={selectCommit}
+                  openDiff={openDiff}
+                />
+              ) : (
+                <div className={s.emptyDiff}>{loc.details.selectCommit}</div>
+              )}
+            </div>
+            <CommitBar stagedCount={state.stagedFiles.length} isOperationRunning={state.isOperationRunning} />
           </div>
         }
       />

@@ -4,6 +4,7 @@ import { app } from 'electron';
 
 export class Logger {
   private logStream: WriteStream | null = null;
+  private consoleAvailable = true;
 
   constructor(private readonly prefix: string) {}
 
@@ -26,7 +27,17 @@ export class Logger {
     const time = new Date().toLocaleTimeString('en-GB', { hour12: false });
     const line = `[${this.prefix}] ${time} ${message}`;
 
-    console.log(line);
+    if (this.consoleAvailable) {
+      try {
+        console.log(line);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EPIPE') {
+          this.consoleAvailable = false;
+        } else {
+          throw error;
+        }
+      }
+    }
 
     if (this.logStream) {
       this.logStream.write(line + '\n');
