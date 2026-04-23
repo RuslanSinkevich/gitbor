@@ -320,6 +320,14 @@ export const ru: LocaleMap = {
     resetHardTitle: 'Сброс (Hard Reset)?',
     resetHardMessage: 'Все незафиксированные изменения будут потеряны.',
   },
+  aboutDialog: {
+    product: 'Open-source Git-клиент на базе Electron и React.',
+    aboutMeTitle: 'Обо мне',
+    authorName: 'Сенкевич Руслан Николаевич',
+    authorRole: 'Full-stack разработчик и автор проекта Skycode.',
+    authorBio: 'Создаю open-source инструменты для разработчиков: AI-редактор кода, Git-клиент и инфраструктуру для продуктивной локальной разработки с контролем над данными.',
+    more: 'Подробнее об авторе',
+  },
   statusbar: {
     noRepo: 'Нет репозитория',
     ahead: 'впереди: {count}',

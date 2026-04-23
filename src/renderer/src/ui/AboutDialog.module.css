@@ -16,6 +16,7 @@
   text-align: center;
   box-shadow: var(--sg-shadow-lg);
   min-width: 280px;
+  max-width: 560px;
 }
 
 .dialog h2 {
@@ -35,6 +36,44 @@
   margin: 0 0 8px;
   font-size: 13px;
   color: var(--sg-foreground-muted);
+}
+
+.section {
+  margin: 20px 0 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--sg-border);
+}
+
+.sectionTitle {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: var(--sg-foreground);
+}
+
+.authorName {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sg-foreground);
+}
+
+.sectionText {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--sg-foreground-muted);
+}
+
+.link {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--sg-primary);
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
 }
 
 .copy {

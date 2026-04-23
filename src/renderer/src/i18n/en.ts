@@ -318,6 +318,14 @@ export const en = {
     resetHardTitle: 'Hard Reset?',
     resetHardMessage: 'All uncommitted changes will be lost.',
   },
+  aboutDialog: {
+    product: 'Open-source Git client built with Electron and React.',
+    aboutMeTitle: 'About Me',
+    authorName: 'Ruslan Nikolaevich Senkevich',
+    authorRole: 'Full-stack developer and creator of Skycode.',
+    authorBio: 'I build open-source tools for developers: an AI code editor, a Git client, and infrastructure for productive local development with full control over data.',
+    more: 'More about the author',
+  },
   statusbar: {
     noRepo: 'No repository',
     ahead: 'ahead: {count}',

@@ -73,10 +73,10 @@ export function GitActivityDialog({ onClose }: Props) {
       width={900}
       footer={
         <div className={s.footerBar}>
-          <button className="sg-btn" onClick={clear} disabled={entries.length === 0}>
+          <button className="sg-button sg-button--secondary sg-button--sm" onClick={clear} disabled={entries.length === 0}>
             {loc.gitActivity.clear}
           </button>
-          <button className="sg-btn sg-btn-primary" onClick={onClose}>
+          <button className="sg-button sg-button--primary sg-button--sm" onClick={onClose}>
             {loc.gitActivity.close}
           </button>
         </div>
@@ -120,7 +120,7 @@ export function GitActivityDialog({ onClose }: Props) {
                   {formatTime(selected.startedAt)} · {formatDuration(totalDuration(selected))}
                 </span>
                 {selected.error && (
-                  <span className={s.detailMeta} style={{ color: '#e06060' }}>
+                  <span className={`${s.detailMeta} ${s.detailError}`}>
                     {selected.error}
                   </span>
                 )}

@@ -17,12 +17,12 @@
   background: rgba(128, 128, 128, 0.15);
 }
 .indicatorRunning {
-  border-color: var(--sg-accent, #3b82f6);
-  color: var(--sg-accent, #3b82f6);
+  border-color: var(--sg-status-running);
+  color: var(--sg-status-running);
 }
 .indicatorError {
-  border-color: #e06060;
-  color: #e06060;
+  border-color: var(--sg-status-error);
+  color: var(--sg-status-error);
 }
 .indicatorLabel {
   white-space: nowrap;
@@ -49,11 +49,11 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
-.dotIdle { background: #888; }
-.dotSuccess { background: #3fb76f; }
-.dotError { background: #e06060; }
+.dotIdle { background: var(--sg-foreground-muted); }
+.dotSuccess { background: var(--sg-status-success); }
+.dotError { background: var(--sg-status-error); }
 .dotRunning {
-  background: var(--sg-accent, #3b82f6);
+  background: var(--sg-status-running);
   animation: pulse 1.2s ease-in-out infinite;
 }
 @keyframes pulse {
@@ -77,7 +77,7 @@
 }
 .listEmpty {
   padding: 24px 16px;
-  color: var(--sg-foreground-muted, #888);
+  color: var(--sg-foreground-muted);
   font-size: 12px;
   text-align: center;
 }
@@ -94,7 +94,7 @@
 }
 .listItem:hover { background: rgba(128, 128, 128, 0.1); }
 .listItemActive {
-  background: rgba(59, 130, 246, 0.12);
+  background: var(--sg-list-hover);
 }
 
 .listItemBody {
@@ -110,7 +110,7 @@
 }
 .listItemMeta {
   font-size: 11px;
-  color: var(--sg-foreground-muted, #888);
+  color: var(--sg-foreground-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -128,7 +128,7 @@
   align-items: center;
   justify-content: center;
   flex: 1;
-  color: var(--sg-foreground-muted, #888);
+  color: var(--sg-foreground-muted);
   font-size: 12px;
 }
 .detailHeader {
@@ -146,7 +146,7 @@
 }
 .detailMeta {
   font-size: 11px;
-  color: var(--sg-foreground-muted, #888);
+  color: var(--sg-foreground-muted);
 }
 .detailStatus {
   font-size: 11px;
@@ -154,9 +154,18 @@
   border-radius: 10px;
   font-weight: 500;
 }
-.statusRunning { background: rgba(59, 130, 246, 0.15); color: var(--sg-accent, #3b82f6); }
-.statusSuccess { background: rgba(63, 183, 111, 0.15); color: #3fb76f; }
-.statusError   { background: rgba(224, 96, 96, 0.15); color: #e06060; }
+.statusRunning {
+  background: color-mix(in srgb, var(--sg-status-running) 15%, transparent);
+  color: var(--sg-status-running);
+}
+.statusSuccess {
+  background: color-mix(in srgb, var(--sg-status-success) 15%, transparent);
+  color: var(--sg-status-success);
+}
+.statusError {
+  background: color-mix(in srgb, var(--sg-status-error) 15%, transparent);
+  color: var(--sg-status-error);
+}
 
 .commandsScroll {
   flex: 1;
@@ -165,7 +174,7 @@
   font-size: 12px;
 }
 .commandEmpty {
-  color: var(--sg-foreground-muted, #888);
+  color: var(--sg-foreground-muted);
   font-size: 12px;
   padding: 12px 0;
 }
@@ -194,10 +203,10 @@
 }
 .commandExit {
   font-size: 11px;
-  color: var(--sg-foreground-muted, #888);
+  color: var(--sg-foreground-muted);
   flex-shrink: 0;
 }
-.commandExitFail { color: #e06060; }
+.commandExitFail { color: var(--sg-status-error); }
 .copyBtn {
   background: none;
   border: 1px solid var(--sg-border);
@@ -224,10 +233,12 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--sg-foreground-muted, #888);
+  color: var(--sg-foreground-muted);
   padding: 4px 10px 0;
 }
-.outputStderr { color: #e06060; }
+.outputStderr { color: var(--sg-status-error); }
+
+.detailError { color: var(--sg-status-error); }
 
 .footerBar {
   display: flex;

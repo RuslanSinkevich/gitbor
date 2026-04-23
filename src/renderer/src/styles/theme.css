@@ -93,6 +93,11 @@
   --sg-diff-add-bg: #d4edda;
   --sg-diff-del-bg: #f8d7da;
   --sg-diff-text: #1a1a1a;
+
+  /* Semantic: operation status (used by activity log, badges, etc.) */
+  --sg-status-running: var(--sg-primary);
+  --sg-status-success: #3fb76f;
+  --sg-status-error: #e06060;
 }
 
 /* Light theme — muted, not pure white */
@@ -168,4 +173,8 @@
   --sg-diff-add-bg: #d4edda;
   --sg-diff-del-bg: #f8d7da;
   --sg-diff-text: #1a1a1a;
+
+  --sg-status-running: var(--sg-primary);
+  --sg-status-success: #16825d;
+  --sg-status-error: #c74e39;
 }

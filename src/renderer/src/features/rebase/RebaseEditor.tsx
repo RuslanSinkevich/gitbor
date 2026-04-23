@@ -95,8 +95,8 @@ export function RebaseEditor({ onto, onClose }: Props) {
       </div>
 
       <div className={s.footer}>
-        <button className="sg-btn sg-btn--ghost" onClick={onClose}>{loc.rebaseEditor.cancel}</button>
-        <button className="sg-btn sg-btn--primary" onClick={handleExecute}>{loc.rebaseEditor.startRebase}</button>
+        <button className="sg-button sg-button--ghost sg-button--sm" onClick={onClose}>{loc.rebaseEditor.cancel}</button>
+        <button className="sg-button sg-button--primary sg-button--sm" onClick={handleExecute}>{loc.rebaseEditor.startRebase}</button>
       </div>
     </div>
   );
