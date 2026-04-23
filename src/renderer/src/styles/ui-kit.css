@@ -82,6 +82,10 @@
   background: var(--sg-surface);
   color: var(--sg-foreground);
   padding: 0;
+  margin: auto;
+  inset: 0;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
   box-shadow: 0 12px 40px rgba(0,0,0,0.5);
 }
 .sg-dialog::backdrop { background: var(--sg-dialog-overlay); }

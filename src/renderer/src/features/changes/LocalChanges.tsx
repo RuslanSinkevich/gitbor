@@ -4,12 +4,14 @@ import { postCommand, copyToClipboard } from '../../api';
 import type { FileStatus } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { SgSplitPane } from '../../ui/SgSplitPane';
+import { buildStorageKey } from '../../shared/uiPersist';
 import type { ShowPrompt } from '../graph/commitMenuItems';
 import { buildFileTree, FileTreeItem, fileName } from './FileTree';
 import { useFileListKeyboard } from './useFileListKeyboard';
 import s from './LocalChanges.module.css';
 
 interface Props {
+  repoPath: string;
   stagedFiles: FileStatus[];
   unstagedFiles: FileStatus[];
   mergeInProgress?: boolean;
@@ -25,10 +27,12 @@ interface Props {
 }
 
 export function LocalChanges({
+  repoPath,
   stagedFiles, unstagedFiles, mergeInProgress, onContextMenu, onOpenDiff, onFileHistory, onFileBlame,
   onOpenMergeEditor, onSelectFolder, showPrompt, activePath, activeSection,
 }: Props) {
   const loc = t();
+  const stagedSplitStorageKey = buildStorageKey('sg-layout:changes-staged-height', repoPath);
 
   const conflictFiles = useMemo(() => unstagedFiles.filter(f => f.status === 'U'), [unstagedFiles]);
   const normalUnstaged = useMemo(() => unstagedFiles.filter(f => f.status !== 'U'), [unstagedFiles]);
@@ -171,6 +175,7 @@ export function LocalChanges({
           minSize={120}
           maxSize={2000}
           minOpposite={100}
+          storageKey={stagedSplitStorageKey}
           left={
             <div className={s.splitTopStack}>
               {mergeInProgress && conflictFiles.length > 0 && (

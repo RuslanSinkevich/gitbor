@@ -1,6 +1,8 @@
 import { execFile, spawn, ChildProcess } from 'child_process';
 import { GitExecOptions, GitExecResult } from './types';
 import { Logger } from '../utils/Logger';
+import { getCurrentActivityId } from '../activity/activityContext';
+import { gitActivityStore } from '../activity/GitActivityStore';
 
 export class GitError extends Error {
   constructor(
@@ -78,11 +80,35 @@ export class GitExecutor {
 
           this.logger.log(`done: exit=${exitCode} duration=${duration}ms`);
 
+          this.reportToActivity(args, cwd, stdout, stderr, exitCode, duration, startTime);
+
           resolve({ stdout, stderr, exitCode, duration });
         }
       );
 
       this.activeProcesses.add(proc);
+    });
+  }
+
+  private reportToActivity(
+    args: string[],
+    cwd: string,
+    stdout: string,
+    stderr: string,
+    exitCode: number,
+    duration: number,
+    startedAt: number,
+  ): void {
+    const id = getCurrentActivityId();
+    if (!id) return;
+    gitActivityStore.appendCommand(id, {
+      args: [...args],
+      cwd,
+      exitCode,
+      stdout,
+      stderr,
+      durationMs: duration,
+      startedAt,
     });
   }
 
@@ -113,6 +139,7 @@ export class GitExecutor {
         this.activeProcesses.delete(proc);
         const duration = Date.now() - startTime;
         this.logger.log(`done(stdin): exit=${code ?? 1} duration=${duration}ms`);
+        this.reportToActivity(displayArgs, cwd, stdout, stderr, code ?? 1, duration, startTime);
         resolve({ stdout, stderr, exitCode: code ?? 1, duration });
       });
 

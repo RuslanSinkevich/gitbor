@@ -12,6 +12,7 @@ export interface DialogStates {
   showLfs: boolean;
   showGitignore: boolean;
   showRepoStats: boolean;
+  showGitActivity: boolean;
 }
 
 export interface DialogActions {
@@ -25,6 +26,7 @@ export interface DialogActions {
   setShowLfs: (v: boolean) => void;
   setShowGitignore: (v: boolean) => void;
   setShowRepoStats: (v: boolean) => void;
+  setShowGitActivity: (v: boolean) => void;
 }
 
 /**
@@ -42,6 +44,7 @@ export function useDialogs(): DialogStates & DialogActions {
   const [showLfs, setShowLfs] = useState(false);
   const [showGitignore, setShowGitignore] = useState(false);
   const [showRepoStats, setShowRepoStats] = useState(false);
+  const [showGitActivity, setShowGitActivity] = useState(false);
 
   return {
     showAbout, setShowAbout,
@@ -54,5 +57,6 @@ export function useDialogs(): DialogStates & DialogActions {
     showLfs, setShowLfs,
     showGitignore, setShowGitignore,
     showRepoStats, setShowRepoStats,
+    showGitActivity, setShowGitActivity,
   };
 }

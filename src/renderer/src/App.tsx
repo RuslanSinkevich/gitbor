@@ -23,6 +23,7 @@ import { AppDialogs } from './AppDialogs';
 import { postCommand, onMainEvent } from './api';
 import { t, tpl, setLang, getLang } from './i18n';
 import { UiShowcase } from './pages/UiShowcase';
+import { buildStorageKey } from './shared/uiPersist';
 import s from './App.module.css';
 
 type Page = 'app' | 'ui-kit';
@@ -224,6 +225,7 @@ export function App() {
               hasUpstream={state.branches.some(b => b.isCurrent && b.upstream)}
               onPull={runPull}
               onPush={runPush}
+              onOpenActivity={() => dlg.setShowGitActivity(true)}
             />
           )}
 
@@ -252,6 +254,7 @@ export function App() {
               <SgSplitPane
                 defaultSize={240}
                 minOpposite={360}
+                storageKey={buildStorageKey('sg-layout:sidebar-width')}
                 left={
                   <aside className={s.sidebar}>
                     <Sidebar

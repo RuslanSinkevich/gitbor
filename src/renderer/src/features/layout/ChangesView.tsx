@@ -5,6 +5,7 @@ import { RightPanelContent, type RightPanel } from './RightPanelContent';
 import { SgSplitPane } from '../../ui/SgSplitPane';
 import type { AppState, MergeState } from '../../types';
 import type { t } from '../../i18n';
+import { buildStorageKey } from '../../shared/uiPersist';
 import s from '../../App.module.css';
 
 interface Props {
@@ -36,6 +37,7 @@ export function ChangesView({
   showPrompt, loc,
 }: Props) {
   const [selectedFolder, setSelectedFolder] = useState<{ path: string; section: 'unstaged' | 'staged' } | null>(null);
+  const fileListStorageKey = buildStorageKey('sg-layout:changes-file-list-width', state.repoPath);
 
   const activeSection: 'unstaged' | 'staged' | 'conflict' | undefined =
     selectedFolder
@@ -55,9 +57,11 @@ export function ChangesView({
         minSize={220}
         maxSize={720}
         minOpposite={280}
+        storageKey={fileListStorageKey}
         left={
           <div className={s.changesFileListPane}>
             <LocalChanges
+              repoPath={state.repoPath}
               unstagedFiles={state.unstagedFiles}
               stagedFiles={state.stagedFiles}
               mergeInProgress={mergeState?.inProgress}

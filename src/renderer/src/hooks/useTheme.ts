@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { loadStoredString, saveStoredString } from '../shared/uiPersist';
 
 export type Theme = 'dark' | 'light';
 
 function getInitialTheme(): Theme {
-  return (localStorage.getItem('sg-theme') as Theme) || 'light';
+  return (loadStoredString('sg-theme') as Theme) || 'light';
 }
 
 export function useTheme() {
@@ -11,7 +12,7 @@ export function useTheme() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('sg-theme', theme);
+    saveStoredString('sg-theme', theme);
   }, [theme]);
 
   const toggleTheme = useCallback(() => {

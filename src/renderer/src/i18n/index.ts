@@ -1,5 +1,6 @@
 import { ru } from './ru';
 import { en } from './en';
+import { loadStoredString, saveStoredString } from '../shared/uiPersist';
 export { useLocale } from './useLocale';
 
 type DeepString<T> = { [K in keyof T]: T[K] extends object ? DeepString<T[K]> : string };
@@ -9,16 +10,14 @@ export type LangCode = 'ru' | 'en';
 
 const locales: Record<LangCode, Locale> = { ru, en };
 
-let currentLang: LangCode = (typeof localStorage !== 'undefined'
-  ? (localStorage.getItem('sg-lang') as LangCode) ?? 'ru'
-  : 'ru');
+let currentLang: LangCode = (loadStoredString('sg-lang') as LangCode) ?? 'ru';
 const listeners = new Set<(lang: LangCode) => void>();
 
 export function setLang(lang: string): void {
   const next: LangCode = lang.startsWith('ru') ? 'ru' : 'en';
   if (next === currentLang) return;
   currentLang = next;
-  if (typeof localStorage !== 'undefined') localStorage.setItem('sg-lang', next);
+  saveStoredString('sg-lang', next);
   listeners.forEach(fn => fn(next));
 }
 

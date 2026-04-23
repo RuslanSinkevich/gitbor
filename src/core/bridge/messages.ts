@@ -15,6 +15,8 @@ import {
   ReflogEntry,
 } from '../git/types';
 import type { ConflictContent } from '../git/types';
+import type { GitActivityEntry } from '../activity/GitActivityStore';
+export type { GitActivityEntry, GitActivityCommand, GitActivityStatus } from '../activity/GitActivityStore';
 
 // ─── Renderer → Main (commands via IPC) ───
 
@@ -155,6 +157,10 @@ export type RendererCommand =
   | { type: 'getDayCommits'; author: string; date: string }
   | { type: 'getAuthorCodeStats'; authorName: string; authorEmail: string; cacheOnly?: boolean; force?: boolean }
 
+  // Git Activity Log
+  | { type: 'getGitActivity' }
+  | { type: 'clearGitActivity' }
+
   // Compare two commits
   | { type: 'getCommitDiff'; fromHash: string; toHash: string }
 
@@ -204,6 +210,10 @@ export type MainEvent =
   | { type: 'repoStats'; data: RepoStats }
   | { type: 'dayCommits'; data: DayCommitEntry[] }
   | { type: 'authorCodeStats'; data: AuthorCodeStatsResult }
+  | { type: 'gitActivitySnapshot'; data: GitActivityEntry[] }
+  | { type: 'gitActivityAdded'; entry: GitActivityEntry }
+  | { type: 'gitActivityUpdated'; entry: GitActivityEntry }
+  | { type: 'gitActivityCleared' }
   | { type: 'error'; message: string };
 
 export interface DayCommitEntry {

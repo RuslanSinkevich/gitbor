@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { loadStoredNumber, saveStoredNumber } from '../shared/uiPersist';
 
 const HANDLE_PX = 4;
 
@@ -11,6 +12,8 @@ interface SgSplitPaneProps {
   /** Минимальный размер противоположной (flex) панели в px — чтобы diff/нижняя секция не схлопнулись. */
   minOpposite?: number;
   direction?: 'horizontal' | 'vertical';
+  /** Optional localStorage key to persist pane size between sessions. */
+  storageKey?: string;
 }
 
 export function SgSplitPane({
@@ -21,8 +24,22 @@ export function SgSplitPane({
   maxSize = 600,
   minOpposite = 120,
   direction = 'horizontal',
+  storageKey,
 }: SgSplitPaneProps) {
-  const [size, setSize] = useState(defaultSize);
+  const clampSize = useCallback((value: number, total = 0) => {
+    const maxFromContainer =
+      total > 0 ? Math.max(minSize, total - minOpposite - HANDLE_PX) : maxSize;
+    const upperBound = Math.min(maxSize, maxFromContainer);
+    return Math.min(upperBound, Math.max(minSize, value));
+  }, [minSize, maxSize, minOpposite]);
+
+  const readStoredSize = useCallback(() => {
+    if (!storageKey) return defaultSize;
+    const stored = loadStoredNumber(storageKey);
+    return stored !== null ? clampSize(stored) : defaultSize;
+  }, [storageKey, defaultSize, clampSize]);
+
+  const [size, setSize] = useState(() => readStoredSize());
   const dragging = useRef(false);
   const startPos = useRef(0);
   const startSize = useRef(0);
@@ -43,11 +60,8 @@ export function SgSplitPane({
       const total = root
         ? (isH ? root.clientWidth : root.clientHeight)
         : 0;
-      const maxFromContainer =
-        total > 0 ? Math.max(minSize, total - minOpposite - HANDLE_PX) : maxSize;
-      const upperBound = Math.min(maxSize, maxFromContainer);
       const delta = (isH ? e.clientX : e.clientY) - startPos.current;
-      const next = Math.min(upperBound, Math.max(minSize, startSize.current + delta));
+      const next = clampSize(startSize.current + delta, total);
       setSize(next);
     };
     const onMouseUp = () => { dragging.current = false; };
@@ -57,7 +71,28 @@ export function SgSplitPane({
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
-  }, [direction, minSize, maxSize, minOpposite]);
+  }, [direction, clampSize]);
+
+  useEffect(() => {
+    setSize(readStoredSize());
+  }, [readStoredSize]);
+
+  useEffect(() => {
+    if (!storageKey) return;
+    saveStoredNumber(storageKey, size);
+  }, [size, storageKey]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || typeof ResizeObserver === 'undefined') return;
+    const isH = direction === 'horizontal';
+    const observer = new ResizeObserver(() => {
+      const total = isH ? root.clientWidth : root.clientHeight;
+      setSize(prev => clampSize(prev, total));
+    });
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [direction, clampSize]);
 
   const isH = direction === 'horizontal';
 

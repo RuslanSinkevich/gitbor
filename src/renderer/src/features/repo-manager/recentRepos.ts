@@ -1,3 +1,5 @@
+import { loadStoredJson, loadStoredString, removeStoredValue, saveStoredJson, saveStoredString } from '../../shared/uiPersist';
+
 export interface RecentRepo {
   name: string;
   path: string;
@@ -14,28 +16,16 @@ function normRepoPath(p: string): string {
 
 /** Последний открытый репозиторий (для восстановления при следующем запуске). Renderer: localStorage. */
 export function loadLastActiveRepo(): string | null {
-  try {
-    const p = localStorage.getItem(LAST_ACTIVE_REPO_KEY);
-    return p && p.length > 0 ? p : null;
-  } catch {
-    return null;
-  }
+  const p = loadStoredString(LAST_ACTIVE_REPO_KEY);
+  return p && p.length > 0 ? p : null;
 }
 
 export function saveLastActiveRepo(path: string): void {
-  try {
-    localStorage.setItem(LAST_ACTIVE_REPO_KEY, path);
-  } catch {
-    /* ignore quota / private mode */
-  }
+  saveStoredString(LAST_ACTIVE_REPO_KEY, path);
 }
 
 export function clearLastActiveRepo(): void {
-  try {
-    localStorage.removeItem(LAST_ACTIVE_REPO_KEY);
-  } catch {
-    /* ignore */
-  }
+  removeStoredValue(LAST_ACTIVE_REPO_KEY);
 }
 
 export function sameRepoPath(a: string, b: string): boolean {
@@ -43,17 +33,11 @@ export function sameRepoPath(a: string, b: string): boolean {
 }
 
 export function loadRecent(): RecentRepo[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as RecentRepo[];
-  } catch {
-    return [];
-  }
+  return loadStoredJson<RecentRepo[]>(STORAGE_KEY) ?? [];
 }
 
 export function saveRecent(repos: RecentRepo[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(repos.slice(0, MAX_RECENT)));
+  saveStoredJson(STORAGE_KEY, repos.slice(0, MAX_RECENT));
 }
 
 export function addRecentRepo(name: string, path: string): void {

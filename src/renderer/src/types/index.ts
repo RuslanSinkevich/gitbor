@@ -9,4 +9,5 @@ export type {
   Submodule,
 } from '@core/git/types';
 
-export type { RendererCommand, MainEvent, RepoStats, AuthorStats, MonthlyCount, DayCommitEntry } from '@core/bridge/messages';
+export type { RendererCommand, MainEvent, RepoStats, AuthorStats, MonthlyCount, DayCommitEntry, AuthorCodeStats, AuthorCodeStatsResult } from '@core/bridge/messages';
+export type { GitActivityEntry, GitActivityCommand, GitActivityStatus } from '@core/bridge/messages';

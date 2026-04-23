@@ -2,6 +2,8 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { CommandHandler } from '../commands/CommandHandler';
 import { StateManager } from '../state/StateManager';
 import { RendererCommand, MainEvent } from './messages';
+import { gitActivityStore } from '../activity/GitActivityStore';
+import { runWithActivity } from '../activity/activityContext';
 
 type CmdOf<K extends RendererCommand['type']> = Extract<RendererCommand, { type: K }>;
 
@@ -15,13 +17,31 @@ interface HandlerContext {
   send: (event: MainEvent) => void;
 }
 
+async function runTracked<R extends { success: boolean; error?: string }>(
+  operation: string,
+  ctx: HandlerContext,
+  work: () => Promise<R>,
+): Promise<R> {
+  const repoPath = ctx.sm.getState().repoPath || null;
+  const activityId = gitActivityStore.start(operation, repoPath);
+  try {
+    const result = await runWithActivity(activityId, work);
+    gitActivityStore.finish(activityId, result.success, result.error);
+    return result;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    gitActivityStore.finish(activityId, false, msg);
+    throw err;
+  }
+}
+
 function op<K extends RendererCommand['type']>(
   operation: string,
   fn: (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<{ success: boolean; error?: string }>,
 ): (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<void> {
   return async (cmd, ctx) => {
     ctx.send({ type: 'operationStart', operation });
-    const result = await fn(cmd, ctx);
+    const result = await runTracked(operation, ctx, () => fn(cmd, ctx));
     ctx.send({ type: 'operationEnd', operation, success: result.success, error: result.error });
   };
 }
@@ -32,7 +52,7 @@ function opWithPostMerge<K extends RendererCommand['type']>(
 ): (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<void> {
   return async (cmd, ctx) => {
     ctx.send({ type: 'operationStart', operation });
-    const result = await fn(cmd, ctx);
+    const result = await runTracked(operation, ctx, () => fn(cmd, ctx));
     ctx.send({ type: 'operationEnd', operation, success: result.success, error: result.error });
     const ms = await ctx.ch.getMergeState();
     ctx.send({ type: 'mergeState', data: ms });
@@ -170,7 +190,7 @@ const handlers: HandlerTable = {
 
   startMerge: async (cmd, ctx) => {
     ctx.send({ type: 'operationStart', operation: 'merge' });
-    const result = await ctx.ch.startMerge(cmd.source, cmd.options);
+    const result = await runTracked('merge', ctx, () => ctx.ch.startMerge(cmd.source, cmd.options));
     ctx.send({ type: 'operationEnd', operation: 'merge', success: result.success, error: result.error });
     const mergeState = await ctx.ch.getMergeState();
     if (mergeState.inProgress) ctx.send({ type: 'mergeState', data: mergeState });
@@ -342,10 +362,18 @@ const handlers: HandlerTable = {
   },
   executeRebase: async (cmd, ctx) => {
     ctx.send({ type: 'operationStart', operation: 'rebase' });
-    const result = await ctx.ch.executeRebase(cmd.onto, cmd.entries);
+    const result = await runTracked('rebase', ctx, () => ctx.ch.executeRebase(cmd.onto, cmd.entries));
     ctx.send({ type: 'operationEnd', operation: 'rebase', success: result.success, error: result.error });
     const progress = await ctx.ch.getRebaseProgress();
     if (progress.inProgress) ctx.send({ type: 'rebaseProgress', data: progress });
+  },
+
+  getGitActivity: async (_cmd, ctx) => {
+    ctx.send({ type: 'gitActivitySnapshot', data: gitActivityStore.getSnapshot() });
+  },
+  clearGitActivity: async (_cmd, ctx) => {
+    gitActivityStore.clear();
+    ctx.send({ type: 'gitActivitySnapshot', data: [] });
   },
 
   openDiff: async (cmd, ctx) => {
@@ -456,6 +484,7 @@ const handlers: HandlerTable = {
 export class MessageBridge {
   private window: BrowserWindow | null = null;
   private unsubscribeState: (() => void) | null = null;
+  private unsubscribeActivity: (() => void) | null = null;
   private lastCommitsRef: ReturnType<StateManager['getState']>['commits'] | null = null;
   private lastGraphLayoutRef: ReturnType<StateManager['getState']>['graphLayout'] | null = null;
 
@@ -466,6 +495,16 @@ export class MessageBridge {
 
   attach(win: BrowserWindow): void {
     this.window = win;
+
+    this.unsubscribeActivity = gitActivityStore.subscribe(event => {
+      if (event.type === 'added') {
+        this.send({ type: 'gitActivityAdded', entry: event.entry });
+      } else if (event.type === 'updated') {
+        this.send({ type: 'gitActivityUpdated', entry: event.entry });
+      } else if (event.type === 'cleared') {
+        this.send({ type: 'gitActivityCleared' });
+      }
+    });
 
     this.unsubscribeState = this.stateManager.subscribe(state => {
       const { commits, graphLayout, ...lightState } = state;
@@ -503,6 +542,10 @@ export class MessageBridge {
     if (this.unsubscribeState) {
       this.unsubscribeState();
       this.unsubscribeState = null;
+    }
+    if (this.unsubscribeActivity) {
+      this.unsubscribeActivity();
+      this.unsubscribeActivity = null;
     }
     ipcMain.removeHandler('skyfork:command');
     this.lastCommitsRef = null;

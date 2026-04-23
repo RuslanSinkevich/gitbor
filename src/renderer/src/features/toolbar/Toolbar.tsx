@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { t } from '../../i18n';
 import { postCommand } from '../../api';
+import { GitActivityIndicator } from '../git-activity';
 import s from './Toolbar.module.css';
 
 interface Props {
@@ -8,6 +9,7 @@ interface Props {
   hasUpstream?: boolean;
   onPull?: (rebase?: boolean) => void;
   onPush?: (force?: boolean) => void;
+  onOpenActivity?: () => void;
 }
 
 const IconFetch = () => (
@@ -73,7 +75,7 @@ function DropdownButton({ label, icon, disabled, mainAction, items }: {
   );
 }
 
-export function Toolbar({ isOperationRunning, hasUpstream, onPull, onPush }: Props) {
+export function Toolbar({ isOperationRunning, hasUpstream, onPull, onPush, onOpenActivity }: Props) {
   const loc = t();
   const runPull = (rebase?: boolean) => {
     if (onPull) onPull(rebase);
@@ -126,6 +128,12 @@ export function Toolbar({ isOperationRunning, hasUpstream, onPull, onPush }: Pro
           <span className={s.actionLabel}>{loc.toolbar.stashPop}</span>
         </button>
       </div>
+
+      {onOpenActivity && (
+        <div className={s.right}>
+          <GitActivityIndicator onOpen={onOpenActivity} />
+        </div>
+      )}
     </div>
   );
 }
