@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog } from 'electron';
+import { app, BrowserWindow, Menu, dialog, safeStorage } from 'electron';
 import * as path from 'path';
 import * as net from 'net';
 import { GitExecutor } from '../core/git/GitExecutor';
@@ -11,6 +11,9 @@ import { CommandHandler } from '../core/commands/CommandHandler';
 import { MessageBridge } from '../core/bridge/MessageBridge';
 import { RecoveryManager } from '../core/safety/RecoveryManager';
 import { checkGitAvailable, showGitNotFoundMessage, showRecoveryDialog } from '../core/safety/RecoveryUI';
+import { AiService } from '../core/ai/AiService';
+import { AiConfigStore } from '../core/ai/AiConfigStore';
+import { AiHandlers } from '../core/ai/AiHandlers';
 
 let mainWindow: BrowserWindow | null = null;
 let messageBridge: MessageBridge | null = null;
@@ -100,7 +103,17 @@ async function initServices(): Promise<void> {
   const safety = new SafetyNet(git);
   commandHandler = new CommandHandler(git, queue, safety, stateManager);
 
-  messageBridge = new MessageBridge(commandHandler, stateManager);
+  const aiStore = new AiConfigStore(app.getPath('userData'), {
+    isEncryptionAvailable: () => {
+      try { return safeStorage.isEncryptionAvailable(); } catch { return false; }
+    },
+    encryptString: (plain) => safeStorage.encryptString(plain),
+    decryptString: (buf) => safeStorage.decryptString(buf),
+  });
+  const aiService = new AiService(aiStore.load());
+  const aiHandlers = new AiHandlers(aiService, aiStore);
+
+  messageBridge = new MessageBridge(commandHandler, stateManager, aiHandlers);
 
   fileWatcher = new FileWatcher(stateManager);
 

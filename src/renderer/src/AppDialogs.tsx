@@ -14,6 +14,7 @@ import { LfsDialog } from './features/lfs';
 import { GitignoreDialog } from './features/gitignore';
 import { StatisticsDialog } from './features/statistics';
 import { GitActivityDialog } from './features/git-activity';
+import { AiSettingsDialog } from './features/ai';
 import type { MergeState } from './types';
 import type { useDialogs } from './hooks/useDialogs';
 import type { useContextMenu } from './hooks/useContextMenu';
@@ -94,6 +95,7 @@ export function AppDialogs(props: AppDialogsProps) {
       {dlg.showGitignore && <GitignoreDialog onClose={() => dlg.setShowGitignore(false)} />}
       {dlg.showRepoStats && <StatisticsDialog onClose={() => dlg.setShowRepoStats(false)} />}
       {dlg.showGitActivity && <GitActivityDialog onClose={() => dlg.setShowGitActivity(false)} />}
+      {dlg.showAiSettings && <AiSettingsDialog onClose={() => dlg.setShowAiSettings(false)} />}
     </>
   );
 }

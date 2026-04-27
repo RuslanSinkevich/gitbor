@@ -16,7 +16,9 @@ import {
 } from '../git/types';
 import type { ConflictContent } from '../git/types';
 import type { GitActivityEntry } from '../activity/GitActivityStore';
+import type { AiProviderConfig } from '../ai/types';
 export type { GitActivityEntry, GitActivityCommand, GitActivityStatus } from '../activity/GitActivityStore';
+export type { AiProviderConfig, CommitLanguage } from '../ai/types';
 
 // ─── Renderer → Main (commands via IPC) ───
 
@@ -168,7 +170,14 @@ export type RendererCommand =
   | { type: 'openDiff'; file: string; hash: string }
   | { type: 'openMergeEditor'; file: string }
   | { type: 'openFile'; file: string }
-  | { type: 'switchView'; view: 'changes' | 'commits' };
+  | { type: 'switchView'; view: 'changes' | 'commits' }
+
+  // AI
+  | { type: 'aiGetConfig' }
+  | { type: 'aiSetConfig'; config: AiProviderConfig | null }
+  | { type: 'aiTestConnection'; config: AiProviderConfig }
+  | { type: 'aiGenerateCommitMessage'; requestId: string }
+  | { type: 'aiCancelGenerate'; requestId: string };
 
 // ─── Main → Renderer (events via IPC) ───
 
@@ -215,6 +224,14 @@ export type MainEvent =
   | { type: 'gitActivityUpdated'; entry: GitActivityEntry }
   | { type: 'gitActivityCleared' }
   | { type: 'repoClosed'; path: string }
+
+  // AI events
+  | { type: 'aiConfig'; config: AiProviderConfig | null }
+  | { type: 'aiTestResult'; success: boolean; error?: string }
+  | { type: 'aiChunk'; requestId: string; delta: string }
+  | { type: 'aiDone'; requestId: string; text: string; finishReason: string }
+  | { type: 'aiError'; requestId: string; message: string; kind: string }
+
   | { type: 'error'; message: string };
 
 export interface DayCommitEntry {

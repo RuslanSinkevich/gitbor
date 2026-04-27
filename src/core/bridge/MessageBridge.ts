@@ -5,6 +5,8 @@ import { RendererCommand, MainEvent } from './messages';
 import { gitActivityStore } from '../activity/GitActivityStore';
 import { runWithActivity } from '../activity/activityContext';
 import { perfLog, approxJsonSize } from '../utils/perf';
+import type { AiHandlers } from '../ai/AiHandlers';
+import { AiError } from '../ai/types';
 
 type CmdOf<K extends RendererCommand['type']> = Extract<RendererCommand, { type: K }>;
 
@@ -15,6 +17,7 @@ type HandlerTable = {
 interface HandlerContext {
   ch: CommandHandler;
   sm: StateManager;
+  ai: AiHandlers | null;
   send: (event: MainEvent) => void;
 }
 
@@ -480,6 +483,79 @@ const handlers: HandlerTable = {
       ctx.send({ type: 'error', message: err instanceof Error ? err.message : String(err) });
     }
   },
+
+  // ─── AI ───
+
+  aiGetConfig: async (_cmd, ctx) => {
+    if (!ctx.ai) {
+      ctx.send({ type: 'aiConfig', config: null });
+      return;
+    }
+    ctx.send({ type: 'aiConfig', config: ctx.ai.getConfig() });
+  },
+
+  aiSetConfig: async (cmd, ctx) => {
+    if (!ctx.ai) return;
+    try {
+      await ctx.ai.setConfig(cmd.config);
+      ctx.send({ type: 'aiConfig', config: ctx.ai.getConfig() });
+    } catch (err) {
+      ctx.send({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
+  aiTestConnection: async (cmd, ctx) => {
+    if (!ctx.ai) {
+      ctx.send({ type: 'aiTestResult', success: false, error: 'AI module unavailable' });
+      return;
+    }
+    const res = await ctx.ai.testConnection(cmd.config);
+    ctx.send({ type: 'aiTestResult', success: res.success, error: res.error });
+  },
+
+  aiGenerateCommitMessage: async (cmd, ctx) => {
+    const requestId = cmd.requestId;
+    if (!ctx.ai) {
+      ctx.send({ type: 'aiError', requestId, message: 'AI module unavailable', kind: 'config' });
+      return;
+    }
+    const repoPath = ctx.sm.getState().repoPath;
+    if (!repoPath) {
+      ctx.send({ type: 'aiError', requestId, message: 'No repository open', kind: 'config' });
+      return;
+    }
+    let diff = '';
+    try {
+      const res = await ctx.sm.getGit().exec(['diff', '--cached', '--no-color'], { cwd: repoPath });
+      diff = res.stdout ?? '';
+    } catch (err) {
+      ctx.send({
+        type: 'aiError',
+        requestId,
+        message: err instanceof Error ? err.message : String(err),
+        kind: 'config',
+      });
+      return;
+    }
+    if (!diff.trim()) {
+      ctx.send({ type: 'aiError', requestId, message: 'Nothing is staged', kind: 'config' });
+      return;
+    }
+    try {
+      const { text, finishReason } = await ctx.ai.generateCommitMessage(requestId, diff, (delta) => {
+        ctx.send({ type: 'aiChunk', requestId, delta });
+      });
+      ctx.send({ type: 'aiDone', requestId, text, finishReason });
+    } catch (err) {
+      const kind = err instanceof AiError ? err.kind : 'error';
+      const message = err instanceof Error ? err.message : String(err);
+      ctx.send({ type: 'aiError', requestId, message, kind });
+    }
+  },
+
+  aiCancelGenerate: async (cmd, ctx) => {
+    ctx.ai?.cancel(cmd.requestId);
+  },
 };
 
 export class MessageBridge {
@@ -503,7 +579,8 @@ export class MessageBridge {
 
   constructor(
     private readonly commandHandler: CommandHandler,
-    private readonly stateManager: StateManager
+    private readonly stateManager: StateManager,
+    private readonly aiHandlers: AiHandlers | null = null,
   ) {}
 
   attach(win: BrowserWindow): void {
@@ -583,6 +660,7 @@ export class MessageBridge {
       this.unsubscribeActivity();
       this.unsubscribeActivity = null;
     }
+    this.aiHandlers?.cancelAll();
     ipcMain.removeHandler('skyfork:command');
     this.sentGraphByRepo.clear();
     this.window = null;
@@ -598,7 +676,12 @@ export class MessageBridge {
       type AnyHandler = (cmd: RendererCommand, ctx: HandlerContext) => Promise<void>;
       const handler = handlers[cmd.type] as AnyHandler | undefined;
       if (handler) {
-        await handler(cmd, { ch: this.commandHandler, sm: this.stateManager, send: e => this.send(e) });
+        await handler(cmd, {
+          ch: this.commandHandler,
+          sm: this.stateManager,
+          ai: this.aiHandlers,
+          send: e => this.send(e),
+        });
       } else {
         this.send({ type: 'error', message: `Unknown command: ${cmd.type}` });
       }

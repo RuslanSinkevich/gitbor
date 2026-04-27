@@ -27,6 +27,7 @@ interface Props {
   selectCommit: (hash: string) => void;
   showPrompt: any;
   loc: ReturnType<typeof t>;
+  onOpenAiSettings: () => void;
 }
 
 export function ChangesView({
@@ -34,7 +35,7 @@ export function ChangesView({
   conflictFile, setConflictFile, setMergeEditorFile,
   showContextMenu, openDiff, closeDiff, openFileHistory, openFileBlame,
   handleOpenMergeEditor, handleConflictResolved, selectCommit,
-  showPrompt, loc,
+  showPrompt, loc, onOpenAiSettings,
 }: Props) {
   const [selectedFolder, setSelectedFolder] = useState<{ path: string; section: 'unstaged' | 'staged' } | null>(null);
   const fileListStorageKey = buildStorageKey('sg-layout:changes-file-list-width', state.repoPath);
@@ -110,7 +111,11 @@ export function ChangesView({
                 <div className={s.emptyDiff}>{loc.details.selectCommit}</div>
               )}
             </div>
-            <CommitBar stagedCount={state.stagedFiles.length} isOperationRunning={state.isOperationRunning} />
+            <CommitBar
+              stagedCount={state.stagedFiles.length}
+              isOperationRunning={state.isOperationRunning}
+              onOpenAiSettings={onOpenAiSettings}
+            />
           </div>
         }
       />

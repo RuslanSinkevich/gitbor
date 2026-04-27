@@ -76,6 +76,7 @@ export function TitleBar({ loc, page, setPage, lang, toggleLang, theme, toggleTh
         { label: loc.menu.openInTerminal, accelerator: 'Ctrl+Alt+T', action: () => onMenuAction('openInTerminal') },
         { type: 'separator', label: '' },
         { label: loc.menu.repoSettings, action: () => onMenuAction('repoSettings') },
+        { label: loc.menu.aiSettings ?? 'AI Settings...', action: () => onMenuAction('aiSettings') },
       ],
     },
     {

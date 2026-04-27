@@ -1,0 +1,49 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--sg-foreground);
+  background: transparent;
+  border: 1px solid var(--sg-border);
+  border-radius: var(--sg-radius-sm);
+  cursor: pointer;
+  transition: background var(--sg-transition), border-color var(--sg-transition);
+}
+
+.root:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sg-input-bg) 70%, var(--sg-primary) 30%);
+  border-color: var(--sg-primary);
+  color: var(--sg-primary);
+}
+
+.root:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.root[data-state='generating'] {
+  border-color: var(--sg-primary);
+  color: var(--sg-primary);
+}
+
+.icon {
+  color: currentColor;
+  flex-shrink: 0;
+}
+
+.spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

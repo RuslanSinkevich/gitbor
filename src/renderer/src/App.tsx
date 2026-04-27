@@ -296,6 +296,7 @@ export function App() {
                         handleOpenMergeEditor={handleOpenMergeEditor}
                         handleConflictResolved={handleConflictResolved}
                         selectCommit={selectCommit} showPrompt={showPrompt} loc={loc}
+                        onOpenAiSettings={() => dlg.setShowAiSettings(true)}
                       />
                     )}
                   </section>

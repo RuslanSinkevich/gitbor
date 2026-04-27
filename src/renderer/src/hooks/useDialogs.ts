@@ -13,6 +13,7 @@ export interface DialogStates {
   showGitignore: boolean;
   showRepoStats: boolean;
   showGitActivity: boolean;
+  showAiSettings: boolean;
 }
 
 export interface DialogActions {
@@ -27,6 +28,7 @@ export interface DialogActions {
   setShowGitignore: (v: boolean) => void;
   setShowRepoStats: (v: boolean) => void;
   setShowGitActivity: (v: boolean) => void;
+  setShowAiSettings: (v: boolean) => void;
 }
 
 /**
@@ -45,6 +47,7 @@ export function useDialogs(): DialogStates & DialogActions {
   const [showGitignore, setShowGitignore] = useState(false);
   const [showRepoStats, setShowRepoStats] = useState(false);
   const [showGitActivity, setShowGitActivity] = useState(false);
+  const [showAiSettings, setShowAiSettings] = useState(false);
 
   return {
     showAbout, setShowAbout,
@@ -58,5 +61,6 @@ export function useDialogs(): DialogStates & DialogActions {
     showGitignore, setShowGitignore,
     showRepoStats, setShowRepoStats,
     showGitActivity, setShowGitActivity,
+    showAiSettings, setShowAiSettings,
   };
 }

@@ -1,0 +1,33 @@
+import { useEffect, useState } from 'react';
+import { postCommand, onMainEvent } from '../../api';
+import type { AiProviderConfig, MainEvent } from '../../types';
+
+/**
+ * Хук синхронизации текущего AI-конфига с main-процессом. Запрашивает
+ * при монтировании, подписывается на обновления. apiKey всегда приходит
+ * из main уже замаскированным — поэтому никакого секрета в renderer'е не
+ * живёт.
+ */
+export function useAiConfig(): {
+  config: AiProviderConfig | null;
+  loaded: boolean;
+  refresh: () => void;
+} {
+  const [config, setConfig] = useState<AiProviderConfig | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    postCommand({ type: 'aiGetConfig' });
+    const unsub = onMainEvent((msg: MainEvent) => {
+      if (msg.type === 'aiConfig') {
+        setConfig(msg.config);
+        setLoaded(true);
+      }
+    });
+    return unsub;
+  }, []);
+
+  const refresh = () => postCommand({ type: 'aiGetConfig' });
+
+  return { config, loaded, refresh };
+}
