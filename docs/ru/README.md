@@ -2,7 +2,7 @@
 
 > English version: [README.md](../../README.md)
 
-Бесплатный, open-source, кроссплатформенный десктопный Git-клиент на Electron. Альтернатива Fork/GitKraken/SourceTree.
+Бесплатный кроссплатформенный десктопный Git-клиент на Electron. Альтернатива Fork/GitKraken/SourceTree. Исходники под лицензией MIT, но репозиторий закрыт — публично не хостится.
 
 Часть экосистемы Sky Platform.
 
@@ -133,7 +133,7 @@ skyfork/
 │   │   │   └── RecoveryManager.ts # Проверки при старте (lock, journal, rebase)
 │   │   ├── state/
 │   │   │   ├── StateManager.ts    # Единый источник состояния, мульти-репо
-│   │   │   └── FileWatcher.ts     # Наблюдатель за файлами (chokidar, debounce 300ms)
+│   │   │   └── FileWatcher.ts     # Per-repo chokidar watcher'ы (debounce: git 120ms, worktree 150ms)
 │   │   └── utils/
 │   │       ├── Logger.ts          # Асинхронное файловое логирование (WriteStream)
 │   │       └── pathSecurity.ts    # Защита от path traversal + symlink + Windows case-insensitive
@@ -181,7 +181,7 @@ skyfork/
 │       ├── package.json
 │       └── vite.config.ts
 │
-├── tests/                         # Тесты (Vitest, 208 тестов)
+├── tests/                         # Тесты (Vitest, ~220 тестов в 25 файлах)
 │   ├── git/                       # Парсеры, менеджеры (GitExecutor, RebaseManager, ...)
 │   ├── commands/                  # writeCommands, ConflictManager
 │   ├── utils/                     # pathSecurity
@@ -195,7 +195,6 @@ skyfork/
 │   ├── features.md                # Список возможностей
 │   ├── contributing.md            # Руководство по контрибьюции
 │   ├── testing.md                 # Тестирование (Vitest)
-│   ├── ru/                        # Русские переводы
 │   └── ru/                        # Русские переводы
 │
 ├── dist/                          # Результат сборки
@@ -287,7 +286,7 @@ skyfork/
 
 ## Статус
 
-Версия 0.1.0. Бэкенд и UI функционально готовы для MVP. **208** юнит-тестов (Vitest), ESLint + Prettier, CI через GitHub Actions. Не протестирован в production.
+Версия 0.1.0. Бэкенд и UI функционально готовы для MVP. **~220** юнит-тестов в 25 файлах (Vitest), ESLint + Prettier, CI через GitHub Actions. Не протестирован в production.
 
 ## Лицензия
 

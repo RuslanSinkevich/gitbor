@@ -54,7 +54,7 @@ User clicks button in React
 | **MessageBridge** | Electron IPC: принимает `RendererCommand`, передаёт в `CommandHandler`, шлёт `MainEvent` в renderer. Строгая типизация через mapped types. |
 | **OperationQueue** | Read-операции могут идти параллельно; write — сериализованы. |
 | **SafetyNet** | Авто-stash перед рискованными операциями; откат при сбое. |
-| **FileWatcher** | `chokidar` на `.git` и рабочее дерево (два отдельных watcher-а); обновление состояния. |
+| **FileWatcher** | Per-repo `chokidar` watcher'ы (git dir + worktree, создаются лениво через `setImmediate`). `switchRepo` только переключает `activeRepoPath` — O(1), без повторного scan'а. События от неактивных репо игнорируются; обновление идёт через `StateManager.switchRepo`. Debounce: 120мс для `.git`, 150мс для worktree. |
 | **Logger** | Асинхронное логирование через `WriteStream` (без блокировки event loop). |
 | **SshKeyManager** | Список, генерация, удаление SSH-ключей в `~/.ssh/`. Двухшаговая генерация (пароль не в argv). |
 | **ReflogParser** | Парсит вывод `git reflog` в структурированные записи. |

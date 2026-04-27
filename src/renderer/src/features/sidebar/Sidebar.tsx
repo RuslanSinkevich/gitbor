@@ -97,6 +97,23 @@ export function Sidebar({
   const filteredTags = useMemo(() => lf ? tags.filter(tg => tg.name.toLowerCase().includes(lf)) : tags, [tags, lf]);
 
   const localTree = useMemo(() => buildBranchTree(filteredLocal), [filteredLocal]);
+
+  // На больших репо (сотни remote-branches за 5 лет) buildBranchTree +
+  // sortBranchTreeNodes с localeCompare — десятки/сотни мс. Строим дерево
+  // ТОЛЬКО когда секция remotes раскрыта; свёрнутая секция не платит
+  // за вычисления. И мемоизируем по входам — без этого рендер Sidebar на
+  // каждый setState (а он прилетает часто) перестраивал дерево заново.
+  const remoteEntries = useMemo(() => {
+    if (!sections.remotes) return [];
+    return remotes.map(remote => {
+      const prefix = remote.name + '/';
+      const remoteBranchesForRemote = filteredRemote.filter(b => b.name.startsWith(prefix));
+      const remoteTree = buildBranchTree(remoteBranchesForRemote, prefix);
+      const remoteBranchSig = remoteBranchesForRemote.map(b => b.name).join('\n');
+      return { remote, remoteTree, remoteBranchSig };
+    });
+  }, [remotes, filteredRemote, sections.remotes]);
+
   const totalChanges = stagedCount + unstagedCount;
 
   return (
@@ -126,16 +143,11 @@ export function Sidebar({
 
       <SidebarSection title={loc.sidebar.remotes} icon={ICONS.remote} count={remotes.length} expanded={sections.remotes} onToggle={() => toggleSection('remotes')}>
         {remotes.length === 0 && <div className={s.emptySection}>{loc.sidebar.noRemotes}</div>}
-        {remotes.map(remote => {
-          const remoteBranchesForRemote = filteredRemote.filter(b => b.name.startsWith(remote.name + '/'));
-          const remoteTree = buildBranchTree(remoteBranchesForRemote, remote.name + '/');
-          const remoteBranchSig = remoteBranchesForRemote.map(b => b.name).join('\n');
-          return (
-            <RemoteFolder key={remote.name} repoPath={repoPath} remote={remote} tree={remoteTree} remoteBranchSig={remoteBranchSig}
-              currentBranch={currentBranch}
-              loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
-          );
-        })}
+        {remoteEntries.map(({ remote, remoteTree, remoteBranchSig }) => (
+          <RemoteFolder key={remote.name} repoPath={repoPath} remote={remote} tree={remoteTree} remoteBranchSig={remoteBranchSig}
+            currentBranch={currentBranch}
+            loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
+        ))}
       </SidebarSection>
 
       <SidebarSection title={loc.sidebar.tags} icon={ICONS.tag} count={filteredTags.length} expanded={sections.tags} onToggle={() => toggleSection('tags')}>

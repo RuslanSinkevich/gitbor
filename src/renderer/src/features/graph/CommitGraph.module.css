@@ -48,14 +48,23 @@
 
 .body {
   flex: 1;
-  overflow-y: auto;
+  /* scroll вместо auto — не даёт скроллбару появляться/исчезать
+     при смене totalHeight между репо: layout shift ~17px ощущается
+     как «дёрг» даже при быстром рендере. */
+  overflow-y: scroll;
   overflow-x: hidden;
   position: relative;
+  /* Изолируем внутренний layout/paint: при смене контента
+     браузер не пересчитывает весь документ. */
+  contain: strict;
 }
 
 .scroll {
   position: relative;
   min-width: 100%;
+  /* Скроллируемая область может быть ~400000px на больших репо —
+     без изоляции GPU compositor тратит ресурсы на огромный layer. */
+  contain: layout paint style;
 }
 
 .graphSvg {
@@ -75,7 +84,7 @@
   align-items: center;
   cursor: pointer;
   z-index: 1;
-  transition: background 60ms;
+  contain: layout paint style;
 }
 
 .row:hover {

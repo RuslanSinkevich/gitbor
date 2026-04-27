@@ -36,7 +36,8 @@
   white-space: nowrap;
   max-width: 200px;
   min-width: 80px;
-  transition: all var(--sg-transition);
+  /* Без transition: активный таб должен подсвечиваться МГНОВЕННО в момент
+     клика, иначе 150мс-анимация фона читается мозгом как «тормоз». */
   position: relative;
 }
 

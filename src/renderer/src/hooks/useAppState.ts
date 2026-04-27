@@ -1,7 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { AppState, CommitDetail, MergeState, MainEvent, RebaseProgress, RecoveryIssue } from '../types';
 import { sendReady, postCommand, onMainEvent } from '../api';
 import { setLang } from '../i18n';
+
+interface RepoUiSnapshot {
+  commits: AppState['commits'];
+  graphLayout: AppState['graphLayout'];
+}
 
 export interface OpenDiffEvent { file: string; hash: string }
 export interface OpenMergeEditorEvent { file: string }
@@ -40,6 +45,10 @@ export function useAppState() {
   const [pendingOpenMergeEditor, setPendingOpenMergeEditor] = useState<OpenMergeEditorEvent | null>(null);
   const [lastOpResult, setLastOpResult] = useState<OperationResult | null>(null);
 
+  // UI-кэш графа по repoPath. Когда приходит graphData от main — запоминаем,
+  // при клике на таб мгновенно применяем из кэша (как Fork) не дожидаясь IPC.
+  const repoUiCache = useRef<Map<string, RepoUiSnapshot>>(new Map());
+
   useEffect(() => {
     const unsubscribe = onMainEvent((msg: MainEvent) => {
       switch (msg.type) {
@@ -57,13 +66,44 @@ export function useAppState() {
             return prev;
           });
           break;
-        case 'graphData':
-          setState(prev => ({
-            ...prev,
-            commits: msg.data.commits,
-            graphLayout: msg.data.layout,
-          }));
+        case 'graphData': {
+          setState(prev => {
+            const repoPath = prev.repoPath;
+            const incomingCommits = msg.data.commits;
+            const incomingLayout = msg.data.layout;
+
+            if (!repoPath) {
+              return { ...prev, commits: incomingCommits, graphLayout: incomingLayout };
+            }
+
+            // Dedup: если пришли ровно те же данные что уже в кэше этого репо —
+            // переиспользуем старые ссылки. Без этого React каждый раз считает
+            // commits/graphLayout «новыми», и CommitGraph пересчитывает
+            // groupBranchPaths() для 15k коммитов (~100-150ms блок main thread).
+            const cached = repoUiCache.current.get(repoPath);
+            const sameAsCached =
+              cached &&
+              cached.commits.length === incomingCommits.length &&
+              cached.graphLayout.nodes.length === incomingLayout.nodes.length &&
+              cached.commits[0]?.hash === incomingCommits[0]?.hash &&
+              cached.commits[cached.commits.length - 1]?.hash ===
+                incomingCommits[incomingCommits.length - 1]?.hash;
+
+            if (sameAsCached && cached) {
+              if (prev.commits === cached.commits && prev.graphLayout === cached.graphLayout) {
+                return prev;
+              }
+              return { ...prev, commits: cached.commits, graphLayout: cached.graphLayout };
+            }
+
+            repoUiCache.current.set(repoPath, {
+              commits: incomingCommits,
+              graphLayout: incomingLayout,
+            });
+            return { ...prev, commits: incomingCommits, graphLayout: incomingLayout };
+          });
           break;
+        }
         case 'operationStart':
           setState(prev => ({
             ...prev,
@@ -104,6 +144,9 @@ export function useAppState() {
         case 'openMergeEditor':
           setPendingOpenMergeEditor({ file: msg.file });
           break;
+        case 'repoClosed':
+          repoUiCache.current.delete(msg.path);
+          break;
         case 'error':
           setError(msg.message);
           break;
@@ -123,6 +166,30 @@ export function useAppState() {
     }
   }, []);
 
+  /**
+   * Мгновенное переключение таба. Берём кэшированный снапшот графа из памяти
+   * renderer'а (repoUiCache) и применяем сразу — пользователь видит новый
+   * репо не дожидаясь IPC-ответа main'а. Когда main пришлёт свежий graphData,
+   * setState аккуратно перепишет. Если кэша нет (первое открытие репо) —
+   * обнуляем commits/layout чтобы UI не показывал "залипшую" историю чужого.
+   */
+  const switchRepoFast = useCallback((index: number) => {
+    setState(prev => {
+      if (prev.activeRepoIndex === index) return prev;
+      const newPath = prev.openRepos[index]?.path;
+      const cached = newPath ? repoUiCache.current.get(newPath) : undefined;
+      return {
+        ...prev,
+        activeRepoIndex: index,
+        selectedCommitHash: null,
+        commits: cached?.commits ?? [],
+        graphLayout: cached?.graphLayout ?? { nodes: [], maxColumns: 0, mergeLinks: [] },
+      };
+    });
+    setCommitDetail(null);
+    postCommand({ type: 'switchRepo', index });
+  }, []);
+
   const clearError = useCallback(() => setError(null), []);
   const [viewOverride, setViewOverride] = useState<'changes' | 'commits' | null>(null);
   const clearViewOverride = useCallback(() => setViewOverride(null), []);
@@ -139,5 +206,6 @@ export function useAppState() {
     pendingOpenDiff, clearPendingOpenDiff,
     pendingOpenMergeEditor, clearPendingOpenMergeEditor,
     lastOpResult, clearLastOpResult,
+    switchRepoFast,
   };
 }

@@ -15,6 +15,23 @@ export function useVirtualScroll(totalCount: number) {
     setVisibleRange(prev => (prev.start === start && prev.end === end) ? prev : { start, end });
   }, [totalCount]);
 
+  // Clamp scroll при уменьшении списка. Без этого при переходе с большого
+  // репо (15k коммитов, scrollTop=50000) на маленький (39 коммитов, totalHeight
+  // ~1090px) расчёт даёт start=1785, end=39 → пустой visibleCommits на один
+  // кадр, пока браузер сам не клэмпнет scrollTop. Визуально это и есть тот
+  // «скачок» при переходе большой→маленький.
+  const prevTotalRef = useRef(totalCount);
+  useEffect(() => {
+    if (prevTotalRef.current !== totalCount) {
+      const el = bodyRef.current;
+      if (el) {
+        const maxScroll = Math.max(0, totalCount * ROW_HEIGHT - el.clientHeight);
+        if (el.scrollTop > maxScroll) el.scrollTop = maxScroll;
+      }
+      prevTotalRef.current = totalCount;
+    }
+  }, [totalCount]);
+
   useEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
@@ -27,7 +44,11 @@ export function useVirtualScroll(totalCount: number) {
     const el = bodyRef.current;
     if (!el) return;
     const targetY = row * ROW_HEIGHT - el.clientHeight / 2 + ROW_HEIGHT / 2;
-    el.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+    // Instant вместо smooth: smooth-scroll к далёкому коммиту занимает
+    // 500-1500мс анимации (это именно те длинные полосы в Performance
+    // Animations-треке, которые читаются как «тормоз» при переключении
+    // между репо, если у другого репо сохранён selectedCommitHash).
+    el.scrollTop = Math.max(0, targetY);
   }, []);
 
   return { bodyRef, visibleRange, scrollToRow };

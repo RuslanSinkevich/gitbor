@@ -105,7 +105,18 @@ async function initServices(): Promise<void> {
   fileWatcher = new FileWatcher(stateManager);
 
   stateManager.onRepoSwitch((repoPath) => {
+    // switchRepo теперь O(1): только меняет активный путь, watcher для репо
+    // живёт с момента первого открытия до закрытия приложения. Это убрало
+    // «тормоз переключения большой→маленький», который был вызван
+    // chokidar.close() + рекурсивным scan'ом нового worktree на каждый клик.
     fileWatcher?.switchRepo(repoPath);
+  });
+
+  stateManager.onRepoClose((closedPath) => {
+    // Закрываем watcher'ы закрытого репо — иначе они висят до конца сессии
+    // и жрут FD (на Windows особенно критично при чередовании открытий).
+    fileWatcher?.removeRepo(closedPath);
+    messageBridge?.cleanupRepo(closedPath);
   });
 
   queue.onStatusChange((running, operation) => {

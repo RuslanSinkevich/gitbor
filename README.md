@@ -2,7 +2,7 @@
 
 > Русская версия: [docs/ru/](docs/ru/)
 
-Free, open-source, cross-platform desktop Git client built on Electron. A Fork/GitKraken/SourceTree alternative.
+Free cross-platform desktop Git client built on Electron. A Fork/GitKraken/SourceTree alternative. Source is MIT-licensed but the repository is not publicly hosted.
 
 Part of the Sky Platform ecosystem.
 
@@ -130,7 +130,7 @@ skyfork/
 │   │   │   └── RecoveryManager.ts # Startup checks (locks, journal, rebase)
 │   │   ├── state/
 │   │   │   ├── StateManager.ts    # Single source of truth, multi-repo
-│   │   │   └── FileWatcher.ts     # File watcher (chokidar, debounce 300ms)
+│   │   │   └── FileWatcher.ts     # Per-repo chokidar watchers (git: 120ms, worktree: 150ms debounce)
 │   │   └── utils/
 │   │       ├── Logger.ts          # File logging
 │   │       └── pathSecurity.ts    # Path traversal protection (safePath, isSafeFilename)
@@ -189,7 +189,6 @@ skyfork/
 │   ├── features.md                # Feature list
 │   ├── contributing.md            # Contributing guide
 │   ├── testing.md                 # Testing (Vitest)
-│   ├── ru/                        # Russian translations
 │   └── ru/                        # Russian translations
 │
 ├── dist/                          # Build output
@@ -276,7 +275,7 @@ Russian translations: [`docs/ru/`](docs/ru/)
 
 ## Status
 
-Version 0.1.0. Backend and UI feature-complete for MVP. 208 unit tests (Vitest). ESLint + Prettier configured. CI via GitHub Actions. Not production-tested.
+Version 0.1.0. Backend and UI feature-complete for MVP. ~220 unit tests across 25 files (Vitest). ESLint + Prettier configured. CI via GitHub Actions. Not production-tested.
 
 ## License
 

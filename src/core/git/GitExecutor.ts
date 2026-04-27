@@ -176,11 +176,13 @@ export class GitExecutor {
     return sanitized.join(' ');
   }
 
-  killAll(): void {
+  killAll(): number {
+    const count = this.activeProcesses.size;
     for (const proc of this.activeProcesses) {
       proc.kill('SIGTERM');
     }
     this.activeProcesses.clear();
+    return count;
   }
 
   setCwd(cwd: string): void {

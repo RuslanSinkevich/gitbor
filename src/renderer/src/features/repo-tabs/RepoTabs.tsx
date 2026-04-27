@@ -10,9 +10,10 @@ interface Props {
   repos: RepoInfo[];
   activeIndex: number;
   hasChanges?: boolean;
+  onSwitch?: (index: number) => void;
 }
 
-export function RepoTabs({ repos, activeIndex, hasChanges }: Props) {
+export function RepoTabs({ repos, activeIndex, hasChanges, onSwitch }: Props) {
   const loc = t();
   const [ctx, setCtx] = useState<{ x: number; y: number; items: SgContextMenuItem[] } | null>(null);
 
@@ -43,7 +44,7 @@ export function RepoTabs({ repos, activeIndex, hasChanges }: Props) {
           <div
             key={repo.path}
             className={`${s.tab} ${i === activeIndex ? s.tabActive : ''}`}
-            onClick={() => postCommand({ type: 'switchRepo', index: i })}
+            onClick={() => onSwitch ? onSwitch(i) : postCommand({ type: 'switchRepo', index: i })}
             onContextMenu={(e) => handleContext(e, i)}
             title={repo.path}
           >

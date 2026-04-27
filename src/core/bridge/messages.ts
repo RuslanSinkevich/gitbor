@@ -214,6 +214,7 @@ export type MainEvent =
   | { type: 'gitActivityAdded'; entry: GitActivityEntry }
   | { type: 'gitActivityUpdated'; entry: GitActivityEntry }
   | { type: 'gitActivityCleared' }
+  | { type: 'repoClosed'; path: string }
   | { type: 'error'; message: string };
 
 export interface DayCommitEntry {

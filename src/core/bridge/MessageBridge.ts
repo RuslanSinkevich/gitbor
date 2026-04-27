@@ -4,6 +4,7 @@ import { StateManager } from '../state/StateManager';
 import { RendererCommand, MainEvent } from './messages';
 import { gitActivityStore } from '../activity/GitActivityStore';
 import { runWithActivity } from '../activity/activityContext';
+import { perfLog, approxJsonSize } from '../utils/perf';
 
 type CmdOf<K extends RendererCommand['type']> = Extract<RendererCommand, { type: K }>;
 
@@ -485,8 +486,20 @@ export class MessageBridge {
   private window: BrowserWindow | null = null;
   private unsubscribeState: (() => void) | null = null;
   private unsubscribeActivity: (() => void) | null = null;
-  private lastCommitsRef: ReturnType<StateManager['getState']>['commits'] | null = null;
-  private lastGraphLayoutRef: ReturnType<StateManager['getState']>['graphLayout'] | null = null;
+  /**
+   * Per-repo дедуп отправленного графа. Без него switchRepo A→B→A шлёт
+   * весь graphData для каждого репо на каждое переключение (в MainProcess
+   * applyRepoSnapshot создаёт «новую» ссылку, хотя данные идентичны).
+   * При быстром туда-сюда 3-10 MB JSON'а в IPC-очереди накапливаются
+   * и видятся пользователем как «тормоз» — IPC backlog блокирует
+   * следующие сообщения. Храним пары commits/layout по repoPath;
+   * если пришёл notify с тем же reference что мы уже слали для этого
+   * репо — не шлём повторно. Renderer уже имеет данные в repoUiCache.
+   */
+  private sentGraphByRepo = new Map<string, {
+    commits: ReturnType<StateManager['getState']>['commits'];
+    layout: ReturnType<StateManager['getState']>['graphLayout'];
+  }>();
 
   constructor(
     private readonly commandHandler: CommandHandler,
@@ -510,17 +523,30 @@ export class MessageBridge {
       const { commits, graphLayout, ...lightState } = state;
       this.send({ type: 'stateUpdate', data: lightState });
 
-      if (this.lastCommitsRef !== commits || this.lastGraphLayoutRef !== graphLayout) {
-        this.lastCommitsRef = commits;
-        this.lastGraphLayoutRef = graphLayout;
-        this.send({
-          type: 'graphData',
-          data: {
-            commits,
-            layout: graphLayout,
-          },
-        });
+      const repoPath = state.repoPath;
+      if (!repoPath) return;
+
+      // Дедуп по repoPath: если для этого репо мы уже слали ровно эти
+      // ссылки на commits/layout — не гоним 3-10 MB снова через IPC.
+      const sent = this.sentGraphByRepo.get(repoPath);
+      if (sent && sent.commits === commits && sent.layout === graphLayout) {
+        return;
       }
+      this.sentGraphByRepo.set(repoPath, { commits, layout: graphLayout });
+
+      const payload: MainEvent = {
+        type: 'graphData',
+        data: { commits, layout: graphLayout },
+      };
+      const size = approxJsonSize(payload.data);
+      perfLog('IPC.graphData.send', {
+        repo: repoPath,
+        commits: commits.length,
+        nodes: graphLayout.nodes.length,
+        bytes: size,
+        mb: (size / 1024 / 1024).toFixed(2),
+      });
+      this.send(payload);
     });
 
     ipcMain.handle('skyfork:command', (_event, command: unknown) => {
@@ -538,6 +564,16 @@ export class MessageBridge {
     }
   }
 
+  /**
+   * Освободить ссылки на данные закрытого репо и сообщить renderer,
+   * чтобы тот очистил свой repoUiCache. Без этого — утечка массивов
+   * commits/layout на сессию (минорно, но для долгих сессий копится).
+   */
+  cleanupRepo(closedPath: string): void {
+    this.sentGraphByRepo.delete(closedPath);
+    this.send({ type: 'repoClosed', path: closedPath });
+  }
+
   dispose(): void {
     if (this.unsubscribeState) {
       this.unsubscribeState();
@@ -548,8 +584,7 @@ export class MessageBridge {
       this.unsubscribeActivity = null;
     }
     ipcMain.removeHandler('skyfork:command');
-    this.lastCommitsRef = null;
-    this.lastGraphLayoutRef = null;
+    this.sentGraphByRepo.clear();
     this.window = null;
   }
 

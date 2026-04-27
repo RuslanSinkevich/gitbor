@@ -59,7 +59,11 @@ tests/
 │
 ├── commands/
 │   ├── writeCommands.test.ts     # stageFile (--), commit, push, initRepo, checkout, clone
+│   ├── readCommands.test.ts      # log, status, branches, tags, stashes, remotes
 │   └── ConflictManager.test.ts   # completeMerge, resolveWithOurs/Theirs, merge, predictConflicts
+│
+├── state/
+│   └── StateManager.test.ts      # Multi-repo snapshots, tokens, listeners
 │
 ├── utils/
 │   └── pathSecurity.test.ts      # safePath traversal, isSafeFilename validation
@@ -261,13 +265,14 @@ Modules: `src/renderer/src/i18n/en.ts`, `src/renderer/src/i18n/ru.ts`
 | Git parsers | GitParser, DiffParser, ConflictParser, ReflogParser, BlameParser, SubmoduleParser, FileHistoryParser | ~90 |
 | Graph | GraphLayout | ~5 |
 | Git managers | WorktreeManager, GitExecutor (sanitizeArgs), RebaseManager | ~18 |
-| Commands | writeCommands, ConflictManager | ~20 |
+| Commands | writeCommands, readCommands, ConflictManager | ~32 |
 | Utils | pathSecurity (safePath, isSafeFilename) | ~9 |
 | Safety | OperationQueue, AtomicWrite, OperationJournal | ~16 |
 | i18n | Key completeness en↔ru, tpl | ~15 |
 | Managers | BisectManager, HooksManager, LfsManager (contracts) | ~10 |
-| IPC | RendererCommand, MainEvent type contracts | ~10 |
-| **Total** | **23 files** | **208** |
+| State | StateManager (multi-repo snapshots, tokens) | ~4 |
+| IPC | RendererCommand, MainEvent type contracts | ~11 |
+| **Total** | **25 files** | **~220** |
 
 ---
 
@@ -358,7 +363,7 @@ steps:
   - npm run lint                        # ESLint check
   - npx tsc -p tsconfig.main.json       # TypeScript check (main + core)
   - npx tsc -b (src/renderer)           # TypeScript check (renderer)
-  - npm test                            # Vitest (208 tests)
+  - npm test                            # Vitest (~220 tests)
   - npm run build:renderer              # Vite build
   - npm run build:main                  # tsc main process
 ```

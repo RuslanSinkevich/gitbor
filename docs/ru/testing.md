@@ -59,7 +59,11 @@ tests/
 │
 ├── commands/
 │   ├── writeCommands.test.ts     # stageFile (--), commit, push, initRepo, checkout, clone
+│   ├── readCommands.test.ts      # log, status, branches, tags, stashes, remotes
 │   └── ConflictManager.test.ts   # completeMerge, resolveWithOurs/Theirs, merge, predictConflicts
+│
+├── state/
+│   └── StateManager.test.ts      # Мульти-репо снимки, токены, подписчики
 │
 ├── utils/
 │   └── pathSecurity.test.ts      # safePath traversal, isSafeFilename
@@ -96,7 +100,7 @@ tests/
 | `parseStatus` | Staged/unstaged модификации, `MM` (обе), untracked (`??`), staged add (`A`), delete (`D`), конфликты (`UU`, `AA`), несколько файлов |
 | `parseFileChanges` | Модификация, добавление, удаление, переименование (`R100`), копирование (`C100`) |
 
-**208 тестов / 23 файла — всё зелёное.**
+**~220 тестов / 25 файлов — всё зелёное.**
 
 ### 2. DiffParser (`tests/git/DiffParser.test.ts`)
 
@@ -342,13 +346,14 @@ npx vitest run tests/git/MyNewParser.test.ts
 | Git-парсеры | GitParser, DiffParser, ConflictParser, ReflogParser, BlameParser, SubmoduleParser, FileHistoryParser | ~90 |
 | Граф | GraphLayout | ~5 |
 | Git-менеджеры | WorktreeManager, GitExecutor (sanitizeArgs), RebaseManager | ~18 |
-| Команды | writeCommands, ConflictManager | ~20 |
-| Утилиты | pathSecurity (safePath, isSafeFilename) | ~9 |
-| Safety | OperationQueue, AtomicWrite, OperationJournal | ~16 |
-| i18n | Полнота ключей en↔ru, tpl | ~15 |
-| Менеджеры | BisectManager, HooksManager, LfsManager (контракты) | ~10 |
-| IPC | RendererCommand, MainEvent типы-контракты | ~10 |
-| **Итого** | **23 файла** | **208** |
+| Команды | writeCommands, readCommands, ConflictManager | ~32 |
+| Утилиты | pathSecurity (safePath, isSafeFilename) | ~14 |
+| Safety | OperationQueue, AtomicWrite, OperationJournal | ~23 |
+| i18n | Полнота ключей en↔ru, tpl | ~14 |
+| Менеджеры | BisectManager, HooksManager, LfsManager (контракты) | ~6 |
+| State | StateManager (мульти-репо снимки, токены) | ~4 |
+| IPC | RendererCommand, MainEvent типы-контракты | ~11 |
+| **Итого** | **25 файлов** | **~220** |
 
 ---
 
@@ -415,7 +420,7 @@ steps:
   - npm run lint                        # ESLint проверка
   - npx tsc -p tsconfig.main.json       # TypeScript (main + core)
   - npx tsc -b (src/renderer)           # TypeScript (renderer)
-  - npm test                            # Vitest (208 тестов)
+  - npm test                            # Vitest (~220 тестов)
   - npm run build:renderer              # Vite сборка
   - npm run build:main                  # tsc main process
 ```

@@ -1,14 +1,57 @@
-import { useRef, useEffect, useCallback, useMemo, type KeyboardEvent as ReactKBEvent } from 'react';
+import { memo, useRef, useEffect, useCallback, useMemo, type KeyboardEvent as ReactKBEvent } from 'react';
 import { t } from '../../i18n';
 import type { Commit, GraphNode, MergeLink } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { ROW_HEIGHT, COL_WIDTH, LEFT_PAD, NODE_RADIUS, MERGE_RADIUS, DESC_PAD, colX, formatCommitDate } from './graphConstants';
 import { getCommitMenuItems, type ShowPrompt, type OnRebase } from './commitMenuItems';
-import { groupBranchPaths, getNodeCircles, getMergeLinkPaths } from './branchPaths';
+import { groupBranchPaths, getNodeCircles, getMergeLinkPaths, type BranchPathData, type NodeCircle } from './branchPaths';
 import { GpgBadge } from './GpgBadge';
 import { useVirtualScroll } from './useVirtualScroll';
 import { useGraphSearch } from './useGraphSearch';
 import s from './CommitGraph.module.css';
+
+/**
+ * Мульти-entry кэш по identity массива nodes/commits. useMemo в React хранит
+ * только одно последнее значение — при цикле "большой → маленький → большой"
+ * он каждый раз пересчитывает groupBranchPaths(15k) = 100-150мс. WeakMap по
+ * ссылке даёт O(1) выдачу и сам чистит память, когда репо закрыт.
+ */
+const branchPathsByNodes = new WeakMap<GraphNode[], BranchPathData[]>();
+const nodeCirclesByNodes = new WeakMap<GraphNode[], NodeCircle[]>();
+const rowMetaByNodes = new WeakMap<GraphNode[], { rightEdge: number; color: string }[]>();
+
+function getOrComputeBranchPaths(nodes: GraphNode[]): BranchPathData[] {
+  const cached = branchPathsByNodes.get(nodes);
+  if (cached) return cached;
+  const result = groupBranchPaths(nodes);
+  branchPathsByNodes.set(nodes, result);
+  return result;
+}
+
+function getOrComputeNodeCircles(nodes: GraphNode[], commits: Commit[]): NodeCircle[] {
+  const cached = nodeCirclesByNodes.get(nodes);
+  if (cached) return cached;
+  const result = getNodeCircles(nodes, commits);
+  nodeCirclesByNodes.set(nodes, result);
+  return result;
+}
+
+function getOrComputeRowMeta(nodes: GraphNode[], commitsLen: number): { rightEdge: number; color: string }[] {
+  const cached = rowMetaByNodes.get(nodes);
+  if (cached) return cached;
+  const meta = new Array<{ rightEdge: number; color: string }>(commitsLen);
+  for (let i = 0; i < commitsLen; i++) meta[i] = { rightEdge: 0, color: '#888' };
+  for (const node of nodes) {
+    let maxCol = node.column;
+    for (const conn of node.connections) {
+      if (conn.fromCol > maxCol) maxCol = conn.fromCol;
+      if (conn.toCol > maxCol) maxCol = conn.toCol;
+    }
+    meta[node.commitIndex] = { rightEdge: maxCol, color: node.color };
+  }
+  rowMetaByNodes.set(nodes, meta);
+  return meta;
+}
 
 interface Props {
   commits: Commit[];
@@ -27,7 +70,7 @@ interface Props {
   onCompareTo?: (from: string, to: string) => void;
 }
 
-export function CommitGraph({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, currentBranch, onContextMenu, showPrompt, onRebase, onLoadMore, compareFrom, onCompareFrom, onCompareTo }: Props) {
+function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, currentBranch, onContextMenu, showPrompt, onRebase, onLoadMore, compareFrom, onCompareFrom, onCompareTo }: Props) {
   const loc = t();
   const graphWidth = LEFT_PAD * 2 + (maxColumns + 1) * COL_WIDTH + 12;
   const totalHeight = commits.length * ROW_HEIGHT;
@@ -52,28 +95,16 @@ export function CommitGraph({ commits, graphNodes, maxColumns, mergeLinks, selec
     prevSelectedRef.current = selectedHash;
   }, [selectedHash, commits, scrollToRow, hashMatch, onLoadMore]);
 
-  const allBranchPaths = useMemo(() => groupBranchPaths(graphNodes), [graphNodes]);
+  const allBranchPaths = useMemo(() => getOrComputeBranchPaths(graphNodes), [graphNodes]);
   const allMergePaths = useMemo(() => getMergeLinkPaths(mergeLinks), [mergeLinks]);
-  const allNodeCircles = useMemo(() => getNodeCircles(graphNodes, commits), [graphNodes, commits]);
+  const allNodeCircles = useMemo(() => getOrComputeNodeCircles(graphNodes, commits), [graphNodes, commits]);
 
   const bgColor = useMemo(() => {
     if (typeof document === 'undefined') return '#1e1e1e';
     return getComputedStyle(document.body).getPropertyValue('--sg-background').trim() || '#1e1e1e';
   }, []);
 
-  const rowMeta = useMemo(() => {
-    const meta = new Array<{ rightEdge: number; color: string }>(commits.length);
-    for (let i = 0; i < commits.length; i++) meta[i] = { rightEdge: 0, color: '#888' };
-    for (const node of graphNodes) {
-      let maxCol = node.column;
-      for (const conn of node.connections) {
-        if (conn.fromCol > maxCol) maxCol = conn.fromCol;
-        if (conn.toCol > maxCol) maxCol = conn.toCol;
-      }
-      meta[node.commitIndex] = { rightEdge: maxCol, color: node.color };
-    }
-    return meta;
-  }, [graphNodes, commits.length]);
+  const rowMeta = useMemo(() => getOrComputeRowMeta(graphNodes, commits.length), [graphNodes, commits.length]);
 
   const svgTop = visibleRange.start * ROW_HEIGHT;
   const svgBottom = visibleRange.end * ROW_HEIGHT;
@@ -180,3 +211,22 @@ export function CommitGraph({ commits, graphNodes, maxColumns, mergeLinks, selec
     </div>
   );
 }
+
+/**
+ * Мемоизация по identity важных данных. Любой setState в App (branches/tags/
+ * operationRunning/...) триггерит ре-рендер CommitGraph, даже если commits и
+ * graphNodes — те же ссылки. Reconciliation 50 visibleCommits + SVG-path'ов
+ * — это ~15-30мс × N setState'ов подряд после switchRepo. Compare только по
+ * данным: коллбэки не влияют на видимый DOM, их closures обновятся на
+ * следующем нужном рендере. Если что-то из рендер-критичных пропсов
+ * поменялось — мемо отдаст свежую картинку.
+ */
+export const CommitGraph = memo(CommitGraphImpl, (prev, next) => (
+  prev.commits === next.commits &&
+  prev.graphNodes === next.graphNodes &&
+  prev.maxColumns === next.maxColumns &&
+  prev.mergeLinks === next.mergeLinks &&
+  prev.selectedHash === next.selectedHash &&
+  prev.currentBranch === next.currentBranch &&
+  prev.compareFrom === next.compareFrom
+));

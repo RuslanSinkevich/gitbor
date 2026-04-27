@@ -52,7 +52,7 @@ Modules under `src/core/`:
 | **MessageBridge** | Electron IPC: accepts `RendererCommand`, dispatches to `CommandHandler`, emits `MainEvent` to the renderer. Strictly typed via mapped types. |
 | **OperationQueue** | Read ops may run in parallel; write ops are serialized. |
 | **SafetyNet** | Auto-stash before risky operations; rollback paths on failure. |
-| **FileWatcher** | `chokidar` on `.git` and the working tree (separate watchers); triggers state refresh. |
+| **FileWatcher** | Per-repo `chokidar` watchers (git dir + worktree, created lazily via `setImmediate`). `switchRepo` only flips `activeRepoPath` — O(1), no re-scan. Events from inactive repos are ignored; refresh happens through `StateManager.switchRepo`. Debounce: 120ms for `.git`, 150ms for worktree. |
 | **Logger** | Async file logging via `WriteStream` (non-blocking). |
 | **SshKeyManager** | Lists, generates, deletes SSH keys in `~/.ssh/`. Two-step passphrase generation (no passphrase in argv). |
 | **ReflogParser** | Parses `git reflog` output into structured entries. |

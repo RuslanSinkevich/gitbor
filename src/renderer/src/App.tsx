@@ -37,6 +37,7 @@ export function App() {
     pendingOpenDiff, clearPendingOpenDiff,
     pendingOpenMergeEditor, clearPendingOpenMergeEditor,
     lastOpResult, clearLastOpResult,
+    switchRepoFast,
   } = useAppState();
 
   const { theme, toggleTheme } = useTheme();
@@ -217,7 +218,7 @@ export function App() {
 
       {page === 'app' && (
         <>
-          <RepoTabs repos={state.openRepos} activeIndex={state.activeRepoIndex} hasChanges={stagedCount + unstagedCount > 0} />
+          <RepoTabs repos={state.openRepos} activeIndex={state.activeRepoIndex} hasChanges={stagedCount + unstagedCount > 0} onSwitch={switchRepoFast} />
 
           {hasRepo && (
             <Toolbar

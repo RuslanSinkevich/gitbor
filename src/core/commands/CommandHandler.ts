@@ -398,9 +398,16 @@ export class CommandHandler {
   async closeRepo(index: number): Promise<void> {
     const s = this.state.getState();
     if (index < 0 || index >= s.openRepos.length) return;
+    const closedPath = s.openRepos[index].path;
     const repos = [...s.openRepos];
     repos.splice(index, 1);
     this.state.setOpenRepos(repos);
+
+    // Нотификация ДО возможного switchRepo, чтобы FileWatcher закрыл
+    // watcher'ы закрытого репо, а MessageBridge и прочие слушатели
+    // освободили ссылки на его данные. Без этого — утечка FD / памяти
+    // на сессию, пропорциональная количеству закрытых табов.
+    this.state.notifyRepoClose(closedPath);
 
     if (repos.length === 0) {
       this.state.clearRepo();

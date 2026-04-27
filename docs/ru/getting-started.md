@@ -30,7 +30,7 @@ Vite отдаёт React renderer. `tsc` собирает TypeScript main process
 | Путь | Назначение |
 |------|------------|
 | `src/core/` | Backend main process: `git/`, `commands/`, `bridge/`, `safety/`, `state/`, `ssh/`, `utils/` |
-| `src/main/` | Точка входа Electron: `main.ts`, `menu.ts`, `i18n/` |
+| `src/main/` | Точка входа Electron: `main.ts`, `i18n/` |
 | `src/preload/` | `contextBridge` — `index.ts` |
 | `src/renderer/` | React UI: `features/`, `hooks/`, `ui/`, `api.ts`, `types/`, `i18n/`, `styles/` |
 | `tests/` | Тесты (Vitest): `git/`, `commands/`, `utils/`, `safety/`, `bridge/`, `i18n/` |
