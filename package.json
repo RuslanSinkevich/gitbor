@@ -2,7 +2,7 @@
   "name": "skyfork",
   "productName": "SkyFork",
   "version": "0.1.0",
-  "description": "Desktop Git client — free, open source, cross-platform",
+  "description": "Cross-platform desktop Git client",
   "author": "Skycode",
   "license": "MIT",
   "main": "dist/main/main.js",
