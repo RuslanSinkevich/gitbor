@@ -108,7 +108,7 @@ const handlers: HandlerTable = {
   },
   getGraphData: async (cmd, ctx) => {
     const data = await ctx.ch.getGraphData(cmd.maxCount);
-    ctx.send({ type: 'graphData', data });
+    ctx.send({ type: 'graphData', data, repoPath: ctx.sm.getState().repoPath });
   },
   getFileDiff: async (cmd, ctx) => {
     try {
@@ -614,6 +614,7 @@ export class MessageBridge {
       const payload: MainEvent = {
         type: 'graphData',
         data: { commits, layout: graphLayout },
+        repoPath,
       };
       const size = approxJsonSize(payload.data);
       perfLog('IPC.graphData.send', {

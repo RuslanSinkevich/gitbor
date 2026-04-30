@@ -1,18 +1,63 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { AppState, CommitDetail, MergeState, MainEvent, RebaseProgress, RecoveryIssue } from '../types';
 import { sendReady, postCommand, onMainEvent } from '../api';
 import { setLang } from '../i18n';
 
-interface RepoUiSnapshot {
-  commits: AppState['commits'];
-  graphLayout: AppState['graphLayout'];
-}
+/**
+ * Per-repo срез состояния. Renderer хранит независимые срезы для каждого
+ * открытого репо в `slices: Map<repoPath, RepoSlice>`. На свитче вкладки
+ * UI мгновенно показывает срез нового репо (либо пустой, если кэш ещё не
+ * наполнен), без «подмигивания» данными предыдущего. Главное преимущество:
+ * `Sidebar`/`BranchStatus`/`Toolbar` и пр. перестают читать чужие
+ * branches/staged/ahead до прихода `stateUpdate` от main.
+ */
+type RepoSlice = Pick<
+  AppState,
+  | 'repoPath'
+  | 'repoName'
+  | 'currentBranch'
+  | 'branches'
+  | 'tags'
+  | 'stashes'
+  | 'remotes'
+  | 'stagedFiles'
+  | 'unstagedFiles'
+  | 'conflicts'
+  | 'ahead'
+  | 'behind'
+  | 'commits'
+  | 'graphLayout'
+  | 'selectedCommitHash'
+>;
 
-export interface OpenDiffEvent { file: string; hash: string }
-export interface OpenMergeEditorEvent { file: string }
-export interface OperationResult { operation: string; success: boolean; error?: string }
+type Meta = Pick<AppState, 'openRepos' | 'activeRepoIndex' | 'isOperationRunning' | 'currentOperation'>;
 
-const EMPTY_STATE: AppState = {
+const SLICE_KEYS: readonly (keyof RepoSlice)[] = [
+  'repoPath',
+  'repoName',
+  'currentBranch',
+  'branches',
+  'tags',
+  'stashes',
+  'remotes',
+  'stagedFiles',
+  'unstagedFiles',
+  'conflicts',
+  'ahead',
+  'behind',
+  'commits',
+  'graphLayout',
+  'selectedCommitHash',
+];
+
+const META_KEYS: readonly (keyof Meta)[] = [
+  'openRepos',
+  'activeRepoIndex',
+  'isOperationRunning',
+  'currentOperation',
+];
+
+const EMPTY_SLICE: RepoSlice = {
   repoPath: '',
   repoName: '',
   currentBranch: '',
@@ -28,14 +73,38 @@ const EMPTY_STATE: AppState = {
   commits: [],
   graphLayout: { nodes: [], maxColumns: 0, mergeLinks: [] },
   selectedCommitHash: null,
-  isOperationRunning: false,
-  currentOperation: null,
-  openRepos: [],
-  activeRepoIndex: 0,
 };
 
+const EMPTY_META: Meta = {
+  openRepos: [],
+  activeRepoIndex: 0,
+  isOperationRunning: false,
+  currentOperation: null,
+};
+
+export interface OpenDiffEvent { file: string; hash: string }
+export interface OpenMergeEditorEvent { file: string }
+export interface OperationResult { operation: string; success: boolean; error?: string }
+
+function pickSliceFields(data: Partial<AppState>): Partial<RepoSlice> {
+  const out: Partial<RepoSlice> = {};
+  for (const key of SLICE_KEYS) {
+    if (key in data) (out as Record<string, unknown>)[key] = (data as Record<string, unknown>)[key];
+  }
+  return out;
+}
+
+function pickMetaFields(data: Partial<AppState>): Partial<Meta> {
+  const out: Partial<Meta> = {};
+  for (const key of META_KEYS) {
+    if (key in data) (out as Record<string, unknown>)[key] = (data as Record<string, unknown>)[key];
+  }
+  return out;
+}
+
 export function useAppState() {
-  const [state, setState] = useState<AppState>(EMPTY_STATE);
+  const [meta, setMeta] = useState<Meta>(EMPTY_META);
+  const [slices, setSlices] = useState<Map<string, RepoSlice>>(() => new Map());
   const [commitDetail, setCommitDetail] = useState<CommitDetail | null>(null);
   const [mergeState, setMergeState] = useState<MergeState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,79 +113,119 @@ export function useAppState() {
   const [pendingOpenDiff, setPendingOpenDiff] = useState<OpenDiffEvent | null>(null);
   const [pendingOpenMergeEditor, setPendingOpenMergeEditor] = useState<OpenMergeEditorEvent | null>(null);
   const [lastOpResult, setLastOpResult] = useState<OperationResult | null>(null);
+  const [viewOverride, setViewOverride] = useState<'changes' | 'commits' | null>(null);
 
-  // UI-кэш графа по repoPath. Когда приходит graphData от main — запоминаем,
-  // при клике на таб мгновенно применяем из кэша (как Fork) не дожидаясь IPC.
-  const repoUiCache = useRef<Map<string, RepoUiSnapshot>>(new Map());
+  // Активный repoPath по последнему meta (используется для роутинга stateUpdate
+  // без явного repoPath, например при ранних событиях без активного репо).
+  const lastRoutedRepoPathRef = useRef<string | null>(null);
+
+  // Свежие slices без ре-подписки на onMainEvent: closure useEffect ловит
+  // их только один раз, поэтому commitDetails-роуту нужен ref.
+  const slicesRef = useRef<Map<string, RepoSlice>>(slices);
+  slicesRef.current = slices;
+
+  const updateSlice = useCallback((repoPath: string, patch: Partial<RepoSlice>): void => {
+    if (!repoPath) return;
+    lastRoutedRepoPathRef.current = repoPath;
+    setSlices(prev => {
+      const existing = prev.get(repoPath) ?? { ...EMPTY_SLICE, repoPath };
+      const next = { ...existing, ...patch, repoPath };
+      // identity-skip: ничего не поменялось — не пересоздаём Map
+      let changed = false;
+      for (const k of Object.keys(patch) as (keyof RepoSlice)[]) {
+        if ((existing as Record<string, unknown>)[k] !== (next as Record<string, unknown>)[k]) {
+          changed = true;
+          break;
+        }
+      }
+      if (!changed && prev.get(repoPath) === existing) return prev;
+      const out = new Map(prev);
+      out.set(repoPath, next);
+      return out;
+    });
+  }, []);
+
+  const replaceSlice = useCallback((repoPath: string, slice: RepoSlice): void => {
+    if (!repoPath) return;
+    lastRoutedRepoPathRef.current = repoPath;
+    setSlices(prev => {
+      const out = new Map(prev);
+      out.set(repoPath, { ...slice, repoPath });
+      return out;
+    });
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onMainEvent((msg: MainEvent) => {
       switch (msg.type) {
-        case 'fullState':
-          setState(msg.data);
+        case 'fullState': {
+          const data = msg.data;
+          const metaPatch = pickMetaFields(data);
+          setMeta(prev => ({ ...prev, ...metaPatch }));
+          if (data.repoPath) {
+            replaceSlice(data.repoPath, {
+              repoPath: data.repoPath,
+              repoName: data.repoName,
+              currentBranch: data.currentBranch,
+              branches: data.branches,
+              tags: data.tags,
+              stashes: data.stashes,
+              remotes: data.remotes,
+              stagedFiles: data.stagedFiles,
+              unstagedFiles: data.unstagedFiles,
+              conflicts: data.conflicts,
+              ahead: data.ahead,
+              behind: data.behind,
+              commits: data.commits,
+              graphLayout: data.graphLayout,
+              selectedCommitHash: data.selectedCommitHash,
+            });
+          }
           break;
-        case 'stateUpdate':
-          setState(prev => ({ ...prev, ...msg.data }));
+        }
+        case 'stateUpdate': {
+          const data = msg.data;
+          const metaPatch = pickMetaFields(data);
+          if (Object.keys(metaPatch).length > 0) {
+            setMeta(prev => ({ ...prev, ...metaPatch }));
+          }
+          // Маршрутизируем slice-поля в срез по repoPath. Если repoPath
+          // пустой (state очищен) — ничего не пишем; UI просто покажет
+          // EMPTY_SLICE для текущего активного индекса.
+          const targetRepoPath = data.repoPath ?? lastRoutedRepoPathRef.current ?? null;
+          if (targetRepoPath) {
+            const slicePatch = pickSliceFields(data);
+            if (Object.keys(slicePatch).length > 0) {
+              updateSlice(targetRepoPath, slicePatch);
+            }
+          }
           break;
+        }
         case 'commitDetails':
-          setState(prev => {
-            if (prev.selectedCommitHash && (msg.hash === prev.selectedCommitHash || msg.data.hash === prev.selectedCommitHash)) {
-              queueMicrotask(() => setCommitDetail(msg.data));
+          setCommitDetail(prev => {
+            const activeRepoPath = lastRoutedRepoPathRef.current;
+            if (!activeRepoPath) return prev;
+            const sliceSelected = slicesRef.current.get(activeRepoPath)?.selectedCommitHash;
+            if (sliceSelected && (msg.hash === sliceSelected || msg.data.hash === sliceSelected)) {
+              return msg.data;
             }
             return prev;
           });
           break;
         case 'graphData': {
-          setState(prev => {
-            const repoPath = prev.repoPath;
-            const incomingCommits = msg.data.commits;
-            const incomingLayout = msg.data.layout;
-
-            if (!repoPath) {
-              return { ...prev, commits: incomingCommits, graphLayout: incomingLayout };
-            }
-
-            // Dedup: если пришли ровно те же данные что уже в кэше этого репо —
-            // переиспользуем старые ссылки. Без этого React каждый раз считает
-            // commits/graphLayout «новыми», и CommitGraph пересчитывает
-            // groupBranchPaths() для 15k коммитов (~100-150ms блок main thread).
-            const cached = repoUiCache.current.get(repoPath);
-            const sameAsCached =
-              cached &&
-              cached.commits.length === incomingCommits.length &&
-              cached.graphLayout.nodes.length === incomingLayout.nodes.length &&
-              cached.commits[0]?.hash === incomingCommits[0]?.hash &&
-              cached.commits[cached.commits.length - 1]?.hash ===
-                incomingCommits[incomingCommits.length - 1]?.hash;
-
-            if (sameAsCached && cached) {
-              if (prev.commits === cached.commits && prev.graphLayout === cached.graphLayout) {
-                return prev;
-              }
-              return { ...prev, commits: cached.commits, graphLayout: cached.graphLayout };
-            }
-
-            repoUiCache.current.set(repoPath, {
-              commits: incomingCommits,
-              graphLayout: incomingLayout,
-            });
-            return { ...prev, commits: incomingCommits, graphLayout: incomingLayout };
+          const repoPath = msg.repoPath;
+          if (!repoPath) break;
+          updateSlice(repoPath, {
+            commits: msg.data.commits,
+            graphLayout: msg.data.layout,
           });
           break;
         }
         case 'operationStart':
-          setState(prev => ({
-            ...prev,
-            isOperationRunning: true,
-            currentOperation: msg.operation,
-          }));
+          setMeta(prev => ({ ...prev, isOperationRunning: true, currentOperation: msg.operation }));
           break;
         case 'operationEnd':
-          setState(prev => ({
-            ...prev,
-            isOperationRunning: false,
-            currentOperation: null,
-          }));
+          setMeta(prev => ({ ...prev, isOperationRunning: false, currentOperation: null }));
           setLastOpResult({ operation: msg.operation, success: msg.success, error: msg.error });
           break;
         case 'config':
@@ -145,7 +254,12 @@ export function useAppState() {
           setPendingOpenMergeEditor({ file: msg.file });
           break;
         case 'repoClosed':
-          repoUiCache.current.delete(msg.path);
+          setSlices(prev => {
+            if (!prev.has(msg.path)) return prev;
+            const out = new Map(prev);
+            out.delete(msg.path);
+            return out;
+          });
           break;
         case 'error':
           setError(msg.message);
@@ -155,43 +269,65 @@ export function useAppState() {
 
     sendReady();
     return () => { unsubscribe(); };
-  }, []);
+  }, [updateSlice, replaceSlice]);
+
+  // Производный AppState — единый view по активному срезу + meta. Если
+  // активный repo ещё не имеет среза (только что открыт) — показываем EMPTY_SLICE.
+  const state: AppState = useMemo(() => {
+    const activeRepo = meta.openRepos[meta.activeRepoIndex];
+    const slice = activeRepo ? slices.get(activeRepo.path) : undefined;
+    const base = slice ?? EMPTY_SLICE;
+    return {
+      repoPath: base.repoPath || (activeRepo?.path ?? ''),
+      repoName: base.repoName || (activeRepo?.name ?? ''),
+      currentBranch: base.currentBranch,
+      branches: base.branches,
+      tags: base.tags,
+      stashes: base.stashes,
+      remotes: base.remotes,
+      stagedFiles: base.stagedFiles,
+      unstagedFiles: base.unstagedFiles,
+      conflicts: base.conflicts,
+      ahead: base.ahead,
+      behind: base.behind,
+      commits: base.commits,
+      graphLayout: base.graphLayout,
+      selectedCommitHash: base.selectedCommitHash,
+      isOperationRunning: meta.isOperationRunning,
+      currentOperation: meta.currentOperation,
+      openRepos: meta.openRepos,
+      activeRepoIndex: meta.activeRepoIndex,
+    };
+  }, [meta, slices]);
 
   const selectCommit = useCallback((hash: string | null) => {
-    setState(prev => ({ ...prev, selectedCommitHash: hash }));
+    const activeRepoPath = state.repoPath;
+    if (activeRepoPath) {
+      updateSlice(activeRepoPath, { selectedCommitHash: hash });
+    }
     if (hash) {
       postCommand({ type: 'getCommitDetails', hash });
     } else {
       setCommitDetail(null);
     }
-  }, []);
+  }, [state.repoPath, updateSlice]);
 
   /**
-   * Мгновенное переключение таба. Берём кэшированный снапшот графа из памяти
-   * renderer'а (repoUiCache) и применяем сразу — пользователь видит новый
-   * репо не дожидаясь IPC-ответа main'а. Когда main пришлёт свежий graphData,
-   * setState аккуратно перепишет. Если кэша нет (первое открытие репо) —
-   * обнуляем commits/layout чтобы UI не показывал "залипшую" историю чужого.
+   * Мгновенное переключение таба. Только меняем `activeRepoIndex` — UI
+   * перерисуется на срез нового репо. Если среза нет (первое открытие) —
+   * EMPTY_SLICE; данные подтянутся событиями от main. Никаких полей чужого
+   * репо в state в момент клика быть не может.
    */
   const switchRepoFast = useCallback((index: number) => {
-    setState(prev => {
+    setMeta(prev => {
       if (prev.activeRepoIndex === index) return prev;
-      const newPath = prev.openRepos[index]?.path;
-      const cached = newPath ? repoUiCache.current.get(newPath) : undefined;
-      return {
-        ...prev,
-        activeRepoIndex: index,
-        selectedCommitHash: null,
-        commits: cached?.commits ?? [],
-        graphLayout: cached?.graphLayout ?? { nodes: [], maxColumns: 0, mergeLinks: [] },
-      };
+      return { ...prev, activeRepoIndex: index };
     });
     setCommitDetail(null);
     postCommand({ type: 'switchRepo', index });
   }, []);
 
   const clearError = useCallback(() => setError(null), []);
-  const [viewOverride, setViewOverride] = useState<'changes' | 'commits' | null>(null);
   const clearViewOverride = useCallback(() => setViewOverride(null), []);
   const clearPendingOpenDiff = useCallback(() => setPendingOpenDiff(null), []);
   const clearPendingOpenMergeEditor = useCallback(() => setPendingOpenMergeEditor(null), []);

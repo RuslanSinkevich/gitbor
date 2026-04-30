@@ -1,13 +1,22 @@
 import * as path from 'path';
+import * as fs from 'fs/promises';
 import chokidar from 'chokidar';
 import { StateManager } from './StateManager';
 
 const GIT_DEBOUNCE_MS = 120;
 const WORKTREE_DEBOUNCE_MS = 150;
+/**
+ * Если в корне репозитория больше этого числа записей верхнего уровня —
+ * worktreeWatcher НЕ запускается. На профильных каталогах (C:\Users\Admin)
+ * chokidar пытается рекурсивно сканировать сотни тысяч файлов, выдаёт EPERM
+ * на системные подкаталоги и фактически замораживает main thread.
+ * .git-watcher остаётся активным, чтобы реагировать на ref/HEAD/index.
+ */
+const WORKTREE_TOPLEVEL_LIMIT = 5000;
 
 interface WatcherPair {
   gitWatcher: chokidar.FSWatcher;
-  worktreeWatcher: chokidar.FSWatcher;
+  worktreeWatcher: chokidar.FSWatcher | null;
 }
 
 /**
@@ -46,8 +55,29 @@ export class FileWatcher {
     // не создали дубли, пока setImmediate ещё не стрельнул.
     this.watchers.set(repoPath, { gitWatcher: null as never, worktreeWatcher: null as never });
 
-    setImmediate(() => {
+    void (async () => {
       if (this.watchers.get(repoPath)?.gitWatcher) return; // уже создан кем-то ещё
+
+      // Pre-scan: смотрим количество записей в корне. Если их слишком много —
+      // считаем репо «гигантским» (типичный признак — открыли C:\Users\<USER>
+      // или другой системный каталог) и подписываемся ТОЛЬКО на .git.
+      let topLevelCount = 0;
+      let isHugeWorktree = false;
+      try {
+        const entries = await fs.readdir(repoPath);
+        topLevelCount = entries.length;
+        isHugeWorktree = topLevelCount > WORKTREE_TOPLEVEL_LIMIT;
+        if (isHugeWorktree) {
+          console.warn(
+            `[SkyFork FileWatcher] worktreeWatcher disabled: ${repoPath} has ${topLevelCount} top-level entries (limit ${WORKTREE_TOPLEVEL_LIMIT}). Only .git will be watched.`,
+          );
+        }
+      } catch (err) {
+        console.warn('[SkyFork FileWatcher] pre-scan failed:', err instanceof Error ? err.message : err);
+      }
+
+      if (this.watchers.get(repoPath)?.gitWatcher) return;
+
       try {
         const gitDir = path.join(repoPath, '.git');
         const gitWatcher = chokidar.watch(gitDir, {
@@ -55,7 +85,7 @@ export class FileWatcher {
           depth: 3,
           awaitWriteFinish: { stabilityThreshold: 50, pollInterval: 20 },
         });
-        const worktreeWatcher = chokidar.watch(repoPath, {
+        const worktreeWatcher: chokidar.FSWatcher | null = isHugeWorktree ? null : chokidar.watch(repoPath, {
           ignoreInitial: true,
           ignored: [
             /(^|[/\\])\.git([/\\]|$)/,
@@ -68,6 +98,20 @@ export class FileWatcher {
             /(^|[/\\])target([/\\]|$)/,
             /(^|[/\\])\.next([/\\]|$)/,
             /(^|[/\\])\.cache([/\\]|$)/,
+            // Системные/запрещённые директории Windows — chokidar при попытке
+            // watch'ить их кидает EPERM/EACCES → unhandledRejection. Возникает
+            // когда юзер случайно открывает корень профиля (C:\Users\Admin),
+            // OneDrive, AppData. Эти регексы матчатся по абсолютному пути.
+            /[\\/]AppData[\\/]/,
+            /[\\/]Application Data[\\/]/i,
+            /[\\/]Local Settings[\\/]/i,
+            /[\\/]NTUSER\.DAT/i,
+            /[\\/]Cookies[\\/]/i,
+            /[\\/]Temporary Internet Files[\\/]/i,
+            /[\\/]WindowsApps[\\/]/i,
+            /[\\/]\$Recycle\.Bin[\\/]/i,
+            /[\\/]System Volume Information[\\/]/i,
+            /[\\/]OneDrive[\\/]/i,
           ],
           depth: 6,
           awaitWriteFinish: false,
@@ -82,16 +126,28 @@ export class FileWatcher {
         gitWatcher.on('change', onGit);
         gitWatcher.on('add', onGit);
         gitWatcher.on('unlink', onGit);
-        worktreeWatcher.on('change', onTree);
-        worktreeWatcher.on('add', onTree);
-        worktreeWatcher.on('unlink', onTree);
+        if (worktreeWatcher) {
+          worktreeWatcher.on('change', onTree);
+          worktreeWatcher.on('add', onTree);
+          worktreeWatcher.on('unlink', onTree);
+        }
+
+        // Без 'error'-листенера chokidar при EPERM/EACCES (системные папки в
+        // профиле, OneDrive, защищённые директории) кидает unhandledRejection
+        // и валит main. Свой listener — глотаем.
+        const onWatcherError = (err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn('[SkyFork FileWatcher] chokidar error:', msg);
+        };
+        gitWatcher.on('error', onWatcherError);
+        worktreeWatcher?.on('error', onWatcherError);
 
         this.watchers.set(repoPath, { gitWatcher, worktreeWatcher });
       } catch (err) {
         this.watchers.delete(repoPath);
         console.error('[SkyFork FileWatcher] ensureWatcher failed:', err);
       }
-    });
+    })();
   }
 
   /**

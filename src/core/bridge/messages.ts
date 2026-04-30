@@ -185,7 +185,7 @@ export type MainEvent =
   | { type: 'fullState'; data: AppState }
   | { type: 'stateUpdate'; data: Partial<AppState> }
   | { type: 'commitDetails'; data: CommitDetail; hash: string }
-  | { type: 'graphData'; data: CommitGraphData }
+  | { type: 'graphData'; data: CommitGraphData; repoPath: string }
   | { type: 'fileDiff'; data: FileDiff[]; file: string; hash: string }
   | { type: 'fileBlame'; data: BlameResult; file: string }
   | { type: 'fileHistory'; data: FileHistoryResult; file: string }

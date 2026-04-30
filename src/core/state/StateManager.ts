@@ -324,9 +324,16 @@ export class StateManager {
       this.repoSnapshots.set(this.state.repoPath, this.captureRepoSnapshot());
     }
 
-    // Инвалидируем все running async-операции предыдущего репо.
+    // Инвалидируем все running async-операции предыдущего репо. Дополнительно
+    // убиваем зависшие git-процессы старого репо (например, `git status` на
+    // профильной директории с 440k файлов): иначе они доедают 30+ секунд в
+    // фоне и накапливаются при быстром переключении табов.
     this.repoToken++;
     const token = this.repoToken;
+    const killed = this.git.killAll();
+    if (killed > 0) {
+      perfLog('switchRepo.killedInflight', { count: killed });
+    }
 
     this.git.setCwd(repoPath);
     this.state.repoPath = repoPath;
@@ -375,33 +382,9 @@ export class StateManager {
       endSwitch();
     });
 
-    let haveInstantData = false;
-    if (!inMemory) {
-      const endLoad = perfMark('switchRepo.loadGraphCache');
-      const cache = await loadGraphCache(repoPath);
-      endLoad();
-      if (token !== this.repoToken) { endTotal(); return; }
-      if (cache) {
-        perfLog('switchRepo.cacheHit', { commits: cache.commits.length, nodes: cache.layout.nodes.length });
-        this.state.commits = cache.commits;
-        this.state.graphLayout = cache.layout;
-        this.cachedHeadHash = cache.headHash;
-        perfLog('switchRepo.notify#2(cache)');
-        this.notify();
-        haveInstantData = true;
-      } else {
-        perfLog('switchRepo.cacheMiss');
-      }
-    } else {
+    if (inMemory) {
       perfLog('switchRepo.inMemorySnapshot', { commits: this.state.commits.length });
       this.cachedHeadHash = inMemory.headHash;
-      haveInstantData = true;
-    }
-
-    // Если есть мгновенные данные (snapshot или disk cache) — refreshAll
-    // запускаем в фоне, чтобы switchRepo вернулся сразу. Renderer уже
-    // получил картинку в первых двух notify; свежие данные догонят позже.
-    if (haveInstantData) {
       endTotal();
       queueMicrotask(() => {
         if (token !== this.repoToken) return;
@@ -412,10 +395,38 @@ export class StateManager {
       return;
     }
 
-    // Холодный старт — пользователю всё равно нечего показывать,
-    // ждём первую фазу refreshAll синхронно.
-    await this.refreshAll();
+    // Cold path: ничего не ждём. UI уже получил первый notify с пустым срезом
+    // нового репо (renderer держит per-repo slices, для него это нормально).
+    // Дисковый graph cache + refreshAll уезжают в фон. Если пользователь за
+    // это время переключит таб — следующий switchRepo сделает git.killAll(),
+    // и зависшие команды этого репо (например, `git status` на профиле) не
+    // будут доедать ресурсы.
     endTotal();
+    queueMicrotask(() => {
+      if (token !== this.repoToken) return;
+      void this.runSwitchRepoColdPhase(repoPath, token);
+    });
+  }
+
+  private async runSwitchRepoColdPhase(repoPath: string, token: number): Promise<void> {
+    const endLoad = perfMark('switchRepo.loadGraphCache');
+    const cache = await loadGraphCache(repoPath);
+    endLoad();
+    if (token !== this.repoToken) return;
+    if (cache) {
+      perfLog('switchRepo.cacheHit', { commits: cache.commits.length, nodes: cache.layout.nodes.length });
+      this.state.commits = cache.commits;
+      this.state.graphLayout = cache.layout;
+      this.cachedHeadHash = cache.headHash;
+      perfLog('switchRepo.notify#2(cache)');
+      this.notify();
+    } else {
+      perfLog('switchRepo.cacheMiss');
+    }
+    if (token !== this.repoToken) return;
+    this.refreshAll().catch(err => {
+      perfLog('refreshAll.background.error', { msg: err instanceof Error ? err.message : String(err) });
+    });
   }
 
   private captureRepoSnapshot(): RepoSnapshot {

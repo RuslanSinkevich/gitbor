@@ -16,7 +16,7 @@ import { MergeBanner } from './features/merge';
 import { Toolbar } from './features/toolbar';
 import { Sidebar, BranchStatus } from './features/sidebar';
 import { RepoTabs } from './features/repo-tabs';
-import { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo, sameRepoPath } from './features/repo-manager';
+import { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo } from './features/repo-manager';
 import { SgSplitPane } from './ui/SgSplitPane';
 import { usePromptDialog } from './ui/SgPromptDialog';
 import { AppDialogs } from './AppDialogs';
@@ -74,6 +74,9 @@ export function App() {
 
   const restoreLastRepoAttempted = useRef(false);
 
+  // Восстанавливаем last active repo ТОЛЬКО если main ничего не подцепил
+  // авто. Иначе мы убивали текущее открытие (например, dev cwd=skyfork) и
+  // насильно загружали тяжёлый last (бывало `C:\Users\Admin` с 440k файлов).
   useEffect(() => {
     if (restoreLastRepoAttempted.current) return;
     const last = loadLastActiveRepo();
@@ -84,14 +87,10 @@ export function App() {
     if (!state.repoPath) {
       restoreLastRepoAttempted.current = true;
       postCommand({ type: 'openRepo', path: last });
-      return;
-    }
-    if (!sameRepoPath(state.repoPath, last)) {
+    } else {
+      // Уже что-то открыто (auto cwd / явный openRepo): не подменяем.
       restoreLastRepoAttempted.current = true;
-      postCommand({ type: 'openRepo', path: last });
-      return;
     }
-    restoreLastRepoAttempted.current = true;
   }, [state.repoPath]);
 
   useEffect(() => {

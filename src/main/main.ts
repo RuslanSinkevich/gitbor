@@ -23,6 +23,20 @@ let stateManager: StateManager | null = null;
 
 const isDev = !app.isPackaged;
 
+/**
+ * Глобальный safety net: если что-то в main кинуло unhandledRejection или
+ * uncaughtException (chokidar при EPERM/EACCES на системные папки, async
+ * вне try/catch), мы НЕ роняем процесс. С `--unhandled-rejections=strict`
+ * на новых нодах это иначе превращается в краш main + закрытие окна.
+ */
+process.on('unhandledRejection', (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  console.error('[SkyFork] unhandledRejection:', msg);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[SkyFork] uncaughtException:', err instanceof Error ? err.stack ?? err.message : err);
+});
+
 function waitForDevTcp(port: number, host = '127.0.0.1', timeoutMs = 45000): Promise<void> {
   const started = Date.now();
   return new Promise((resolve, reject) => {
