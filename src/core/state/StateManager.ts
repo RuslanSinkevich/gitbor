@@ -15,6 +15,59 @@ import {
 type StateListener = (state: AppState) => void;
 type RepoSwitchListener = (newPath: string) => void;
 type RepoCloseListener = (closedPath: string) => void;
+
+/**
+ * Per-repo срез состояния (всё кроме openRepos / activeRepoIndex / running).
+ * Хранится в `slicesByRepo`. Активный slice зеркалируется в `this.state` для
+ * совместимости с существующим публичным API. Refresh методы принимают
+ * `repoPath` и мутируют соответствующий slice — это позволяет refresh'у
+ * репо A, запущенному после `switchRepo` на B, спокойно дописать свои
+ * данные в slice A без воздействия на UI/git репо B.
+ */
+interface RepoSlice {
+  currentBranch: string;
+  branches: AppState['branches'];
+  tags: AppState['tags'];
+  stashes: AppState['stashes'];
+  remotes: AppState['remotes'];
+  stagedFiles: AppState['stagedFiles'];
+  unstagedFiles: AppState['unstagedFiles'];
+  conflicts: AppState['conflicts'];
+  ahead: number;
+  behind: number;
+  commits: AppState['commits'];
+  graphLayout: AppState['graphLayout'];
+  selectedCommitHash: string | null;
+  // graph cache hashes — per-repo, иначе один репо чистит другому.
+  cachedHeadHash: string | null;
+  cachedLogHash: string | null;
+  cachedLogLimit: number;
+  // Per-repo token: инвалидируется при close этого репо.
+  token: number;
+}
+
+function emptySlice(): RepoSlice {
+  return {
+    currentBranch: '',
+    branches: [],
+    tags: [],
+    stashes: [],
+    remotes: [],
+    stagedFiles: [],
+    unstagedFiles: [],
+    conflicts: [],
+    ahead: 0,
+    behind: 0,
+    commits: [],
+    graphLayout: { nodes: [], maxColumns: 0, mergeLinks: [] },
+    selectedCommitHash: null,
+    cachedHeadHash: null,
+    cachedLogHash: null,
+    cachedLogLimit: 0,
+    token: 0,
+  };
+}
+
 type RepoSnapshot = Pick<
   AppState,
   | 'currentBranch'
@@ -47,27 +100,53 @@ const STASH_FORMAT =
 
 export class StateManager {
   private state: AppState;
-  private cachedHeadHash: string | null = null;
-  /**
-   * Хэш последнего `git log` stdout + применённого лимита.
-   * Если на повторном refreshGraph stdout совпал byte-to-byte и лимит тот же —
-   * пропускаем parseCommits + computeGraphLayout и, главное, НЕ меняем ссылки
-   * на state.commits / state.graphLayout. Это гасит лишние graphData-send'ы
-   * и тяжёлый groupBranchPaths в renderer.
-   */
-  private cachedLogHash: string | null = null;
-  private cachedLogLimit: number = 0;
   private readonly listeners = new Set<StateListener>();
   private readonly repoSwitchListeners = new Set<RepoSwitchListener>();
   private readonly repoCloseListeners = new Set<RepoCloseListener>();
   private readonly repoSnapshots = new Map<string, RepoSnapshot>();
   /**
-   * Монотонный токен, инкрементится на каждый switchRepo/clearRepo.
-   * Любая async-операция, которая планирует писать в state,
-   * должна сверить свой захваченный токен с текущим и молча выйти,
-   * если репо уже сменилось. Иначе копится race + утечки памяти.
+   * Per-repo срезы. Source of truth для всего, что относится к одному репо
+   * (commits, branches, status, cache hashes, token). Активный срез
+   * зеркалируется в `this.state` для совместимости с публичным API
+   * (`getState()`, `subscribe`).
    */
-  private repoToken = 0;
+  private readonly slicesByRepo = new Map<string, RepoSlice>();
+
+  private activeSlice(): RepoSlice | null {
+    if (!this.state.repoPath) return null;
+    return this.slicesByRepo.get(this.state.repoPath) ?? null;
+  }
+
+  /** Получить или создать slice для конкретного репо. */
+  private getOrCreateSlice(repoPath: string): RepoSlice {
+    let s = this.slicesByRepo.get(repoPath);
+    if (!s) {
+      s = emptySlice();
+      this.slicesByRepo.set(repoPath, s);
+    }
+    return s;
+  }
+
+  /**
+   * Зеркалирование slice → активный this.state. Вызывается после refresh
+   * активного репо, чтобы getState()/subscribe видели свежие данные.
+   * Если slice не активного репо — НЕТ зеркала, listeners не дёргаются.
+   */
+  private mirrorSliceToState(slice: RepoSlice): void {
+    this.state.currentBranch = slice.currentBranch;
+    this.state.branches = slice.branches;
+    this.state.tags = slice.tags;
+    this.state.stashes = slice.stashes;
+    this.state.remotes = slice.remotes;
+    this.state.stagedFiles = slice.stagedFiles;
+    this.state.unstagedFiles = slice.unstagedFiles;
+    this.state.conflicts = slice.conflicts;
+    this.state.ahead = slice.ahead;
+    this.state.behind = slice.behind;
+    this.state.commits = slice.commits;
+    this.state.graphLayout = slice.graphLayout;
+    this.state.selectedCommitHash = slice.selectedCommitHash;
+  }
 
   constructor(
     /**
@@ -128,26 +207,32 @@ export class StateManager {
    * На вызов из switchRepo/autoOpenRepo даёт первый фрейм UI
    * через ~100–300 мс вместо 2–5 сек на больших репо.
    */
-  async refreshAll(): Promise<void> {
-    const token = this.repoToken;
+  async refreshAll(repoPath?: string): Promise<void> {
+    const target = repoPath ?? this.state.repoPath;
+    if (!target) return;
+    const slice = this.getOrCreateSlice(target);
+    const startToken = slice.token;
     const endAll = perfMark('refreshAll.total');
     const endFast = perfMark('refreshAll.fast');
-    await this.refreshFast();
+    await this.refreshFast(target);
     endFast();
-    if (token !== this.repoToken) { endAll(); return; }
-    this.notify();
-    await this.refreshGraphProgressive(token);
+    if (slice.token !== startToken) { endAll(); return; }
+    if (target === this.state.repoPath) {
+      this.mirrorSliceToState(slice);
+      this.notify();
+    }
+    await this.refreshGraphProgressive(target, startToken);
     endAll();
   }
 
   /** Параллельные дешёвые запросы. Без notify. */
-  private async refreshFast(): Promise<void> {
+  private async refreshFast(repoPath: string): Promise<void> {
     await Promise.all([
-      this.refreshBranches(),
-      this.refreshTags(),
-      this.refreshStashes(),
-      this.refreshRemotes(),
-      this.refreshStatus(),
+      this.refreshBranches(repoPath),
+      this.refreshTags(repoPath),
+      this.refreshStashes(repoPath),
+      this.refreshRemotes(repoPath),
+      this.refreshStatus(repoPath),
     ]);
   }
 
@@ -157,109 +242,140 @@ export class StateManager {
    * Фаза B: до 50k коммитов — плавное расширение истории.
    * После фазы B сохраняем кэш на диск.
    */
-  private async refreshGraphProgressive(token: number): Promise<void> {
+  private async refreshGraphProgressive(repoPath: string, startToken: number): Promise<void> {
+    const slice = this.getOrCreateSlice(repoPath);
     const endPhaseA = perfMark('refreshGraph.phaseA(500)');
-    await this.refreshGraph(StateManager.PROGRESSIVE_FIRST_LIMIT);
+    await this.refreshGraph(StateManager.PROGRESSIVE_FIRST_LIMIT, repoPath);
     endPhaseA();
-    if (token !== this.repoToken) return;
-    this.notify();
-
-    if (this.state.commits.length >= StateManager.PROGRESSIVE_FIRST_LIMIT) {
-      const endPhaseB = perfMark('refreshGraph.phaseB(50000)');
-      await this.refreshGraph(StateManager.PROGRESSIVE_FULL_LIMIT);
-      endPhaseB();
-      if (token !== this.repoToken) return;
+    if (slice.token !== startToken) return;
+    if (repoPath === this.state.repoPath) {
+      this.mirrorSliceToState(slice);
       this.notify();
     }
 
-    if (token !== this.repoToken) return;
-    if (this.cachedHeadHash && this.state.commits.length > 0 && this.state.repoPath) {
+    if (slice.commits.length >= StateManager.PROGRESSIVE_FIRST_LIMIT) {
+      const endPhaseB = perfMark('refreshGraph.phaseB(50000)');
+      await this.refreshGraph(StateManager.PROGRESSIVE_FULL_LIMIT, repoPath);
+      endPhaseB();
+      if (slice.token !== startToken) return;
+      if (repoPath === this.state.repoPath) {
+        this.mirrorSliceToState(slice);
+        this.notify();
+      }
+    }
+
+    if (slice.token !== startToken) return;
+    if (slice.cachedHeadHash && slice.commits.length > 0) {
       void saveGraphCache(
-        this.state.repoPath,
-        this.cachedHeadHash,
-        this.state.commits,
-        this.state.graphLayout,
+        repoPath,
+        slice.cachedHeadHash,
+        slice.commits,
+        slice.graphLayout,
       );
     }
   }
 
-  async refreshBranches(): Promise<void> {
-    const token = this.repoToken;
+  async refreshBranches(repoPath?: string): Promise<void> {
+    const target = repoPath ?? this.state.repoPath;
+    if (!target) return;
+    const slice = this.getOrCreateSlice(target);
+    const git = this.registry.acquire(target).git;
+    const startToken = slice.token;
+    const isActive = target === this.state.repoPath;
+
     try {
-      const localResult = await this.git.exec([
+      const localResult = await git.exec([
         'for-each-ref', '--format=' + REF_FORMAT, 'refs/heads/',
       ]);
-      if (token !== this.repoToken) return;
+      if (slice.token !== startToken) return;
       const localBranches = GitParser.parseBranches(localResult.stdout, false);
 
-      const remoteResult = await this.git.exec([
+      const remoteResult = await git.exec([
         'for-each-ref', '--format=' + REF_FORMAT, 'refs/remotes/',
       ]);
-      if (token !== this.repoToken) return;
+      if (slice.token !== startToken) return;
       const remoteBranches = GitParser.parseBranches(remoteResult.stdout, true);
 
-      this.state.branches = [...localBranches, ...remoteBranches];
+      slice.branches = [...localBranches, ...remoteBranches];
 
-      const headResult = await this.git.exec([
+      const headResult = await git.exec([
         'rev-parse', '--abbrev-ref', 'HEAD',
       ]);
-      if (token !== this.repoToken) return;
-      this.state.currentBranch = headResult.stdout.trim();
+      if (slice.token !== startToken) return;
+      slice.currentBranch = headResult.stdout.trim();
 
-      await this.refreshAheadBehind();
+      await this.refreshAheadBehind(target);
     } catch {
-      if (token !== this.repoToken) return;
-      this.state.branches = [];
-      this.state.currentBranch = '';
+      if (slice.token !== startToken) return;
+      slice.branches = [];
+      slice.currentBranch = '';
+    }
+    if (isActive) {
+      this.state.branches = slice.branches;
+      this.state.currentBranch = slice.currentBranch;
+      this.state.ahead = slice.ahead;
+      this.state.behind = slice.behind;
     }
   }
 
   /** Refresh status and notify listeners (for standalone calls) */
-  async refreshStatusAndNotify(): Promise<void> {
-    const token = this.repoToken;
-    await this.refreshStatus();
-    if (token !== this.repoToken) return;
-    this.notify();
+  async refreshStatusAndNotify(repoPath?: string): Promise<void> {
+    const target = repoPath ?? this.state.repoPath;
+    if (!target) return;
+    const slice = this.getOrCreateSlice(target);
+    const startToken = slice.token;
+    await this.refreshStatus(target);
+    if (slice.token !== startToken) return;
+    if (target === this.state.repoPath) this.notify();
   }
 
-  async refreshStatus(): Promise<void> {
-    const token = this.repoToken;
+  async refreshStatus(repoPath?: string): Promise<void> {
+    const target = repoPath ?? this.state.repoPath;
+    if (!target) return;
+    const slice = this.getOrCreateSlice(target);
+    const git = this.registry.acquire(target).git;
+    const startToken = slice.token;
+    const isActive = target === this.state.repoPath;
+
     try {
-      const statusResult = await this.git.exec([
+      const statusResult = await git.exec([
         'status', '--porcelain=v1', '--untracked-files=all',
       ]);
-      if (token !== this.repoToken) return;
+      if (slice.token !== startToken) return;
       const allFiles = GitParser.parseStatus(statusResult.stdout);
-      this.state.stagedFiles = allFiles.filter(f => f.staged);
-      this.state.unstagedFiles = allFiles.filter(f => !f.staged);
-
-      this.state.conflicts = allFiles
-        .filter(f => f.status === 'U')
-        .map(f => f.path);
+      slice.stagedFiles = allFiles.filter(f => f.staged);
+      slice.unstagedFiles = allFiles.filter(f => !f.staged);
+      slice.conflicts = allFiles.filter(f => f.status === 'U').map(f => f.path);
     } catch {
-      if (token !== this.repoToken) return;
-      this.state.stagedFiles = [];
-      this.state.unstagedFiles = [];
-      this.state.conflicts = [];
+      if (slice.token !== startToken) return;
+      slice.stagedFiles = [];
+      slice.unstagedFiles = [];
+      slice.conflicts = [];
+    }
+    if (isActive) {
+      this.state.stagedFiles = slice.stagedFiles;
+      this.state.unstagedFiles = slice.unstagedFiles;
+      this.state.conflicts = slice.conflicts;
     }
   }
 
-  async refreshGraph(maxCount = 0): Promise<void> {
-    // Захватываем токен в начале. Если репо сменится посреди работы —
-    // все проверки ниже заставят метод тихо выйти до записи в state,
-    // чтобы старый refreshGraph не затёр данные нового репо.
-    const token = this.repoToken;
+  async refreshGraph(maxCount = 0, repoPath?: string): Promise<void> {
+    const target = repoPath ?? this.state.repoPath;
+    if (!target) return;
+    const slice = this.getOrCreateSlice(target);
+    const git = this.registry.acquire(target).git;
+    const startToken = slice.token;
+    const isActive = target === this.state.repoPath;
+
     try {
-      const headResult = await this.git.exec(['rev-parse', 'HEAD']);
-      if (token !== this.repoToken) return;
+      const headResult = await git.exec(['rev-parse', 'HEAD']);
+      if (slice.token !== startToken) return;
       const headHash = headResult.stdout.trim();
 
       const effectiveLimit = maxCount > 0 ? maxCount : StateManager.INITIAL_COMMIT_LIMIT;
 
-      // Быстрый fast-path: headHash не двигался И у нас уже есть данные ≥ запрошенного лимита.
-      // Самый частый сценарий при switchRepo между снапшотами.
-      if (headHash === this.cachedHeadHash && this.state.commits.length > 0 && this.state.commits.length >= effectiveLimit) {
-        perfLog('refreshGraph.skipped.byHead', { limit: effectiveLimit, have: this.state.commits.length });
+      if (headHash === slice.cachedHeadHash && slice.commits.length > 0 && slice.commits.length >= effectiveLimit) {
+        perfLog('refreshGraph.skipped.byHead', { limit: effectiveLimit, have: slice.commits.length });
         return;
       }
 
@@ -267,106 +383,116 @@ export class StateManager {
       logArgs.push(`--max-count=${effectiveLimit}`);
 
       const endGitLog = perfMark(`git log(${effectiveLimit})`);
-      const logResult = await this.git.exec(logArgs);
+      const logResult = await git.exec(logArgs);
       endGitLog();
-      if (token !== this.repoToken) {
+      if (slice.token !== startToken) {
         perfLog('refreshGraph.aborted.afterGitLog', { limit: effectiveLimit });
         return;
       }
       perfLog('git log.stdout', { bytes: logResult.stdout.length });
 
-      // Второй fast-path: stdout совпал byte-to-byte с предыдущим для такого же лимита.
-      // Это ловит случай "repoA → repoB → repoA" когда после switchRepo гоняется refreshGraph
-      // поверх snapshot-а, данные идентичны, но массив бы пересоздался.
       const stdoutHash = hashString(logResult.stdout);
       if (
-        headHash === this.cachedHeadHash &&
-        this.cachedLogHash === stdoutHash &&
-        this.cachedLogLimit === effectiveLimit &&
-        this.state.commits.length > 0
+        headHash === slice.cachedHeadHash &&
+        slice.cachedLogHash === stdoutHash &&
+        slice.cachedLogLimit === effectiveLimit &&
+        slice.commits.length > 0
       ) {
-        perfLog('refreshGraph.skipped.byStdoutHash', { limit: effectiveLimit, have: this.state.commits.length });
+        perfLog('refreshGraph.skipped.byStdoutHash', { limit: effectiveLimit, have: slice.commits.length });
         return;
       }
 
-      this.cachedHeadHash = headHash;
-      this.cachedLogHash = stdoutHash;
-      this.cachedLogLimit = effectiveLimit;
+      slice.cachedHeadHash = headHash;
+      slice.cachedLogHash = stdoutHash;
+      slice.cachedLogLimit = effectiveLimit;
 
-      this.state.commits = GitParser.parseCommits(logResult.stdout);
-      this.state.graphLayout = computeGraphLayout(this.state.commits as Commit[]);
+      slice.commits = GitParser.parseCommits(logResult.stdout);
+      slice.graphLayout = computeGraphLayout(slice.commits as Commit[]);
     } catch {
-      if (token !== this.repoToken) return;
-      this.state.commits = [];
-      this.state.graphLayout = { nodes: [], maxColumns: 0, mergeLinks: [] };
-      this.cachedHeadHash = null;
-      this.cachedLogHash = null;
-      this.cachedLogLimit = 0;
+      if (slice.token !== startToken) return;
+      slice.commits = [];
+      slice.graphLayout = { nodes: [], maxColumns: 0, mergeLinks: [] };
+      slice.cachedHeadHash = null;
+      slice.cachedLogHash = null;
+      slice.cachedLogLimit = 0;
+    }
+    if (isActive) {
+      this.state.commits = slice.commits;
+      this.state.graphLayout = slice.graphLayout;
     }
   }
 
-  async refreshTags(): Promise<void> {
-    const token = this.repoToken;
+  async refreshTags(repoPath?: string): Promise<void> {
+    const target = repoPath ?? this.state.repoPath;
+    if (!target) return;
+    const slice = this.getOrCreateSlice(target);
+    const git = this.registry.acquire(target).git;
+    const startToken = slice.token;
+    const isActive = target === this.state.repoPath;
     try {
-      const tagResult = await this.git.exec([
+      const tagResult = await git.exec([
         'for-each-ref', '--sort=-creatordate', '--format=' + TAG_REF_FORMAT,
         'refs/tags/',
       ]);
-      if (token !== this.repoToken) return;
-      this.state.tags = GitParser.parseTags(tagResult.stdout);
+      if (slice.token !== startToken) return;
+      slice.tags = GitParser.parseTags(tagResult.stdout);
     } catch {
-      if (token !== this.repoToken) return;
-      this.state.tags = [];
+      if (slice.token !== startToken) return;
+      slice.tags = [];
     }
+    if (isActive) this.state.tags = slice.tags;
   }
 
-  async refreshStashes(): Promise<void> {
-    const token = this.repoToken;
+  async refreshStashes(repoPath?: string): Promise<void> {
+    const target = repoPath ?? this.state.repoPath;
+    if (!target) return;
+    const slice = this.getOrCreateSlice(target);
+    const git = this.registry.acquire(target).git;
+    const startToken = slice.token;
+    const isActive = target === this.state.repoPath;
     try {
-      const stashResult = await this.git.exec([
+      const stashResult = await git.exec([
         'stash', 'list', '--format=' + STASH_FORMAT,
       ]);
-      if (token !== this.repoToken) return;
-      this.state.stashes = GitParser.parseStashes(stashResult.stdout);
+      if (slice.token !== startToken) return;
+      slice.stashes = GitParser.parseStashes(stashResult.stdout);
     } catch {
-      if (token !== this.repoToken) return;
-      this.state.stashes = [];
+      if (slice.token !== startToken) return;
+      slice.stashes = [];
     }
+    if (isActive) this.state.stashes = slice.stashes;
   }
 
-  async refreshRemotes(): Promise<void> {
-    const token = this.repoToken;
+  async refreshRemotes(repoPath?: string): Promise<void> {
+    const target = repoPath ?? this.state.repoPath;
+    if (!target) return;
+    const slice = this.getOrCreateSlice(target);
+    const git = this.registry.acquire(target).git;
+    const startToken = slice.token;
+    const isActive = target === this.state.repoPath;
     try {
-      const remoteResult = await this.git.exec(['remote', '-v']);
-      if (token !== this.repoToken) return;
-      this.state.remotes = GitParser.parseRemotes(remoteResult.stdout);
+      const remoteResult = await git.exec(['remote', '-v']);
+      if (slice.token !== startToken) return;
+      slice.remotes = GitParser.parseRemotes(remoteResult.stdout);
     } catch {
-      if (token !== this.repoToken) return;
-      this.state.remotes = [];
+      if (slice.token !== startToken) return;
+      slice.remotes = [];
     }
+    if (isActive) this.state.remotes = slice.remotes;
   }
 
   async switchRepo(repoPath: string): Promise<void> {
     const endTotal = perfMark(`switchRepo(${basename(repoPath)}).total`);
     perfLog('switchRepo.start', { to: basename(repoPath), from: this.state.repoPath ? basename(this.state.repoPath) : '<empty>' });
 
-    // Snapshot сохраняем только если реально уходим с другого репо.
-    // openRepo() делает setRepoPath() ДО switchRepo() — в этом случае
-    // this.state.repoPath уже равен новому repoPath, и сохранять нечего.
-    if (this.state.repoPath && this.state.repoPath !== repoPath) {
-      this.repoSnapshots.set(this.state.repoPath, this.captureRepoSnapshot());
-    }
-
-    // Инвалидируем все running async-операции предыдущего репо. Зависшие
-    // git-процессы СТАРОГО репо больше не глушим глобально — теперь у каждого
-    // репо свой `GitExecutor` в registry. Старые процессы продолжают
-    // выполняться в собственной песочнице и не мешают новому репо.
-    this.repoToken++;
-    const token = this.repoToken;
-
-    // Гарантируем, что для нового активного репо есть сервисы.
+    // Гарантируем сервисы и slice для нового активного репо.
     this.registry.acquire(repoPath);
+    const newSlice = this.getOrCreateSlice(repoPath);
+    const startToken = newSlice.token;
 
+    // Меняем активный путь. Per-repo token нового slice используется для
+    // отсечки async-операций именно этого репо (если репо закроют — закрытие
+    // увеличит token этого slice, и все его inflight refresh'ы тихо выйдут).
     this.state.repoPath = repoPath;
     this.state.repoName = basename(repoPath);
     const idx = this.state.openRepos.findIndex(r => r.path === repoPath);
@@ -375,128 +501,65 @@ export class StateManager {
       this.state.openRepos = [...this.state.openRepos];
     }
 
-    const inMemory = this.repoSnapshots.get(repoPath);
-    if (inMemory) {
-      this.applyRepoSnapshot(inMemory);
-    } else {
-      this.state.currentBranch = '';
-      this.state.branches = [];
-      this.state.tags = [];
-      this.state.stashes = [];
-      this.state.remotes = [];
-      this.state.stagedFiles = [];
-      this.state.unstagedFiles = [];
-      this.state.conflicts = [];
-      this.state.ahead = 0;
-      this.state.behind = 0;
-      this.state.commits = [];
-      this.state.graphLayout = { nodes: [], maxColumns: 0, mergeLinks: [] };
-      this.state.selectedCommitHash = null;
-      // Новый репо — сбрасываем кэши хэшей, чтобы stdout-hash одного репо
-      // не сравнивался с stdout другого.
-      this.cachedHeadHash = null;
-      this.cachedLogHash = null;
-      this.cachedLogLimit = 0;
-    }
+    // Если slice уже наполнен (был открыт раньше) — мгновенно показываем его
+    // данные. Иначе остаёмся в пустом срезе, а UI заполнится событиями
+    // от refreshAll или дискового graph cache в фоне.
+    const hasInMemoryData = newSlice.commits.length > 0 || newSlice.branches.length > 0;
+    this.mirrorSliceToState(newSlice);
     perfLog('switchRepo.notify#1(initial)');
     this.notify();
 
-    // Notify FileWatcher в микротаске, ПОСЛЕ отправки IPC.
-    // chokidar.close() большого worktree (тысячи зарегистрированных FD)
-    // на Windows легко блокирует main thread на 500-1500мс. Если сделать
-    // synchronous — IPC-сообщение с новым снапшотом уходит в renderer
-    // только после перестройки watcher'ов → юзер видит "залипшую" историю.
     setImmediate(() => {
-      if (token !== this.repoToken) return;
+      if (newSlice.token !== startToken) return;
       const endSwitch = perfMark('fileWatcher.switchRepo');
       this.notifyRepoSwitch(repoPath);
       endSwitch();
     });
 
-    if (inMemory) {
-      perfLog('switchRepo.inMemorySnapshot', { commits: this.state.commits.length });
-      this.cachedHeadHash = inMemory.headHash;
+    if (hasInMemoryData) {
+      perfLog('switchRepo.inMemorySnapshot', { commits: newSlice.commits.length });
       endTotal();
       queueMicrotask(() => {
-        if (token !== this.repoToken) return;
-        this.refreshAll().catch(err => {
+        if (newSlice.token !== startToken) return;
+        this.refreshAll(repoPath).catch(err => {
           perfLog('refreshAll.background.error', { msg: err instanceof Error ? err.message : String(err) });
         });
       });
       return;
     }
 
-    // Cold path: ничего не ждём. UI уже получил первый notify с пустым срезом
-    // нового репо (renderer держит per-repo slices, для него это нормально).
-    // Дисковый graph cache + refreshAll уезжают в фон. Если пользователь за
-    // это время переключит таб — следующий switchRepo сделает git.killAll(),
-    // и зависшие команды этого репо (например, `git status` на профиле) не
-    // будут доедать ресурсы.
+    // Cold path. Дисковый graph cache + refreshAll — в фон.
     endTotal();
     queueMicrotask(() => {
-      if (token !== this.repoToken) return;
-      void this.runSwitchRepoColdPhase(repoPath, token);
+      if (newSlice.token !== startToken) return;
+      void this.runSwitchRepoColdPhase(repoPath, startToken);
     });
   }
 
-  private async runSwitchRepoColdPhase(repoPath: string, token: number): Promise<void> {
+  private async runSwitchRepoColdPhase(repoPath: string, startToken: number): Promise<void> {
+    const slice = this.getOrCreateSlice(repoPath);
     const endLoad = perfMark('switchRepo.loadGraphCache');
     const cache = await loadGraphCache(repoPath);
     endLoad();
-    if (token !== this.repoToken) return;
+    if (slice.token !== startToken) return;
     if (cache) {
       perfLog('switchRepo.cacheHit', { commits: cache.commits.length, nodes: cache.layout.nodes.length });
-      this.state.commits = cache.commits;
-      this.state.graphLayout = cache.layout;
-      this.cachedHeadHash = cache.headHash;
-      perfLog('switchRepo.notify#2(cache)');
-      this.notify();
+      slice.commits = cache.commits;
+      slice.graphLayout = cache.layout;
+      slice.cachedHeadHash = cache.headHash;
+      if (repoPath === this.state.repoPath) {
+        this.state.commits = slice.commits;
+        this.state.graphLayout = slice.graphLayout;
+        perfLog('switchRepo.notify#2(cache)');
+        this.notify();
+      }
     } else {
       perfLog('switchRepo.cacheMiss');
     }
-    if (token !== this.repoToken) return;
-    this.refreshAll().catch(err => {
+    if (slice.token !== startToken) return;
+    this.refreshAll(repoPath).catch(err => {
       perfLog('refreshAll.background.error', { msg: err instanceof Error ? err.message : String(err) });
     });
-  }
-
-  private captureRepoSnapshot(): RepoSnapshot {
-    return {
-      currentBranch: this.state.currentBranch,
-      branches: this.state.branches,
-      tags: this.state.tags,
-      stashes: this.state.stashes,
-      remotes: this.state.remotes,
-      stagedFiles: this.state.stagedFiles,
-      unstagedFiles: this.state.unstagedFiles,
-      conflicts: this.state.conflicts,
-      ahead: this.state.ahead,
-      behind: this.state.behind,
-      commits: this.state.commits,
-      graphLayout: this.state.graphLayout,
-      selectedCommitHash: this.state.selectedCommitHash,
-      headHash: this.cachedHeadHash,
-      logHash: this.cachedLogHash,
-      logLimit: this.cachedLogLimit,
-    };
-  }
-
-  private applyRepoSnapshot(snapshot: RepoSnapshot): void {
-    this.state.currentBranch = snapshot.currentBranch;
-    this.state.branches = snapshot.branches;
-    this.state.tags = snapshot.tags;
-    this.state.stashes = snapshot.stashes;
-    this.state.remotes = snapshot.remotes;
-    this.state.stagedFiles = snapshot.stagedFiles;
-    this.state.unstagedFiles = snapshot.unstagedFiles;
-    this.state.conflicts = snapshot.conflicts;
-    this.state.ahead = snapshot.ahead;
-    this.state.behind = snapshot.behind;
-    this.state.commits = snapshot.commits;
-    this.state.graphLayout = snapshot.graphLayout;
-    this.state.selectedCommitHash = snapshot.selectedCommitHash;
-    this.cachedLogHash = snapshot.logHash;
-    this.cachedLogLimit = snapshot.logLimit;
   }
 
   setRepoPath(repoPath: string): void {
@@ -519,12 +582,10 @@ export class StateManager {
   }
 
   clearRepo(): void {
-    this.repoToken++;
-    const empty = this.emptyState();
-    this.state = empty;
-    this.cachedHeadHash = null;
-    this.cachedLogHash = null;
-    this.cachedLogLimit = 0;
+    // Инвалидируем все running async-ops активного slice — они тихо выйдут.
+    const active = this.activeSlice();
+    if (active) active.token++;
+    this.state = this.emptyState();
     this.notify();
   }
 
@@ -561,9 +622,12 @@ export class StateManager {
    * освободить связанные с путём ресурсы.
    */
   notifyRepoClose(closedPath: string): void {
+    // Инвалидируем slice закрытого репо: бампим его token, чтобы все
+    // inflight refresh операции тихо выйдут. Затем удаляем slice.
+    const slice = this.slicesByRepo.get(closedPath);
+    if (slice) slice.token++;
+    this.slicesByRepo.delete(closedPath);
     this.repoSnapshots.delete(closedPath);
-    // Освобождаем per-repo сервисы — это убивает оставшиеся git-процессы
-    // этого репо (висящие pull/fetch без сети и т.п.).
     try { this.registry.release(closedPath); } catch { /* ignore */ }
     for (const listener of this.repoCloseListeners) {
       try {
@@ -574,10 +638,14 @@ export class StateManager {
     }
   }
 
-  invalidateGraphCache(): void {
-    this.cachedHeadHash = null;
-    this.cachedLogHash = null;
-    this.cachedLogLimit = 0;
+  invalidateGraphCache(repoPath?: string): void {
+    const target = repoPath ?? this.state.repoPath;
+    if (!target) return;
+    const slice = this.slicesByRepo.get(target);
+    if (!slice) return;
+    slice.cachedHeadHash = null;
+    slice.cachedLogHash = null;
+    slice.cachedLogLimit = 0;
   }
 
   private notifyRepoSwitch(newPath: string): void {
@@ -590,38 +658,31 @@ export class StateManager {
     }
   }
 
-  private async refreshAheadBehind(): Promise<void> {
-    const token = this.repoToken;
+  private async refreshAheadBehind(repoPath?: string): Promise<void> {
+    const target = repoPath ?? this.state.repoPath;
+    if (!target) return;
+    const slice = this.getOrCreateSlice(target);
+    const git = this.registry.acquire(target).git;
+    const startToken = slice.token;
     try {
-      const result = await this.git.exec([
+      const result = await git.exec([
         'rev-list', '--left-right', '--count', 'HEAD...@{upstream}',
       ]);
-      if (token !== this.repoToken) return;
+      if (slice.token !== startToken) return;
       const parts = result.stdout.trim().split('\t');
-      this.state.ahead = parseInt(parts[0], 10) || 0;
-      this.state.behind = parseInt(parts[1], 10) || 0;
+      slice.ahead = parseInt(parts[0], 10) || 0;
+      slice.behind = parseInt(parts[1], 10) || 0;
     } catch {
-      if (token !== this.repoToken) return;
-      this.state.ahead = 0;
-      this.state.behind = 0;
+      if (slice.token !== startToken) return;
+      slice.ahead = 0;
+      slice.behind = 0;
     }
   }
 
   private notify(): void {
-    // Shallow-копия верхнего уровня достаточна: React-потребители сравнивают
-    // ссылки на массивы; сами массивы мы всегда пересобираем в refresh*-методах
-    // (через присваивание новых массивов), поэтому глубокое копирование 50k
-    // коммитов здесь — лишняя нагрузка GC и источник тормозов при переключении.
+    // Shallow-копия верхнего уровня — React-потребители сравнивают ссылки на
+    // массивы (commits/graphLayout/branches), а они уже свежие на момент notify.
     const snapshot: AppState = { ...this.state };
-
-    // Актуализируем in-memory snapshot для текущего репо на каждый notify.
-    // Без этого snapshot, сохранённый в момент openRepo (когда commits ещё
-    // пустые), никогда не обновляется — и при возврате на репо юзер видит
-    // пустой граф, пока refreshAll не догонит.
-    if (this.state.repoPath) {
-      this.repoSnapshots.set(this.state.repoPath, this.captureRepoSnapshot());
-    }
-
     perfLog('notify', { commits: snapshot.commits.length, nodes: snapshot.graphLayout.nodes.length, listeners: this.listeners.size });
     for (const listener of this.listeners) {
       try {

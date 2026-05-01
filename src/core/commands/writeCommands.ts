@@ -16,9 +16,13 @@ async function gitWrite(
   queue: OperationQueue, state: StateManager, opName: string,
   fn: () => Promise<OperationResult>, refresh: RefreshFn = 'refreshAll',
 ): Promise<OperationResult> {
+  // Захватываем repoPath ДО enqueueWrite — операция должна refresh'ить
+  // именно то репо, на котором её запустили, даже если пользователь успел
+  // переключиться на другое до старта (или во время) операции.
+  const targetRepo = state.getState().repoPath || undefined;
   return queue.enqueueWrite(opName, async () => {
     const result = await fn();
-    await state[refresh]();
+    await state[refresh](targetRepo);
     return result;
   });
 }

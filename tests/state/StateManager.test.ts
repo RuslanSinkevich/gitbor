@@ -88,6 +88,7 @@ describe('StateManager.refreshGraph dedup', () => {
   it('не пересоздаёт ссылки на commits/graphLayout при идентичном повторном refreshGraph', async () => {
     const git = createMockGit(new Map());
     const sm = new StateManager(fakeRegistry(git));
+    sm.setRepoPath('/repo');
 
     await sm.refreshGraph(500);
     const firstCommits = sm.getState().commits;
@@ -124,6 +125,7 @@ describe('StateManager.refreshGraph dedup', () => {
 
     (git as any).killAll = vi.fn().mockReturnValue(0);
     const sm = new StateManager(fakeRegistry(git));
+    sm.setRepoPath('/repo');
     await sm.refreshGraph(500);
     const firstCommits = sm.getState().commits;
 
@@ -150,6 +152,7 @@ describe('StateManager.refreshGraph dedup', () => {
   it('invalidateGraphCache форсит пересборку при следующем refreshGraph', async () => {
     const git = createMockGit(new Map());
     const sm = new StateManager(fakeRegistry(git));
+    sm.setRepoPath('/repo');
 
     await sm.refreshGraph(500);
     const firstCommits = sm.getState().commits;
@@ -177,6 +180,7 @@ describe('StateManager.refreshGraph dedup', () => {
       killAll: vi.fn().mockReturnValue(0),
     };
     const sm = new StateManager(fakeRegistry(git));
+    sm.setRepoPath('/repo');
 
     await sm.refreshGraph(500);
     expect(sm.getState().commits).toHaveLength(3);
