@@ -43,3 +43,5 @@ coverage/
 
 # Bundled git (downloaded at build time)
 resources/git/
+
+COMMIT_TMP.txt

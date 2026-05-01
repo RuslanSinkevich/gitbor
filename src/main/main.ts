@@ -2,9 +2,9 @@ import { app, BrowserWindow, Menu, dialog, safeStorage } from 'electron';
 import * as path from 'path';
 import * as net from 'net';
 import { GitExecutor } from '../core/git/GitExecutor';
+import { RepoServicesRegistry } from '../core/services/RepoServicesRegistry';
 import { StateManager } from '../core/state/StateManager';
 import { FileWatcher } from '../core/state/FileWatcher';
-import { OperationQueue } from '../core/safety/OperationQueue';
 import { OperationJournal } from '../core/safety/OperationJournal';
 import { SafetyNet } from '../core/safety/SafetyNet';
 import { CommandHandler } from '../core/commands/CommandHandler';
@@ -20,6 +20,7 @@ let messageBridge: MessageBridge | null = null;
 let fileWatcher: FileWatcher | null = null;
 let commandHandler: CommandHandler | null = null;
 let stateManager: StateManager | null = null;
+let repoRegistry: RepoServicesRegistry | null = null;
 
 const isDev = !app.isPackaged;
 
@@ -85,7 +86,7 @@ async function createWindow(): Promise<void> {
 
   mainWindow.on('closed', () => {
     fileWatcher?.dispose();
-    stateManager?.getGit().killAll();
+    repoRegistry?.disposeAll();
     mainWindow = null;
   });
 }
@@ -103,19 +104,17 @@ async function loadWindow(): Promise<void> {
 }
 
 async function initServices(): Promise<void> {
-  const defaultCwd = process.cwd();
-
-  const git = new GitExecutor(defaultCwd);
-
-  const gitCheck = await checkGitAvailable(git);
+  // Бутстрапный GitExecutor — только для проверки наличия git в PATH.
+  // Реальные операции на репо идут через per-repo services в registry.
+  const probeGit = new GitExecutor(process.cwd());
+  const gitCheck = await checkGitAvailable(probeGit);
   if (!gitCheck.available) {
     await showGitNotFoundMessage();
   }
 
-  stateManager = new StateManager(git);
-  const queue = new OperationQueue();
-  const safety = new SafetyNet(git);
-  commandHandler = new CommandHandler(git, queue, safety, stateManager);
+  repoRegistry = new RepoServicesRegistry();
+  stateManager = new StateManager(repoRegistry);
+  commandHandler = new CommandHandler(stateManager);
 
   const aiStore = new AiConfigStore(app.getPath('userData'), {
     isEncryptionAvailable: () => {
@@ -132,21 +131,17 @@ async function initServices(): Promise<void> {
   fileWatcher = new FileWatcher(stateManager);
 
   stateManager.onRepoSwitch((repoPath) => {
-    // switchRepo теперь O(1): только меняет активный путь, watcher для репо
-    // живёт с момента первого открытия до закрытия приложения. Это убрало
-    // «тормоз переключения большой→маленький», который был вызван
-    // chokidar.close() + рекурсивным scan'ом нового worktree на каждый клик.
     fileWatcher?.switchRepo(repoPath);
   });
 
   stateManager.onRepoClose((closedPath) => {
-    // Закрываем watcher'ы закрытого репо — иначе они висят до конца сессии
-    // и жрут FD (на Windows особенно критично при чередовании открытий).
     fileWatcher?.removeRepo(closedPath);
     messageBridge?.cleanupRepo(closedPath);
   });
 
-  queue.onStatusChange((running, operation) => {
+  // Агрегированный «идёт операция» для UI — теперь объединяем по всем репо
+  // (любая активная очередь в любом per-repo `OperationQueue` зажигает индикатор).
+  repoRegistry.onAnyOperationStatusChange((running, operation) => {
     stateManager!.setOperationRunning(running, operation);
   });
 }
@@ -154,31 +149,39 @@ async function initServices(): Promise<void> {
 async function autoOpenRepo(): Promise<void> {
   if (!stateManager || !commandHandler || !fileWatcher) return;
 
+  // Бутстрапный GitExecutor с cwd = process.cwd() для определения,
+  // есть ли git-репо рядом со стартовым каталогом (dev-кейс).
+  const probeGit = new GitExecutor(process.cwd());
+  let repoRoot: string | null = null;
   try {
-    const git = stateManager.getGit();
-    const checkGit = await git.exec(['rev-parse', '--show-toplevel']);
+    const checkGit = await probeGit.exec(['rev-parse', '--show-toplevel']);
     if (checkGit.exitCode === 0) {
-      const repoRoot = checkGit.stdout.trim().replace(/\//g, path.sep);
-      stateManager.setRepoPath(repoRoot);
-      await stateManager.switchRepo(repoRoot);
-      fileWatcher.switchRepo(repoRoot);
+      repoRoot = checkGit.stdout.trim().replace(/\//g, path.sep);
     }
   } catch {
     // not a git repo — stay on welcome screen
   }
 
-  try {
-    const git = stateManager.getGit();
-    const gitDir = path.join(git.getCwd(), '.git');
-    const journal = new OperationJournal(gitDir);
-    const safety = new SafetyNet(git);
-    const recovery = new RecoveryManager(git, journal, safety);
-    const report = await recovery.checkOnStartup();
-    if (report.hasIssues) {
-      await showRecoveryDialog(report, recovery);
+  if (repoRoot) {
+    stateManager.setRepoPath(repoRoot);
+    await stateManager.switchRepo(repoRoot);
+    fileWatcher.switchRepo(repoRoot);
+  }
+
+  if (repoRoot) {
+    try {
+      const services = stateManager.getRegistry().acquire(repoRoot);
+      const gitDir = path.join(repoRoot, '.git');
+      const journal = new OperationJournal(gitDir);
+      const safety = new SafetyNet(services.git);
+      const recovery = new RecoveryManager(services.git, journal, safety);
+      const report = await recovery.checkOnStartup();
+      if (report.hasIssues) {
+        await showRecoveryDialog(report, recovery);
+      }
+    } catch {
+      // recovery check failed — non-fatal
     }
-  } catch {
-    // recovery check failed — non-fatal
   }
 }
 
@@ -218,7 +221,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
-  stateManager?.getGit().killAll();
+  repoRegistry?.disposeAll();
   if (process.platform !== 'darwin') {
     app.quit();
   }

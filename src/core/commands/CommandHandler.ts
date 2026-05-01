@@ -15,29 +15,33 @@ import { StateManager } from '../state/StateManager';
 import * as Read from './readCommands';
 import * as Write from './writeCommands';
 
+/**
+ * `CommandHandler` стал тонкой обёрткой над активным репо. Все исполнители
+ * (git/queue/safety и менеджеры RebaseManager/ConflictManager и т.п.)
+ * берутся per-call через `state.getActiveServices()`. Это значит:
+ *
+ * - длинная команда репо A не блокирует репо B (у них разные `OperationQueue`);
+ * - smena активного репо не «запутывает» уже выполняющиеся команды —
+ *   каждая команда захватила свои `git`/`queue`/`safety` локально.
+ */
 export class CommandHandler {
-  readonly conflicts: ConflictManager;
-  readonly rebase: RebaseManager;
-  readonly bisect: BisectManager;
-  readonly hooks: HooksManager;
-  readonly worktrees: WorktreeManager;
-  readonly lfs: LfsManager;
+  constructor(private readonly state: StateManager) {}
 
-  constructor(
-    private readonly git: GitExecutor,
-    private readonly queue: OperationQueue,
-    private readonly safety: SafetyNet,
-    private readonly state: StateManager
-  ) {
-    this.conflicts = new ConflictManager(git);
-    this.rebase = new RebaseManager(git);
-    this.bisect = new BisectManager(git);
-    this.hooks = new HooksManager(git);
-    this.worktrees = new WorktreeManager(git);
-    this.lfs = new LfsManager(git);
-  }
+  // ─── Active services accessors ───
+  private get git(): GitExecutor { return this.state.getActiveServices().git; }
+  private get queue(): OperationQueue { return this.state.getActiveServices().queue; }
+  private get safety(): SafetyNet { return this.state.getActiveServices().safety; }
 
-  getRepoPath(): string { return this.git.getCwd(); }
+  // Менеджеры — stateless обёртки над активным `git`. Создаются на запрос,
+  // тривиальная цена; зато всегда привязаны к актуальному репо.
+  private get rebase(): RebaseManager { return new RebaseManager(this.git); }
+  private get bisect(): BisectManager { return new BisectManager(this.git); }
+  private get hooks(): HooksManager { return new HooksManager(this.git); }
+  private get worktrees(): WorktreeManager { return new WorktreeManager(this.git); }
+  private get lfs(): LfsManager { return new LfsManager(this.git); }
+  private get conflicts(): ConflictManager { return new ConflictManager(this.git); }
+
+  getRepoPath(): string { return this.state.getState().repoPath; }
 
   // ─── Read ───
   getGraphData(maxCount: number): Promise<CommitGraphData> { return Read.getGraphData(this.queue, this.state, maxCount); }

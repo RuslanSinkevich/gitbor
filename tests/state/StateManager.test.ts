@@ -49,8 +49,34 @@ function createMockGit(scripted: Map<string, string>) {
     }),
     setCwd: vi.fn(),
     getCwd: vi.fn().mockReturnValue('/repo'),
+    killAll: vi.fn().mockReturnValue(0),
   };
 }
+
+/**
+ * Минимальный фейковый registry для тестов: всегда возвращает один и тот же
+ * git (плюс заглушки `OperationQueue`/`SafetyNet`). Имитирует реальный API
+ * `RepoServicesRegistry`, чтобы StateManager работал без изменения тестов.
+ */
+function fakeRegistry(git: any) {
+  const services = {
+    repoPath: '/repo',
+    git,
+    queue: { enqueueRead: (_l: string, op: any) => op(), enqueueWrite: (_l: string, op: any) => op(), onStatusChange: () => () => {} },
+    safety: { wrapDestructive: (_n: string, _p: any, op: any) => op() },
+  };
+  return {
+    has: () => true,
+    bootstrap: () => services,
+    acquire: () => services,
+    get: () => services,
+    release: () => {},
+    disposeAll: () => {},
+    onAnyOperationStatusChange: () => () => {},
+    size: () => 1,
+  } as any;
+}
+
 
 describe('StateManager.refreshGraph dedup', () => {
   let StateManager: typeof import('@core/state/StateManager').StateManager;
@@ -61,7 +87,7 @@ describe('StateManager.refreshGraph dedup', () => {
 
   it('не пересоздаёт ссылки на commits/graphLayout при идентичном повторном refreshGraph', async () => {
     const git = createMockGit(new Map());
-    const sm = new StateManager(git as any);
+    const sm = new StateManager(fakeRegistry(git));
 
     await sm.refreshGraph(500);
     const firstCommits = sm.getState().commits;
@@ -96,7 +122,8 @@ describe('StateManager.refreshGraph dedup', () => {
       getCwd: vi.fn().mockReturnValue('/repo'),
     };
 
-    const sm = new StateManager(git as any);
+    (git as any).killAll = vi.fn().mockReturnValue(0);
+    const sm = new StateManager(fakeRegistry(git));
     await sm.refreshGraph(500);
     const firstCommits = sm.getState().commits;
 
@@ -122,7 +149,7 @@ describe('StateManager.refreshGraph dedup', () => {
 
   it('invalidateGraphCache форсит пересборку при следующем refreshGraph', async () => {
     const git = createMockGit(new Map());
-    const sm = new StateManager(git as any);
+    const sm = new StateManager(fakeRegistry(git));
 
     await sm.refreshGraph(500);
     const firstCommits = sm.getState().commits;
@@ -138,7 +165,7 @@ describe('StateManager.refreshGraph dedup', () => {
   });
 
   it('работает на двух репо с разными stdout подряд (после инвалидации)', async () => {
-    const sm = new StateManager({
+    const git: any = {
       exec: vi.fn(async (args: string[]) => {
         const key = args.join(' ');
         if (key.startsWith('rev-parse HEAD')) return { stdout: 'aaa3\n', stderr: '', exitCode: 0, duration: 1 };
@@ -147,14 +174,16 @@ describe('StateManager.refreshGraph dedup', () => {
       }),
       setCwd: vi.fn(),
       getCwd: vi.fn().mockReturnValue('/repo'),
-    } as any);
+      killAll: vi.fn().mockReturnValue(0),
+    };
+    const sm = new StateManager(fakeRegistry(git));
 
     await sm.refreshGraph(500);
     expect(sm.getState().commits).toHaveLength(3);
 
     sm.invalidateGraphCache();
 
-    (sm as any).git.exec = vi.fn(async (args: string[]) => {
+    git.exec = vi.fn(async (args: string[]) => {
       const key = args.join(' ');
       if (key.startsWith('rev-parse HEAD')) return { stdout: 'bbb2\n', stderr: '', exitCode: 0, duration: 1 };
       if (key.startsWith('log ')) return { stdout: REPO_STDOUT_B, stderr: '', exitCode: 0, duration: 1 };

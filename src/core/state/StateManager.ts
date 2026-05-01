@@ -5,6 +5,7 @@ import * as GitParser from '../git/GitParser';
 import { computeGraphLayout } from '../git/GraphLayout';
 import { loadGraphCache, saveGraphCache } from './GraphCache';
 import { perfMark, perfLog } from '../utils/perf';
+import { RepoServicesRegistry, RepoServices } from '../services/RepoServicesRegistry';
 import {
   AppState,
   Commit,
@@ -69,7 +70,12 @@ export class StateManager {
   private repoToken = 0;
 
   constructor(
-    private readonly git: GitExecutor
+    /**
+     * Реестр per-repo сервисов. Каждое открытое репо имеет свой
+     * `GitExecutor` / `OperationQueue` / `SafetyNet`. Все git-операции
+     * StateManager идут через активные сервисы (см. `getActiveServices`).
+     */
+    private readonly registry: RepoServicesRegistry,
   ) {
     this.state = this.emptyState();
   }
@@ -78,8 +84,35 @@ export class StateManager {
     return this.state;
   }
 
+  /**
+   * Сервисы активного репо. Если активного нет — возвращает bootstrap
+   * сервисы (используются для clone/init и других операций без открытого
+   * репо). Все per-repo refresh*-методы StateManager НЕ должны вызываться
+   * когда state.repoPath пуст — они и не вызываются (см. switchRepo).
+   */
+  getActiveServices(): RepoServices {
+    if (!this.state.repoPath) {
+      return this.registry.bootstrap();
+    }
+    return this.registry.acquire(this.state.repoPath);
+  }
+
+  /**
+   * git активного репо как property для всех `this.git.exec(...)` ниже.
+   * Делается через геттер, чтобы не таскать `setCwd` руками.
+   */
+  private get git(): GitExecutor {
+    return this.getActiveServices().git;
+  }
+
+  /** Backward-compat: git активного репо. */
   getGit(): GitExecutor {
     return this.git;
+  }
+
+  /** Реестр для внешних потребителей (CommandHandler, FileWatcher, AI). */
+  getRegistry(): RepoServicesRegistry {
+    return this.registry;
   }
 
   private static readonly INITIAL_COMMIT_LIMIT = 2000;
@@ -324,18 +357,16 @@ export class StateManager {
       this.repoSnapshots.set(this.state.repoPath, this.captureRepoSnapshot());
     }
 
-    // Инвалидируем все running async-операции предыдущего репо. Дополнительно
-    // убиваем зависшие git-процессы старого репо (например, `git status` на
-    // профильной директории с 440k файлов): иначе они доедают 30+ секунд в
-    // фоне и накапливаются при быстром переключении табов.
+    // Инвалидируем все running async-операции предыдущего репо. Зависшие
+    // git-процессы СТАРОГО репо больше не глушим глобально — теперь у каждого
+    // репо свой `GitExecutor` в registry. Старые процессы продолжают
+    // выполняться в собственной песочнице и не мешают новому репо.
     this.repoToken++;
     const token = this.repoToken;
-    const killed = this.git.killAll();
-    if (killed > 0) {
-      perfLog('switchRepo.killedInflight', { count: killed });
-    }
 
-    this.git.setCwd(repoPath);
+    // Гарантируем, что для нового активного репо есть сервисы.
+    this.registry.acquire(repoPath);
+
     this.state.repoPath = repoPath;
     this.state.repoName = basename(repoPath);
     const idx = this.state.openRepos.findIndex(r => r.path === repoPath);
@@ -471,6 +502,8 @@ export class StateManager {
   setRepoPath(repoPath: string): void {
     this.state.repoPath = repoPath;
     this.state.repoName = basename(repoPath);
+    // Убеждаемся, что для этого репо есть per-repo сервисы.
+    this.registry.acquire(repoPath);
 
     if (!this.state.openRepos.some(r => r.path === repoPath)) {
       this.state.openRepos = [
@@ -529,6 +562,9 @@ export class StateManager {
    */
   notifyRepoClose(closedPath: string): void {
     this.repoSnapshots.delete(closedPath);
+    // Освобождаем per-repo сервисы — это убивает оставшиеся git-процессы
+    // этого репо (висящие pull/fetch без сети и т.п.).
+    try { this.registry.release(closedPath); } catch { /* ignore */ }
     for (const listener of this.repoCloseListeners) {
       try {
         listener(closedPath);
