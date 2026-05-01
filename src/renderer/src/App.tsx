@@ -16,11 +16,11 @@ import { MergeBanner } from './features/merge';
 import { Toolbar } from './features/toolbar';
 import { Sidebar, BranchStatus } from './features/sidebar';
 import { RepoTabs } from './features/repo-tabs';
-import { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo } from './features/repo-manager';
+import { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo, clearLastActiveRepo, removeRecentRepo } from './features/repo-manager';
 import { SgSplitPane } from './ui/SgSplitPane';
 import { usePromptDialog } from './ui/SgPromptDialog';
 import { AppDialogs } from './AppDialogs';
-import { postCommand, onMainEvent } from './api';
+import { postCommand, onMainEvent, invokeCommand } from './api';
 import { t, tpl, setLang, getLang } from './i18n';
 import { UiShowcase } from './pages/UiShowcase';
 import { buildStorageKey } from './shared/uiPersist';
@@ -86,7 +86,12 @@ export function App() {
     }
     if (!state.repoPath) {
       restoreLastRepoAttempted.current = true;
-      postCommand({ type: 'openRepo', path: last });
+      // invokeCommand → можно поймать reject от main (path удалён, нет .git
+      // и т.п.) и почистить last/recents, чтобы не зацикливаться при старте.
+      void invokeCommand({ type: 'openRepo', path: last }).catch(() => {
+        clearLastActiveRepo();
+        removeRecentRepo(last);
+      });
     } else {
       // Уже что-то открыто (auto cwd / явный openRepo): не подменяем.
       restoreLastRepoAttempted.current = true;

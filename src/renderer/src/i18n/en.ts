@@ -286,6 +286,7 @@ export const en = {
     fileHistory: 'File History',
     blame: 'Blame',
     newAnnotatedTag: 'New Annotated Tag...',
+    tagMessageTitle: 'Tag message',
   },
   merge: {
     title: 'Merge Branches',

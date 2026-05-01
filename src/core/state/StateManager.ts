@@ -67,27 +67,6 @@ function emptySlice(): RepoSlice {
   };
 }
 
-type RepoSnapshot = Pick<
-  AppState,
-  | 'currentBranch'
-  | 'branches'
-  | 'tags'
-  | 'stashes'
-  | 'remotes'
-  | 'stagedFiles'
-  | 'unstagedFiles'
-  | 'conflicts'
-  | 'ahead'
-  | 'behind'
-  | 'commits'
-  | 'graphLayout'
-  | 'selectedCommitHash'
-> & {
-  headHash: string | null;
-  logHash: string | null;
-  logLimit: number;
-};
-
 const LOG_FORMAT =
   '%H%x00%P%x00%an%x00%ae%x00%at%x00%D%x00%s%x00%G?';
 const REF_FORMAT =
@@ -102,7 +81,6 @@ export class StateManager {
   private readonly listeners = new Set<StateListener>();
   private readonly repoSwitchListeners = new Set<RepoSwitchListener>();
   private readonly repoCloseListeners = new Set<RepoCloseListener>();
-  private readonly repoSnapshots = new Map<string, RepoSnapshot>();
   /**
    * Per-repo срезы. Source of truth для всего, что относится к одному репо
    * (commits, branches, status, cache hashes, token). Активный срез
@@ -639,7 +617,6 @@ export class StateManager {
     const slice = this.slicesByRepo.get(closedPath);
     if (slice) slice.token++;
     this.slicesByRepo.delete(closedPath);
-    this.repoSnapshots.delete(closedPath);
     try { this.registry.release(closedPath); } catch { /* ignore */ }
     for (const listener of this.repoCloseListeners) {
       try {

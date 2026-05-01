@@ -288,6 +288,7 @@ export const ru: LocaleMap = {
     fileHistory: 'История файла',
     blame: 'Blame',
     newAnnotatedTag: 'Новая аннотированная метка...',
+    tagMessageTitle: 'Сообщение метки',
   },
   merge: {
     title: 'Слияние веток',

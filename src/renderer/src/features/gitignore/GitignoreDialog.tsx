@@ -88,8 +88,8 @@ export function GitignoreDialog({ onClose }: Props) {
         />
 
         <div className={s.footer}>
-          <button className={s.btn} onClick={onClose}>{loc.gitignore?.cancel ?? 'Cancel'}</button>
-          <button className={`${s.btn} ${s.btnPrimary}`} onClick={handleSave}>{loc.gitignore?.save ?? 'Save'}</button>
+          <button className={s.btn} onClick={onClose}>{loc.gitignore.cancel}</button>
+          <button className={`${s.btn} ${s.btnPrimary}`} onClick={handleSave}>{loc.gitignore.save}</button>
         </div>
       </div>
     </div>

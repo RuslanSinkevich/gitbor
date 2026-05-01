@@ -56,12 +56,12 @@ export function getCommitMenuItems(commit: Commit, currentBranch: string, showPr
       }),
     },
     {
-      label: loc.contextMenu.newAnnotatedTag || 'New Annotated Tag...',
+      label: loc.contextMenu.newAnnotatedTag,
       action: () => showPrompt({
-        title: loc.contextMenu.newAnnotatedTag || 'New Annotated Tag',
+        title: loc.contextMenu.newAnnotatedTag,
         placeholder: 'v1.0.0',
         onConfirm: (name) => showPrompt({
-          title: 'Tag message',
+          title: loc.contextMenu.tagMessageTitle,
           placeholder: 'Release v1.0.0',
           onConfirm: (message) => postCommand({ type: 'createTag', name, ref: commit.hash, message }),
         }),

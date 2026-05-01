@@ -44,6 +44,17 @@ export function postCommand(command: RendererCommand, hooks?: PostCommandHooks):
   }
 }
 
+/**
+ * Промис-версия postCommand: возвращает результат IPC. Использовать когда
+ * нужно ловить успешность/ошибку (например, при восстановлении last repo
+ * чтобы почистить localStorage если путь невалиден).
+ */
+export function invokeCommand(command: RendererCommand): Promise<unknown> {
+  const api = getAPI();
+  if (!api) return Promise.reject(new Error('SkyFork IPC недоступен'));
+  return api.invoke(command);
+}
+
 type EventUnsubscribe = () => void;
 const eventListeners = new Set<(event: MainEvent) => void>();
 let globalListenerAttached = false;
