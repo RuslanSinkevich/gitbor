@@ -2,13 +2,12 @@ import { basename } from 'path';
 import { createHash } from 'crypto';
 import { GitExecutor } from '../git/GitExecutor';
 import * as GitParser from '../git/GitParser';
-import { computeGraphLayout } from '../git/GraphLayout';
 import { loadGraphCache, saveGraphCache } from './GraphCache';
 import { perfMark, perfLog } from '../utils/perf';
 import { RepoServicesRegistry, RepoServices } from '../services/RepoServicesRegistry';
+import { workerPool } from '../workers/WorkerPool';
 import {
   AppState,
-  Commit,
   RepoInfo,
 } from '../git/types';
 
@@ -342,7 +341,12 @@ export class StateManager {
         'status', '--porcelain=v1', '--untracked-files=all',
       ]);
       if (slice.token !== startToken) return;
-      const allFiles = GitParser.parseStatus(statusResult.stdout);
+      // Парсинг 30+ МБ stdout (`C:\Users\Admin` с 440k untracked) синхронно
+      // на main thread замораживал IPC. workerPool офлоадит в worker_threads
+      // если stdout большой; для маленьких — inline.
+      const parsed = workerPool.parseStatus(statusResult.stdout);
+      const allFiles = parsed instanceof Promise ? await parsed : parsed;
+      if (slice.token !== startToken) return;
       slice.stagedFiles = allFiles.filter(f => f.staged);
       slice.unstagedFiles = allFiles.filter(f => !f.staged);
       slice.conflicts = allFiles.filter(f => f.status === 'U').map(f => f.path);
@@ -406,8 +410,16 @@ export class StateManager {
       slice.cachedLogHash = stdoutHash;
       slice.cachedLogLimit = effectiveLimit;
 
-      slice.commits = GitParser.parseCommits(logResult.stdout);
-      slice.graphLayout = computeGraphLayout(slice.commits as Commit[]);
+      // 50k коммитов parseCommits + computeGraphLayout — десятки/сотни мс
+      // на main thread, подвисало IPC. Офлоадим в worker для крупных репо.
+      const commitsParsed = workerPool.parseCommits(logResult.stdout);
+      const commits = commitsParsed instanceof Promise ? await commitsParsed : commitsParsed;
+      if (slice.token !== startToken) return;
+      const layoutParsed = workerPool.computeGraphLayout(commits);
+      const layout = layoutParsed instanceof Promise ? await layoutParsed : layoutParsed;
+      if (slice.token !== startToken) return;
+      slice.commits = commits;
+      slice.graphLayout = layout;
     } catch {
       if (slice.token !== startToken) return;
       slice.commits = [];
