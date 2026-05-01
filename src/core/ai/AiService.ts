@@ -1,6 +1,7 @@
 import { OpenAiCompatibleProvider } from './providers/OpenAiCompatibleProvider';
 import { buildCommitSystemPrompt, buildCommitUserPrompt } from './prompts';
 import { AiError, type AiCompletionResult, type AiProviderConfig } from './types';
+import { mainLogger } from '../utils/Logger';
 
 export interface CommitMessageOptions {
   diff: string;
@@ -45,7 +46,7 @@ export class AiService {
     }
     const lang = this.config?.commitLanguage ?? 'auto';
     const systemPrompt = options.systemPrompt ?? buildCommitSystemPrompt(lang);
-    console.log('[SkyFork AI] generateCommitMessage lang=%s model=%s', lang, this.config?.model);
+    mainLogger.debug(`AI: generateCommitMessage lang=${lang} model=${this.config?.model ?? 'n/a'}`);
     const result = await provider.complete({
       systemPrompt,
       userPrompt: buildCommitUserPrompt(options.diff, lang),

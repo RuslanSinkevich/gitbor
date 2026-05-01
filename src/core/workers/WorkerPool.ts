@@ -13,6 +13,7 @@
 import { Worker } from 'worker_threads';
 import * as path from 'path';
 import * as GitParser from '../git/GitParser';
+import { mainLogger } from '../utils/Logger';
 import { computeGraphLayout } from '../git/GraphLayout';
 import type { Commit, FileStatus, GraphLayoutData } from '../git/types';
 
@@ -45,30 +46,52 @@ class WorkerPoolImpl {
 
   private ensureSlots(): void {
     if (this.slots.length > 0) return;
-    const workerPath = this.getWorkerPath();
     for (let i = 0; i < this.poolSize; i++) {
-      try {
-        const w = new Worker(workerPath);
-        const slot: WorkerSlot = { worker: w, inflight: new Map(), load: 0 };
-        w.on('message', (msg: { id: number; ok: boolean; result?: unknown; error?: string }) => {
-          const pending = slot.inflight.get(msg.id);
-          if (!pending) return;
-          slot.inflight.delete(msg.id);
-          slot.load = Math.max(0, slot.load - 1);
-          if (msg.ok) pending.resolve(msg.result);
-          else pending.reject(new Error(msg.error ?? 'worker error'));
-        });
-        w.on('error', (err) => {
-          for (const pending of slot.inflight.values()) pending.reject(err);
-          slot.inflight.clear();
-          slot.load = 0;
-        });
-        this.slots.push(slot);
-      } catch (err) {
-        console.warn('[SkyFork WorkerPool] failed to spawn worker:', err instanceof Error ? err.message : err);
-        break;
-      }
+      this.spawnSlot();
     }
+  }
+
+  /**
+   * Создать (или пересоздать) одного воркера и добавить его в `slots`.
+   * При ошибке worker'а / выходе с ненулевым кодом — slot вычищается и
+   * заменяется новым; иначе мёртвый воркер остался бы в пуле и все
+   * последующие dispatch'и уходили бы в трупа (без message → зависают).
+   */
+  private spawnSlot(): void {
+    const workerPath = this.getWorkerPath();
+    let w: Worker;
+    try {
+      w = new Worker(workerPath);
+    } catch (err) {
+      mainLogger.warn(`WorkerPool: failed to spawn worker: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
+    const slot: WorkerSlot = { worker: w, inflight: new Map(), load: 0 };
+    w.on('message', (msg: { id: number; ok: boolean; result?: unknown; error?: string }) => {
+      const pending = slot.inflight.get(msg.id);
+      if (!pending) return;
+      slot.inflight.delete(msg.id);
+      slot.load = Math.max(0, slot.load - 1);
+      if (msg.ok) pending.resolve(msg.result);
+      else pending.reject(new Error(msg.error ?? 'worker error'));
+    });
+    const onDeath = (cause: Error | { code: number }): void => {
+      const idx = this.slots.indexOf(slot);
+      if (idx === -1) return; // уже удалён
+      this.slots.splice(idx, 1);
+      const err = cause instanceof Error ? cause : new Error(`worker exited with code ${cause.code}`);
+      for (const pending of slot.inflight.values()) pending.reject(err);
+      slot.inflight.clear();
+      try { slot.worker.terminate(); } catch { /* already dead */ }
+      // Респавн отложено через setImmediate, чтобы не вкручивать
+      // recursive crash-loop при битом parserWorker.js.
+      setImmediate(() => {
+        if (this.slots.length < this.poolSize) this.spawnSlot();
+      });
+    };
+    w.on('error', onDeath);
+    w.on('exit', (code) => { if (code !== 0) onDeath({ code }); });
+    this.slots.push(slot);
   }
 
   private pickSlot(): WorkerSlot | null {

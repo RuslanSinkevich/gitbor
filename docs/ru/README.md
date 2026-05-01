@@ -135,7 +135,7 @@ skyfork/
 │   │   │   ├── StateManager.ts    # Единый источник состояния, мульти-репо
 │   │   │   └── FileWatcher.ts     # Per-repo chokidar watcher'ы (debounce: git 120ms, worktree 150ms)
 │   │   └── utils/
-│   │       ├── Logger.ts          # Асинхронное файловое логирование (WriteStream)
+│   │       ├── Logger.ts          # Уровневый logger (singleton mainLogger), в prod = silent
 │   │       └── pathSecurity.ts    # Защита от path traversal + symlink + Windows case-insensitive
 │   │
 │   ├── main/                      # Точка входа Electron

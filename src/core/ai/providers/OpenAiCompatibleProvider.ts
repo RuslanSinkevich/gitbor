@@ -1,5 +1,6 @@
 import { AiError, type AiCompletionOptions, type AiCompletionResult, type AiProviderConfig } from '../types';
 import type { AiProvider } from './base';
+import { mainLogger } from '../../utils/Logger';
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
@@ -141,11 +142,11 @@ export class OpenAiCompatibleProvider implements AiProvider {
     let usage: AiCompletionResult['usage'];
     let eventCount = 0;
     let byteCount = 0;
-    console.log('[SkyFork AI] stream start, content-type:', response.headers?.get?.('content-type'));
+    mainLogger.debug(`AI stream start, content-type: ${String(response.headers?.get?.('content-type'))}`);
 
     const processEvent = (eventStr: string): boolean => {
       eventCount++;
-      if (eventCount <= 3) console.log('[SkyFork AI] event #%d raw:', eventCount, eventStr);
+      if (eventCount <= 3) mainLogger.debug(`AI event #${eventCount} raw: ${eventStr}`);
       const dataLines = eventStr
         .split(/\r?\n/)
         .filter((l) => l.startsWith('data:'))
@@ -194,16 +195,16 @@ export class OpenAiCompatibleProvider implements AiProvider {
           const eventStr = buffer.slice(0, sep.index);
           buffer = buffer.slice(sep.index + sep.length);
           if (processEvent(eventStr)) {
-            console.log('[SkyFork AI] stream done. bytes=%d events=%d textLen=%d', byteCount, eventCount, text.length);
+            mainLogger.debug(`AI stream done: bytes=${byteCount} events=${eventCount} textLen=${text.length}`);
             return { text, finishReason, usage };
           }
         }
       }
       // Хвост без финального \n\n — некоторые серверы не шлют trailing newlines.
       if (buffer.trim()) processEvent(buffer);
-      console.log('[SkyFork AI] stream eof. bytes=%d events=%d textLen=%d', byteCount, eventCount, text.length);
+      mainLogger.debug(`AI stream eof: bytes=${byteCount} events=${eventCount} textLen=${text.length}`);
       if (!text) {
-        console.warn('[SkyFork AI] empty result. Raw head (first 1500B):\n', rawSample);
+        mainLogger.warn(`AI: empty result. Raw head (first 1500B):\n${rawSample}`);
       }
     } catch (err) {
       if (isAbortError(err)) {

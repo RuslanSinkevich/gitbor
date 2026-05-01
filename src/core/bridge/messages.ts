@@ -192,8 +192,14 @@ export type MainEvent =
   | { type: 'submodules'; data: Submodule[] }
   | { type: 'rebaseTodo'; data: RebaseTodoList }
   | { type: 'rebaseProgress'; data: RebaseProgress }
-  | { type: 'operationStart'; operation: string }
-  | { type: 'operationEnd'; operation: string; success: boolean; error?: string }
+  /**
+   * Начало long-running операции. `repoPath` — на каком репо она запущена.
+   * Renderer держит `runningOpsByRepo` per-repo карту; флаг
+   * `isOperationRunning` для UI вычисляется от активной вкладки. Без
+   * `repoPath` fetch на репо A блокировал бы кнопки на репо B.
+   */
+  | { type: 'operationStart'; operation: string; repoPath?: string | null }
+  | { type: 'operationEnd'; operation: string; success: boolean; error?: string; repoPath?: string | null }
   | { type: 'config'; lang: string }
   | { type: 'recoveryRequired'; issues: readonly RecoveryIssue[] }
   | { type: 'mergeState'; data: MergeState }
@@ -225,6 +231,7 @@ export type MainEvent =
   | { type: 'gitActivityCleared' }
   | { type: 'repoClosed'; path: string }
 
+
   // AI events
   | { type: 'aiConfig'; config: AiProviderConfig | null }
   | { type: 'aiTestResult'; success: boolean; error?: string }
@@ -232,7 +239,15 @@ export type MainEvent =
   | { type: 'aiDone'; requestId: string; text: string; finishReason: string }
   | { type: 'aiError'; requestId: string; message: string; kind: string }
 
-  | { type: 'error'; message: string };
+  /**
+   * Универсальная ошибка от main → renderer.
+   * - `message`: уже-готовый текст (фолбэк, если код не распознан).
+   * - `code`:    стабильный идентификатор для локализации в renderer
+   *              (см. locale.repoErrors.*). Если задан — renderer берёт
+   *              из своей локали и интерполирует `data` через `tpl()`.
+   * - `data`:    параметры для шаблона (например `{ path: '/foo' }`).
+   */
+  | { type: 'error'; message: string; code?: string; data?: Record<string, string> };
 
 export interface DayCommitEntry {
   hash: string;

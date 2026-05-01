@@ -231,6 +231,7 @@ export function App() {
               onPull={runPull}
               onPush={runPush}
               onOpenActivity={() => dlg.setShowGitActivity(true)}
+              repoPath={state.repoPath}
             />
           )}
 
@@ -337,6 +338,7 @@ export function App() {
         prompt={prompt} closePrompt={closePrompt}
         toasts={toasts} dismissToast={dismissToast}
         dlg={dlg} showPrompt={showPrompt} loc={loc}
+        repoPath={state.repoPath}
       />
 
       {syncDialogs}

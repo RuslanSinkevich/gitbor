@@ -2,17 +2,25 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import chokidar from 'chokidar';
 import { StateManager } from './StateManager';
+import { isDangerousRepoRoot } from '../utils/repoPathGuard';
+import { mainLogger } from '../utils/Logger';
 
 const GIT_DEBOUNCE_MS = 120;
-const WORKTREE_DEBOUNCE_MS = 150;
+const WORKTREE_DEBOUNCE_MS = 200;
 /**
  * Если в корне репозитория больше этого числа записей верхнего уровня —
- * worktreeWatcher НЕ запускается. На профильных каталогах (C:\Users\Admin)
- * chokidar пытается рекурсивно сканировать сотни тысяч файлов, выдаёт EPERM
- * на системные подкаталоги и фактически замораживает main thread.
+ * worktreeWatcher НЕ запускается. На профильных каталогах chokidar пытается
+ * рекурсивно сканировать сотни тысяч файлов, выдаёт EPERM на системные
+ * подкаталоги и замораживает main thread.
  * .git-watcher остаётся активным, чтобы реагировать на ref/HEAD/index.
+ *
+ * Понижено с 5000 → 1000: типичная домашняя папка имеет 30-200 записей
+ * верхнего уровня (старый порог 5000 её НЕ ловил), но за ними скрыты сотни
+ * тысяч файлов. 1000 безопасно: все нормальные репо проходят, а на
+ * сомнительных лучше пожертвовать живыми обновлениями worktree, чем
+ * получить заморозку.
  */
-const WORKTREE_TOPLEVEL_LIMIT = 5000;
+const WORKTREE_TOPLEVEL_LIMIT = 1000;
 
 interface WatcherPair {
   gitWatcher: chokidar.FSWatcher;
@@ -61,21 +69,34 @@ export class FileWatcher {
       // Pre-scan: смотрим количество записей в корне. Если их слишком много —
       // считаем репо «гигантским» (типичный признак — открыли C:\Users\<USER>
       // или другой системный каталог) и подписываемся ТОЛЬКО на .git.
+      // Дополнительный hard-stop: dangerous-пути (домашка, корень диска,
+      // C:\Windows и т.п.) — worktreeWatcher НЕ запускаем независимо
+      // от количества записей, чтобы не уйти в EPERM-цикл по AppData/Cookies.
       let topLevelCount = 0;
       let isHugeWorktree = false;
+      const isDangerous = isDangerousRepoRoot(repoPath).dangerous;
       try {
         const entries = await fs.readdir(repoPath);
         topLevelCount = entries.length;
         isHugeWorktree = topLevelCount > WORKTREE_TOPLEVEL_LIMIT;
         if (isHugeWorktree) {
-          console.warn(
-            `[SkyFork FileWatcher] worktreeWatcher disabled: ${repoPath} has ${topLevelCount} top-level entries (limit ${WORKTREE_TOPLEVEL_LIMIT}). Only .git will be watched.`,
+          mainLogger.warn(
+            `FileWatcher: worktreeWatcher disabled for ${repoPath} (${topLevelCount} top-level entries > ${WORKTREE_TOPLEVEL_LIMIT}). Only .git is watched.`,
           );
         }
       } catch (err) {
-        console.warn('[SkyFork FileWatcher] pre-scan failed:', err instanceof Error ? err.message : err);
+        mainLogger.warn(`FileWatcher: pre-scan failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      if (isDangerous) {
+        mainLogger.warn(`FileWatcher: worktreeWatcher disabled — ${repoPath} is a system/home directory.`);
+        isHugeWorktree = true;
       }
 
+      // Race-guard: репо могли закрыть, пока шёл async fs.readdir. В этом
+      // случае placeholder уже удалён `removeRepo` — создавать chokidar не
+      // надо, иначе получим orphan-watcher без ссылок и без close().
+      const stillTracked = this.watchers.has(repoPath);
+      if (!stillTracked) return;
       if (this.watchers.get(repoPath)?.gitWatcher) return;
 
       try {
@@ -113,7 +134,10 @@ export class FileWatcher {
             /[\\/]System Volume Information[\\/]/i,
             /[\\/]OneDrive[\\/]/i,
           ],
-          depth: 6,
+          // depth=3 (было 6) — глубже на NTFS чревато EPERM-каскадом и
+          // замедлением сканера chokidar. Всё что глубже всё равно
+          // подхватится через scheduleStatusRefresh при следующем git status.
+          depth: 3,
           awaitWriteFinish: false,
         });
 
@@ -137,15 +161,25 @@ export class FileWatcher {
         // и валит main. Свой listener — глотаем.
         const onWatcherError = (err: unknown) => {
           const msg = err instanceof Error ? err.message : String(err);
-          console.warn('[SkyFork FileWatcher] chokidar error:', msg);
+          mainLogger.warn(`FileWatcher: chokidar error: ${msg}`);
         };
         gitWatcher.on('error', onWatcherError);
         worktreeWatcher?.on('error', onWatcherError);
 
+        // Финальная race-проверка: если за время инициализации chokidar
+        // (несколько мс на больших worktree) репо успели закрыть —
+        // немедленно закрываем созданные watcher'ы, чтобы не утекли.
+        if (!this.watchers.has(repoPath)) {
+          gitWatcher.removeAllListeners();
+          worktreeWatcher?.removeAllListeners();
+          gitWatcher.close().catch(() => {});
+          worktreeWatcher?.close().catch(() => {});
+          return;
+        }
         this.watchers.set(repoPath, { gitWatcher, worktreeWatcher });
       } catch (err) {
         this.watchers.delete(repoPath);
-        console.error('[SkyFork FileWatcher] ensureWatcher failed:', err);
+        mainLogger.error(`FileWatcher: ensureWatcher failed: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
       }
     })();
   }
@@ -210,7 +244,7 @@ export class FileWatcher {
       this.gitDebounce = null;
       this.stateManager.invalidateGraphCache();
       this.stateManager.refreshAll().catch((err) => {
-        console.error('[SkyFork FileWatcher] refreshAll failed:', err instanceof Error ? err.message : err);
+        mainLogger.error(`FileWatcher: refreshAll failed: ${err instanceof Error ? err.message : String(err)}`);
       });
     }, GIT_DEBOUNCE_MS);
   }
@@ -220,7 +254,7 @@ export class FileWatcher {
     this.worktreeDebounce = setTimeout(() => {
       this.worktreeDebounce = null;
       this.stateManager.refreshStatusAndNotify().catch((err) => {
-        console.error('[SkyFork FileWatcher] refreshStatus failed:', err instanceof Error ? err.message : err);
+        mainLogger.error(`FileWatcher: refreshStatus failed: ${err instanceof Error ? err.message : String(err)}`);
       });
     }, WORKTREE_DEBOUNCE_MS);
   }

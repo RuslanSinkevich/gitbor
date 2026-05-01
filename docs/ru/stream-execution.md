@@ -1,5 +1,9 @@
 # Stream execution: multi-repo engine
 
+> **Статус: исполнено.** Главная цель достигнута: переключение табов мгновенное, операции на одном репо не блокируют другое. Документ оставлен как историческая сводка чек-листа. Чек-боксы ниже отмечены по факту выполнения; см. `architecture.md` для актуального состояния.
+
+---
+
 > Документ — пошаговый чек-лист для непрерывного исполнения. Главная цель: чтобы переключение табов разных git-репо никогда не зависело от того, что делается в другом табе. Pull на A без сети не должен мешать любым операциям на B.
 
 ## Inviolable rules для исполнителя
@@ -23,66 +27,58 @@
 
 ## Чек-лист этапов
 
-### Этап 1. RepoServicesRegistry — пер-репо `GitExecutor`/`OperationQueue`/`SafetyNet`
+### Этап 1. RepoServicesRegistry — пер-репо `GitExecutor`/`OperationQueue`/`SafetyNet` ✅
 
-- [ ] Создать `src/core/services/RepoServicesRegistry.ts`. Хранит `Map<repoPath, RepoServices>` с lazy `acquire(repoPath)` и `release(repoPath)`. `RepoServices = { git, queue, safety }`. cwd `GitExecutor` фиксированный, `setCwd` не используется снаружи.
-- [ ] `main.ts`: создаёт `RepoServicesRegistry`. `StateManager` принимает registry. Глобальный `GitExecutor` убирается из `initServices` (остаётся только бутстрапный для `checkGitAvailable`).
-- [ ] `StateManager`:
-  - Внутри `state.repoPath` остаётся как «активный репо», но git‑операции идут через `registry.acquire(this.state.repoPath).git` (не `this.git.setCwd`).
-  - `getGit()` для совместимости возвращает git **активного** репо.
-  - При `setRepoPath`/`switchRepo`/`closeRepo` соответственно `acquire`/`release` в registry.
-- [ ] `CommandHandler`, `writeCommands`, `readCommands`, `ConflictManager`, `RebaseManager`, `BisectManager`, `WorktreeManager`, `LfsManager`, `HooksManager`: вместо инжектируемого `git` принимают `() => GitExecutor` (резолвер активного git) или `repoPath -> services`. Минимальный путь — оставить сигнатуры, но `commandHandler` при создании этих менеджеров отдаёт им активный git, и при `switchRepo` подменяет внутренний git у менеджеров. Реализуем функцию `commandHandler.bindToActiveRepo(repoPath)` которая вызывается из StateManager.onRepoSwitch.
-- [ ] Очередь: `OperationQueue` — теперь на репо. `enqueueWrite` за‑lock'енное на одно репо не блокирует другое. Команды узнают свою очередь через services активного репо (либо через явный repoPath в команде, если есть).
-- [ ] `git.killAll()` теперь убивает только процессы конкретного репо (registry знает per-repo executor).
-- [ ] Тесты: `OperationQueue` тесты остаются. Добавить тест `RepoServicesRegistry` (acquire/release идемпотентность, isolation).
-- [ ] Коммит: «изоляция per-repo сервисов: GitExecutor/OperationQueue/SafetyNet через registry».
+- [x] `src/core/services/RepoServicesRegistry.ts` — `Map<repoPath, RepoServices>` + bootstrap, `acquire`/`release`, cwd фиксирован.
+- [x] `main.ts` создаёт registry, `StateManager` принимает его.
+- [x] `StateManager.getActiveServices()`, `getGit()` возвращает git активного репо.
+- [x] `CommandHandler` берёт `git`/`queue`/`safety` per-call через `state.getActiveServices()` (геттеры, без `bindToActiveRepo`-функции).
+- [x] Per-repo `OperationQueue`.
+- [x] `git.killAll()` убивает только процессы своего репо.
+- [x] Тесты на registry — `tests/services/RepoServicesRegistry.test.ts`.
+- [x] Коммит сделан.
 
-### Этап 2. `RepoState` per-repo + `MessageBridge` маршрутизация
+### Этап 2. `RepoState` per-repo + `MessageBridge` маршрутизация ✅ (частично)
 
-- [ ] Выделить `interface RepoState` (текущие per-repo поля без openRepos/active*/isOperationRunning/currentOperation). Поместить в `src/core/state/RepoState.ts`.
-- [ ] `StateManager.state` → `Map<repoPath, RepoState>` + `meta` (openRepos, activeRepoPath, isOperationRunning, currentOperation). `getState(): AppState` собирает «активный» совместимо для существующих потребителей.
-- [ ] `notify()` рассылает событие с `repoPath` и слайсом этого репо. Подписчик в `MessageBridge` может проверить, является ли это активным.
-- [ ] `MessageBridge` шлёт `stateUpdate` всегда с явным `repoPath` в `data`. Renderer (`useAppState`) уже маршрутизирует по `data.repoPath`.
-- [ ] `mergeState`, `rebaseProgress`, `submodules` — добавить `repoPath` в payload.
-- [ ] Тесты: проверить, что параллельный refresh двух репо обновляет два независимых slice (через мок `git`).
-- [ ] Коммит: «StateManager: per-repo RepoState и тэгирование событий repoPath».
+- [x] `RepoSlice` живёт в `src/core/state/repoSlice.ts` (см. также `mirrorRepoSliceToAppState` и git-format константы).
+- [x] `StateManager` — `slicesByRepo: Map<repoPath, RepoSlice>` + общий `meta`. `getState()` отзеркаливает активный slice + meta.
+- [x] `notify()` шлёт активный snapshot. Слайсы НЕ-активных репо обновляются молча, синхронизация через `switchRepo`.
+- [x] `MessageBridge` шлёт `graphData` с явным `repoPath` (с дедупом по ссылкам). `stateUpdate` несёт активный repoPath через `data.repoPath`.
+- [ ] `mergeState`/`rebaseProgress`/`submodules` пока без `repoPath` в payload — они актуальны только для активного. При необходимости добавим точечно.
+- [x] Тесты на параллельный refresh — `tests/state/StateManager.test.ts`.
+- [x] Коммит сделан.
 
-### Этап 3. Параллельный refresh нескольких репо
+### Этап 3. Параллельный refresh нескольких репо ✅ (частично)
 
-- [ ] `RepoEngine` — лёгкая обёртка над `RepoState` + `RepoServices` + `Refresher`. `refreshAll(repoPath)` → `engine(repoPath).refreshAll()`.
-- [ ] `FileWatcher` дёргает refresh нужного репо (по `activeRepoPath` или передавая repoPath в callback). Можно расширить watcher: на каждое репо — свой scheduler debounce. Сейчас watcher уже per-repo, но debounce общий — переделать на per-repo.
-- [ ] Глобальный семафор на одновременные git‑процессы (например, 8) в `RepoServicesRegistry` или в новом `GitProcessPool`, чтобы не утопить I/O при N открытых репо.
-- [ ] Коммит: «параллельный refresh репо без блокировки соседей».
+- [x] Per-repo `OperationQueue` — длинный `git pull` на A не блокирует операции на B.
+- [x] `FileWatcher` per-repo + per-repo `scheduleGitRefresh`/`scheduleStatusRefresh` (debounce общий по типу события, привязан к активному репо — это допустимо: refresh от события неактивного репо не имеет смысла, FS-сигналы от неактивного репо игнорируются на уровне `if (this.activeRepoPath === repoPath)`).
+- [ ] Глобальный семафор на одновременные git-процессы — пока не нужен (на практике одновременно бежит ≤ 10 процессов от 2-3 открытых репо). Введём, если упрёмся.
 
 ### Этап 4. Команды по `repoPath`
 
-- [ ] Добавить опциональный `repoPath?: string` во все команды `RendererCommand`, относящиеся к чтению/записи (commit, stage, pull, push, fetch, checkout, branch ops, tag ops, log…). Если не указан — fallback на активный.
-- [ ] `MessageBridge` маршрутизирует в нужные services. Команды без repoPath продолжают работать.
-- [ ] Renderer пока **не использует** новый поле — добавим позже точечно для мест вроде «коммит из неактивного таба».
-- [ ] Коммит: «команды поддерживают явный repoPath».
+- [ ] **Не реализовано и пока не нужно.** Активный репо как UI-понятие достаточен: команды берут активный, и на практике не возникает «коммит из неактивного таба». Добавим точечно при необходимости.
 
-### Этап 5. Worker threads для парсинга
+### Этап 5. Worker threads для парсинга ✅
 
-- [ ] `src/core/workers/parseStatus.worker.ts`: Node `worker_threads`. Принимает stdout, отдаёт `RepoStateStatus`.
-- [ ] `src/core/workers/graphLayout.worker.ts`: принимает commits, отдаёт layout.
-- [ ] Порог: `stdout.length > 256 KB` или `commits.length > 2000` → worker. Иначе main thread.
-- [ ] Сборка: проверить, что воркер находится в `dist/main/workers/...` после `tsc`. Поправить `tsconfig.main.json` и `electron-builder.files` если нужно.
-- [ ] Тесты: воркеры покрываются интеграционно — запустить через `Worker(...)` в test runner. Если в node:test/vitest сложно — мокать через прямой импорт чистой функции из воркера.
-- [ ] Коммит: «парсинг status и graph layout в worker threads».
+- [x] `src/core/workers/parserWorker.ts` — единый worker для `parseStatus`/`parseCommits`/`computeGraphLayout`.
+- [x] `src/core/workers/WorkerPool.ts` — пул из 2 worker'ов с round-robin балансировкой нагрузки и автоматическим respawn при `error`/`exit`.
+- [x] Пороги: status > 256 KB, log > 512 KB, layout > 2000 commits → worker. Меньше — inline.
+- [x] Сборка через `tsc` кладёт worker в `dist/core/workers/parserWorker.js`. `__dirname` резолвит корректно.
+- [x] Тесты идут на `GitParser` напрямую; worker pool отключается через size-threshold.
+- [x] `workerPool.dispose()` подцеплен в `app.on('window-all-closed')`.
 
-### Этап 6. Активный репо — концепт UI
+### Этап 6. Активный репо — концепт UI ✅
 
-- [ ] `IPC switchRepo` deprecate. На стороне main — становится no-op (логирует и игнорит). Renderer уже не зависит от ответа.
-- [ ] `state.activeRepoPath` в core оставить только для совместимости с местами, где sense'а активного быть должно (recovery dialog, например). Свести к минимуму.
-- [ ] Коммит: «switchRepo IPC deprecated, активный репо — UI-концепт».
+- [x] Активный репо живёт в renderer (`meta.activeRepoIndex` в `useAppState`). В main `state.repoPath`/`activeRepoIndex` остались для обратной совместимости и команд без явного `repoPath`.
+- [x] `state.isOperationRunning`/`currentOperation` в main больше не пишутся (метод `setOperationRunning` теперь no-op): renderer держит `runningOpsByRepo` карту и сам считает флаг от активной вкладки. Это убрало UI-блокировку «fetch на A → кнопки на B disabled».
 
-### Финальный аккорд
+### Финальный аккорд ✅
 
-- [ ] `npm test` — зелёное.
-- [ ] `npm run build` — зелёное.
-- [ ] Проверить размер бандла renderer'а (минимально не должен раздуться > +10%).
-- [ ] Запустить `npm run dev`, открыть лог: убедиться, что нет UnhandledPromiseRejection, что `git.killAll()` продолжает работать на per-repo режиме.
-- [ ] Финальный коммит «доводка: проверка стабильности после рефакторинга» если есть ещё подкрутки.
+- [x] `npm test` — 31 файл, 286 тестов, зелёное.
+- [x] `npm run build` — renderer + main без ошибок.
+- [x] Размер бандла renderer'а — ~390 KB (gzip 118 KB), без раздутия.
+- [x] Запуск проверен: нет UnhandledPromiseRejection; `git.killAll()` per-repo работает; chokidar на dangerous paths не падает.
+- [x] Финальный аудит проведён, race-условия закрыты (см. `architecture.md` секцию `FileWatcher`).
 
 ## Что не делаем (явно)
 

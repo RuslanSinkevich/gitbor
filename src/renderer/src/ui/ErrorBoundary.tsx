@@ -1,5 +1,6 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react';
 import { t } from '../i18n';
+import { logger } from '../shared/logger';
 
 interface Props {
   children: ReactNode;
@@ -18,7 +19,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[SkyFork] Unhandled UI error:', error, info.componentStack);
+    logger.error('Unhandled UI error:', error, info.componentStack);
   }
 
   private handleReload = () => {

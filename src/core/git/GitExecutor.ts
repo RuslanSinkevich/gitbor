@@ -1,6 +1,6 @@
 import { execFile, spawn, ChildProcess } from 'child_process';
 import { GitExecOptions, GitExecResult } from './types';
-import { Logger } from '../utils/Logger';
+import { mainLogger } from '../utils/Logger';
 import { getCurrentActivityId } from '../activity/activityContext';
 import { gitActivityStore } from '../activity/GitActivityStore';
 
@@ -18,11 +18,12 @@ export class GitError extends Error {
 
 export class GitExecutor {
   private readonly activeProcesses = new Set<ChildProcess>();
-  private readonly logger: Logger;
 
   constructor(private defaultCwd: string) {
-    this.logger = new Logger('SkyFork Git');
-    this.logger.init();
+    // Logger общий через `mainLogger` singleton: уровень/файл-вывод
+    // настраиваются единожды в `main.ts` через `configureMainLogger`.
+    // Раньше каждый GitExecutor открывал свой файл-стрим — это давало
+    // дубли в логе и не выключалось в prod.
   }
 
   async exec(args: string[], options?: GitExecOptions): Promise<GitExecResult> {
@@ -37,7 +38,7 @@ export class GitExecutor {
       return this.execWithStdin(fullArgs, options.stdin, cwd, timeout, maxBuffer, args, options?.env);
     }
 
-    this.logger.log(`exec: git ${this.sanitizeArgs(args)}  [cwd: ${cwd}]`);
+    mainLogger.debug(`git exec: ${this.sanitizeArgs(args)}  [cwd: ${cwd}]`);
 
     return new Promise<GitExecResult>((resolve, reject) => {
       const proc = execFile(
@@ -55,7 +56,7 @@ export class GitExecutor {
               -1,
               ''
             );
-            this.logger.error(gitError.message);
+            mainLogger.error(`git: ${gitError.message}`);
             reject(gitError);
             return;
           }
@@ -67,7 +68,7 @@ export class GitExecutor {
               -1,
               stderr
             );
-            this.logger.warn(`killed: timeout after ${duration}ms`);
+            mainLogger.warn(`git killed: timeout after ${duration}ms`);
             reject(gitError);
             return;
           }
@@ -78,7 +79,7 @@ export class GitExecutor {
               : 1
             : 0;
 
-          this.logger.log(`done: exit=${exitCode} duration=${duration}ms`);
+          mainLogger.debug(`git done: exit=${exitCode} duration=${duration}ms`);
 
           this.reportToActivity(args, cwd, stdout, stderr, exitCode, duration, startTime);
 
@@ -118,7 +119,7 @@ export class GitExecutor {
     env?: Record<string, string>,
   ): Promise<GitExecResult> {
     const startTime = Date.now();
-    this.logger.log(`exec(stdin): git ${this.sanitizeArgs(displayArgs)}  [cwd: ${cwd}]`);
+    mainLogger.debug(`git exec(stdin): ${this.sanitizeArgs(displayArgs)}  [cwd: ${cwd}]`);
 
     return new Promise<GitExecResult>((resolve, reject) => {
       const proc = spawn('git', fullArgs, { cwd, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: env ? { ...process.env, ...env } : undefined });
@@ -138,7 +139,7 @@ export class GitExecutor {
         clearTimeout(timer);
         this.activeProcesses.delete(proc);
         const duration = Date.now() - startTime;
-        this.logger.log(`done(stdin): exit=${code ?? 1} duration=${duration}ms`);
+        mainLogger.debug(`git done(stdin): exit=${code ?? 1} duration=${duration}ms`);
         this.reportToActivity(displayArgs, cwd, stdout, stderr, code ?? 1, duration, startTime);
         resolve({ stdout, stderr, exitCode: code ?? 1, duration });
       });

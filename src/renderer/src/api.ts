@@ -1,4 +1,5 @@
 import type { RendererCommand, MainEvent } from './types';
+import { logger } from './shared/logger';
 
 interface SkyForkAPI {
   invoke(command: unknown): Promise<unknown>;
@@ -34,12 +35,12 @@ export function postCommand(command: RendererCommand, hooks?: PostCommandHooks):
   if (api) {
     void api.invoke(command).catch((err) => {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[SkyFork] IPC error for "${command.type}":`, msg);
+      logger.error(`IPC error for "${command.type}":`, msg);
       if (ipcErrorHandler) ipcErrorHandler(command.type, msg);
       hooks?.onInvokeRejected?.();
     });
   } else {
-    console.warn('[SkyFork] No IPC bridge available, command:', command.type);
+    logger.warn('No IPC bridge available, command:', command.type);
     hooks?.onInvokeRejected?.();
   }
 }
@@ -70,7 +71,7 @@ function ensureGlobalListener(): void {
       try {
         listener(event);
       } catch (err) {
-        console.error('[SkyFork] Event listener error:', err);
+        logger.error('Event listener error:', err);
       }
     }
   });

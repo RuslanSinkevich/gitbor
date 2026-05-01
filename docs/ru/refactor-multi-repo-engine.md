@@ -1,6 +1,24 @@
 # Рефакторинг: multi-repo engine в main
 
-Статус: черновик. Документ — план работ, не отчёт.
+> **Статус: реализован.** Документ оставлен как контекст «зачем мы это делали» и краткий отчёт «что в итоге получилось». Если планируешь дальнейшие изменения — сверь с `architecture.md` (там актуальное состояние).
+>
+> **Что фактически реализовано:**
+> - Этап 1 (per-repo `GitExecutor`) — `RepoServicesRegistry` живёт в `src/core/services/RepoServicesRegistry.ts`.
+> - Этап 2 (`RepoState` per-repo) — `RepoSlice` в `src/core/state/repoSlice.ts`, `slicesByRepo` в `StateManager`.
+> - Этап 3 (UI-роль активного репо) — `meta` живёт в `useAppState` (`isOperationRunning`/`currentOperation` теперь производные от per-repo `runningOpsByRepo`).
+> - Этап 4 (worker threads) — `WorkerPool` (`src/core/workers/WorkerPool.ts`) офлоадит `parseStatus`/`parseCommits`/`computeGraphLayout` по порогам размера.
+> - Этап 5 — параллельный refresh уже работает (per-repo `OperationQueue`); глобального семафора пока нет, добавится при необходимости.
+> - Этап 6 — `FileWatcher` per-repo с гардом dangerous paths и race-guard'ом против close во время async pre-scan.
+>
+> **Дополнительно реализовано (не было в исходном плане):**
+> - `AppError` + `code`/`data` в `error`-event для локализации сообщений из main.
+> - Per-repo фильтрация журнала git-активности (`useGitActivity(filterRepoPath)`).
+> - Дедуп `graphData` по ссылкам в `MessageBridge.sentGraphByRepo`.
+> - `isRepoTracked` гард во всех `refresh*` методах StateManager — не даёт фоновому refresh-у пересоздать сервисы закрытого репо.
+
+---
+
+Архивный план (был черновиком до реализации):
 
 ## Цель
 

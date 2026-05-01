@@ -8,6 +8,11 @@ import s from './GitActivity.module.css';
 
 interface Props {
   onClose: () => void;
+  /**
+   * Путь активного репо: журнал отфильтруется по нему. Если `null`/не
+   * передан — показываем все записи (глобальный режим).
+   */
+  repoPath?: string | null;
 }
 
 function formatDuration(ms: number): string {
@@ -32,9 +37,9 @@ function buildCommandLine(cmd: GitActivityCommand): string {
   return `git ${cmd.args.join(' ')}`;
 }
 
-export function GitActivityDialog({ onClose }: Props) {
+export function GitActivityDialog({ onClose, repoPath }: Props) {
   const loc = t();
-  const { entries, clear } = useGitActivity();
+  const { entries, clear } = useGitActivity(repoPath);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [copiedCmdIdx, setCopiedCmdIdx] = useState<number | null>(null);
 

@@ -9,6 +9,14 @@ export const en = {
     reloadUi: 'Reload UI',
     loading: 'Loading...',
   },
+  repoErrors: {
+    notARepo: '"{path}" is not a Git repository.',
+    homeDirectory: '"{path}" is your home folder. It contains too many files; Git operations may be slow.',
+    driveRoot: '"{path}" is a drive root. Opening it may be very slow.',
+    usersRoot: '"{path}" is the users root. Opening it as a repo is unlikely what you want.',
+    systemDirectory: '"{path}" is a system directory. Git operations there may be unreliable.',
+    invalidPath: 'Invalid repository path.',
+  },
   menu: {
     file: 'File',
     edit: 'Edit',

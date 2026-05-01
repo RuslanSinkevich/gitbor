@@ -4,6 +4,12 @@ import s from './GitActivity.module.css';
 
 interface Props {
   onOpen: () => void;
+  /**
+   * Путь активного репо. Индикатор фильтруется по нему — иначе на репо A
+   * пользователь видел бы spinner от операции репо B. `null` = глобальный
+   * режим (legacy / нет открытых репо).
+   */
+  repoPath?: string | null;
 }
 
 /**
@@ -11,9 +17,9 @@ interface Props {
  * если что-то выполняется. Когда очередь пуста — точка состояния последней
  * операции и нейтральный лейбл. Клик открывает журнал.
  */
-export function GitActivityIndicator({ onOpen }: Props) {
+export function GitActivityIndicator({ onOpen, repoPath }: Props) {
   const loc = t();
-  const { entries, runningCount, currentRunning } = useGitActivity();
+  const { entries, runningCount, currentRunning } = useGitActivity(repoPath);
 
   const lastStatus = entries[0]?.status ?? null;
   const isRunning = runningCount > 0;

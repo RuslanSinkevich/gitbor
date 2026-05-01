@@ -167,6 +167,49 @@ describe('StateManager.refreshGraph dedup', () => {
     expect(secondCommits.length).toBe(3);
   });
 
+  it('refreshAll(closedPath) — no-op после notifyRepoClose, services не пересоздаются', async () => {
+    const git = createMockGit(new Map());
+    const acquireSpy = vi.fn(() => ({
+      repoPath: '/repo/x',
+      git,
+      queue: { enqueueRead: (_l: string, op: any) => op(), enqueueWrite: (_l: string, op: any) => op(), onStatusChange: () => () => {} },
+      safety: { wrapDestructive: (_n: string, _p: any, op: any) => op() },
+    }));
+    const releaseSpy = vi.fn();
+    const registry = {
+      has: () => true,
+      bootstrap: () => acquireSpy(),
+      acquire: acquireSpy,
+      get: acquireSpy,
+      release: releaseSpy,
+      disposeAll: () => {},
+      onAnyOperationStatusChange: () => () => {},
+      size: () => 1,
+    } as any;
+
+    const sm = new StateManager(registry);
+    sm.setRepoPath('/repo/x'); // добавляет в openRepos
+    await sm.refreshAll();
+
+    // Имитируем закрытие: активное репо переключается на другое (или сброс),
+    // путь вылетает из openRepos, slice удаляется, services release'нуты.
+    sm.setRepoPath('/repo/other');
+    sm.setOpenRepos([{ name: 'other', path: '/repo/other' }]);
+    sm.notifyRepoClose('/repo/x');
+    expect(releaseSpy).toHaveBeenCalledWith('/repo/x');
+
+    const execCallsBefore = git.exec.mock.calls.length;
+    const acquireCallsBefore = acquireSpy.mock.calls.length;
+
+    // Любой отложенный refresh на закрытый путь не должен ни exec'ить git,
+    // ни вызывать registry.acquire (иначе в map снова появятся services).
+    await sm.refreshAll('/repo/x');
+    await sm.refreshStatusAndNotify('/repo/x');
+    await sm.refreshGraph(500, '/repo/x');
+    expect(git.exec).toHaveBeenCalledTimes(execCallsBefore);
+    expect(acquireSpy.mock.calls.length).toBe(acquireCallsBefore);
+  });
+
   it('работает на двух репо с разными stdout подряд (после инвалидации)', async () => {
     const git: any = {
       exec: vi.fn(async (args: string[]) => {

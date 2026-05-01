@@ -63,10 +63,20 @@ tests/
 │   └── ConflictManager.test.ts   # completeMerge, resolveWithOurs/Theirs, merge, predictConflicts
 │
 ├── state/
-│   └── StateManager.test.ts      # Multi-repo snapshots, tokens, listeners
+│   ├── StateManager.test.ts      # Multi-repo snapshots, tokens, listeners, isRepoTracked guard
+│   └── repoSlice.test.ts         # emptyRepoSlice, mirrorRepoSliceToAppState, hashGitStdout, GIT_*_FORMAT
+│
+├── services/
+│   └── RepoServicesRegistry.test.ts # Per-repo lifecycle: acquire/release, kill, isolation A↔B
+│
+├── activity/
+│   └── GitActivityStore.test.ts  # start/append/finish, per-repo, cap=100, stdout/stderr truncation
 │
 ├── utils/
-│   └── pathSecurity.test.ts      # safePath traversal, isSafeFilename validation
+│   ├── pathSecurity.test.ts      # safePath traversal, isSafeFilename validation
+│   ├── repoPathGuard.test.ts     # isDangerousRepoRoot (home/Windows/Program Files/...)
+│   ├── AppError.test.ts          # AppError code/data/fallback, instanceof Error
+│   └── Logger.test.ts            # Levels (silent/error/warn/info/debug), stdout/stderr split, configureMainLogger
 │
 ├── safety/
 │   ├── OperationQueue.test.ts    # Operation queue (read/write, serialization, errors)
@@ -74,7 +84,15 @@ tests/
 │   └── OperationJournal.test.ts  # WAL journal (lifecycle, cleanup, concurrency)
 │
 ├── bridge/
-│   └── messages.test.ts          # IPC contracts (RendererCommand, MainEvent)
+│   ├── messages.test.ts          # IPC contracts (RendererCommand, MainEvent)
+│   └── helpers.test.ts           # ipc/helpers: op/opWithPostMerge repoPath snapshot, errOnFail, runTracked
+│
+├── ai/
+│   ├── AiConfigStore.test.ts     # Provider config, encryption via safeStorage
+│   ├── AiHandlers.test.ts        # AI IPC handlers
+│   ├── AiService.test.ts         # generateCommitMessage, testConnection
+│   ├── OpenAiCompatibleProvider.test.ts # SSE parser, finishReason, usage
+│   └── prompts.test.ts           # buildCommitSystemPrompt / buildCommitUserPrompt
 │
 └── i18n/
     ├── i18n.test.ts              # Localization completeness (en ↔ ru keys, placeholders)
@@ -256,6 +274,81 @@ Modules: `src/renderer/src/i18n/en.ts`, `src/renderer/src/i18n/ru.ts`
 - Repeated placeholders
 - Empty template
 
+### 13. RepoServicesRegistry (`tests/services/RepoServicesRegistry.test.ts`)
+
+Module: `src/core/services/RepoServicesRegistry.ts`
+
+- `acquire(repoPath)` is idempotent (same call returns the same services object)
+- `acquire` for different paths yields different `git`/`queue`/`safety`
+- `bootstrap()` is a singleton (used for clone/init without an open repo)
+- `release(repoPath)` calls `git.killAll()` and removes from the map; second `release` is a no-op
+- `disposeAll()` cleans repo services, bootstrap, and listeners
+- `onAnyOperationStatusChange` fires for per-repo queue write events
+- **Isolation**: a long write on repo A does not block a write on repo B (the key invariant)
+
+### 14. repoSlice (`tests/state/repoSlice.test.ts`)
+
+Module: `src/core/state/repoSlice.ts`
+
+- `emptyRepoSlice()` returns a fresh object (arrays not shared between calls)
+- `mirrorRepoSliceToAppState` copies repo-specific fields and does NOT touch meta (`openRepos`/`activeRepoIndex`/running flags)
+- `hashGitStdout` is deterministic, different inputs produce different md5
+- Contracts of `GIT_LOG_FORMAT` (8 NUL fields), `GIT_REF_FORMAT` (4), `GIT_TAG_REF_FORMAT` (2), `GIT_STASH_FORMAT` (`%gd`/`%gs`)
+
+### 15. AppError (`tests/utils/AppError.test.ts`)
+
+Module: `src/core/utils/AppError.ts`
+
+- `code` and `data` are preserved for IPC propagation
+- `fallback` becomes `message`, otherwise `message = code`
+- `data` defaults to an empty object
+- Inherits `Error` → catchable in `try/catch`, `name === 'AppError'`
+
+### 16. GitActivityStore (`tests/activity/GitActivityStore.test.ts`)
+
+Module: `src/core/activity/GitActivityStore.ts`
+
+- `start(operation, repoPath)` creates a running entry with `repoPath` (the renderer filters by it)
+- `appendCommand` on an unknown id is a no-op (does not throw)
+- `finish` sets `success`/`error` status and `finishedAt`
+- `clear` emits a `cleared` event; `subscribe` returns an unsubscribe
+- Newest first (unshift), cap of 100 entries
+- Truncates stdout/stderr > 16 KiB to OUTPUT_CAP_BYTES with a `[truncated...]` marker
+
+### 17. ipc/helpers (`tests/bridge/helpers.test.ts`)
+
+Module: `src/core/bridge/ipc/helpers.ts`
+
+- **Key invariant**: `op` snapshots `repoPath` BEFORE starting the operation; switching tabs between `operationStart` and `operationEnd` does not change `repoPath` in the end event (this fixes "the other tab gets stuck waiting")
+- `op` propagates `error` from the result into the end event
+- `op` works correctly with empty `repoPath` (clone before `openRepo`)
+- `opWithPostMerge` sends `mergeState` after `operationEnd`
+- `errOnFail` only emits `error` when `success = false`
+- `mergeStateAfter` always emits `mergeState`
+- `runTracked` writes to `gitActivityStore` (start + finish), including `error` on throw
+
+### 18. Logger (`tests/utils/Logger.test.ts`)
+
+Module: `src/core/utils/Logger.ts`
+
+- Levels `silent`/`error`/`warn`/`info`/`debug` correctly filter messages
+- ERROR/WARN go to `console.error` (stderr), DEBUG/INFO to `console.log` (stdout)
+- Prefix + time + tag (`[T] HH:MM:SS WARN: msg`)
+- `configureMainLogger({ isProduction: true })` → `silent` (silent in prod)
+- `configureMainLogger({ isProduction: false })` → `debug` (everything visible in dev)
+- ENV `SKYFORK_LOG_LEVEL=warn` overrides the default
+- Invalid `SKYFORK_LOG_LEVEL` is ignored (falls back to `isProduction`)
+
+### 19. repoPathGuard (`tests/utils/repoPathGuard.test.ts`)
+
+Module: `src/core/utils/repoPathGuard.ts`
+
+- Empty/non-string path → `dangerous: true`
+- Current user home directory, drive root (`C:\`, `/`), `\Users` root → `dangerous`
+- Windows system roots: `C:\Windows`, `C:\Program Files`, `C:\ProgramData`
+- POSIX system roots: `/etc`, `/usr`, `/var`, `/home`, `/Users`
+- Normal project paths → `dangerous: false`
+
 ---
 
 ## Coverage Summary
@@ -266,13 +359,16 @@ Modules: `src/renderer/src/i18n/en.ts`, `src/renderer/src/i18n/ru.ts`
 | Graph | GraphLayout | ~5 |
 | Git managers | WorktreeManager, GitExecutor (sanitizeArgs), RebaseManager | ~18 |
 | Commands | writeCommands, readCommands, ConflictManager | ~32 |
-| Utils | pathSecurity (safePath, isSafeFilename) | ~9 |
+| Utils | pathSecurity, repoPathGuard, AppError, Logger | ~40 |
 | Safety | OperationQueue, AtomicWrite, OperationJournal | ~16 |
 | i18n | Key completeness en↔ru, tpl | ~15 |
 | Managers | BisectManager, HooksManager, LfsManager (contracts) | ~10 |
-| State | StateManager (multi-repo snapshots, tokens) | ~4 |
-| IPC | RendererCommand, MainEvent type contracts | ~11 |
-| **Total** | **25 files** | **~220** |
+| State | StateManager (multi-repo, isRepoTracked guard), repoSlice | ~10 |
+| Services | RepoServicesRegistry (lifecycle, isolation) | ~7 |
+| Activity | GitActivityStore (per-repo, cap, truncation) | ~13 |
+| IPC | messages contracts, ipc/helpers (op repoPath snapshot) | ~21 |
+| AI | AiConfigStore, AiHandlers, AiService, OpenAiCompatibleProvider, prompts | ~30 |
+| **Total** | **37 files** | **347** |
 
 ---
 
@@ -363,7 +459,7 @@ steps:
   - npm run lint                        # ESLint check
   - npx tsc -p tsconfig.main.json       # TypeScript check (main + core)
   - npx tsc -b (src/renderer)           # TypeScript check (renderer)
-  - npm test                            # Vitest (~220 tests)
+  - npm test                            # Vitest (347 tests)
   - npm run build:renderer              # Vite build
   - npm run build:main                  # tsc main process
 ```

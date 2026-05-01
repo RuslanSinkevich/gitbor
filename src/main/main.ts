@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, dialog, safeStorage } from 'electron';
+import { existsSync } from 'fs';
 import * as path from 'path';
 import * as net from 'net';
 import { GitExecutor } from '../core/git/GitExecutor';
@@ -14,6 +15,7 @@ import { checkGitAvailable, showGitNotFoundMessage, showRecoveryDialog } from '.
 import { AiService } from '../core/ai/AiService';
 import { AiConfigStore } from '../core/ai/AiConfigStore';
 import { AiHandlers } from '../core/ai/AiHandlers';
+import { configureMainLogger, mainLogger } from '../core/utils/Logger';
 
 let mainWindow: BrowserWindow | null = null;
 let messageBridge: MessageBridge | null = null;
@@ -22,13 +24,15 @@ let commandHandler: CommandHandler | null = null;
 let stateManager: StateManager | null = null;
 let repoRegistry: RepoServicesRegistry | null = null;
 
-const isDev = !app.isPackaged;
-
 /**
  * Глобальный safety net: если что-то в main кинуло unhandledRejection или
  * uncaughtException (chokidar при EPERM/EACCES на системные папки, async
  * вне try/catch), мы НЕ роняем процесс. С `--unhandled-rejections=strict`
  * на новых нодах это иначе превращается в краш main + закрытие окна.
+ *
+ * Здесь намеренно прямой `console.error` (а не logger): это аварийный
+ * вывод — если logger ещё не сконфигурирован (ошибка до `app.whenReady`),
+ * мы хотим увидеть её хоть где-то.
  */
 process.on('unhandledRejection', (reason) => {
   const msg = reason instanceof Error ? reason.message : String(reason);
@@ -91,16 +95,38 @@ async function createWindow(): Promise<void> {
   });
 }
 
+function rendererIndexPath(): string {
+  return path.join(__dirname, '../renderer/index.html');
+}
+
+/**
+ * Упакованный билд — всегда file://.
+ * Распакованный `electron .`: Vite только если явно SKYFORK_VITE=1 (npm run dev),
+ * иначе — собранный UI из dist (npm start после build), без ожидания 5188.
+ */
 async function loadWindow(): Promise<void> {
   if (!mainWindow) return;
-  if (isDev) {
-    const devPort = Number(process.env.VITE_DEV_PORT || '5188');
+  const devPort = Number(process.env.VITE_DEV_PORT || '5188');
+  const indexHtml = rendererIndexPath();
+
+  if (app.isPackaged) {
+    await mainWindow.loadFile(indexHtml);
+    return;
+  }
+
+  if (process.env.SKYFORK_VITE === '1') {
     await waitForDevTcp(devPort);
     await mainWindow.loadURL(`http://127.0.0.1:${devPort}`);
     mainWindow.webContents.openDevTools({ mode: 'detach' });
-  } else {
-    await mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    return;
   }
+
+  if (!existsSync(indexHtml)) {
+    throw new Error(
+      `Нет собранного UI. Выполните «npm run build» или запустите «npm run dev» (Vite + Electron).`
+    );
+  }
+  await mainWindow.loadFile(indexHtml);
 }
 
 async function initServices(): Promise<void> {
@@ -139,11 +165,10 @@ async function initServices(): Promise<void> {
     messageBridge?.cleanupRepo(closedPath);
   });
 
-  // Агрегированный «идёт операция» для UI — теперь объединяем по всем репо
-  // (любая активная очередь в любом per-repo `OperationQueue` зажигает индикатор).
-  repoRegistry.onAnyOperationStatusChange((running, operation) => {
-    stateManager!.setOperationRunning(running, operation);
-  });
+  // Агрегированный глобальный флаг «идёт операция» больше НЕ нужен:
+  // renderer теперь держит per-repo карту runningOpsByRepo и сам считает
+  // флаг от активной вкладки. Глобальная подписка на onAnyOperationStatusChange
+  // ломала UX (fetch на A блокировал кнопки на B).
 }
 
 async function autoOpenRepo(): Promise<void> {
@@ -161,6 +186,7 @@ async function autoOpenRepo(): Promise<void> {
   } catch {
     // not a git repo — stay on welcome screen
   }
+
 
   if (repoRoot) {
     stateManager.setRepoPath(repoRoot);
@@ -186,6 +212,12 @@ async function autoOpenRepo(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
+  // Настраиваем логирование ДО initServices: prod = silent, dev = debug
+  // (или явный SKYFORK_LOG_LEVEL). Это нужно сделать после whenReady,
+  // потому что file-лог читает `app.getPath('userData')`.
+  configureMainLogger({ isProduction: app.isPackaged });
+  mainLogger.debug(`startup: pid=${process.pid} platform=${process.platform} packaged=${app.isPackaged}`);
+
   await initServices();
 
   Menu.setApplicationMenu(null);
@@ -203,18 +235,30 @@ app.whenReady().then(async () => {
     messageBridge.attach(mainWindow);
   }
 
-  await loadWindow();
+  try {
+    await loadWindow();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    dialog.showErrorBox('SkyFork', msg);
+    app.quit();
+    return;
+  }
 
   await autoOpenRepo();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       void (async () => {
-        await createWindow();
-        if (messageBridge && mainWindow) {
-          messageBridge.attach(mainWindow);
+        try {
+          await createWindow();
+          if (messageBridge && mainWindow) {
+            messageBridge.attach(mainWindow);
+          }
+          await loadWindow();
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          dialog.showErrorBox('SkyFork', msg);
         }
-        await loadWindow();
       })();
     }
   });
@@ -222,6 +266,10 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   repoRegistry?.disposeAll();
+  // Worker_threads пула: иначе на Windows процесс electron живёт ещё пару
+  // секунд после закрытия окна, пока worker'ы не доиграют свой event loop.
+  void import('../core/workers/WorkerPool').then(({ workerPool }) => workerPool.dispose());
+  mainLogger.dispose();
   if (process.platform !== 'darwin') {
     app.quit();
   }

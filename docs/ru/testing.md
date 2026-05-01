@@ -63,10 +63,20 @@ tests/
 │   └── ConflictManager.test.ts   # completeMerge, resolveWithOurs/Theirs, merge, predictConflicts
 │
 ├── state/
-│   └── StateManager.test.ts      # Мульти-репо снимки, токены, подписчики
+│   ├── StateManager.test.ts      # Мульти-репо снимки, токены, подписчики, isRepoTracked гард
+│   └── repoSlice.test.ts         # emptyRepoSlice, mirrorRepoSliceToAppState, hashGitStdout, GIT_*_FORMAT
+│
+├── services/
+│   └── RepoServicesRegistry.test.ts # Per-repo lifecycle: acquire/release, kill, isolation A↔B
+│
+├── activity/
+│   └── GitActivityStore.test.ts  # start/append/finish, per-repo, кэп 100, обрезка stdout/stderr
 │
 ├── utils/
-│   └── pathSecurity.test.ts      # safePath traversal, isSafeFilename
+│   ├── pathSecurity.test.ts      # safePath traversal, isSafeFilename
+│   ├── repoPathGuard.test.ts     # isDangerousRepoRoot (home/Windows/Program Files/...)
+│   ├── AppError.test.ts          # AppError code/data/fallback, instanceof Error
+│   └── Logger.test.ts            # Уровни (silent/error/warn/info/debug), stdout/stderr split, configureMainLogger
 │
 ├── safety/
 │   ├── OperationQueue.test.ts    # Очередь операций (read/write, сериализация, ошибки)
@@ -74,7 +84,15 @@ tests/
 │   └── OperationJournal.test.ts  # WAL-журнал (lifecycle, cleanup, concurrency)
 │
 ├── bridge/
-│   └── messages.test.ts          # IPC-контракты (RendererCommand, MainEvent)
+│   ├── messages.test.ts          # IPC-контракты (RendererCommand, MainEvent)
+│   └── helpers.test.ts           # ipc/helpers: op/opWithPostMerge снимок repoPath, errOnFail, runTracked
+│
+├── ai/
+│   ├── AiConfigStore.test.ts     # Конфиг провайдера, шифрование через safeStorage
+│   ├── AiHandlers.test.ts        # IPC хендлеры AI
+│   ├── AiService.test.ts         # generateCommitMessage, testConnection
+│   ├── OpenAiCompatibleProvider.test.ts # SSE-парсер, finishReason, usage
+│   └── prompts.test.ts           # buildCommitSystemPrompt / buildCommitUserPrompt
 │
 └── i18n/
     ├── i18n.test.ts              # Полнота локализации (en ↔ ru ключи, плейсхолдеры)
@@ -100,7 +118,7 @@ tests/
 | `parseStatus` | Staged/unstaged модификации, `MM` (обе), untracked (`??`), staged add (`A`), delete (`D`), конфликты (`UU`, `AA`), несколько файлов |
 | `parseFileChanges` | Модификация, добавление, удаление, переименование (`R100`), копирование (`C100`) |
 
-**~220 тестов / 25 файлов — всё зелёное.**
+**347 тестов / 37 файлов — всё зелёное.**
 
 ### 2. DiffParser (`tests/git/DiffParser.test.ts`)
 
@@ -255,6 +273,81 @@ tests/
 - Повторяющиеся плейсхолдеры
 - Пустой шаблон
 
+### 13. RepoServicesRegistry (`tests/services/RepoServicesRegistry.test.ts`)
+
+Модуль: `src/core/services/RepoServicesRegistry.ts`
+
+- `acquire(repoPath)` идемпотентен (повторный вызов возвращает тот же объект сервисов)
+- `acquire` для разных путей даёт разные `git`/`queue`/`safety`
+- `bootstrap()` — singleton (для clone/init без открытого репо)
+- `release(repoPath)` зовёт `git.killAll()` и удаляет из map; повторный `release` — no-op
+- `disposeAll()` чистит репо-сервисы, bootstrap и listeners
+- `onAnyOperationStatusChange` дёргается при write-операциях per-repo очереди
+- **Изоляция**: длинный write на репо A не блокирует write на репо B (главный инвариант)
+
+### 14. repoSlice (`tests/state/repoSlice.test.ts`)
+
+Модуль: `src/core/state/repoSlice.ts`
+
+- `emptyRepoSlice()` возвращает свежий объект (массивы не shared между вызовами)
+- `mirrorRepoSliceToAppState` копирует репо-поля и НЕ трогает meta (`openRepos`/`activeRepoIndex`/running-флаги)
+- `hashGitStdout` детерминирован, разные строки → разные md5
+- Контракт `GIT_LOG_FORMAT` (8 NUL-полей), `GIT_REF_FORMAT` (4), `GIT_TAG_REF_FORMAT` (2), `GIT_STASH_FORMAT` (`%gd`/`%gs`)
+
+### 15. AppError (`tests/utils/AppError.test.ts`)
+
+Модуль: `src/core/utils/AppError.ts`
+
+- `code` и `data` сохраняются для прокидывания через IPC
+- `fallback` идёт в `message`, иначе `message = code`
+- `data` по умолчанию — пустой объект
+- Наследует `Error` → ловится в catch-блоках, `name === 'AppError'`
+
+### 16. GitActivityStore (`tests/activity/GitActivityStore.test.ts`)
+
+Модуль: `src/core/activity/GitActivityStore.ts`
+
+- `start(operation, repoPath)` создаёт running-entry с `repoPath` (рендерер фильтрует по нему)
+- `appendCommand` для несуществующего id — no-op (не throw)
+- `finish` ставит status `success`/`error` и `finishedAt`
+- `clear` эмитит `cleared` событие; `subscribe` возвращает unsubscribe
+- Newest first (unshift), кэп 100 entries
+- Обрезка stdout/stderr > 16 KiB до OUTPUT_CAP_BYTES с маркером `[truncated...]`
+
+### 17. ipc/helpers (`tests/bridge/helpers.test.ts`)
+
+Модуль: `src/core/bridge/ipc/helpers.ts`
+
+- **Главный инвариант**: `op` снимает `repoPath` ДО старта операции; переключение вкладки между `operationStart` и `operationEnd` не меняет `repoPath` в end-евенте (это и фиксит «другая вкладка впала в ожидание»)
+- `op` пробрасывает `error` от результата в end-евент
+- `op` корректно работает с пустым `repoPath` (clone до `openRepo`)
+- `opWithPostMerge` шлёт `mergeState` после `operationEnd`
+- `errOnFail` шлёт `error`-евент только при `success = false`
+- `mergeStateAfter` всегда шлёт `mergeState`
+- `runTracked` пишет в `gitActivityStore` (start + finish), включая `error` при throw
+
+### 18. Logger (`tests/utils/Logger.test.ts`)
+
+Модуль: `src/core/utils/Logger.ts`
+
+- Уровни `silent`/`error`/`warn`/`info`/`debug` корректно фильтруют сообщения
+- ERROR/WARN идут в `console.error` (stderr), DEBUG/INFO — в `console.log` (stdout)
+- Префикс + время + тэг (`[T] HH:MM:SS WARN: msg`)
+- `configureMainLogger({ isProduction: true })` → `silent` (тишина в prod)
+- `configureMainLogger({ isProduction: false })` → `debug` (всё видно в dev)
+- ENV `SKYFORK_LOG_LEVEL=warn` перебивает дефолт
+- Невалидный `SKYFORK_LOG_LEVEL` игнорируется (фолбэк на `isProduction`)
+
+### 19. repoPathGuard (`tests/utils/repoPathGuard.test.ts`)
+
+Модуль: `src/core/utils/repoPathGuard.ts`
+
+- Пустой/не-string путь → `dangerous: true`
+- Home directory (текущего пользователя), drive root (`C:\`, `/`), `\Users` корень → `dangerous`
+- Windows-системные: `C:\Windows`, `C:\Program Files`, `C:\ProgramData`
+- POSIX-системные: `/etc`, `/usr`, `/var`, `/home`, `/Users`
+- Обычные проектные пути → `dangerous: false`
+
 ---
 
 ## Конфигурация Vitest
@@ -347,13 +440,16 @@ npx vitest run tests/git/MyNewParser.test.ts
 | Граф | GraphLayout | ~5 |
 | Git-менеджеры | WorktreeManager, GitExecutor (sanitizeArgs), RebaseManager | ~18 |
 | Команды | writeCommands, readCommands, ConflictManager | ~32 |
-| Утилиты | pathSecurity (safePath, isSafeFilename) | ~14 |
+| Утилиты | pathSecurity, repoPathGuard, AppError, Logger | ~40 |
 | Safety | OperationQueue, AtomicWrite, OperationJournal | ~23 |
 | i18n | Полнота ключей en↔ru, tpl | ~14 |
 | Менеджеры | BisectManager, HooksManager, LfsManager (контракты) | ~6 |
-| State | StateManager (мульти-репо снимки, токены) | ~4 |
-| IPC | RendererCommand, MainEvent типы-контракты | ~11 |
-| **Итого** | **25 файлов** | **~220** |
+| State | StateManager (мульти-репо, isRepoTracked гард), repoSlice | ~10 |
+| Services | RepoServicesRegistry (lifecycle, isolation) | ~7 |
+| Activity | GitActivityStore (per-repo, кэп, обрезка) | ~13 |
+| IPC | messages контракты, ipc/helpers (snapshot repoPath) | ~21 |
+| AI | AiConfigStore, AiHandlers, AiService, OpenAiCompatibleProvider, prompts | ~30 |
+| **Итого** | **37 файлов** | **347** |
 
 ---
 
@@ -420,7 +516,7 @@ steps:
   - npm run lint                        # ESLint проверка
   - npx tsc -p tsconfig.main.json       # TypeScript (main + core)
   - npx tsc -b (src/renderer)           # TypeScript (renderer)
-  - npm test                            # Vitest (~220 тестов)
+  - npm test                            # Vitest (347 тестов)
   - npm run build:renderer              # Vite сборка
   - npm run build:main                  # tsc main process
 ```

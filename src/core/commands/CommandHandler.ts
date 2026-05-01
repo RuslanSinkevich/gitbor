@@ -12,6 +12,7 @@ import { readConflictFile, writeResolvedFile, type ConflictContent } from '../gi
 import { OperationQueue } from '../safety/OperationQueue';
 import { SafetyNet } from '../safety/SafetyNet';
 import { StateManager } from '../state/StateManager';
+import { AppError } from '../utils/AppError';
 import * as Read from './readCommands';
 import * as Write from './writeCommands';
 
@@ -391,10 +392,24 @@ export class CommandHandler {
   getFilePayload(file: string) { return { file, repoPath: this.state.getState().repoPath }; }
 
   async openRepo(repoPath: string): Promise<void> {
+    // not-a-repo: единственный жёсткий отказ. Локализованный код, renderer
+    // переведёт через `repoErrors.notARepo`.
     const isGitRepo = await this.validateGitRepo(repoPath);
     if (!isGitRepo) {
-      throw new Error(`"${repoPath}" is not a git repository`);
+      throw new AppError(
+        'repoErrors.notARepo',
+        { path: repoPath },
+        `"${repoPath}" is not a git repository`,
+      );
     }
+    // dangerous-пути (домашка, корень диска, системные каталоги) больше НЕ
+    // блокируем — пользователь может намеренно открыть огромную папку.
+    // Защита от «всё умирает» теперь чисто архитектурная:
+    //   - FileWatcher не запускает worktreeWatcher (см. repoPathGuard);
+    //   - StateManager.switchRepo НЕ ждёт refreshAll, она в фоне;
+    //   - git status использует --untracked-files=normal вместо =all.
+    // Так Fork-style «папка открылась пустой, файлы появятся со временем»
+    // достигается без хардкод-блокировок.
     this.state.setRepoPath(repoPath);
     await this.state.switchRepo(repoPath);
   }

@@ -10,6 +10,8 @@ interface Props {
   onPull?: (rebase?: boolean) => void;
   onPush?: (force?: boolean) => void;
   onOpenActivity?: () => void;
+  /** Путь активного репо — для фильтрации индикатора git-активности. */
+  repoPath?: string | null;
 }
 
 const IconFetch = () => (
@@ -75,7 +77,8 @@ function DropdownButton({ label, icon, disabled, mainAction, items }: {
   );
 }
 
-export function Toolbar({ isOperationRunning, hasUpstream, onPull, onPush, onOpenActivity }: Props) {
+export function Toolbar(props: Props) {
+  const { isOperationRunning, hasUpstream, onPull, onPush, onOpenActivity } = props;
   const loc = t();
   const runPull = (rebase?: boolean) => {
     if (onPull) onPull(rebase);
@@ -131,7 +134,7 @@ export function Toolbar({ isOperationRunning, hasUpstream, onPull, onPush, onOpe
 
       {onOpenActivity && (
         <div className={s.right}>
-          <GitActivityIndicator onOpen={onOpenActivity} />
+          <GitActivityIndicator onOpen={onOpenActivity} repoPath={props.repoPath} />
         </div>
       )}
     </div>

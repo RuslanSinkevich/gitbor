@@ -41,6 +41,8 @@ interface AppDialogsProps {
   dlg: ReturnType<typeof useDialogs>;
   showPrompt: ReturnType<typeof usePromptDialog>['showPrompt'];
   loc: ReturnType<typeof import('./i18n').t>;
+  /** Путь активного репо — используется журналом git-активности. */
+  repoPath?: string | null;
 }
 
 export function AppDialogs(props: AppDialogsProps) {
@@ -53,6 +55,7 @@ export function AppDialogs(props: AppDialogsProps) {
     prompt, closePrompt,
     toasts, dismissToast,
     dlg, showPrompt, loc,
+    repoPath,
   } = props;
 
   return (
@@ -94,7 +97,7 @@ export function AppDialogs(props: AppDialogsProps) {
       {dlg.showLfs && <LfsDialog onClose={() => dlg.setShowLfs(false)} />}
       {dlg.showGitignore && <GitignoreDialog onClose={() => dlg.setShowGitignore(false)} />}
       {dlg.showRepoStats && <StatisticsDialog onClose={() => dlg.setShowRepoStats(false)} />}
-      {dlg.showGitActivity && <GitActivityDialog onClose={() => dlg.setShowGitActivity(false)} />}
+      {dlg.showGitActivity && <GitActivityDialog onClose={() => dlg.setShowGitActivity(false)} repoPath={repoPath} />}
       {dlg.showAiSettings && <AiSettingsDialog onClose={() => dlg.setShowAiSettings(false)} />}
     </>
   );

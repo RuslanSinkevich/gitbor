@@ -1,7 +1,27 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { AppState, CommitDetail, MergeState, MainEvent, RebaseProgress, RecoveryIssue } from '../types';
 import { sendReady, postCommand, onMainEvent } from '../api';
-import { setLang } from '../i18n';
+import { setLang, t, tpl } from '../i18n';
+
+/**
+ * Перевести error-event с локализационным кодом. Код — точечный путь
+ * по `t()` (например `repoErrors.notARepo`). Если код не нашли —
+ * вернём пришедшее `message` как есть (фолбэк main).
+ */
+function translateError(code: string | undefined, data: Record<string, string> | undefined, fallback: string): string {
+  if (!code) return fallback;
+  const parts = code.split('.');
+  let node: unknown = t();
+  for (const p of parts) {
+    if (node && typeof node === 'object' && p in (node as Record<string, unknown>)) {
+      node = (node as Record<string, unknown>)[p];
+    } else {
+      return fallback;
+    }
+  }
+  if (typeof node !== 'string') return fallback;
+  return data ? tpl(node, data) : node;
+}
 
 /**
  * Per-repo срез состояния. Renderer хранит независимые срезы для каждого
@@ -30,7 +50,12 @@ type RepoSlice = Pick<
   | 'selectedCommitHash'
 >;
 
-type Meta = Pick<AppState, 'openRepos' | 'activeRepoIndex' | 'isOperationRunning' | 'currentOperation'>;
+// `isOperationRunning`/`currentOperation` УДАЛЕНЫ из Meta: теперь это
+// производные значения от `runningOpsByRepo` per-repo карты. Глобальный
+// флаг блокировал кнопки на любой вкладке во время fetch/push соседнего
+// репо — это и есть жалоба «впал в ожидание». Решение: каждое репо имеет
+// свой статус, флаг для UI берётся от активной вкладки.
+type Meta = Pick<AppState, 'openRepos' | 'activeRepoIndex'>;
 
 const SLICE_KEYS: readonly (keyof RepoSlice)[] = [
   'repoPath',
@@ -53,8 +78,6 @@ const SLICE_KEYS: readonly (keyof RepoSlice)[] = [
 const META_KEYS: readonly (keyof Meta)[] = [
   'openRepos',
   'activeRepoIndex',
-  'isOperationRunning',
-  'currentOperation',
 ];
 
 const EMPTY_SLICE: RepoSlice = {
@@ -78,8 +101,6 @@ const EMPTY_SLICE: RepoSlice = {
 const EMPTY_META: Meta = {
   openRepos: [],
   activeRepoIndex: 0,
-  isOperationRunning: false,
-  currentOperation: null,
 };
 
 export interface OpenDiffEvent { file: string; hash: string }
@@ -114,6 +135,11 @@ export function useAppState() {
   const [pendingOpenMergeEditor, setPendingOpenMergeEditor] = useState<OpenMergeEditorEvent | null>(null);
   const [lastOpResult, setLastOpResult] = useState<OperationResult | null>(null);
   const [viewOverride, setViewOverride] = useState<'changes' | 'commits' | null>(null);
+  // Per-repo карта активных операций: repoPath → operation. Используется
+  // вместо глобального флага. `state.isOperationRunning` для UI берётся
+  // только по активной вкладке. `null`-ключ = операция без репо
+  // (clone/init до открытия результата).
+  const [runningOpsByRepo, setRunningOpsByRepo] = useState<Map<string, string>>(() => new Map());
 
   // Активный repoPath по последнему meta (используется для роутинга stateUpdate
   // без явного repoPath, например при ранних событиях без активного репо).
@@ -221,13 +247,26 @@ export function useAppState() {
           });
           break;
         }
-        case 'operationStart':
-          setMeta(prev => ({ ...prev, isOperationRunning: true, currentOperation: msg.operation }));
+        case 'operationStart': {
+          const key = msg.repoPath ?? '';
+          setRunningOpsByRepo(prev => {
+            const next = new Map(prev);
+            next.set(key, msg.operation);
+            return next;
+          });
           break;
-        case 'operationEnd':
-          setMeta(prev => ({ ...prev, isOperationRunning: false, currentOperation: null }));
+        }
+        case 'operationEnd': {
+          const key = msg.repoPath ?? '';
+          setRunningOpsByRepo(prev => {
+            if (!prev.has(key)) return prev;
+            const next = new Map(prev);
+            next.delete(key);
+            return next;
+          });
           setLastOpResult({ operation: msg.operation, success: msg.success, error: msg.error });
           break;
+        }
         case 'config':
           setLang(msg.lang);
           break;
@@ -260,9 +299,17 @@ export function useAppState() {
             out.delete(msg.path);
             return out;
           });
+          // Если репо закрыли с активной операцией (зависший pull, например),
+          // running-флаг иначе остался бы в карте навечно.
+          setRunningOpsByRepo(prev => {
+            if (!prev.has(msg.path)) return prev;
+            const out = new Map(prev);
+            out.delete(msg.path);
+            return out;
+          });
           break;
         case 'error':
-          setError(msg.message);
+          setError(translateError(msg.code, msg.data, msg.message));
           break;
       }
     });
@@ -273,12 +320,16 @@ export function useAppState() {
 
   // Производный AppState — единый view по активному срезу + meta. Если
   // активный repo ещё не имеет среза (только что открыт) — показываем EMPTY_SLICE.
+  // `isOperationRunning`/`currentOperation` берутся ИСКЛЮЧИТЕЛЬНО от
+  // активной вкладки: соседние fetch/push не должны блокировать кнопки тут.
   const state: AppState = useMemo(() => {
     const activeRepo = meta.openRepos[meta.activeRepoIndex];
     const slice = activeRepo ? slices.get(activeRepo.path) : undefined;
     const base = slice ?? EMPTY_SLICE;
+    const activePath = activeRepo?.path ?? '';
+    const currentOp = activePath ? runningOpsByRepo.get(activePath) ?? null : null;
     return {
-      repoPath: base.repoPath || (activeRepo?.path ?? ''),
+      repoPath: base.repoPath || activePath,
       repoName: base.repoName || (activeRepo?.name ?? ''),
       currentBranch: base.currentBranch,
       branches: base.branches,
@@ -293,12 +344,12 @@ export function useAppState() {
       commits: base.commits,
       graphLayout: base.graphLayout,
       selectedCommitHash: base.selectedCommitHash,
-      isOperationRunning: meta.isOperationRunning,
-      currentOperation: meta.currentOperation,
+      isOperationRunning: currentOp !== null,
+      currentOperation: currentOp,
       openRepos: meta.openRepos,
       activeRepoIndex: meta.activeRepoIndex,
     };
-  }, [meta, slices]);
+  }, [meta, slices, runningOpsByRepo]);
 
   const selectCommit = useCallback((hash: string | null) => {
     const activeRepoPath = state.repoPath;

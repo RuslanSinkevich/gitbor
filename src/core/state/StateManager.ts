@@ -1,5 +1,4 @@
 import { basename } from 'path';
-import { createHash } from 'crypto';
 import { GitExecutor } from '../git/GitExecutor';
 import * as GitParser from '../git/GitParser';
 import { loadGraphCache, saveGraphCache } from './GraphCache';
@@ -10,71 +9,20 @@ import {
   AppState,
   RepoInfo,
 } from '../git/types';
+import {
+  emptyRepoSlice,
+  mirrorRepoSliceToAppState,
+  GIT_LOG_FORMAT,
+  GIT_REF_FORMAT,
+  GIT_TAG_REF_FORMAT,
+  GIT_STASH_FORMAT,
+  hashGitStdout,
+  type RepoSlice,
+} from './repoSlice';
 
 type StateListener = (state: AppState) => void;
 type RepoSwitchListener = (newPath: string) => void;
 type RepoCloseListener = (closedPath: string) => void;
-
-/**
- * Per-repo срез состояния (всё кроме openRepos / activeRepoIndex / running).
- * Хранится в `slicesByRepo`. Активный slice зеркалируется в `this.state` для
- * совместимости с существующим публичным API. Refresh методы принимают
- * `repoPath` и мутируют соответствующий slice — это позволяет refresh'у
- * репо A, запущенному после `switchRepo` на B, спокойно дописать свои
- * данные в slice A без воздействия на UI/git репо B.
- */
-interface RepoSlice {
-  currentBranch: string;
-  branches: AppState['branches'];
-  tags: AppState['tags'];
-  stashes: AppState['stashes'];
-  remotes: AppState['remotes'];
-  stagedFiles: AppState['stagedFiles'];
-  unstagedFiles: AppState['unstagedFiles'];
-  conflicts: AppState['conflicts'];
-  ahead: number;
-  behind: number;
-  commits: AppState['commits'];
-  graphLayout: AppState['graphLayout'];
-  selectedCommitHash: string | null;
-  // graph cache hashes — per-repo, иначе один репо чистит другому.
-  cachedHeadHash: string | null;
-  cachedLogHash: string | null;
-  cachedLogLimit: number;
-  // Per-repo token: инвалидируется при close этого репо.
-  token: number;
-}
-
-function emptySlice(): RepoSlice {
-  return {
-    currentBranch: '',
-    branches: [],
-    tags: [],
-    stashes: [],
-    remotes: [],
-    stagedFiles: [],
-    unstagedFiles: [],
-    conflicts: [],
-    ahead: 0,
-    behind: 0,
-    commits: [],
-    graphLayout: { nodes: [], maxColumns: 0, mergeLinks: [] },
-    selectedCommitHash: null,
-    cachedHeadHash: null,
-    cachedLogHash: null,
-    cachedLogLimit: 0,
-    token: 0,
-  };
-}
-
-const LOG_FORMAT =
-  '%H%x00%P%x00%an%x00%ae%x00%at%x00%D%x00%s%x00%G?';
-const REF_FORMAT =
-  '%(refname:short)%00%(objectname)%00%(upstream:short)%00%(HEAD)';
-const TAG_REF_FORMAT =
-  '%(refname:short)%00%(objectname)';
-const STASH_FORMAT =
-  '%gd%x00%H%x00%gs';
 
 export class StateManager {
   private state: AppState;
@@ -98,10 +46,22 @@ export class StateManager {
   private getOrCreateSlice(repoPath: string): RepoSlice {
     let s = this.slicesByRepo.get(repoPath);
     if (!s) {
-      s = emptySlice();
+      s = emptyRepoSlice();
       this.slicesByRepo.set(repoPath, s);
     }
     return s;
+  }
+
+  /**
+   * Репо «трекается» если оно либо активное, либо в openRepos.
+   * После closeRepo путь вылетает из openRepos и активный сменяется —
+   * этот гард не даёт фоновому refresh-у пересоздать slice/services
+   * закрытого репо (иначе registry.acquire создаст новый GitExecutor
+   * на удалённый путь и вызовет утечку процессов).
+   */
+  private isRepoTracked(repoPath: string): boolean {
+    if (this.state.repoPath === repoPath) return true;
+    return this.state.openRepos.some(r => r.path === repoPath);
   }
 
   /**
@@ -110,19 +70,7 @@ export class StateManager {
    * Если slice не активного репо — НЕТ зеркала, listeners не дёргаются.
    */
   private mirrorSliceToState(slice: RepoSlice): void {
-    this.state.currentBranch = slice.currentBranch;
-    this.state.branches = slice.branches;
-    this.state.tags = slice.tags;
-    this.state.stashes = slice.stashes;
-    this.state.remotes = slice.remotes;
-    this.state.stagedFiles = slice.stagedFiles;
-    this.state.unstagedFiles = slice.unstagedFiles;
-    this.state.conflicts = slice.conflicts;
-    this.state.ahead = slice.ahead;
-    this.state.behind = slice.behind;
-    this.state.commits = slice.commits;
-    this.state.graphLayout = slice.graphLayout;
-    this.state.selectedCommitHash = slice.selectedCommitHash;
+    mirrorRepoSliceToAppState(this.state, slice);
   }
 
   constructor(
@@ -187,6 +135,7 @@ export class StateManager {
   async refreshAll(repoPath?: string): Promise<void> {
     const target = repoPath ?? this.state.repoPath;
     if (!target) return;
+    if (!this.isRepoTracked(target)) return;
     const slice = this.getOrCreateSlice(target);
     const startToken = slice.token;
     const endAll = perfMark('refreshAll.total');
@@ -255,6 +204,7 @@ export class StateManager {
   async refreshBranches(repoPath?: string): Promise<void> {
     const target = repoPath ?? this.state.repoPath;
     if (!target) return;
+    if (!this.isRepoTracked(target)) return;
     const slice = this.getOrCreateSlice(target);
     const git = this.registry.acquire(target).git;
     const startToken = slice.token;
@@ -262,13 +212,13 @@ export class StateManager {
 
     try {
       const localResult = await git.exec([
-        'for-each-ref', '--format=' + REF_FORMAT, 'refs/heads/',
+        'for-each-ref', '--format=' + GIT_REF_FORMAT, 'refs/heads/',
       ]);
       if (slice.token !== startToken) return;
       const localBranches = GitParser.parseBranches(localResult.stdout, false);
 
       const remoteResult = await git.exec([
-        'for-each-ref', '--format=' + REF_FORMAT, 'refs/remotes/',
+        'for-each-ref', '--format=' + GIT_REF_FORMAT, 'refs/remotes/',
       ]);
       if (slice.token !== startToken) return;
       const remoteBranches = GitParser.parseBranches(remoteResult.stdout, true);
@@ -299,6 +249,7 @@ export class StateManager {
   async refreshStatusAndNotify(repoPath?: string): Promise<void> {
     const target = repoPath ?? this.state.repoPath;
     if (!target) return;
+    if (!this.isRepoTracked(target)) return;
     const slice = this.getOrCreateSlice(target);
     const startToken = slice.token;
     await this.refreshStatus(target);
@@ -309,14 +260,23 @@ export class StateManager {
   async refreshStatus(repoPath?: string): Promise<void> {
     const target = repoPath ?? this.state.repoPath;
     if (!target) return;
+    if (!this.isRepoTracked(target)) return;
     const slice = this.getOrCreateSlice(target);
     const git = this.registry.acquire(target).git;
     const startToken = slice.token;
     const isActive = target === this.state.repoPath;
 
     try {
+      // --untracked-files=normal вместо =all: на huge worktree (например
+      // C:\Users\<user> с 440k файлов) `=all` обходит каждый untracked-файл
+      // по отдельности и упирается в 30s timeout. `=normal` выводит сами
+      // untracked-каталоги без рекурсии — на порядки быстрее, UI получает
+      // изменения через секунды, а не через timeout.
+      // Цена: untracked-файлы внутри untracked-каталога не показываются
+      // отдельными строками — этот edge case покрывается «Show all untracked»
+      // на уровне UI (TODO), не дефолтом.
       const statusResult = await git.exec([
-        'status', '--porcelain=v1', '--untracked-files=all',
+        'status', '--porcelain=v1', '--untracked-files=normal',
       ]);
       if (slice.token !== startToken) return;
       // Парсинг 30+ МБ stdout (`C:\Users\Admin` с 440k untracked) синхронно
@@ -344,6 +304,7 @@ export class StateManager {
   async refreshGraph(maxCount = 0, repoPath?: string): Promise<void> {
     const target = repoPath ?? this.state.repoPath;
     if (!target) return;
+    if (!this.isRepoTracked(target)) return;
     const slice = this.getOrCreateSlice(target);
     const git = this.registry.acquire(target).git;
     const startToken = slice.token;
@@ -361,7 +322,7 @@ export class StateManager {
         return;
       }
 
-      const logArgs = ['log', '--all', '--date-order', `--format=${LOG_FORMAT}`];
+      const logArgs = ['log', '--all', '--date-order', `--format=${GIT_LOG_FORMAT}`];
       logArgs.push(`--max-count=${effectiveLimit}`);
 
       const endGitLog = perfMark(`git log(${effectiveLimit})`);
@@ -373,7 +334,7 @@ export class StateManager {
       }
       perfLog('git log.stdout', { bytes: logResult.stdout.length });
 
-      const stdoutHash = hashString(logResult.stdout);
+      const stdoutHash = hashGitStdout(logResult.stdout);
       if (
         headHash === slice.cachedHeadHash &&
         slice.cachedLogHash === stdoutHash &&
@@ -415,13 +376,14 @@ export class StateManager {
   async refreshTags(repoPath?: string): Promise<void> {
     const target = repoPath ?? this.state.repoPath;
     if (!target) return;
+    if (!this.isRepoTracked(target)) return;
     const slice = this.getOrCreateSlice(target);
     const git = this.registry.acquire(target).git;
     const startToken = slice.token;
     const isActive = target === this.state.repoPath;
     try {
       const tagResult = await git.exec([
-        'for-each-ref', '--sort=-creatordate', '--format=' + TAG_REF_FORMAT,
+        'for-each-ref', '--sort=-creatordate', '--format=' + GIT_TAG_REF_FORMAT,
         'refs/tags/',
       ]);
       if (slice.token !== startToken) return;
@@ -436,13 +398,14 @@ export class StateManager {
   async refreshStashes(repoPath?: string): Promise<void> {
     const target = repoPath ?? this.state.repoPath;
     if (!target) return;
+    if (!this.isRepoTracked(target)) return;
     const slice = this.getOrCreateSlice(target);
     const git = this.registry.acquire(target).git;
     const startToken = slice.token;
     const isActive = target === this.state.repoPath;
     try {
       const stashResult = await git.exec([
-        'stash', 'list', '--format=' + STASH_FORMAT,
+        'stash', 'list', '--format=' + GIT_STASH_FORMAT,
       ]);
       if (slice.token !== startToken) return;
       slice.stashes = GitParser.parseStashes(stashResult.stdout);
@@ -456,6 +419,7 @@ export class StateManager {
   async refreshRemotes(repoPath?: string): Promise<void> {
     const target = repoPath ?? this.state.repoPath;
     if (!target) return;
+    if (!this.isRepoTracked(target)) return;
     const slice = this.getOrCreateSlice(target);
     const git = this.registry.acquire(target).git;
     const startToken = slice.token;
@@ -579,10 +543,15 @@ export class StateManager {
     this.notify();
   }
 
-  setOperationRunning(running: boolean, operation: string | null): void {
-    this.state.isOperationRunning = running;
-    this.state.currentOperation = operation;
-    this.notify();
+  /**
+   * @deprecated Глобальный флаг «идёт операция» больше не используется:
+   * renderer держит per-repo `runningOpsByRepo`. Метод оставлен пустым,
+   * чтобы внешние подписчики (если кто-то ещё вызывает) не падали.
+   * При следующем рефакторинге удалить вместе с полями
+   * `state.isOperationRunning`/`currentOperation`.
+   */
+  setOperationRunning(_running: boolean, _operation: string | null): void {
+    // no-op
   }
 
   subscribe(listener: StateListener): () => void {
@@ -650,6 +619,7 @@ export class StateManager {
   private async refreshAheadBehind(repoPath?: string): Promise<void> {
     const target = repoPath ?? this.state.repoPath;
     if (!target) return;
+    if (!this.isRepoTracked(target)) return;
     const slice = this.getOrCreateSlice(target);
     const git = this.registry.acquire(target).git;
     const startToken = slice.token;
@@ -705,9 +675,4 @@ export class StateManager {
       activeRepoIndex: 0,
     };
   }
-}
-
-/** Быстрый MD5-хэш для дедупликации `git log` stdout (до 30 MB). */
-function hashString(s: string): string {
-  return createHash('md5').update(s).digest('hex');
 }

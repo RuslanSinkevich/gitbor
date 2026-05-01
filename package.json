@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "cross-env VITE_DEV_PORT=5188 concurrently --kill-others-on-fail \"npm run dev:renderer\" \"npm run dev:main\"",
     "dev:renderer": "npm run dev --prefix src/renderer",
-    "dev:main": "npx tsc -p tsconfig.main.json && node scripts/wait-dev-server.mjs && npx electron .",
+    "dev:main": "cross-env SKYFORK_VITE=1 npx tsc -p tsconfig.main.json && node scripts/wait-dev-server.mjs && cross-env SKYFORK_VITE=1 npx electron .",
     "build": "npm run build:renderer && npm run build:main",
     "build:main": "npx tsc -p tsconfig.main.json",
     "build:renderer": "npm run build --prefix src/renderer",
