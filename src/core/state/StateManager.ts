@@ -5,6 +5,7 @@ import { loadGraphCache, saveGraphCache } from './GraphCache';
 import { perfMark, perfLog } from '../utils/perf';
 import { RepoServicesRegistry, RepoServices } from '../services/RepoServicesRegistry';
 import { workerPool } from '../workers/WorkerPool';
+import { isDangerousRepoRoot } from '../utils/repoPathGuard';
 import {
   AppState,
   RepoInfo,
@@ -267,16 +268,20 @@ export class StateManager {
     const isActive = target === this.state.repoPath;
 
     try {
-      // --untracked-files=normal вместо =all: на huge worktree (например
-      // C:\Users\<user> с 440k файлов) `=all` обходит каждый untracked-файл
-      // по отдельности и упирается в 30s timeout. `=normal` выводит сами
-      // untracked-каталоги без рекурсии — на порядки быстрее, UI получает
-      // изменения через секунды, а не через timeout.
-      // Цена: untracked-файлы внутри untracked-каталога не показываются
-      // отдельными строками — этот edge case покрывается «Show all untracked»
-      // на уровне UI (TODO), не дефолтом.
+      // Адаптивный режим untracked:
+      // - `=all` для нормальных репо: показываем КАЖДЫЙ untracked-файл
+      //   отдельной строкой. Без этого новая папка типа `docs/audit/` со
+      //   всеми её файлами схлопывается в одну запись `?? docs/audit/`,
+      //   и пользователь не видит конкретные файлы (можно случайно
+      //   закоммитить лишнее или потерять отслеживание).
+      // - `=normal` оставляем только для опасных корней (домашняя папка,
+      //   корень диска, системные каталоги), где `=all` упирается в
+      //   30s timeout на 440k untracked файлов. Эти кейсы и так отбиты
+      //   `repoPathGuard`-ом, но дополнительная страховка не вредит.
+      const isDangerous = isDangerousRepoRoot(target).dangerous;
+      const untrackedMode = isDangerous ? 'normal' : 'all';
       const statusResult = await git.exec([
-        'status', '--porcelain=v1', '--untracked-files=normal',
+        'status', '--porcelain=v1', `--untracked-files=${untrackedMode}`,
       ]);
       if (slice.token !== startToken) return;
       // Парсинг 30+ МБ stdout (`C:\Users\Admin` с 440k untracked) синхронно

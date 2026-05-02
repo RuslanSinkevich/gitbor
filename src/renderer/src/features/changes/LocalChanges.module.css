@@ -144,11 +144,15 @@
 .fileItem {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
   padding: 3px 12px;
   cursor: pointer;
   font-size: 12px;
   transition: background var(--sg-transition);
+}
+
+.fileItem .statusIcon {
+  margin-right: 4px;
 }
 
 .fileItem:hover {
@@ -220,7 +224,7 @@
   flex: 1;
   overflow: hidden;
   cursor: pointer;
-  padding: 1px 4px;
+  padding: 1px 0;
   border-radius: 3px;
 }
 
@@ -229,7 +233,12 @@
 }
 
 .treeFolderIcon {
-  font-size: 12px;
+  font-size: 13px;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
@@ -240,26 +249,40 @@
   white-space: nowrap;
 }
 
-/* Status icon */
+/* Status icon — залитый цветной квадрат с белым глифом
+   Конвенция: A/?+ зелёный, D − красный, M жёлтый, R синий, U оранжевый. */
 .statusIcon {
   font-family: var(--sg-font-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  width: 18px;
-  height: 18px;
+  line-height: 1;
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 3px;
   flex-shrink: 0;
+  color: #ffffff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
 
-.statusModified { color: var(--sg-file-modified); background: color-mix(in srgb, var(--sg-file-modified) 12%, transparent); }
-.statusAdded { color: var(--sg-file-added); background: color-mix(in srgb, var(--sg-file-added) 12%, transparent); }
-.statusDeleted { color: var(--sg-file-deleted); background: color-mix(in srgb, var(--sg-file-deleted) 12%, transparent); }
-.statusRenamed { color: var(--sg-file-renamed); background: color-mix(in srgb, var(--sg-file-renamed) 12%, transparent); }
-.statusConflict { color: var(--sg-file-conflict); background: color-mix(in srgb, var(--sg-file-conflict) 12%, transparent); }
-.statusUntracked { color: var(--sg-file-added); background: color-mix(in srgb, var(--sg-file-added) 8%, transparent); }
+.statusModified { background: var(--sg-file-modified); }
+.statusAdded { background: var(--sg-file-added); }
+.statusDeleted { background: var(--sg-file-deleted); }
+.statusRenamed { background: var(--sg-file-renamed); }
+.statusConflict { background: var(--sg-file-conflict); }
+.statusUntracked { background: var(--sg-file-added); }
+
+/* Placeholder того же box-size, что .treeArrow у папок (width 16 + padding 2
+   = 20px), чтобы имя файла на том же depth точно совпадало по x-координате
+   с именем папки-сиблинга. Без него файлы визуально «торчали» из дерева. */
+.treeArrowPlaceholder {
+  width: 16px;
+  padding: 2px;
+  flex-shrink: 0;
+  display: inline-block;
+}
 
 /* File name with dir */
 .fileDir {

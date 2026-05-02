@@ -31,7 +31,7 @@ type ViewMode = 'changes' | 'commits';
 
 export function App() {
   const {
-    state, commitDetail, mergeState, error, selectCommit, clearError,
+    state, commitDetail, mergeState, error, selectCommit: rawSelectCommit, clearError,
     viewOverride, clearViewOverride,
     rebaseProgress,
     pendingOpenDiff, clearPendingOpenDiff,
@@ -45,6 +45,17 @@ export function App() {
   const { contextMenu, showContextMenu, closeContextMenu } = useContextMenu();
   const { prompt, showPrompt, closePrompt } = usePromptDialog();
   const { diffTarget, openDiff, closeDiff } = useDiffState();
+
+  /**
+   * Унифицированный selectCommit: когда снимаем выбор (`null`) — заодно
+   * закрываем diff, иначе справа остаётся открытый DiffPanel со старыми
+   * file/hash от прошлого выбранного коммита («Выберите коммит для
+   * просмотра деталей» в основной зоне vs. живой diff в правой панели).
+   */
+  const selectCommit = useCallback((hash: string | null) => {
+    if (hash === null) closeDiff();
+    rawSelectCommit(hash);
+  }, [rawSelectCommit, closeDiff]);
 
   const [viewMode, setViewMode] = useState<ViewMode>('changes');
   const [rightPanel, setRightPanel] = useState<RightPanel>('diff');
@@ -105,6 +116,34 @@ export function App() {
     }
   }, [state.repoPath, state.repoName]);
 
+  /**
+   * Унифицированный reset локального UI-state'а при смене активного репо.
+   * `useAppState` чистит свой global state на `switchRepoFast`/`repoClosed`,
+   * но локальные state-ы App.tsx (открытый файл diff, конфликт-файл, форма
+   * compare/rebase, активная панель) живут отдельно — без сброса оставались
+   * пути из закрытого/прошлого репо. Срабатывает только на _смену_ repoPath,
+   * не на первое его появление.
+   */
+  const prevRepoPathRef = useRef<string>(state.repoPath);
+  const prevCommitHashRef = useRef<string | null>(null);
+  const prevMergeRef = useRef(false);
+  useEffect(() => {
+    const prev = prevRepoPathRef.current;
+    if (prev === state.repoPath) return;
+    prevRepoPathRef.current = state.repoPath;
+    // Первое появление пути (prev был пуст) — это начальная загрузка, нечего сбрасывать.
+    if (!prev) return;
+    closeDiff();
+    setRightPanel('diff');
+    setConflictFile(null);
+    setMergeEditorFile(null);
+    setRebaseOnto(null);
+    setCompareFromHash(null);
+    setMergeDialogSource(null);
+    prevCommitHashRef.current = null;
+    prevMergeRef.current = false;
+  }, [state.repoPath, closeDiff]);
+
   useEffect(() => {
     if (viewOverride) { setViewMode(viewOverride); clearViewOverride(); }
   }, [viewOverride, clearViewOverride]);
@@ -142,7 +181,6 @@ export function App() {
     }
   }, [state.unstagedFiles, state.stagedFiles, diffTarget, viewMode, closeDiff]);
 
-  const prevMergeRef = useRef(false);
   useEffect(() => {
     const wasInProgress = prevMergeRef.current;
     const isNow = !!mergeState?.inProgress;
@@ -193,7 +231,6 @@ export function App() {
     openDiff(file, hash || 'WORKING'); setRightPanel('blame');
   }, [openDiff]);
 
-  const prevCommitHashRef = useRef<string | null>(null);
   useEffect(() => {
     const newHash = commitDetail?.hash ?? null;
     if (newHash && newHash !== prevCommitHashRef.current) {
@@ -257,7 +294,12 @@ export function App() {
 
           <main className={s.main}>
             {hasRepo ? (
+              // key={state.repoPath} — финальная страховка для всех локальных
+              // state-ов внутри Sidebar/CommitsView/ChangesView/DiffPanel/
+              // BlameView/FileHistory/CommitDetails: при смене репо subtree
+              // полностью пересоздаётся, никаких остатков от прошлого контекста.
               <SgSplitPane
+                key={state.repoPath}
                 defaultSize={240}
                 minOpposite={360}
                 storageKey={buildStorageKey('sg-layout:sidebar-width')}

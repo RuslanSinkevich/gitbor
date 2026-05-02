@@ -150,6 +150,35 @@ export function useAppState() {
   const slicesRef = useRef<Map<string, RepoSlice>>(slices);
   slicesRef.current = slices;
 
+  /**
+   * Унифицированный сброс «висящих» state-ов хука. Зачем: при переключении
+   * репо или закрытии активной вкладки в UI оставались артефакты от прошлого
+   * контекста — старый `commitDetail`, незакрытые `pendingOpenDiff`, баннеры
+   * `mergeState`/`rebaseProgress` от другого репо, тосты `lastOpResult`.
+   *
+   * НЕ сбрасываем:
+   * - `recoveryIssues` — это блокирующий диалог, юзер должен явно ответить
+   *   (его нельзя «потерять» при случайном переключении).
+   * - `slices` — per-repo, и так очищаются точечно.
+   * - `runningOpsByRepo` — per-repo running флаги, активные операции в
+   *   фоновых репо чистить нельзя.
+   */
+  const resetTransientState = useCallback(() => {
+    setCommitDetail(null);
+    setPendingOpenDiff(null);
+    setPendingOpenMergeEditor(null);
+    setMergeState(null);
+    setRebaseProgress(null);
+    setError(null);
+    setLastOpResult(null);
+    setViewOverride(null);
+  }, []);
+
+  // Ref для использования внутри onMainEvent listener (он создаётся один раз
+  // через useEffect и не должен пересоздаваться при изменениях resetTransientState).
+  const resetTransientStateRef = useRef(resetTransientState);
+  resetTransientStateRef.current = resetTransientState;
+
   const updateSlice = useCallback((repoPath: string, patch: Partial<RepoSlice>): void => {
     if (!repoPath) return;
     lastRoutedRepoPathRef.current = repoPath;
@@ -292,7 +321,7 @@ export function useAppState() {
         case 'openMergeEditor':
           setPendingOpenMergeEditor({ file: msg.file });
           break;
-        case 'repoClosed':
+        case 'repoClosed': {
           setSlices(prev => {
             if (!prev.has(msg.path)) return prev;
             const out = new Map(prev);
@@ -307,7 +336,14 @@ export function useAppState() {
             out.delete(msg.path);
             return out;
           });
+          // Если закрыли активный репо — чистим все висящие transient state-ы,
+          // иначе в UI остаются commitDetail/mergeState/diff от закрытого
+          // контекста (юзер видит «Выберите коммит», но справа всё ещё diff).
+          if (msg.path === lastRoutedRepoPathRef.current) {
+            resetTransientStateRef.current();
+          }
           break;
+        }
         case 'error':
           setError(translateError(msg.code, msg.data, msg.message));
           break;
@@ -374,9 +410,9 @@ export function useAppState() {
       if (prev.activeRepoIndex === index) return prev;
       return { ...prev, activeRepoIndex: index };
     });
-    setCommitDetail(null);
+    resetTransientState();
     postCommand({ type: 'switchRepo', index });
-  }, []);
+  }, [resetTransientState]);
 
   const clearError = useCallback(() => setError(null), []);
   const clearViewOverride = useCallback(() => setViewOverride(null), []);
@@ -394,5 +430,6 @@ export function useAppState() {
     pendingOpenMergeEditor, clearPendingOpenMergeEditor,
     lastOpResult, clearLastOpResult,
     switchRepoFast,
+    resetTransientState,
   };
 }

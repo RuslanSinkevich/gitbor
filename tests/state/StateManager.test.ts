@@ -242,3 +242,47 @@ describe('StateManager.refreshGraph dedup', () => {
     expect(sm.getState().commits[0].hash).toBe('bbb1');
   });
 });
+
+describe('StateManager.refreshStatus untracked-files mode', () => {
+  let StateManager: typeof import('@core/state/StateManager').StateManager;
+
+  beforeEach(async () => {
+    ({ StateManager } = await import('@core/state/StateManager'));
+  });
+
+  it('использует --untracked-files=all для нормальных репо (не опасный путь)', async () => {
+    const git = {
+      exec: vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 })),
+      setCwd: vi.fn(),
+      getCwd: vi.fn().mockReturnValue('/projects/normal-repo'),
+      killAll: vi.fn().mockReturnValue(0),
+    };
+    const sm = new StateManager(fakeRegistry(git));
+    sm.setRepoPath('/projects/normal-repo');
+
+    await sm.refreshStatus('/projects/normal-repo');
+
+    const statusCalls = git.exec.mock.calls.filter((c: any[]) => c[0]?.[0] === 'status');
+    expect(statusCalls.length).toBeGreaterThan(0);
+    expect(statusCalls[0][0]).toContain('--untracked-files=all');
+  });
+
+  it('использует --untracked-files=normal для опасных корней (домашка/корень диска)', async () => {
+    const git = {
+      exec: vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 })),
+      setCwd: vi.fn(),
+      getCwd: vi.fn().mockReturnValue('/'),
+      killAll: vi.fn().mockReturnValue(0),
+    };
+    const sm = new StateManager(fakeRegistry(git));
+    // На POSIX `/` — опасный путь (driveRoot). На Windows — `C:\`.
+    const dangerousPath = process.platform === 'win32' ? 'C:\\' : '/';
+    sm.setRepoPath(dangerousPath);
+
+    await sm.refreshStatus(dangerousPath);
+
+    const statusCalls = git.exec.mock.calls.filter((c: any[]) => c[0]?.[0] === 'status');
+    expect(statusCalls.length).toBeGreaterThan(0);
+    expect(statusCalls[0][0]).toContain('--untracked-files=normal');
+  });
+});

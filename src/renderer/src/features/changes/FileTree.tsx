@@ -61,19 +61,35 @@ export function collectFiles(node: FileTreeNode): FileStatus[] {
 
 /* ─── Status helpers ─── */
 
+/**
+ * Глиф внутри цветного квадрата статуса. Конвенция SkyFork:
+ * - `+` для добавленных и untracked (новый файл)
+ * - `−` (U+2212 minus) для удалённых
+ * - `M` для модифицированных
+ * - `R` для переименованных
+ * - `!` для конфликтов
+ * Сам квадрат заливается соответствующим цветом через `statusCls`.
+ */
 export function statusIcon(status: string): string {
   switch (status) {
-    case 'M': return 'M'; case 'A': return 'A'; case 'D': return 'D';
-    case 'R': return 'R'; case 'U': return '!'; case '?': return '?';
+    case 'M': return 'M';
+    case 'A': return '+';
+    case 'D': return '\u2212';
+    case 'R': return 'R';
+    case 'U': return '!';
+    case '?': return '+';
     default: return '?';
   }
 }
 
 export function statusCls(status: string): string {
   switch (status) {
-    case 'M': return s.statusModified; case 'A': return s.statusAdded;
-    case 'D': return s.statusDeleted; case 'R': return s.statusRenamed;
-    case 'U': return s.statusConflict; case '?': return s.statusUntracked;
+    case 'M': return s.statusModified;
+    case 'A': return s.statusAdded;
+    case 'D': return s.statusDeleted;
+    case 'R': return s.statusRenamed;
+    case 'U': return s.statusConflict;
+    case '?': return s.statusUntracked;
     default: return '';
   }
 }
@@ -140,6 +156,10 @@ export function FileTreeItem({
         style={{ paddingLeft }} onClick={() => onClickFile(file)}
         onDoubleClick={() => onDoubleClickFile?.(file)}
         onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, file); }}>
+        {/* Spacer той же ширины, что arrow у папок: без него имена файлов и
+            папок на одном уровне депта оказываются на разных x-координатах,
+            и файлы визуально «торчат» влево от папок-сиблингов. */}
+        <span className={s.treeArrowPlaceholder} aria-hidden="true" />
         <span className={`${s.statusIcon} ${statusCls(file.status)}`}>{statusIcon(file.status)}</span>
         <span className={s.fileName}>{node.name}</span>
       </div>

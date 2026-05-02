@@ -407,7 +407,8 @@ export class CommandHandler {
     // Защита от «всё умирает» теперь чисто архитектурная:
     //   - FileWatcher не запускает worktreeWatcher (см. repoPathGuard);
     //   - StateManager.switchRepo НЕ ждёт refreshAll, она в фоне;
-    //   - git status использует --untracked-files=normal вместо =all.
+    //   - git status адаптивно: =all для нормальных репо (полный список
+    //     untracked-файлов), =normal только для опасных корней.
     // Так Fork-style «папка открылась пустой, файлы появятся со временем»
     // достигается без хардкод-блокировок.
     this.state.setRepoPath(repoPath);
