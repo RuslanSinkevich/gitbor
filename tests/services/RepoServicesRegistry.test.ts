@@ -131,4 +131,57 @@ describe('RepoServicesRegistry', () => {
     await longA;
     reg.disposeAll();
   });
+
+  describe('disposeAllGracefully', () => {
+    it('возвращается мгновенно если нет inflight write', async () => {
+      const reg = new RepoServicesRegistry();
+      reg.acquire('/repo/idle');
+      const t0 = Date.now();
+      await reg.disposeAllGracefully(1500);
+      expect(Date.now() - t0).toBeLessThan(200);
+      expect(reg.size()).toBe(0);
+    });
+
+    it('ждёт завершения активного write (не прерывает на середине)', async () => {
+      const reg = new RepoServicesRegistry();
+      const svc = reg.acquire('/repo/busy');
+      const killSpy = vi.spyOn(svc.git, 'killAll').mockReturnValue(0);
+
+      let finished = false;
+      const writePromise = svc.queue.enqueueWrite('commit', async () => {
+        await new Promise((r) => setTimeout(r, 200));
+        finished = true;
+      });
+
+      // Дав пару тиков чтобы write точно стартанул.
+      await new Promise((r) => setTimeout(r, 10));
+
+      await reg.disposeAllGracefully(1500);
+      // Write успел отработать естественно — НЕ был убит на середине.
+      expect(finished).toBe(true);
+      // killAll всё равно вызывается в финале (для подчистки), но уже на пустом.
+      expect(killSpy).toHaveBeenCalled();
+      await writePromise;
+    });
+
+    it('убивает всё по истечении timeout если write висит', async () => {
+      const reg = new RepoServicesRegistry();
+      const svc = reg.acquire('/repo/stuck');
+      const killSpy = vi.spyOn(svc.git, 'killAll').mockReturnValue(0);
+
+      // Write который никогда не завершится сам.
+      const stuck = svc.queue.enqueueWrite('hang', () => new Promise<void>(() => {}));
+
+      const t0 = Date.now();
+      await reg.disposeAllGracefully(200);
+      const elapsed = Date.now() - t0;
+
+      // Уложились в timeout + небольшая погрешность на polling 50мс.
+      expect(elapsed).toBeGreaterThanOrEqual(150);
+      expect(elapsed).toBeLessThan(500);
+      expect(killSpy).toHaveBeenCalled();
+      // Чтобы не было unhandled rejection — забудем про stuck promise
+      void stuck.catch(() => {});
+    });
+  });
 });

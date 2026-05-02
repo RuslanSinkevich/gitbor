@@ -1,12 +1,22 @@
-import { existsSync, unlinkSync } from 'fs';
+import { existsSync, statSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { GitExecutor } from '../git/GitExecutor';
 import { RecoveryAction, RecoveryIssue, RecoveryReport } from '../git/types';
 import { OperationJournal } from './OperationJournal';
 import { SafetyNet } from './SafetyNet';
 import { cleanupTmpFiles } from './AtomicWrite';
+import { mainLogger } from '../utils/Logger';
 
 const AUTO_STASH_PREFIX = '[SkyFork auto-stash]';
+
+/**
+ * Если index.lock старше этого возраста — он точно не от текущей git-операции.
+ * `git add`/`commit` держат lock миллисекунды-доли секунды; всё что прожило
+ * 15+ секунд — stale-остаток от убитого процесса (наш SIGTERM на выходе или
+ * краш). Безопасно удаляем без диалога, иначе юзер видит сообщение «обнаружен
+ * .git/index.lock от крашнувшего git-процесса» при каждом запуске.
+ */
+const STALE_LOCK_AGE_MS = 15_000;
 
 export class RecoveryManager {
   constructor(
@@ -70,13 +80,39 @@ export class RecoveryManager {
 
   private async checkLockFiles(gitDir: string, issues: RecoveryIssue[]): Promise<void> {
     const lockPath = join(gitDir, 'index.lock');
-    if (existsSync(lockPath)) {
-      issues.push({
-        type: 'lock_file',
-        description: 'Обнаружен .git/index.lock от крашнувшего git-процесса.',
-        suggestedAction: { type: 'remove_lock' },
-      });
+    if (!existsSync(lockPath)) return;
+
+    // Старые lock'и от убитого git-процесса (наш SIGTERM на выходе) удаляем
+    // тихо, без диалога. Молодые — могут быть от параллельно запущенного git
+    // (например, юзер открыл терминал и делает там commit) — спрашиваем.
+    let ageMs = 0;
+    try {
+      ageMs = Date.now() - statSync(lockPath).mtimeMs;
+    } catch {
+      return; // lock пропал между existsSync и statSync — гонка, ничего не делаем
     }
+
+    if (ageMs >= STALE_LOCK_AGE_MS) {
+      try {
+        unlinkSync(lockPath);
+        mainLogger.info(`recovery: removed stale .git/index.lock (age=${Math.round(ageMs / 1000)}s)`);
+      } catch (err) {
+        // Не удалось — оставим как issue, юзер решит вручную.
+        mainLogger.warn(`recovery: failed to remove stale lock: ${err instanceof Error ? err.message : String(err)}`);
+        issues.push({
+          type: 'lock_file',
+          description: 'Обнаружен .git/index.lock от крашнувшего git-процесса.',
+          suggestedAction: { type: 'remove_lock' },
+        });
+      }
+      return;
+    }
+
+    issues.push({
+      type: 'lock_file',
+      description: 'Обнаружен .git/index.lock от крашнувшего git-процесса.',
+      suggestedAction: { type: 'remove_lock' },
+    });
   }
 
   private async checkJournal(issues: RecoveryIssue[]): Promise<void> {

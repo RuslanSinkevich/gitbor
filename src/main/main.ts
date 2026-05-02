@@ -264,7 +264,34 @@ app.whenReady().then(async () => {
   });
 });
 
+/**
+ * Graceful shutdown через `before-quit`: даём ~1.5с inflight write-операциям
+ * (`git add`/`commit`) завершиться сами, чтобы они удалили `.git/index.lock`.
+ * Без этого SIGTERM при выходе оставлял stale lock'и, и юзер видел recovery-
+ * диалог «обнаружен .git/index.lock» при каждом следующем запуске.
+ *
+ * Реентрантная защита: сам метод вызывает `app.quit()` после ожидания, что
+ * снова триггерит `before-quit`. Флаг гарантирует, что второй заход просто
+ * пропустится и окно реально закроется.
+ */
+let gracefulShutdownStarted = false;
+app.on('before-quit', (event) => {
+  if (gracefulShutdownStarted || !repoRegistry) return;
+  gracefulShutdownStarted = true;
+  event.preventDefault();
+  void (async () => {
+    try {
+      await repoRegistry!.disposeAllGracefully(1500);
+    } finally {
+      app.quit();
+    }
+  })();
+});
+
 app.on('window-all-closed', () => {
+  // Финальный fallback: если before-quit не успел отработать (например, окно
+  // закрыли через kill), дочищаем синхронно. После disposeAllGracefully
+  // map уже пуст и killAll-цикл no-op.
   repoRegistry?.disposeAll();
   // Worker_threads пула: иначе на Windows процесс electron живёт ещё пару
   // секунд после закрытия окна, пока worker'ы не доиграют свой event loop.

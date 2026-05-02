@@ -80,7 +80,12 @@ export class RepoServicesRegistry {
     try { svc.git.killAll(); } catch { /* ignore */ }
   }
 
-  /** Полный shutdown — для выхода. */
+  /**
+   * Полный shutdown — для выхода. Синхронный, агрессивно убивает все
+   * git-процессы. Используется как фолбэк (window-all-closed): к этому
+   * моменту `disposeAllGracefully` уже должен был отработать через
+   * `before-quit`, но если нет — дочистим.
+   */
   disposeAll(): void {
     for (const svc of this.map.values()) {
       try { svc.git.killAll(); } catch { /* ignore */ }
@@ -91,6 +96,29 @@ export class RepoServicesRegistry {
       this.bootstrapCache = null;
     }
     this.listeners.clear();
+  }
+
+  /**
+   * Graceful shutdown: ждём завершения всех inflight write-операций до
+   * `timeoutMs`, и только потом убиваем оставшиеся процессы. Зачем:
+   * `git add`/`commit` пишут `.git/index.lock`. SIGTERM/TerminateProcess
+   * убивает git ДО того как он удалит lock — при следующем запуске юзер
+   * видит recovery-диалог «обнаружен .git/index.lock». Дав 1-2 секунды
+   * на естественное завершение, мы избавляемся от 99% таких остатков.
+   * Длинные операции (push/fetch) lock не пишут — для них ожидание не нужно.
+   */
+  async disposeAllGracefully(timeoutMs = 1500): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    const hasInflightWrite = (): boolean => {
+      for (const svc of this.map.values()) {
+        if (svc.queue.isWriteRunning() || svc.queue.getQueueLength() > 0) return true;
+      }
+      return false;
+    };
+    while (hasInflightWrite() && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    this.disposeAll();
   }
 
   /** Подписка на агрегированный статус операций (для UI: «идёт операция»). */
