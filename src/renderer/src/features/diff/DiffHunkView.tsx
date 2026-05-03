@@ -49,10 +49,10 @@ export function DiffHunkView({ hunk, hunkIndex, file, isWorkingCopy, isStaged }:
             >
               <td className={s.lineNo}>{line.oldLineNo ?? ''}</td>
               <td className={s.lineNo}>{line.newLineNo ?? ''}</td>
-              <td className={s.lineContent}>
-                {line.type === 'add' ? '+' : line.type === 'remove' ? '-' : ' '}
-                {line.content}
-              </td>
+              {/* Префикс +/- убран — расцветка фоном (lineAdd/lineRemove)
+                  уже однозначно показывает тип строки, дублирующий символ
+                  отвлекает и съедает горизонтальное пространство. */}
+              <td className={s.lineContent}>{line.content}</td>
             </tr>
           ))}
         </tbody>

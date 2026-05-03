@@ -145,7 +145,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
           onDoubleClick={() => !branch.isCurrent && postCommand({ type: 'checkout', branch: branch.name })}
           onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getBranchMenuItems(branch, currentBranch, loc, showPrompt, onMerge)); }}>
           <span className={s.itemName}>{node.segment}</span>
-          {branch.isCurrent && <span className={s.itemBadge}>{loc.sidebar.current}</span>}
+          {branch.isCurrent && <span className={s.itemBadge} title={loc.sidebar.current} aria-label={loc.sidebar.current} />}
           {branch.upstream && <span className={s.itemUpstream} title={branch.upstream}>↔</span>}
         </div>
         {node.children.length > 0 && expanded && (

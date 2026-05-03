@@ -179,7 +179,7 @@
 }
 
 .itemCurrent {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .itemRemoteName {
@@ -199,13 +199,17 @@
   flex: 1;
 }
 
+/* Маркер «текущая ветка» — крупная зелёная точка вместо текстового
+   бейджа. Цвет: --sg-status-icon-added (тот же зелёный, что у статус-
+   иконок added/untracked — единая палитра «активного»). */
 .itemBadge {
-  font-size: 10px;
-  color: var(--sg-ref-branch);
-  background: rgba(78, 201, 176, 0.12);
-  padding: 1px 6px;
-  border-radius: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--sg-status-icon-added);
   flex-shrink: 0;
+  margin-left: 4px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sg-status-icon-added) 25%, transparent);
 }
 
 .itemUpstream {

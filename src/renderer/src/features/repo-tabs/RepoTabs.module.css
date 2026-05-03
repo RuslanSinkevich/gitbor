@@ -109,3 +109,21 @@
   background: rgba(128, 128, 128, 0.15);
   color: var(--sg-foreground);
 }
+
+/* «+» открывает RepoManager как вкладку. Когда manager открыт — кнопка
+   подсвечена тем же фоном, что активный таб репозитория, чтобы юзер
+   видел контекст текущего экрана. */
+.addBtnActive {
+  background: var(--sg-background);
+  color: var(--sg-foreground);
+  border: 1px solid var(--sg-border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  margin-bottom: 0;
+  padding: 5px 10px;
+}
+
+.addBtnActive:hover {
+  background: var(--sg-background);
+  color: var(--sg-foreground);
+}

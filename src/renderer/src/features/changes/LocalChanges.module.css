@@ -138,7 +138,7 @@
 .fileList {
   flex: 1;
   overflow-y: auto;
-  padding: 2px 0;
+  padding: 0;
 }
 
 .fileItem {
@@ -148,6 +148,7 @@
   padding: 3px 12px;
   cursor: pointer;
   font-size: 12px;
+  line-height: 1.4;
   transition: background var(--sg-transition);
 }
 
@@ -185,6 +186,7 @@
   padding: 2px 12px;
   cursor: default;
   font-size: 12px;
+  line-height: 1.4;
   color: var(--sg-foreground);
   user-select: none;
   transition: background var(--sg-transition);
@@ -252,27 +254,26 @@
 /* Status icon — залитый цветной квадрат с белым глифом
    Конвенция: A/?+ зелёный, D − красный, M жёлтый, R синий, U оранжевый. */
 .statusIcon {
-  font-family: var(--sg-font-mono);
-  font-size: 11px;
-  font-weight: 700;
+  font-family: var(--sg-font-family);
+  font-size: 9px;
+  font-weight: 600;
   line-height: 1;
-  width: 16px;
-  height: 16px;
+  width: 13px;
+  height: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 3px;
+  border-radius: 2px;
   flex-shrink: 0;
   color: #ffffff;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
 
-.statusModified { background: var(--sg-file-modified); }
-.statusAdded { background: var(--sg-file-added); }
-.statusDeleted { background: var(--sg-file-deleted); }
-.statusRenamed { background: var(--sg-file-renamed); }
-.statusConflict { background: var(--sg-file-conflict); }
-.statusUntracked { background: var(--sg-file-added); }
+.statusModified { background: var(--sg-status-icon-modified); }
+.statusAdded { background: var(--sg-status-icon-added); }
+.statusDeleted { background: var(--sg-status-icon-deleted); }
+.statusRenamed { background: var(--sg-status-icon-renamed); }
+.statusConflict { background: var(--sg-status-icon-conflict); }
+.statusUntracked { background: var(--sg-status-icon-added); }
 
 /* Placeholder того же box-size, что .treeArrow у папок (width 16 + padding 2
    = 20px), чтобы имя файла на том же depth точно совпадало по x-координате

@@ -78,12 +78,22 @@
   --sg-ref-tag: #DCDCAA;
   --sg-ref-head: #C586C0;
 
-  /* Semantic: file status */
+  /* Semantic: file status (текстовый цвет в списках/бейджах) */
   --sg-file-modified: #e2c08d;
   --sg-file-added: #73c991;
   --sg-file-deleted: #c74e39;
   --sg-file-renamed: #569cd6;
   --sg-file-conflict: #e5c07b;
+
+  /* Semantic: status icon backgrounds (залитые квадраты в дереве файлов).
+     Отдельная палитра, насыщеннее текстовых: чтобы M/A/D были видны
+     с первого взгляда и не сливались с фоном. Подобраны для контраста
+     с белым глифом (WCAG AA на дистанции 3:1+). */
+  --sg-status-icon-modified: #f59e0b;
+  --sg-status-icon-added: #22c55e;
+  --sg-status-icon-deleted: #ef4444;
+  --sg-status-icon-renamed: #3b82f6;
+  --sg-status-icon-conflict: #f97316;
 
   /* Semantic: diff stats */
   --sg-diff-added: #73c991;
@@ -165,6 +175,14 @@
   --sg-file-deleted: #c74e39;
   --sg-file-renamed: #0066b8;
   --sg-file-conflict: #9e6c00;
+
+  /* Status icon backgrounds: для светлой темы чуть темнее (амбер-600,
+     red-600, green-600 и т.п.), чтобы белый глиф контрастировал. */
+  --sg-status-icon-modified: #d97706;
+  --sg-status-icon-added: #16a34a;
+  --sg-status-icon-deleted: #dc2626;
+  --sg-status-icon-renamed: #2563eb;
+  --sg-status-icon-conflict: #ea580c;
 
   --sg-diff-added: #16825d;
   --sg-diff-deleted: #c74e39;

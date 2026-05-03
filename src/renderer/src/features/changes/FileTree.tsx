@@ -62,24 +62,37 @@ export function collectFiles(node: FileTreeNode): FileStatus[] {
 /* ─── Status helpers ─── */
 
 /**
- * Глиф внутри цветного квадрата статуса. Конвенция SkyFork:
- * - `+` для добавленных и untracked (новый файл)
- * - `−` (U+2212 minus) для удалённых
- * - `M` для модифицированных
- * - `R` для переименованных
- * - `!` для конфликтов
- * Сам квадрат заливается соответствующим цветом через `statusCls`.
+ * Глиф внутри цветного квадрата статуса. Для `+` и `−` отдаём SVG —
+ * текстовые символы U+002B/U+2212 в большинстве шрифтов сидят на baseline
+ * и визуально «плывут» вверх/вниз внутри квадрата. SVG центрируется
+ * пиксель в пиксель независимо от шрифта.
  */
-export function statusIcon(status: string): string {
+export function statusIcon(status: string): string | JSX.Element {
   switch (status) {
     case 'M': return 'M';
-    case 'A': return '+';
-    case 'D': return '\u2212';
+    case 'A': return <PlusGlyph />;
+    case 'D': return <MinusGlyph />;
     case 'R': return 'R';
     case 'U': return '!';
-    case '?': return '+';
+    case '?': return <PlusGlyph />;
     default: return '?';
   }
+}
+
+function PlusGlyph(): JSX.Element {
+  return (
+    <svg width="7" height="7" viewBox="0 0 8 8" aria-hidden="true">
+      <path d="M3.25 0.75h1.5v6.5h-1.5z M0.75 3.25h6.5v1.5h-6.5z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function MinusGlyph(): JSX.Element {
+  return (
+    <svg width="7" height="7" viewBox="0 0 8 8" aria-hidden="true">
+      <rect x="0.75" y="3.25" width="6.5" height="1.5" fill="currentColor" />
+    </svg>
+  );
 }
 
 export function statusCls(status: string): string {

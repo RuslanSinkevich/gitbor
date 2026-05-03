@@ -66,6 +66,10 @@ export function App() {
   const [compareFromHash, setCompareFromHash] = useState<string | null>(null);
   const [page, setPage] = useState<Page>('app');
   const [lang, setLangState] = useState(getLang);
+  // RepoManager как «вкладка»: «+» в RepoTabs включает этот флаг и
+  // показывает менеджер поверх workspace, не открывая системный диалог.
+  // Любое переключение на конкретный репо-таб его сбрасывает.
+  const [showRepoManager, setShowRepoManager] = useState(false);
   const dlg = useDialogs();
   const loc = t();
   const { runPull, runPush, syncDialogs } = useSyncActions(state, loc);
@@ -244,6 +248,32 @@ export function App() {
   const hasRepo = !!state.repoPath;
   const stagedCount = state.stagedFiles.length;
   const unstagedCount = state.unstagedFiles.length;
+  // Показываем менеджер если юзер явно его открыл («+») ИЛИ если нет
+  // открытых репо вовсе (RepoManager — единственный осмысленный экран).
+  const repoManagerVisible = showRepoManager || !hasRepo;
+
+  // Авто-сброс «+»-вкладки при появлении нового репо: если из RepoManager
+  // юзер открыл existing/new репо, openRepos увеличится и main переключит
+  // активный таб на новый — UX-логично сразу уйти из менеджера в workspace.
+  const prevOpenReposCountRef = useRef<number>(state.openRepos.length);
+  useEffect(() => {
+    const prev = prevOpenReposCountRef.current;
+    const curr = state.openRepos.length;
+    prevOpenReposCountRef.current = curr;
+    if (curr > prev && showRepoManager) {
+      setShowRepoManager(false);
+    }
+  }, [state.openRepos.length, showRepoManager]);
+
+  // Клик по репо-табу всегда возвращает в workspace и снимает manager.
+  const handleSwitchRepo = useCallback((index: number) => {
+    setShowRepoManager(false);
+    switchRepoFast(index);
+  }, [switchRepoFast]);
+
+  const handleShowRepoManager = useCallback(() => {
+    setShowRepoManager(true);
+  }, []);
 
   return (
     <div className={s.app}>
@@ -259,9 +289,16 @@ export function App() {
 
       {page === 'app' && (
         <>
-          <RepoTabs repos={state.openRepos} activeIndex={state.activeRepoIndex} hasChanges={stagedCount + unstagedCount > 0} onSwitch={switchRepoFast} />
+          <RepoTabs
+            repos={state.openRepos}
+            activeIndex={state.activeRepoIndex}
+            hasChanges={stagedCount + unstagedCount > 0}
+            onSwitch={handleSwitchRepo}
+            managerActive={repoManagerVisible}
+            onShowManager={handleShowRepoManager}
+          />
 
-          {hasRepo && (
+          {hasRepo && !repoManagerVisible && (
             <Toolbar
               isOperationRunning={state.isOperationRunning}
               hasUpstream={state.branches.some(b => b.isCurrent && b.upstream)}
@@ -272,9 +309,9 @@ export function App() {
             />
           )}
 
-          {mergeState?.inProgress && <MergeBanner mergeState={mergeState} showPrompt={showPrompt} />}
+          {!repoManagerVisible && mergeState?.inProgress && <MergeBanner mergeState={mergeState} showPrompt={showPrompt} />}
 
-          {rebaseProgress?.inProgress && (
+          {!repoManagerVisible && rebaseProgress?.inProgress && (
             <div className={s.rebaseBanner}>
               <span className={s.rebaseBannerIcon}>⟳</span>
               <span className={s.rebaseBannerText}>
@@ -293,7 +330,9 @@ export function App() {
           )}
 
           <main className={s.main}>
-            {hasRepo ? (
+            {repoManagerVisible ? (
+              <RepoManager state={state} />
+            ) : (
               // key={state.repoPath} — финальная страховка для всех локальных
               // state-ов внутри Sidebar/CommitsView/ChangesView/DiffPanel/
               // BlameView/FileHistory/CommitDetails: при смене репо subtree
@@ -349,13 +388,11 @@ export function App() {
                   </section>
                 }
               />
-            ) : (
-              <RepoManager state={state} />
             )}
           </main>
 
           <footer className={s.statusbar}>
-            {hasRepo ? (
+            {hasRepo && !repoManagerVisible ? (
               <BranchStatus
                 currentBranch={state.currentBranch} ahead={state.ahead} behind={state.behind}
                 stagedCount={stagedCount} unstagedCount={unstagedCount}
