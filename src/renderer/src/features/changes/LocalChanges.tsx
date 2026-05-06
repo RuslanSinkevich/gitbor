@@ -6,7 +6,7 @@ import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { SgSplitPane } from '../../ui/SgSplitPane';
 import { buildStorageKey } from '../../shared/uiPersist';
 import type { ShowPrompt } from '../graph/commitMenuItems';
-import { buildFileTree, FileTreeItem, fileName } from './FileTree';
+import { buildFileTree, FileTreeItem, fileName, collectFiles, type FileTreeNode } from './FileTree';
 import { useFileListKeyboard } from './useFileListKeyboard';
 import s from './LocalChanges.module.css';
 
@@ -105,6 +105,87 @@ export function LocalChanges({
     { label: loc.contextMenu.copyPath, action: () => copyToClipboard(file.path) },
     { label: loc.contextMenu.copyFileName, action: () => copyToClipboard(fileName(file.path)) },
   ], [loc, onOpenMergeEditor]);
+
+  const getUnstagedFolderMenuItems = useCallback((node: FileTreeNode): SgContextMenuItem[] => {
+    const files = collectFiles(node);
+    const filePaths = files.map(f => f.path);
+    const trackedFiles = files.filter(f => f.status !== '?' && f.status !== 'U');
+    const untrackedFiles = files.filter(f => f.status === '?');
+
+    const items: SgContextMenuItem[] = [
+      { header: true, label: tpl(loc.contextMenu.folder.header, { name: node.name, count: String(files.length) }) },
+      { divider: true },
+    ];
+    if (filePaths.length > 0) {
+      items.push({ label: loc.contextMenu.folder.stageAll, action: () => postCommand({ type: 'stageAll', files: filePaths }) });
+    }
+    if (trackedFiles.length > 0) {
+      items.push({ divider: true }, {
+        label: loc.contextMenu.folder.discardAll,
+        danger: true,
+        action: () => {
+          const doDiscard = () => {
+            for (const f of trackedFiles) postCommand({ type: 'discardFileChanges', file: f.path });
+          };
+          if (showPrompt) {
+            showPrompt({
+              title: loc.dialog.discardTitle,
+              message: tpl(loc.dialog.discardFolderMessage, { folder: node.path, count: String(trackedFiles.length) }),
+              confirmLabel: loc.contextMenu.folder.discardAll,
+              danger: true,
+              onConfirm: doDiscard,
+            });
+          } else {
+            doDiscard();
+          }
+        },
+      });
+    }
+    if (untrackedFiles.length > 0) {
+      items.push({ divider: true }, {
+        label: loc.contextMenu.folder.deleteUntracked,
+        danger: true,
+        action: () => {
+          const doDelete = () => {
+            for (const f of untrackedFiles) postCommand({ type: 'deleteUntrackedFile', file: f.path });
+          };
+          if (showPrompt) {
+            showPrompt({
+              title: loc.dialog.discardTitle,
+              message: tpl(loc.dialog.deleteUntrackedFolderMessage, { folder: node.path, count: String(untrackedFiles.length) }),
+              confirmLabel: loc.dialog.delete,
+              danger: true,
+              onConfirm: doDelete,
+            });
+          } else {
+            doDelete();
+          }
+        },
+      });
+    }
+    items.push(
+      { divider: true },
+      { label: loc.contextMenu.folder.copyPath, action: () => copyToClipboard(node.path) },
+    );
+    return items;
+  }, [loc, showPrompt]);
+
+  const getStagedFolderMenuItems = useCallback((node: FileTreeNode): SgContextMenuItem[] => {
+    const files = collectFiles(node);
+    const filePaths = files.map(f => f.path);
+    const items: SgContextMenuItem[] = [
+      { header: true, label: tpl(loc.contextMenu.folder.header, { name: node.name, count: String(files.length) }) },
+      { divider: true },
+    ];
+    if (filePaths.length > 0) {
+      items.push({ label: loc.contextMenu.folder.unstageAll, action: () => postCommand({ type: 'unstageAll', files: filePaths }) });
+    }
+    items.push(
+      { divider: true },
+      { label: loc.contextMenu.folder.copyPath, action: () => copyToClipboard(node.path) },
+    );
+    return items;
+  }, [loc]);
 
   const handleStageAll = () => {
     const files = normalUnstaged.map(f => f.path);
@@ -216,7 +297,8 @@ export function LocalChanges({
                       onClickFolder={(folderPath) => onSelectFolder?.(folderPath, 'unstaged')}
                       onDoubleClickFile={(file) => postCommand({ type: 'stageFile', file: file.path })}
                       onDoubleClickFolder={(files) => postCommand({ type: 'stageAll', files: files.map(f => f.path) })}
-                      onContextMenu={(e, file) => onContextMenu(e, getUnstagedMenuItems(file))} />
+                      onContextMenu={(e, file) => onContextMenu(e, getUnstagedMenuItems(file))}
+                      onContextMenuFolder={(e, n) => onContextMenu(e, getUnstagedFolderMenuItems(n))} />
                   ))}
                 </div>
               </div>
@@ -238,7 +320,8 @@ export function LocalChanges({
                       onClickFolder={(folderPath) => onSelectFolder?.(folderPath, 'staged')}
                       onDoubleClickFile={(file) => postCommand({ type: 'unstageFile', file: file.path })}
                       onDoubleClickFolder={(files) => postCommand({ type: 'unstageAll', files: files.map(f => f.path) })}
-                      onContextMenu={(e, file) => onContextMenu(e, getStagedMenuItems(file))} />
+                      onContextMenu={(e, file) => onContextMenu(e, getStagedMenuItems(file))}
+                      onContextMenuFolder={(e, n) => onContextMenu(e, getStagedFolderMenuItems(n))} />
                   ))}
                 </div>
               </div>

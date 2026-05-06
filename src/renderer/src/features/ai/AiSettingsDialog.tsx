@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { postCommand, onMainEvent } from '../../api';
 import { t, tpl } from '../../i18n';
-import type { AiProviderConfig, CommitLanguage, MainEvent } from '../../types';
+import type { AiConnectionMode, AiProviderConfig, CommitLanguage, MainEvent } from '../../types';
+import { QWEN_WEB_DEFAULT_MODEL_ID, QWEN_WEB_MODEL_IDS, isQwenWebModelId } from '@core/ai/qwenWebModels';
 import { AI_PRESETS, detectPreset } from './presets';
 import s from './AiSettingsDialog.module.css';
 
@@ -13,8 +14,10 @@ type TestState = { status: 'idle' | 'testing' | 'ok' | 'fail'; error?: string };
 
 export function AiSettingsDialog({ onClose }: Props) {
   const loc = t().ai;
+  const [mode, setMode] = useState<AiConnectionMode>('openai-compatible');
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [qwenWebToken, setQwenWebToken] = useState('');
   const [model, setModel] = useState('');
   const [commitLanguage, setCommitLanguage] = useState<CommitLanguage>('auto');
   const [initial, setInitial] = useState<AiProviderConfig | null>(null);
@@ -22,15 +25,38 @@ export function AiSettingsDialog({ onClose }: Props) {
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  const presetId = useMemo(() => detectPreset(baseUrl), [baseUrl]);
+  const presetId = useMemo(() => detectPreset(mode, baseUrl, model), [mode, baseUrl, model]);
+
+  const buildPayload = useCallback((): AiProviderConfig => {
+    if (mode === 'qwen-web') {
+      return {
+        mode: 'qwen-web',
+        baseUrl: 'https://chat.qwen.ai',
+        apiKey: '',
+        qwenWebToken,
+        model: model.trim(),
+        commitLanguage,
+      };
+    }
+    return {
+      mode: 'openai-compatible',
+      baseUrl: baseUrl.trim(),
+      apiKey,
+      model: model.trim(),
+      commitLanguage,
+    };
+  }, [mode, baseUrl, apiKey, qwenWebToken, model, commitLanguage]);
 
   useEffect(() => {
     postCommand({ type: 'aiGetConfig' });
     const unsub = onMainEvent((msg: MainEvent) => {
       if (msg.type === 'aiConfig') {
         setInitial(msg.config);
+        const m = msg.config?.mode ?? 'openai-compatible';
+        setMode(m);
         setBaseUrl(msg.config?.baseUrl ?? '');
         setApiKey(msg.config?.apiKey ?? '');
+        setQwenWebToken(msg.config?.qwenWebToken ?? '');
         setModel(msg.config?.model ?? '');
         setCommitLanguage(msg.config?.commitLanguage ?? 'auto');
       } else if (msg.type === 'aiTestResult') {
@@ -50,46 +76,63 @@ export function AiSettingsDialog({ onClose }: Props) {
 
   const handlePreset = useCallback((id: string) => {
     if (id === 'custom') {
+      setMode('openai-compatible');
       setBaseUrl('');
       setModel('');
       setApiKey('');
+      setQwenWebToken('');
       setTest({ status: 'idle' });
       return;
     }
     const preset = AI_PRESETS.find((p) => p.id === id);
     if (!preset) return;
-    setBaseUrl(preset.baseUrl);
-    setModel(preset.model);
-    if (!preset.needsKey) setApiKey('');
+    setMode(preset.mode);
+    if (preset.mode === 'qwen-web') {
+      setBaseUrl('');
+      setModel(preset.model);
+      setApiKey('');
+      setQwenWebToken('');
+    } else {
+      setBaseUrl(preset.baseUrl);
+      setModel(preset.model);
+      setQwenWebToken('');
+      if (!preset.needsKey) setApiKey('');
+    }
     setTest({ status: 'idle' });
   }, []);
 
-  const canSave = baseUrl.trim().length > 0 && model.trim().length > 0;
+  const canSave =
+    model.trim().length > 0 &&
+    (mode === 'qwen-web'
+      ? qwenWebToken.trim().length > 0
+      : baseUrl.trim().length > 0);
 
   const handleTest = useCallback(() => {
     if (!canSave) return;
     setTest({ status: 'testing' });
     postCommand({
       type: 'aiTestConnection',
-      config: { baseUrl: baseUrl.trim(), apiKey, model: model.trim(), commitLanguage },
+      config: buildPayload(),
     });
-  }, [canSave, baseUrl, apiKey, model, commitLanguage]);
+  }, [canSave, buildPayload]);
 
   const handleSave = useCallback(() => {
     if (!canSave) return;
     postCommand({
       type: 'aiSetConfig',
-      config: { baseUrl: baseUrl.trim(), apiKey, model: model.trim(), commitLanguage },
+      config: buildPayload(),
     });
     setSaved(true);
     clearTimeout(savedTimer.current);
     savedTimer.current = setTimeout(() => setSaved(false), 2000);
-  }, [canSave, baseUrl, apiKey, model, commitLanguage]);
+  }, [canSave, buildPayload]);
 
   const handleClear = useCallback(() => {
     postCommand({ type: 'aiSetConfig', config: null });
+    setMode('openai-compatible');
     setBaseUrl('');
     setApiKey('');
+    setQwenWebToken('');
     setModel('');
     setCommitLanguage('auto');
     setInitial(null);
@@ -128,43 +171,98 @@ export function AiSettingsDialog({ onClose }: Props) {
             </button>
           </div>
 
-          <label className={s.field}>
-            <span className={s.label}>{loc.baseUrl}</span>
-            <input
-              className="sg-input"
-              value={baseUrl}
-              onChange={(e) => { setBaseUrl(e.target.value); setTest({ status: 'idle' }); }}
-              placeholder="https://api.openai.com/v1"
-              spellCheck={false}
-            />
-            <span className={s.hint}>{loc.baseUrlHint}</span>
-          </label>
+          {mode === 'openai-compatible' ? (
+            <>
+              <label className={s.field}>
+                <span className={s.label}>{loc.baseUrl}</span>
+                <input
+                  className="sg-input"
+                  value={baseUrl}
+                  onChange={(e) => { setBaseUrl(e.target.value); setTest({ status: 'idle' }); }}
+                  placeholder="https://api.openai.com/v1"
+                  spellCheck={false}
+                />
+                <span className={s.hint}>{loc.baseUrlHint}</span>
+              </label>
 
-          <label className={s.field}>
-            <span className={s.label}>{loc.apiKey}</span>
-            <input
-              className="sg-input"
-              type="password"
-              value={apiKey}
-              onChange={(e) => { setApiKey(e.target.value); setTest({ status: 'idle' }); }}
-              placeholder="sk-..."
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <span className={s.hint}>{loc.apiKeyHint}</span>
-          </label>
+              <label className={s.field}>
+                <span className={s.label}>{loc.apiKey}</span>
+                <input
+                  className="sg-input"
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => { setApiKey(e.target.value); setTest({ status: 'idle' }); }}
+                  placeholder="sk-..."
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <span className={s.hint}>{loc.apiKeyHint}</span>
+              </label>
 
-          <label className={s.field}>
-            <span className={s.label}>{loc.model}</span>
-            <input
-              className="sg-input"
-              value={model}
-              onChange={(e) => { setModel(e.target.value); setTest({ status: 'idle' }); }}
-              placeholder="gpt-4o-mini"
-              spellCheck={false}
-            />
-            <span className={s.hint}>{loc.modelHint}</span>
-          </label>
+              <label className={s.field}>
+                <span className={s.label}>{loc.model}</span>
+                <input
+                  className="sg-input"
+                  value={model}
+                  onChange={(e) => { setModel(e.target.value); setTest({ status: 'idle' }); }}
+                  placeholder="gpt-4o-mini"
+                  spellCheck={false}
+                />
+                <span className={s.hint}>{loc.modelHint}</span>
+              </label>
+            </>
+          ) : (
+            <>
+              <label className={s.field}>
+                <span className={s.label}>{loc.qwenWebUrl}</span>
+                <input
+                  className="sg-input"
+                  value="https://chat.qwen.ai"
+                  readOnly
+                  spellCheck={false}
+                />
+                <span className={s.hint}>{loc.qwenWebUrlHint}</span>
+              </label>
+
+              <label className={s.field}>
+                <span className={s.label}>{loc.qwenWebToken}</span>
+                <input
+                  className="sg-input"
+                  type="password"
+                  value={qwenWebToken}
+                  onChange={(e) => { setQwenWebToken(e.target.value); setTest({ status: 'idle' }); }}
+                  placeholder={loc.qwenWebTokenPlaceholder}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <span className={s.hint}>{loc.qwenWebTokenHint}</span>
+              </label>
+
+              <p className={s.hint}>{loc.qwenWebHowto}</p>
+              <a
+                className={s.externalLink}
+                href="https://chat.qwen.ai"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {loc.qwenWebOpenChat}
+              </a>
+
+              <label className={s.field}>
+                <span className={s.label}>{loc.model}</span>
+                <select
+                  className="sg-select"
+                  value={isQwenWebModelId(model) ? model : QWEN_WEB_DEFAULT_MODEL_ID}
+                  onChange={(e) => { setModel(e.target.value); setTest({ status: 'idle' }); }}
+                >
+                  {QWEN_WEB_MODEL_IDS.map((id) => (
+                    <option key={id} value={id}>{id}</option>
+                  ))}
+                </select>
+                <span className={s.hint}>{loc.qwenWebModelHint}</span>
+              </label>
+            </>
+          )}
 
           <label className={s.field}>
             <span className={s.label}>{loc.commitLanguage}</span>

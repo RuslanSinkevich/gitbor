@@ -35,6 +35,30 @@ describe('AiService.isConfigured', () => {
   it('true for minimal valid config', () => {
     expect(new AiService({ baseUrl: 'http://x/v1', apiKey: '', model: 'm' }).isConfigured()).toBe(true);
   });
+
+  it('true for qwen-web with token and model', () => {
+    expect(
+      new AiService({
+        mode: 'qwen-web',
+        baseUrl: 'https://chat.qwen.ai',
+        apiKey: '',
+        qwenWebToken: 't',
+        model: 'qwen3-max',
+      }).isConfigured(),
+    ).toBe(true);
+  });
+
+  it('false for qwen-web without token', () => {
+    expect(
+      new AiService({
+        mode: 'qwen-web',
+        baseUrl: '',
+        apiKey: '',
+        qwenWebToken: '',
+        model: 'qwen3-max',
+      }).isConfigured(),
+    ).toBe(false);
+  });
 });
 
 describe('AiService.generateCommitMessage', () => {

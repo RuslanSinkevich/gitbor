@@ -140,6 +140,18 @@
   word-break: break-word;
 }
 
+.externalLink {
+  display: inline-block;
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--sg-primary);
+  text-decoration: none;
+}
+
+.externalLink:hover {
+  text-decoration: underline;
+}
+
 .footer {
   display: flex;
   align-items: center;

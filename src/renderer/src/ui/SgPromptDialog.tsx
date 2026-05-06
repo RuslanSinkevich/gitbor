@@ -10,6 +10,8 @@ interface PromptState {
   message: string;
   confirmLabel: string;
   danger: boolean;
+  /** Разрешить submit с пустой строкой. По умолчанию false — кнопка disabled пока поле пустое. */
+  allowEmpty: boolean;
   onConfirm: (value: string) => void;
 }
 
@@ -24,6 +26,7 @@ export function usePromptDialog() {
     message?: string;
     confirmLabel?: string;
     danger?: boolean;
+    allowEmpty?: boolean;
     onConfirm: (value: string) => void;
   }) => {
     setPrompt({
@@ -34,6 +37,7 @@ export function usePromptDialog() {
       message: opts.message ?? '',
       confirmLabel: opts.confirmLabel ?? '',
       danger: opts.danger ?? false,
+      allowEmpty: opts.allowEmpty ?? false,
       onConfirm: opts.onConfirm,
     });
   }, []);
@@ -73,7 +77,7 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
       return;
     }
     const trimmed = value.trim();
-    if (!trimmed) return;
+    if (!trimmed && !prompt.allowEmpty) return;
     prompt.onConfirm(trimmed);
     onClose();
   };
@@ -89,7 +93,7 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
         <button
           className={confirmBtnClass}
           onClick={handleSubmit}
-          disabled={!isConfirmOnly && !value.trim()}
+          disabled={!isConfirmOnly && !prompt.allowEmpty && !value.trim()}
         >
           {prompt.confirmLabel || t().dialog.confirm}
         </button>

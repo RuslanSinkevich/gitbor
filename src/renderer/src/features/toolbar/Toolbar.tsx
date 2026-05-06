@@ -9,6 +9,11 @@ interface Props {
   hasUpstream?: boolean;
   onPull?: (rebase?: boolean) => void;
   onPush?: (force?: boolean) => void;
+  /**
+   * Stash без message — fallback. Если задан, кнопка stash в Toolbar открывает
+   * модалку имени стэша (рендерится снаружи через showPrompt из App.tsx).
+   */
+  onStash?: () => void;
   onOpenActivity?: () => void;
   /** Путь активного репо — для фильтрации индикатора git-активности. */
   repoPath?: string | null;
@@ -78,7 +83,7 @@ function DropdownButton({ label, icon, disabled, mainAction, items }: {
 }
 
 export function Toolbar(props: Props) {
-  const { isOperationRunning, hasUpstream, onPull, onPush, onOpenActivity } = props;
+  const { isOperationRunning, hasUpstream, onPull, onPush, onStash, onOpenActivity } = props;
   const loc = t();
   const runPull = (rebase?: boolean) => {
     if (onPull) onPull(rebase);
@@ -87,6 +92,10 @@ export function Toolbar(props: Props) {
   const runPush = (force?: boolean) => {
     if (onPush) onPush(force);
     else postCommand({ type: 'push', force });
+  };
+  const runStash = () => {
+    if (onStash) onStash();
+    else postCommand({ type: 'stash' });
   };
 
   return (
@@ -122,7 +131,7 @@ export function Toolbar(props: Props) {
 
         <div className={s.separator} />
 
-        <button className={s.action} onClick={() => postCommand({ type: 'stash' })} disabled={isOperationRunning} title={loc.toolbar.stash}>
+        <button className={s.action} onClick={runStash} disabled={isOperationRunning} title={loc.toolbar.stash}>
           <IconStash />
           <span className={s.actionLabel}>{loc.toolbar.stash}</span>
         </button>

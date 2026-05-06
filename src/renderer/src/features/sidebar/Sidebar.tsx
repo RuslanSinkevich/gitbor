@@ -22,8 +22,7 @@ interface Props {
   remotes: Remote[];
   ahead: number;
   behind: number;
-  stagedCount: number;
-  unstagedCount: number;
+  localChangesCount: number;
   activeView?: 'changes' | 'commits';
   onContextMenu: (e: React.MouseEvent, items: SgContextMenuItem[]) => void;
   onSwitchView: (view: 'changes' | 'commits') => void;
@@ -38,7 +37,7 @@ const ICONS = { branch: '⎇', remote: '☁', tag: '🏷', stash: '📦', change
 
 export function Sidebar({
   repoPath, currentBranch, branches, tags, stashes, remotes,
-  stagedCount, unstagedCount, activeView, onContextMenu, onSwitchView, onSelectRef, onMerge, showPrompt,
+  localChangesCount, activeView, onContextMenu, onSwitchView, onSelectRef, onMerge, showPrompt,
 }: Props) {
   const loc = t();
   const [filter, setFilter] = useState('');
@@ -114,14 +113,12 @@ export function Sidebar({
     });
   }, [remotes, filteredRemote, sections.remotes]);
 
-  const totalChanges = stagedCount + unstagedCount;
-
   return (
     <div className={s.root}>
       <div className={`${s.navItem} ${activeView === 'changes' ? s.navItemActive : ''}`} onClick={() => onSwitchView('changes')}>
         <span className={s.navIcon}>{ICONS.changes}</span>
         <span className={s.navLabel}>{loc.sidebar.localChanges}</span>
-        {totalChanges > 0 && <span className={s.navBadge}>{totalChanges}</span>}
+        {localChangesCount > 0 && <span className={s.navBadge}>{localChangesCount}</span>}
       </div>
       <div className={`${s.navItem} ${activeView === 'commits' ? s.navItemActive : ''}`} onClick={() => onSwitchView('commits')}>
         <span className={s.navIcon}>☰</span>

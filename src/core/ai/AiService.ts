@@ -1,5 +1,7 @@
-import { OpenAiCompatibleProvider } from './providers/OpenAiCompatibleProvider';
 import { buildCommitSystemPrompt, buildCommitUserPrompt } from './prompts';
+import type { AiProvider } from './providers/base';
+import { OpenAiCompatibleProvider } from './providers/OpenAiCompatibleProvider';
+import { QwenWebProvider } from './providers/QwenWebProvider';
 import { AiError, type AiCompletionResult, type AiProviderConfig } from './types';
 import { mainLogger } from '../utils/Logger';
 
@@ -31,7 +33,12 @@ export class AiService {
   /** Возвращает true если конфигурация достаточна для вызова. */
   isConfigured(): boolean {
     const c = this.config;
-    return !!(c && c.baseUrl && c.model);
+    if (!c?.model?.trim()) return false;
+    const mode = c.mode ?? 'openai-compatible';
+    if (mode === 'qwen-web') {
+      return !!(c.qwenWebToken || '').trim();
+    }
+    return !!c.baseUrl?.trim();
   }
 
   async testConnection(signal?: AbortSignal): Promise<void> {
@@ -51,10 +58,6 @@ export class AiService {
       systemPrompt,
       userPrompt: buildCommitUserPrompt(options.diff, lang),
       temperature: options.temperature ?? 0.3,
-      // По умолчанию не шлём max_tokens — пусть сервер решает сам. Некоторые
-      // корп-gateway'и (в т.ч. dtl cloud) интерпретируют фиксированный
-      // max_tokens странно и мгновенно отдают finish_reason=length c пустым
-      // content. Если очень надо — можно передать maxTokens в опциях.
       maxTokens: options.maxTokens,
       signal: options.signal,
       onChunk: options.onChunk,
@@ -62,8 +65,12 @@ export class AiService {
     return { ...result, text: postProcessCommit(result.text) };
   }
 
-  private ensureProvider(): OpenAiCompatibleProvider {
+  private ensureProvider(): AiProvider {
     if (!this.config) throw new AiError('AI provider is not configured', 'config');
+    const mode = this.config.mode ?? 'openai-compatible';
+    if (mode === 'qwen-web') {
+      return new QwenWebProvider(this.config);
+    }
     return new OpenAiCompatibleProvider(this.config);
   }
 }

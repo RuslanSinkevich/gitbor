@@ -6,6 +6,10 @@
   background: var(--sg-surface-raised);
   border-top: 1px solid var(--sg-border);
   flex-shrink: 0;
+  /* Иначе при узкой правой колонке splита контент может вылезти за overflow:hidden панели и срезать кнопку справа. */
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .fields {
@@ -84,14 +88,55 @@
 }
 
 .errorBanner {
-  padding: 6px 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 10px;
   font-size: 12px;
   color: #cf222e;
   background: color-mix(in srgb, #cf222e 12%, transparent);
   border: 1px solid color-mix(in srgb, #cf222e 35%, transparent);
   border-radius: var(--sg-radius-sm);
-  cursor: pointer;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.errorBannerText {
+  flex: 1;
+  min-width: 0;
   word-break: break-word;
+  line-height: 1.4;
+}
+
+.errorDismiss {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0;
+  margin: 0;
+  color: #9e1a23;
+  background: color-mix(in srgb, var(--sg-background) 55%, transparent);
+  border: 1px solid color-mix(in srgb, #cf222e 50%, transparent);
+  border-radius: var(--sg-radius-sm);
+  cursor: pointer;
+}
+
+.errorDismiss:hover {
+  color: #cf222e;
+  background: color-mix(in srgb, #cf222e 16%, transparent);
+}
+
+.errorDismissMark {
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 600;
+  display: block;
 }
 
 .amend {

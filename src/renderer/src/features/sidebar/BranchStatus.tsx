@@ -6,8 +6,7 @@ interface Props {
   currentBranch: string;
   ahead: number;
   behind: number;
-  stagedCount: number;
-  unstagedCount: number;
+  localChangesCount: number;
   isOperationRunning: boolean;
   currentOperation: string | null;
   onPull?: () => void;
@@ -16,11 +15,10 @@ interface Props {
 
 export function BranchStatus({
   currentBranch, ahead, behind,
-  stagedCount, unstagedCount,
+  localChangesCount,
   isOperationRunning, currentOperation, onPull, onPush,
 }: Props) {
   const loc = t();
-  const totalChanges = stagedCount + unstagedCount;
 
   return (
     <div className={s.root}>
@@ -40,8 +38,8 @@ export function BranchStatus({
           <span className={s.operation}>{currentOperation}…</span>
         )}
 
-        {totalChanges > 0 ? (
-          <span className={s.changes}>{tpl(loc.statusbar.modified, { count: totalChanges })}</span>
+        {localChangesCount > 0 ? (
+          <span className={s.changes}>{tpl(loc.statusbar.modified, { count: localChangesCount })}</span>
         ) : (
           <span className={s.clean}>{loc.statusbar.clean}</span>
         )}

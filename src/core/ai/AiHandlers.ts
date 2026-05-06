@@ -1,6 +1,6 @@
 import type { AiService } from './AiService';
 import type { AiConfigStore } from './AiConfigStore';
-import { AiError, type AiProviderConfig } from './types';
+import { AiError, type AiConnectionMode, type AiProviderConfig } from './types';
 
 export interface AiTestResult {
   success: boolean;
@@ -24,11 +24,24 @@ export class AiHandlers {
     private readonly store: AiConfigStore,
   ) {}
 
-  /** Текущий конфиг, без секрета (apiKey маскируется). Для UI. */
+  /** Текущий конфиг, без секрета (apiKey / qwenWebToken маскируются). Для UI. */
   getConfig(): AiProviderConfig | null {
     const cfg = this.service.getConfig();
     if (!cfg) return null;
-    return { ...cfg, apiKey: cfg.apiKey ? '••••••••' : '' };
+    const mode: AiConnectionMode = cfg.mode ?? 'openai-compatible';
+    if (mode === 'qwen-web') {
+      return {
+        ...cfg,
+        baseUrl: cfg.baseUrl || 'https://chat.qwen.ai',
+        apiKey: '',
+        qwenWebToken: cfg.qwenWebToken ? '••••••••' : '',
+      };
+    }
+    return {
+      ...cfg,
+      apiKey: cfg.apiKey ? '••••••••' : '',
+      qwenWebToken: '',
+    };
   }
 
   /** Новая конфигурация. Null — очистка. Сохраняем на диск + в in-memory service. */
@@ -38,16 +51,14 @@ export class AiHandlers {
       await this.store.clear();
       return;
     }
-    // Пустой apiKey в DTO из UI означает «оставить как было» (мы его
-    // маскируем в getConfig и не присылаем обратно в открытом виде).
-    const merged = this.mergeApiKey(cfg);
+    const merged = this.mergeSecrets(cfg);
     this.service.setConfig(merged);
     await this.store.save(merged);
   }
 
   async testConnection(cfg: AiProviderConfig): Promise<AiTestResult> {
     try {
-      const merged = this.mergeApiKey(cfg);
+      const merged = this.mergeSecrets(cfg);
       const tempService = new (this.service.constructor as typeof AiService)(merged);
       await tempService.testConnection();
       return { success: true };
@@ -100,13 +111,29 @@ export class AiHandlers {
   }
 
   /**
-   * Если UI прислал пустой/маскированный apiKey — значит «оставить как был».
-   * Это защищает от случайной очистки ключа при редактировании других полей.
+   * Если UI прислал пустой/маскированный apiKey или qwenWebToken — «оставить как было».
    */
-  private mergeApiKey(cfg: AiProviderConfig): AiProviderConfig {
+  private mergeSecrets(cfg: AiProviderConfig): AiProviderConfig {
+    const mode: AiConnectionMode = cfg.mode ?? 'openai-compatible';
+    if (mode === 'qwen-web') {
+      const tok = cfg.qwenWebToken ?? '';
+      const masked = !tok || /^•+$/.test(tok);
+      if (!masked) return { ...cfg, mode: 'qwen-web' };
+      const existing = this.service.getConfig();
+      const prev =
+        existing && (existing.mode ?? 'openai-compatible') === 'qwen-web'
+          ? existing.qwenWebToken ?? ''
+          : '';
+      return { ...cfg, mode: 'qwen-web', qwenWebToken: prev };
+    }
+
     const isMasked = !cfg.apiKey || /^•+$/.test(cfg.apiKey);
-    if (!isMasked) return cfg;
+    if (!isMasked) return { ...cfg, mode: 'openai-compatible' };
     const existing = this.service.getConfig();
-    return { ...cfg, apiKey: existing?.apiKey ?? '' };
+    return {
+      ...cfg,
+      mode: 'openai-compatible',
+      apiKey: existing?.apiKey ?? '',
+    };
   }
 }

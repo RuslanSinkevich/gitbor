@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAppState } from './hooks/useAppState';
 import { useDiffState } from './hooks/useDiffState';
 import { useTheme } from './hooks/useTheme';
@@ -68,7 +68,9 @@ export function App() {
   const [lang, setLangState] = useState(getLang);
   // RepoManager как «вкладка»: «+» в RepoTabs включает этот флаг и
   // показывает менеджер поверх workspace, не открывая системный диалог.
-  // Любое переключение на конкретный репо-таб его сбрасывает.
+  // Переключение на ДРУГОЙ репо-таб тоже его открывает (см.
+  // handleSwitchRepo — UX как при «+»). Клик по уже активному табу
+  // сбрасывает флаг, давая выход в workspace.
   const [showRepoManager, setShowRepoManager] = useState(false);
   const dlg = useDialogs();
   const loc = t();
@@ -81,8 +83,27 @@ export function App() {
     setMergeDialogSource(source);
   }, []);
 
+  /**
+   * Stash через модалку: пустое имя → `git stash push` без `-m`,
+   * непустое → `git stash push -m <message>`. Используется и из тулбара,
+   * и из меню/горячих клавиш (через useMenuActions).
+   */
+  const promptStash = useCallback(() => {
+    showPrompt({
+      title: loc.stashDialog.title,
+      label: loc.stashDialog.label,
+      placeholder: loc.stashDialog.placeholder,
+      confirmLabel: loc.stashDialog.confirm,
+      allowEmpty: true,
+      onConfirm: (value) => {
+        const trimmed = value.trim();
+        postCommand({ type: 'stash', message: trimmed || undefined });
+      },
+    });
+  }, [showPrompt, loc.stashDialog]);
+
   const handleMenuAction = useMenuActions({
-    state, setViewMode, ...dlg, showPrompt, handleOpenMergeDialog, runPull, runPush,
+    state, setViewMode, ...dlg, showPrompt, promptStash, handleOpenMergeDialog, runPull, runPush,
   });
 
   useKeyboardShortcuts(handleMenuAction);
@@ -246,8 +267,13 @@ export function App() {
   }, [commitDetail, viewMode, openDiff]);
 
   const hasRepo = !!state.repoPath;
-  const stagedCount = state.stagedFiles.length;
-  const unstagedCount = state.unstagedFiles.length;
+  /** Один путь в индексе и в рабочей копии — одна позиция в бейдже/статусбаре. */
+  const localChangesCount = useMemo(() => {
+    const paths = new Set<string>();
+    for (const f of state.stagedFiles) paths.add(f.path);
+    for (const f of state.unstagedFiles) paths.add(f.path);
+    return paths.size;
+  }, [state.stagedFiles, state.unstagedFiles]);
   // Показываем менеджер если юзер явно его открыл («+») ИЛИ если нет
   // открытых репо вовсе (RepoManager — единственный осмысленный экран).
   const repoManagerVisible = showRepoManager || !hasRepo;
@@ -265,11 +291,23 @@ export function App() {
     }
   }, [state.openRepos.length, showRepoManager]);
 
-  // Клик по репо-табу всегда возвращает в workspace и снимает manager.
+  // Клик по репо-табу:
+  //  • другой индекс → переключаем активный репо И открываем RepoManager
+  //    (как при нажатии «+»). Так юзер при смене проекта сначала видит
+  //    обзорный экран, а не сразу проваливается в graph/changes.
+  //  • тот же индекс → ничего не свитчим, лишь закрываем менеджер
+  //    (даёт способ выйти из «+»-вкладки кликом по уже активному табу).
+  // Открытие репо из RepoManager (через postCommand 'openRepo') в эту
+  // функцию НЕ попадает — оно идёт мимо switchRepoFast напрямую к main,
+  // и менеджер закрывается эффектом на рост openRepos.length выше.
   const handleSwitchRepo = useCallback((index: number) => {
-    setShowRepoManager(false);
+    if (index === state.activeRepoIndex) {
+      setShowRepoManager(false);
+      return;
+    }
+    setShowRepoManager(true);
     switchRepoFast(index);
-  }, [switchRepoFast]);
+  }, [switchRepoFast, state.activeRepoIndex]);
 
   const handleShowRepoManager = useCallback(() => {
     setShowRepoManager(true);
@@ -292,7 +330,7 @@ export function App() {
           <RepoTabs
             repos={state.openRepos}
             activeIndex={state.activeRepoIndex}
-            hasChanges={stagedCount + unstagedCount > 0}
+            hasChanges={localChangesCount > 0}
             onSwitch={handleSwitchRepo}
             managerActive={repoManagerVisible}
             onShowManager={handleShowRepoManager}
@@ -304,6 +342,7 @@ export function App() {
               hasUpstream={state.branches.some(b => b.isCurrent && b.upstream)}
               onPull={runPull}
               onPush={runPush}
+              onStash={promptStash}
               onOpenActivity={() => dlg.setShowGitActivity(true)}
               repoPath={state.repoPath}
             />
@@ -349,7 +388,7 @@ export function App() {
                       currentBranch={state.currentBranch} branches={state.branches}
                       remotes={state.remotes} tags={state.tags} stashes={state.stashes}
                       ahead={state.ahead} behind={state.behind}
-                      stagedCount={stagedCount} unstagedCount={unstagedCount}
+                      localChangesCount={localChangesCount}
                       activeView={viewMode}
                       onContextMenu={showContextMenu} onSwitchView={setViewMode}
                       onSelectRef={handleSelectRef} onMerge={handleOpenMergeDialog}
@@ -395,7 +434,7 @@ export function App() {
             {hasRepo && !repoManagerVisible ? (
               <BranchStatus
                 currentBranch={state.currentBranch} ahead={state.ahead} behind={state.behind}
-                stagedCount={stagedCount} unstagedCount={unstagedCount}
+                localChangesCount={localChangesCount}
                 isOperationRunning={state.isOperationRunning} currentOperation={state.currentOperation}
                 onPull={() => runPull(false)}
                 onPush={() => runPush(false)}

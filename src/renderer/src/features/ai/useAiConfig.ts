@@ -4,9 +4,8 @@ import type { AiProviderConfig, MainEvent } from '../../types';
 
 /**
  * Хук синхронизации текущего AI-конфига с main-процессом. Запрашивает
- * при монтировании, подписывается на обновления. apiKey всегда приходит
- * из main уже замаскированным — поэтому никакого секрета в renderer'е не
- * живёт.
+ * при монтировании, подписывается на обновления. Секреты (apiKey,
+ * qwenWebToken) из main приходят замаскированными.
  */
 export function useAiConfig(): {
   config: AiProviderConfig | null;

@@ -49,6 +49,7 @@ describe('AiConfigStore.save / load roundtrip', () => {
     expect(raw).toContain('enc:');
     const loaded = store.load();
     expect(loaded).toEqual({
+      mode: 'openai-compatible',
       baseUrl: 'http://x/v1',
       apiKey: 'sk-secret',
       model: 'gpt',
@@ -86,6 +87,29 @@ describe('AiConfigStore.save / load roundtrip', () => {
     const loaded = store.load();
     expect(loaded?.headers).toEqual({ 'x-org': 'acme' });
     expect(loaded?.timeoutMs).toBe(120_000);
+  });
+
+  it('persists qwen-web token separately from apiKey', async () => {
+    const store = new AiConfigStore(dir, makeCrypto(true));
+    await store.save({
+      mode: 'qwen-web',
+      baseUrl: 'https://chat.qwen.ai',
+      apiKey: '',
+      qwenWebToken: 'web-tok',
+      model: 'qwen3-max',
+    });
+    const raw = readFileSync(join(dir, 'ai-config.json'), 'utf-8');
+    expect(raw).not.toContain('web-tok');
+    const loaded = store.load();
+    expect(loaded).toEqual({
+      mode: 'qwen-web',
+      baseUrl: 'https://chat.qwen.ai',
+      apiKey: '',
+      qwenWebToken: 'web-tok',
+      model: 'qwen3-max',
+      commitLanguage: 'auto',
+      timeoutMs: undefined,
+    });
   });
 
   it('uses atomic write (no .tmp-* files left on success)', async () => {

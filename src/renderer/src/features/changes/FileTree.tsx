@@ -125,11 +125,12 @@ interface FileTreeItemProps {
   onDoubleClickFile?: (file: FileStatus) => void;
   onDoubleClickFolder?: (files: FileStatus[]) => void;
   onContextMenu: (e: React.MouseEvent, file: FileStatus) => void;
+  onContextMenuFolder?: (e: React.MouseEvent, node: FileTreeNode) => void;
 }
 
 export function FileTreeItem({
   node, depth, section, activePath, activeSection, focusedPath,
-  onClickFile, onClickFolder, onDoubleClickFile, onDoubleClickFolder, onContextMenu,
+  onClickFile, onClickFolder, onDoubleClickFile, onDoubleClickFolder, onContextMenu, onContextMenuFolder,
 }: FileTreeItemProps) {
   const [expanded, setExpanded] = useState(true);
   const isDir = node.children.length > 0 && !node.file;
@@ -139,7 +140,8 @@ export function FileTreeItem({
   if (isDir) {
     return (
       <>
-        <div className={`${s.treeFolder} ${isActive ? s.fileItemActive : ''}`} style={{ paddingLeft }}>
+        <div className={`${s.treeFolder} ${isActive ? s.fileItemActive : ''}`} style={{ paddingLeft }}
+          onContextMenu={onContextMenuFolder ? (e) => { e.preventDefault(); e.stopPropagation(); onContextMenuFolder(e, node); } : undefined}>
           <span className={`${s.treeArrow} ${expanded ? s.treeArrowExpanded : ''}`}
             onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}>&#9656;</span>
           <span
@@ -154,7 +156,7 @@ export function FileTreeItem({
         {expanded && node.children.map(child => (
           <FileTreeItem key={child.path} node={child} depth={depth + 1} section={section} activePath={activePath} activeSection={activeSection} focusedPath={focusedPath}
             onClickFile={onClickFile} onClickFolder={onClickFolder} onDoubleClickFile={onDoubleClickFile}
-            onDoubleClickFolder={onDoubleClickFolder} onContextMenu={onContextMenu} />
+            onDoubleClickFolder={onDoubleClickFolder} onContextMenu={onContextMenu} onContextMenuFolder={onContextMenuFolder} />
         ))}
       </>
     );

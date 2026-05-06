@@ -1,14 +1,18 @@
+import type { AiConnectionMode } from '../../types';
+
 export type AiPresetLabelKey =
   | 'presetOpenai'
   | 'presetOllama'
   | 'presetLmStudio'
   | 'presetDeepseek'
   | 'presetGroq'
+  | 'presetQwenWeb'
   | 'presetCustom';
 
 export interface AiPreset {
   id: string;
   labelKey: AiPresetLabelKey;
+  mode: AiConnectionMode;
   baseUrl: string;
   model: string;
   needsKey: boolean;
@@ -19,17 +23,25 @@ export interface AiPreset {
  * OpenAI-compatible сервисов. «Custom» — ручной ввод.
  */
 export const AI_PRESETS: AiPreset[] = [
-  { id: 'openai',   labelKey: 'presetOpenai',   baseUrl: 'https://api.openai.com/v1',     model: 'gpt-4o-mini',      needsKey: true  },
-  { id: 'ollama',   labelKey: 'presetOllama',   baseUrl: 'http://localhost:11434/v1',     model: 'llama3.1:8b',      needsKey: false },
-  { id: 'lmstudio', labelKey: 'presetLmStudio', baseUrl: 'http://localhost:1234/v1',      model: 'local-model',      needsKey: false },
-  { id: 'deepseek', labelKey: 'presetDeepseek', baseUrl: 'https://api.deepseek.com/v1',   model: 'deepseek-chat',    needsKey: true  },
-  { id: 'groq',     labelKey: 'presetGroq',     baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.1-8b-instant', needsKey: true },
+  { id: 'openai',   labelKey: 'presetOpenai',   mode: 'openai-compatible', baseUrl: 'https://api.openai.com/v1',     model: 'gpt-4o-mini',      needsKey: true  },
+  { id: 'ollama',   labelKey: 'presetOllama',   mode: 'openai-compatible', baseUrl: 'http://localhost:11434/v1',     model: 'llama3.1:8b',      needsKey: false },
+  { id: 'lmstudio', labelKey: 'presetLmStudio', mode: 'openai-compatible', baseUrl: 'http://localhost:1234/v1',      model: 'local-model',      needsKey: false },
+  { id: 'deepseek', labelKey: 'presetDeepseek', mode: 'openai-compatible', baseUrl: 'https://api.deepseek.com/v1',   model: 'deepseek-chat',    needsKey: true  },
+  { id: 'groq',     labelKey: 'presetGroq',     mode: 'openai-compatible', baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.1-8b-instant', needsKey: true },
+  /** Токен из localStorage https://chat.qwen.ai (как Qwen Web в Skycode). */
+  { id: 'qwen-web', labelKey: 'presetQwenWeb',  mode: 'qwen-web',            baseUrl: '',                              model: 'qwen3-max',        needsKey: true },
 ];
 
-/** Угадать пресет по текущему baseUrl (для подсветки активного). */
-export function detectPreset(baseUrl: string): string {
+/** Угадать пресет (подсветка кнопки). */
+export function detectPreset(mode: AiConnectionMode, baseUrl: string, model: string): string {
+  if (mode === 'qwen-web') {
+    const p = AI_PRESETS.find((x) => x.mode === 'qwen-web');
+    if (p && model.trim() === p.model) return p.id;
+    return 'custom';
+  }
   const normalized = baseUrl.trim().replace(/\/+$/, '');
   for (const p of AI_PRESETS) {
+    if (p.mode !== 'openai-compatible') continue;
     if (p.baseUrl.replace(/\/+$/, '') === normalized) return p.id;
   }
   return 'custom';

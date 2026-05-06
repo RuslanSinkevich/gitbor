@@ -13,6 +13,8 @@ export class MessageBridge {
   private window: BrowserWindow | null = null;
   private unsubscribeState: (() => void) | null = null;
   private unsubscribeActivity: (() => void) | null = null;
+  private focusStatusDebounce: NodeJS.Timeout | null = null;
+  private boundOnWindowFocus: (() => void) | null = null;
   /**
    * Per-repo дедуп отправленного графа. Без него switchRepo A→B→A шлёт
    * весь graphData для каждого репо на каждое переключение (в MainProcess
@@ -82,6 +84,16 @@ export class MessageBridge {
       return this.handleCommand(command);
     });
 
+    this.boundOnWindowFocus = () => {
+      if (!this.stateManager.getState().repoPath) return;
+      if (this.focusStatusDebounce) clearTimeout(this.focusStatusDebounce);
+      this.focusStatusDebounce = setTimeout(() => {
+        this.focusStatusDebounce = null;
+        void this.stateManager.refreshStatusAndNotify().catch(() => {});
+      }, 350);
+    };
+    win.on('focus', this.boundOnWindowFocus);
+
     win.on('closed', () => {
       this.dispose();
     });
@@ -104,6 +116,15 @@ export class MessageBridge {
   }
 
   dispose(): void {
+    if (this.focusStatusDebounce) {
+      clearTimeout(this.focusStatusDebounce);
+      this.focusStatusDebounce = null;
+    }
+    const w = this.window;
+    if (w && this.boundOnWindowFocus) {
+      w.removeListener('focus', this.boundOnWindowFocus);
+      this.boundOnWindowFocus = null;
+    }
     if (this.unsubscribeState) {
       this.unsubscribeState();
       this.unsubscribeState = null;

@@ -72,12 +72,11 @@ export class FileWatcher {
       // Дополнительный hard-stop: dangerous-пути (домашка, корень диска,
       // C:\Windows и т.п.) — worktreeWatcher НЕ запускаем независимо
       // от количества записей, чтобы не уйти в EPERM-цикл по AppData/Cookies.
-      let topLevelCount = 0;
       let isHugeWorktree = false;
       const isDangerous = isDangerousRepoRoot(repoPath).dangerous;
       try {
         const entries = await fs.readdir(repoPath);
-        topLevelCount = entries.length;
+        const topLevelCount = entries.length;
         isHugeWorktree = topLevelCount > WORKTREE_TOPLEVEL_LIMIT;
         if (isHugeWorktree) {
           mainLogger.warn(
@@ -134,10 +133,11 @@ export class FileWatcher {
             /[\\/]System Volume Information[\\/]/i,
             /[\\/]OneDrive[\\/]/i,
           ],
-          // depth=3 (было 6) — глубже на NTFS чревато EPERM-каскадом и
-          // замедлением сканера chokidar. Всё что глубже всё равно
-          // подхватится через scheduleStatusRefresh при следующем git status.
-          depth: 3,
+          // Без `depth`: при лимите (раньше было 3) chokidar не вешал
+          // watcher на файлы глубже N уровней — правки в рабочей копии не
+          // давали fs-событий, «Не подготовлено» замирало до внешнего refresh
+          // (switchRepo → refreshAll и т.п.). EPERM по мусорным путям режем
+          // `ignored`; гигантские корни уже отсекаются отключением worktreeWatcher.
           awaitWriteFinish: false,
         });
 

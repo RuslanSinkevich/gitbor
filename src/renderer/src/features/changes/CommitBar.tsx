@@ -6,6 +6,7 @@ import s from './CommitBar.module.css';
 
 const DESC_MIN_PX = 29;
 const DESC_MAX_PX = 260;
+const AI_ERROR_AUTO_DISMISS_MS = 20_000;
 
 interface Props {
   stagedCount: number;
@@ -46,11 +47,18 @@ export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings }:
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  useEffect(() => {
+    if (!aiError) return;
+    const id = window.setTimeout(() => setAiError(null), AI_ERROR_AUTO_DISMISS_MS);
+    return () => window.clearTimeout(id);
+  }, [aiError]);
+
   function doCommit() {
     if (!canCommit) return;
     const subj = subject.trim();
     const desc = description.trim();
     const msg = desc ? `${subj}\n\n${desc}` : subj;
+    setAiError(null);
     postCommand({ type: 'commit', message: msg, amend: amend || undefined });
     setSubject('');
     setDescription('');
@@ -89,8 +97,19 @@ export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings }:
   return (
     <div className={s.root}>
       {aiError && (
-        <div className={s.errorBanner} onClick={() => setAiError(null)}>
-          {aiError}
+        <div className={s.errorBanner} role="alert">
+          <span className={s.errorBannerText}>{aiError}</span>
+          <button
+            type="button"
+            className={s.errorDismiss}
+            aria-label={loc.changes.dismissAiError}
+            title={loc.changes.dismissAiError}
+            onClick={() => setAiError(null)}
+          >
+            <span className={s.errorDismissMark} aria-hidden="true">
+              ✕
+            </span>
+          </button>
         </div>
       )}
       <div className={s.fields}>

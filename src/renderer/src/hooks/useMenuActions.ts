@@ -18,6 +18,8 @@ interface Deps {
   setShowRepoStats: (v: boolean) => void;
   setShowAiSettings: (v: boolean) => void;
   showPrompt: (opts: { title: string; placeholder: string; onConfirm: (v: string) => void }) => void;
+  /** Открыть модалку имени стэша; пустое значение → stash без -m. */
+  promptStash: () => void;
   handleOpenMergeDialog: (source: string) => void;
   runPull: (rebase?: boolean) => void;
   runPush: (force?: boolean) => void;
@@ -26,7 +28,7 @@ interface Deps {
 export function useMenuActions({
   state, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings,
   setShowReflog, setShowBisect, setShowHooks, setShowWorktrees, setShowLfs, setShowGitignore,
-  setShowRepoStats, setShowAiSettings, showPrompt, handleOpenMergeDialog, runPull, runPush,
+  setShowRepoStats, setShowAiSettings, showPrompt, promptStash, handleOpenMergeDialog, runPull, runPush,
 }: Deps) {
   return useCallback((action: string) => {
     const loc = t();
@@ -34,7 +36,7 @@ export function useMenuActions({
       case 'fetch': postCommand({ type: 'fetch' }); break;
       case 'pull': runPull(false); break;
       case 'push': runPush(false); break;
-      case 'stash': postCommand({ type: 'stash' }); break;
+      case 'stash': promptStash(); break;
       case 'stashPop': postCommand({ type: 'stashPop' }); break;
       case 'refresh': postCommand({ type: 'refreshAll' }); break;
       case 'viewChanges': setViewMode('changes'); break;
@@ -74,5 +76,5 @@ export function useMenuActions({
         if (state.repoPath) postCommand({ type: 'openInTerminal' });
         break;
     }
-  }, [state.currentBranch, state.branches, state.openRepos, state.activeRepoIndex, state.repoPath, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings, setShowReflog, setShowBisect, setShowHooks, setShowWorktrees, setShowLfs, setShowGitignore, setShowRepoStats, setShowAiSettings, showPrompt, handleOpenMergeDialog, runPull, runPush]);
+  }, [state.currentBranch, state.branches, state.openRepos, state.activeRepoIndex, state.repoPath, setViewMode, setShowAbout, setShowSshKeys, setShowRepoSettings, setShowReflog, setShowBisect, setShowHooks, setShowWorktrees, setShowLfs, setShowGitignore, setShowRepoStats, setShowAiSettings, showPrompt, promptStash, handleOpenMergeDialog, runPull, runPush]);
 }

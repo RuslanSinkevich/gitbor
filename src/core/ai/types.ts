@@ -1,10 +1,6 @@
 /**
- * AI-модуль: универсальные типы для работы с OpenAI-compatible endpoint'ами.
- *
- * Поддерживает любой сервис, который реализует /v1/chat/completions в формате
- * OpenAI: сам OpenAI, Ollama, LM Studio, vLLM, LiteLLM, Groq, корпоративные
- * gateway'и, локальные runner'ы и т.п. Специфические провайдеры (GigaChat,
- * YandexGPT) пока не поддерживаются.
+ * AI-модуль: OpenAI-compatible `/v1/chat/completions` и режим Qwen Web
+ * (токен сессии https://chat.qwen.ai, как в Skycode).
  */
 
 /**
@@ -13,12 +9,22 @@
  */
 export type CommitLanguage = 'auto' | 'en' | 'ru';
 
+/** Режим подключения: OpenAI-compatible endpoint или сессия chat.qwen.ai. */
+export type AiConnectionMode = 'openai-compatible' | 'qwen-web';
+
 /** Конфигурация подключения к AI-провайдеру. */
 export interface AiProviderConfig {
+  /**
+   * `openai-compatible` — поле baseUrl + apiKey.
+   * `qwen-web` — токен из localStorage chat.qwen.ai, см. qwenWebToken.
+   */
+  mode?: AiConnectionMode;
   /** Базовый URL до `/chat/completions` (обычно заканчивается на `/v1`). */
   baseUrl: string;
   /** API-ключ. Пустая строка — без авторизации (локальные серверы). */
   apiKey: string;
+  /** Токен сессии https://chat.qwen.ai (только при mode=qwen-web). */
+  qwenWebToken?: string;
   /** Идентификатор модели (например `gpt-4o-mini`, `llama3.1:8b`). */
   model: string;
   /**

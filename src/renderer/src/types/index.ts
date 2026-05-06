@@ -11,4 +11,4 @@ export type {
 
 export type { RendererCommand, MainEvent, RepoStats, AuthorStats, MonthlyCount, DayCommitEntry, AuthorCodeStats, AuthorCodeStatsResult } from '@core/bridge/messages';
 export type { GitActivityEntry, GitActivityCommand, GitActivityStatus } from '@core/bridge/messages';
-export type { AiProviderConfig, CommitLanguage } from '@core/bridge/messages';
+export type { AiConnectionMode, AiProviderConfig, CommitLanguage } from '@core/bridge/messages';
