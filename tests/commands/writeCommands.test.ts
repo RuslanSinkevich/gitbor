@@ -180,4 +180,85 @@ describe('writeCommands', () => {
       expect(callArgs[1].timeout).toBe(120_000);
     });
   });
+
+  describe('stash', () => {
+    it('runs git stash push without -m when message is undefined', async () => {
+      const git = createMockGit();
+      const queue = createMockQueue();
+      const state = createMockState();
+      await Write.stash(queue as any, git as any, state as any);
+      expect(git.exec).toHaveBeenCalledWith(['stash', 'push']);
+    });
+
+    it('runs git stash push without -m when message is empty string', async () => {
+      const git = createMockGit();
+      const queue = createMockQueue();
+      const state = createMockState();
+      await Write.stash(queue as any, git as any, state as any, '');
+      expect(git.exec).toHaveBeenCalledWith(['stash', 'push']);
+    });
+
+    it('appends -m and message when message is provided', async () => {
+      const git = createMockGit();
+      const queue = createMockQueue();
+      const state = createMockState();
+      await Write.stash(queue as any, git as any, state as any, 'WIP feature');
+      expect(git.exec).toHaveBeenCalledWith(['stash', 'push', '-m', 'WIP feature']);
+    });
+
+    it('preserves whitespace inside the message (no trim on the backend)', async () => {
+      const git = createMockGit();
+      const queue = createMockQueue();
+      const state = createMockState();
+      await Write.stash(queue as any, git as any, state as any, '  hello world  ');
+      expect(git.exec).toHaveBeenCalledWith(['stash', 'push', '-m', '  hello world  ']);
+    });
+
+    it('returns success when git exits 0', async () => {
+      const git = createMockGit();
+      const queue = createMockQueue();
+      const state = createMockState();
+      const r = await Write.stash(queue as any, git as any, state as any, 'm');
+      expect(r.success).toBe(true);
+    });
+
+    it('returns failure with stderr when git exits non-zero', async () => {
+      const git = createMockGit({ stdout: '', stderr: 'no local changes', exitCode: 1, duration: 3 });
+      const queue = createMockQueue();
+      const state = createMockState();
+      const r = await Write.stash(queue as any, git as any, state as any);
+      expect(r.success).toBe(false);
+      expect(r.error).toContain('no local changes');
+    });
+  });
+
+  describe('stashPop', () => {
+    it('runs git stash pop without args', async () => {
+      const git = createMockGit();
+      const queue = createMockQueue();
+      const state = createMockState();
+      await Write.stashPop(queue as any, git as any, state as any);
+      expect(git.exec).toHaveBeenCalledWith(['stash', 'pop']);
+    });
+  });
+
+  describe('stashApply', () => {
+    it('runs git stash apply <index>', async () => {
+      const git = createMockGit();
+      const queue = createMockQueue();
+      const state = createMockState();
+      await Write.stashApply(queue as any, git as any, state as any, 'stash@{0}');
+      expect(git.exec).toHaveBeenCalledWith(['stash', 'apply', 'stash@{0}']);
+    });
+  });
+
+  describe('stashDrop', () => {
+    it('runs git stash drop <index>', async () => {
+      const git = createMockGit();
+      const queue = createMockQueue();
+      const state = createMockState();
+      await Write.stashDrop(queue as any, git as any, state as any, 'stash@{2}');
+      expect(git.exec).toHaveBeenCalledWith(['stash', 'drop', 'stash@{2}']);
+    });
+  });
 });
