@@ -139,32 +139,33 @@ export class MessageBridge {
     this.window = null;
   }
 
-  private async handleCommand(command: unknown): Promise<void> {
+  private async handleCommand(command: unknown): Promise<unknown> {
     try {
       if (!command || typeof command !== 'object' || !('type' in command) || typeof (command as Record<string, unknown>).type !== 'string') {
         this.send({ type: 'error', message: 'Invalid command: missing or non-string type field' });
-        return;
+        return undefined;
       }
       const cmd = command as RendererCommand;
-      type AnyHandler = (cmd: RendererCommand, ctx: HandlerContext) => Promise<void>;
+      type AnyHandler = (cmd: RendererCommand, ctx: HandlerContext) => Promise<unknown>;
       const handler = ipcCommandHandlers[cmd.type] as AnyHandler | undefined;
       if (handler) {
-        await handler(cmd, {
+        return await handler(cmd, {
           ch: this.commandHandler,
           sm: this.stateManager,
           ai: this.aiHandlers,
           send: e => this.send(e),
         });
-      } else {
-        this.send({ type: 'error', message: `Unknown command: ${cmd.type}` });
       }
+      this.send({ type: 'error', message: `Unknown command: ${cmd.type}` });
+      return undefined;
     } catch (error) {
       if (error instanceof AppError) {
         this.send({ type: 'error', message: error.message, code: error.code, data: error.data });
-        return;
+        return undefined;
       }
       const message = error instanceof Error ? error.message : String(error);
       this.send({ type: 'error', message });
+      return undefined;
     }
   }
 }

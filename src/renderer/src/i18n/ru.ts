@@ -400,6 +400,9 @@ export const ru: LocaleMap = {
     initRepo: 'Создать репозиторий',
     initPath: 'Папка...',
     initStart: 'Создать',
+    loading: 'Загрузка…',
+    invalidRepo: 'Репозиторий недоступен',
+    removeFromList: 'Удалить из списка',
   },
   operations: {
     fetchSuccess: 'Fetch выполнен',

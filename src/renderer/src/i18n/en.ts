@@ -398,6 +398,9 @@ export const en = {
     initRepo: 'Init Repository',
     initPath: 'Directory...',
     initStart: 'Init',
+    loading: 'Loading…',
+    invalidRepo: 'Repository unavailable',
+    removeFromList: 'Remove from list',
   },
   operations: {
     fetchSuccess: 'Fetch completed',

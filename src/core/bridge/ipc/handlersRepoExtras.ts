@@ -131,6 +131,11 @@ export const ipcHandlersRepoExtras: HandlerTable = {
     ctx.send({ type: 'bisectStatus', data: status });
   },
 
+  getRepoSummary: async (cmd, _ctx) => {
+    const { computeRepoSummary } = await import('../../repoSummary/computeRepoSummary');
+    return await computeRepoSummary(cmd.path);
+  },
+
   openRepo: async (cmd, ctx) => {
     await ctx.ch.openRepo(cmd.path);
   },

@@ -172,6 +172,9 @@ export type RendererCommand =
   | { type: 'openFile'; file: string }
   | { type: 'switchView'; view: 'changes' | 'commits' }
 
+  // Repo summary (lightweight info for any path, used in RepoManager list)
+  | { type: 'getRepoSummary'; path: string }
+
   // AI
   | { type: 'aiGetConfig' }
   | { type: 'aiSetConfig'; config: AiProviderConfig | null }
@@ -299,4 +302,35 @@ export interface AuthorCodeStatsResult {
   authorEmail: string;
   stats: AuthorCodeStats | null;
   fromCache: boolean;
+}
+
+// ─── Repo summary (lightweight) ───
+export interface RepoSummaryBranchDto {
+  name: string;
+  hash: string;
+  isCurrent: boolean;
+}
+
+export interface RepoSummaryTagDto {
+  name: string;
+  hash: string;
+}
+
+export interface RepoSummaryCommitDto {
+  hash: string;
+  subject: string;
+  authorName: string;
+  authorDate: number;
+}
+
+export interface RepoSummaryDto {
+  valid: boolean;
+  branches: RepoSummaryBranchDto[];
+  tags: RepoSummaryTagDto[];
+  remotes: string[];
+  uncommitted: number;
+  recentCommits: RepoSummaryCommitDto[];
+  lastCommitMessage: string;
+  lastCommitAuthor: string;
+  lastCommitDate: number;
 }

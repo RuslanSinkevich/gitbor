@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { t } from '../../i18n';
 import type { AppState } from '../../types';
 import type { RecentRepo } from './recentRepos';
@@ -9,11 +10,33 @@ import s from './RepoManager.module.css';
 interface Props {
   selected: RecentRepo | undefined;
   summary: RepoSummary | null;
+  loading: boolean;
+  invalid: boolean;
   state: AppState;
+  onRemove?: (path: string) => void;
 }
 
-export function RepoDetail({ selected, summary, state }: Props) {
+/**
+ * Skeleton не должен «моргать» на быстро отвечающих репо — задерживаем
+ * показ индикатора. Если loading false до истечения задержки, индикатор
+ * вообще не появится. 200мс — компромисс: дольше воспринимается как
+ * зависание, меньше — мигает на любых SSD-репо.
+ */
+const LOADING_VISIBLE_DELAY_MS = 200;
+
+export function RepoDetail({ selected, summary, loading, invalid, state, onRemove }: Props) {
   const rm = t().repoManager;
+
+  const [showLoading, setShowLoading] = useState(false);
+
+  useEffect(() => {
+    if (!loading) {
+      setShowLoading(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowLoading(true), LOADING_VISIBLE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   const handleOpen = (path: string) => postCommand({ type: 'openRepo', path });
 
@@ -30,8 +53,25 @@ export function RepoDetail({ selected, summary, state }: Props) {
 
   const name = selected?.name ?? state.repoName;
   const path = selected?.path ?? state.repoPath;
-  const isCurrentRepo = path === state.repoPath;
-  const sum = isCurrentRepo ? summary : null;
+
+  if (invalid) {
+    return (
+      <div className={s.detailPanel}>
+        <div className={s.detailHeader}>
+          <h2 className={s.detailName}>{name}</h2>
+          <div className={s.detailPath}>{path}</div>
+        </div>
+        <div className={s.detailEmpty}>
+          <p>{rm.invalidRepo}</p>
+          {onRemove && path && (
+            <button className={s.detailOpenBtn} onClick={() => onRemove(path)}>
+              {rm.removeFromList}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={s.detailPanel}>
@@ -43,47 +83,53 @@ export function RepoDetail({ selected, summary, state }: Props) {
         </button>
       </div>
 
-      {sum && (
+      {!summary && showLoading && (
+        <div className={s.detailEmpty}>
+          <p>{rm.loading}</p>
+        </div>
+      )}
+
+      {summary && (
         <>
           <div className={s.statsRow}>
             <div className={s.stat}>
-              <span className={s.statValue}>{sum.branches}</span>
+              <span className={s.statValue}>{summary.branches}</span>
               <span className={s.statLabel}>{rm.branches}</span>
             </div>
             <div className={s.stat}>
-              <span className={s.statValue}>{sum.tags}</span>
+              <span className={s.statValue}>{summary.tags}</span>
               <span className={s.statLabel}>{rm.tags}</span>
             </div>
             <div className={s.stat}>
-              <span className={s.statValue}>{sum.uncommitted}</span>
+              <span className={s.statValue}>{summary.uncommitted}</span>
               <span className={s.statLabel}>{rm.uncommittedFiles}</span>
             </div>
             <div className={s.stat}>
-              <span className={s.statValue}>{sum.remotes.length}</span>
+              <span className={s.statValue}>{summary.remotes.length}</span>
               <span className={s.statLabel}>{rm.remotes}</span>
             </div>
           </div>
 
-          {sum.lastCommitMessage && (
+          {summary.lastCommitMessage && (
             <div className={s.detailSection}>
               <h3 className={s.detailSectionTitle}>{rm.lastCommit}</h3>
               <div className={s.detailRow}>
                 <span className={`${s.detailRowIcon} ${s.commitColor}`}>●</span>
-                <span className={s.detailRowName}>{sum.lastCommitMessage}</span>
+                <span className={s.detailRowName}>{summary.lastCommitMessage}</span>
                 <span className={s.detailRowAuthor}>
-                  <span className={s.authorDot} style={{ background: hashColor(sum.lastCommitAuthor) }} />
-                  {sum.lastCommitAuthor}
+                  <span className={s.authorDot} style={{ background: hashColor(summary.lastCommitAuthor) }} />
+                  {summary.lastCommitAuthor}
                 </span>
-                <span className={s.detailRowDate}>{formatDate(sum.lastCommitDate)}</span>
+                <span className={s.detailRowDate}>{formatDate(summary.lastCommitDate)}</span>
               </div>
             </div>
           )}
 
-          {state.branches.filter(b => !b.isRemote).length > 0 && (
+          {summary.branchList.length > 0 && (
             <div className={s.detailSection}>
               <h3 className={s.detailSectionTitle}>{rm.branches}</h3>
               <div className={s.detailTable}>
-                {state.branches.filter(b => !b.isRemote).slice(0, 10).map(b => (
+                {summary.branchList.slice(0, 10).map(b => (
                   <div key={b.name} className={s.detailRow}>
                     <span className={`${s.detailRowIcon} ${s.branchColor}`}>⎇</span>
                     <span className={s.detailRowName}>
@@ -96,11 +142,11 @@ export function RepoDetail({ selected, summary, state }: Props) {
             </div>
           )}
 
-          {state.tags.length > 0 && (
+          {summary.tagList.length > 0 && (
             <div className={s.detailSection}>
               <h3 className={s.detailSectionTitle}>{rm.tags}</h3>
               <div className={s.detailTable}>
-                {state.tags.slice(0, 10).map(tag => (
+                {summary.tagList.slice(0, 10).map(tag => (
                   <div key={tag.name} className={s.detailRow}>
                     <span className={`${s.detailRowIcon} ${s.tagColor}`}>🏷</span>
                     <span className={s.detailRowName}>{tag.name}</span>
@@ -111,11 +157,11 @@ export function RepoDetail({ selected, summary, state }: Props) {
             </div>
           )}
 
-          {state.commits.length > 0 && (
+          {summary.recentCommits.length > 0 && (
             <div className={s.detailSection}>
               <h3 className={s.detailSectionTitle}>{rm.commits}</h3>
               <div className={s.detailTable}>
-                {state.commits.slice(0, 8).map(c => (
+                {summary.recentCommits.slice(0, 8).map(c => (
                   <div key={c.hash} className={s.detailRow}>
                     <span className={`${s.detailRowIcon} ${s.commitColor}`}>●</span>
                     <span className={s.detailRowName}>{c.subject}</span>
@@ -130,12 +176,6 @@ export function RepoDetail({ selected, summary, state }: Props) {
             </div>
           )}
         </>
-      )}
-
-      {!sum && (
-        <div className={s.detailEmpty}>
-          <p>{rm.emptyText}</p>
-        </div>
       )}
     </div>
   );
