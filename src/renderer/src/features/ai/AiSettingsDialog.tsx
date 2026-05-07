@@ -12,6 +12,12 @@ interface Props {
 
 type TestState = { status: 'idle' | 'testing' | 'ok' | 'fail'; error?: string };
 
+const PRESET_GROUPS = {
+  cloud: ['openai', 'deepseek', 'groq'],
+  local: ['ollama', 'lmstudio'],
+  web: ['qwen-web'],
+} as const;
+
 export function AiSettingsDialog({ onClose }: Props) {
   const loc = t().ai;
   const [mode, setMode] = useState<AiConnectionMode>('openai-compatible');
@@ -150,26 +156,34 @@ export function AiSettingsDialog({ onClose }: Props) {
         <div className={s.body}>
           <p className={s.subtitle}>{loc.subtitle}</p>
 
-          <div className={s.presets} role="tablist">
-            <span className={s.presetsLabel}>{loc.presets}:</span>
-            {AI_PRESETS.map((p) => (
-              <button
-                key={p.id}
-                className={`${s.preset} ${presetId === p.id ? s.presetActive : ''}`}
-                onClick={() => handlePreset(p.id)}
-                type="button"
-              >
-                {loc[p.labelKey]}
-              </button>
-            ))}
-            <button
-              className={`${s.preset} ${presetId === 'custom' ? s.presetActive : ''}`}
-              onClick={() => handlePreset('custom')}
-              type="button"
+          <label className={s.field}>
+            <span className={s.label}>{loc.presets}</span>
+            <select
+              className="sg-select"
+              value={presetId}
+              onChange={(e) => handlePreset(e.target.value)}
             >
-              {loc.presetCustom}
-            </button>
-          </div>
+              <optgroup label={loc.presetGroupCloud}>
+                {PRESET_GROUPS.cloud.map((id) => {
+                  const p = AI_PRESETS.find((x) => x.id === id);
+                  return p ? <option key={p.id} value={p.id}>{loc[p.labelKey]}</option> : null;
+                })}
+              </optgroup>
+              <optgroup label={loc.presetGroupLocal}>
+                {PRESET_GROUPS.local.map((id) => {
+                  const p = AI_PRESETS.find((x) => x.id === id);
+                  return p ? <option key={p.id} value={p.id}>{loc[p.labelKey]}</option> : null;
+                })}
+              </optgroup>
+              <optgroup label={loc.presetGroupWeb}>
+                {PRESET_GROUPS.web.map((id) => {
+                  const p = AI_PRESETS.find((x) => x.id === id);
+                  return p ? <option key={p.id} value={p.id}>{loc[p.labelKey]}</option> : null;
+                })}
+              </optgroup>
+              <option value="custom">{loc.presetCustom}</option>
+            </select>
+          </label>
 
           {mode === 'openai-compatible' ? (
             <>
