@@ -74,11 +74,12 @@
 
 ### Финальный аккорд ✅
 
-- [x] `npm test` — 31 файл, 286 тестов, зелёное.
+- [x] `npm test` — 41 файл, 407 тестов, зелёное (после декомпозиции god-модулей и добавления AI-провайдеров).
 - [x] `npm run build` — renderer + main без ошибок.
 - [x] Размер бандла renderer'а — ~390 KB (gzip 118 KB), без раздутия.
 - [x] Запуск проверен: нет UnhandledPromiseRejection; `git.killAll()` per-repo работает; chokidar на dangerous paths не падает.
 - [x] Финальный аудит проведён, race-условия закрыты (см. `architecture.md` секцию `FileWatcher`).
+- [x] **Постфинал** (коммит `1ee36ed`): `StateManager` разбит на `RepoSlicesStore` + `RepoStateRefresher` + `RepoEventBus`; `useAppState` разбит на `useRepoSlices` + `useRunningOps` + `useStateSubscription`. Публичная поверхность сохранена 1:1.
 
 ## Что не делаем (явно)
 

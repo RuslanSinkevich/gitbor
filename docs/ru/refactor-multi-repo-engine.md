@@ -15,6 +15,8 @@
 > - Per-repo фильтрация журнала git-активности (`useGitActivity(filterRepoPath)`).
 > - Дедуп `graphData` по ссылкам в `MessageBridge.sentGraphByRepo`.
 > - `isRepoTracked` гард во всех `refresh*` методах StateManager — не даёт фоновому refresh-у пересоздать сервисы закрытого репо.
+> - **Декомпозиция god-модулей** (коммит `1ee36ed`): `StateManager` (683 → 179 строк) разбит на фасад над `RepoSlicesStore` + `RepoStateRefresher` + `RepoEventBus`; `useAppState` (435 → 158 строк) разбит на `useRepoSlices` + `useRunningOps` + `useStateSubscription`. Публичный API в обоих случаях не менялся.
+> - **AI-модуль** (коммиты `1192090`, `e2cf65c`, `e255f34`): провайдеры `OpenAiCompatibleProvider` и `QwenWebProvider`, `AiConfigStore` с шифрованием через `safeStorage`, `AiHandlers` с per-`requestId` `AbortController` и маскированием секретов, IPC-хендлеры в `bridge/ipc/handlersAi.ts`, UI с пресетами через optgroup-селект.
 
 ---
 

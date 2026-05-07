@@ -16,16 +16,19 @@
 - Double click — checkout branch
 - Right-click — context menu: checkout, merge, rename, delete, new branch/tag
 - Cannot delete the currently checked-out branch (option hidden)
+- **Current branch marker** — green dot next to the name (no text badge cluttering the row)
 
 ### Local Changes
 
 - Tree view grouped by folders (like Fork)
 - Unstaged section on top, Staged on bottom
 - Per-file actions: stage (+), unstage (-), discard
+- **Folder context menu** — stage / unstage / discard / delete applied to all files inside (works in both Staged and Unstaged sections)
 - Stage All / Unstage All buttons
 - Discard All with confirmation dialog
 - Conflict files marked with (!) icon
 - Auto-closes diff panel when file disappears after commit
+- Pure tree helpers (`buildFileTree`, `collectFiles`) extracted to `fileTreeModel.ts` for direct unit testing
 
 ### Commit Bar
 
@@ -38,6 +41,7 @@
 
 - Two modes: Inline and Split (side-by-side)
 - Syntax highlighting with line numbers
+- No `+`/`−` text prefix in line content — colored background only (cleaner copy-paste)
 - Stage Hunk / Unstage Hunk buttons per hunk (both inline and split modes)
 - Ignore Whitespace toggle
 - Dark text on colored backgrounds for better readability
@@ -71,7 +75,26 @@
 
 - Open multiple repositories simultaneously
 - Tab bar with repo names
-- Quick switch between repos
+- Quick switch between repos (instant — UI mirrors the cached slice immediately, heavy refresh runs in background)
+- **`+` tab opens RepoManager** — recent repositories, open / clone / init from one place
+- Clicking the active tab again also opens RepoManager
+- Independent per-repo engines: a long `git pull` on repo A never blocks operations on repo B
+- Per-repo running ops: `state.isOperationRunning` is derived from the active tab only; fetch on A doesn't disable buttons on B
+
+### AI Commit Messages
+
+- One-click generation from staged diff
+- **Two modes**:
+  - **OpenAI-compatible** — works with OpenAI, Ollama, LM Studio, DeepSeek, Groq and any other `/v1/chat/completions` endpoint
+  - **Qwen Web** — chat.qwen.ai via session token from `localStorage` (no DashScope API key needed)
+- **Preset selector** with optgroups: Cloud (OpenAI / DeepSeek / Groq), Local (Ollama / LM Studio), Web (Qwen Web), plus Custom
+- **Commit language**: `auto` / `en` / `ru` (the system + user prompts both carry the language hint to compensate for small/quantized local models that ignore the system prompt)
+- Streaming (SSE): chunks land in the commit subject field as they arrive
+- **Cancel** button aborts the inflight request via `AbortController`
+- **Test connection** button before saving
+- API key / Qwen token encrypted via Electron `safeStorage` (DPAPI / Keychain / libsecret); fallback to `plain:` prefix if key store is unavailable
+- Diff truncated to 6000 chars (head 70% + tail 20%) to fit the model's context window
+- Accessible via the AI button next to the commit subject
 
 ### Interactive Rebase
 
@@ -82,7 +105,8 @@
 ### Toolbar
 
 - Quick actions: Fetch, Pull, Push, Stash, Stash Pop
-- Disabled during running operations
+- **Stash dialog** — name field with `allowEmpty`; empty value runs `git stash` without `-m`
+- Disabled during running operations on the active repo only (other tabs stay interactive)
 
 ### Custom Menu Bar
 
@@ -114,6 +138,21 @@
 
 - Success/error notifications for Git operations (fetch, pull, push, commit, etc.)
 - Dark text on colored backgrounds for both themes
+
+### Git Activity Log
+
+- Per-repo journal of git invocations (start / append / finish)
+- Shows raw `git ...` commands, stdout/stderr, exit code, duration
+- `gitActivityStore` keeps the last 100 entries; stdout/stderr truncated to 16 KiB with a `[truncated...]` marker
+- `activityContext.ts` (`AsyncLocalStorage`) attributes every `GitExecutor.exec` call to its operation without manual id propagation
+- Indicator in the title bar shows how many ops are running on the active repo
+
+### Repository Statistics
+
+- Contributors with commit counts and lines added/removed per author
+- Activity heatmap per contributor
+- Per-author stats are cached on disk (`AuthorStatsCache`) — second open is instant
+- Accessible via Repository → Statistics
 
 ### Reflog Viewer
 

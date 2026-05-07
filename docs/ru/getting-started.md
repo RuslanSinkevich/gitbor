@@ -29,11 +29,11 @@ Vite отдаёт React renderer. `tsc` собирает TypeScript main process
 
 | Путь | Назначение |
 |------|------------|
-| `src/core/` | Backend main process: `git/`, `commands/`, `bridge/`, `safety/`, `state/`, `ssh/`, `utils/` |
+| `src/core/` | Backend main process: `git/`, `commands/`, `bridge/` (с подмодулями `ipc/`), `safety/`, `state/` (StateManager + RepoSlicesStore + RepoStateRefresher + RepoEventBus), `services/` (RepoServicesRegistry), `workers/` (parserWorker + WorkerPool), `activity/`, `ai/` (AiService + providers), `ssh/`, `utils/` (Logger, AppError, pathSecurity, repoPathGuard) |
 | `src/main/` | Точка входа Electron: `main.ts`, `i18n/` |
 | `src/preload/` | `contextBridge` — `index.ts` |
-| `src/renderer/` | React UI: `features/`, `hooks/`, `ui/`, `api.ts`, `types/`, `i18n/`, `styles/` |
-| `tests/` | Тесты (Vitest): `git/`, `commands/`, `utils/`, `safety/`, `bridge/`, `i18n/` |
+| `src/renderer/` | React UI: `App.tsx`, `AppDialogs.tsx`, `features/` (graph / sidebar / changes / diff / merge / blame / file-history / rebase / repo-manager / repo-tabs / toolbar / titlebar / layout / ssh / settings / ai / reflog / bisect / hooks / worktrees / lfs / gitignore), `hooks/` (useAppState фасад + useRepoSlices + useRunningOps + useStateSubscription + ...), `ui/`, `api.ts`, `types/`, `i18n/`, `styles/` |
+| `tests/` | Тесты (Vitest): `git/`, `commands/`, `state/`, `services/`, `activity/`, `safety/`, `bridge/`, `ai/`, `changes/`, `utils/`, `i18n/` |
 | `docs/` | Документация |
 | `dist/` | Собранный вывод |
 
@@ -49,11 +49,21 @@ Vite отдаёт React renderer. `tsc` собирает TypeScript main process
 
 1. **Types** — Добавьте или расширьте типы в `src/core/git/types/` и при необходимости отразите или используйте их в `src/renderer/src/types/`.
 2. **IPC contract** — Добавьте варианты `RendererCommand` и `MainEvent` в `src/core/bridge/messages.ts` и согласуйте с `src/renderer/src/types/ipc.ts`.
-3. **Git / domain logic** — Реализуйте в `src/core/commands/readCommands.ts` или `writeCommands.ts` (или в подходящем модуле команд).
+3. **Git / domain logic** — Реализуйте в `src/core/commands/readCommands.ts` или `writeCommands.ts` (или в подходящем модуле команд). Берите сервисы per-call через `state.getActiveServices()` — никаких полей класса с привязкой к одному репо.
 4. **Handler** — Добавьте метод в `src/core/commands/CommandHandler.ts`, который вызывает новую логику.
-5. **Bridge** — Маршрутизируйте команду и события в `src/core/bridge/MessageBridge.ts`.
+5. **Bridge** — Добавьте хендлер в один из файлов `src/core/bridge/ipc/handlers*.ts` (state, gitOps, repoExtras, ai). Используйте `op` / `opWithPostMerge` из `helpers.ts`, чтобы `repoPath` снимался ДО старта операции (переключение вкладки между событиями не должно ломать per-repo running-флаг).
 6. **Renderer API** — Вызывайте из UI через `postCommand()` в `src/renderer/src/api.ts`.
-7. **UI** — Подписывайтесь через `onMainEvent()` в React-компоненте (или хуке) для ответов и обновлений.
+7. **UI** — Подписывайтесь через `onMainEvent()` в React-компоненте (или хуке) для ответов и обновлений. Для per-repo операций маршрутизируйте событие по `repoPath`, чтобы оно попало в нужный slice.
+
+### Добавление AI-провайдера
+
+Если нужно подключить ещё один AI-бэкенд:
+
+1. Реализуйте `AiProvider` (`src/core/ai/providers/base.ts`) — `testConnection` и `complete(options)` с SSE-стримом через `onChunk`.
+2. Добавьте новый mode в `AiConnectionMode` в `src/core/ai/types.ts`.
+3. Добавьте ветку в `AiService.ensureProvider()`, чтобы инстанцировать его.
+4. Добавьте пресет в `src/renderer/src/features/ai/presets.ts` и label-ключ в обоих `en.ts` / `ru.ts`.
+5. Подключите хранение секретов в `AiConfigStore` (шифровать через `safeStorage`, fallback на `plain:`).
 
 ## Сборка
 

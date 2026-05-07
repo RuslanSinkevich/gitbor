@@ -29,11 +29,11 @@ Vite serves the React renderer. `tsc` compiles main-process TypeScript into `dis
 
 | Path | Role |
 |------|------|
-| `src/core/` | Main-process backend: `git/`, `commands/`, `bridge/`, `safety/`, `state/`, `ssh/`, `utils/` |
+| `src/core/` | Main-process backend: `git/`, `commands/`, `bridge/` (with `ipc/` submodules), `safety/`, `state/` (StateManager + RepoSlicesStore + RepoStateRefresher + RepoEventBus), `services/` (RepoServicesRegistry), `workers/` (parserWorker + WorkerPool), `activity/`, `ai/` (AiService + providers), `ssh/`, `utils/` (Logger, AppError, pathSecurity, repoPathGuard) |
 | `src/main/` | Electron entry: `main.ts`, `i18n/` |
 | `src/preload/` | `contextBridge` — `index.ts` |
-| `src/renderer/` | React UI: `features/`, `hooks/`, `ui/`, `api.ts`, `types/`, `i18n/`, `styles/` |
-| `tests/` | Tests (Vitest): `git/`, `commands/`, `utils/`, `safety/`, `bridge/`, `i18n/` |
+| `src/renderer/` | React UI: `App.tsx`, `AppDialogs.tsx`, `features/` (graph / sidebar / changes / diff / merge / blame / file-history / rebase / repo-manager / repo-tabs / toolbar / titlebar / layout / ssh / settings / ai / reflog / bisect / hooks / worktrees / lfs / gitignore), `hooks/` (useAppState facade + useRepoSlices + useRunningOps + useStateSubscription + ...), `ui/`, `api.ts`, `types/`, `i18n/`, `styles/` |
+| `tests/` | Tests (Vitest): `git/`, `commands/`, `state/`, `services/`, `activity/`, `safety/`, `bridge/`, `ai/`, `changes/`, `utils/`, `i18n/` |
 | `docs/` | Documentation |
 | `dist/` | Compiled output |
 
@@ -49,11 +49,21 @@ Example: a new IPC-backed command end-to-end.
 
 1. **Types** — Add or extend types in `src/core/git/types/` and mirror or consume them from `src/renderer/src/types/` as needed.
 2. **IPC contract** — Add `RendererCommand` and `MainEvent` variants in `src/core/bridge/messages.ts` and align `src/renderer/src/types/ipc.ts`.
-3. **Git / domain logic** — Implement in `src/core/commands/readCommands.ts` or `writeCommands.ts` (or the appropriate command module).
+3. **Git / domain logic** — Implement in `src/core/commands/readCommands.ts` or `writeCommands.ts` (or the appropriate command module). Take services per-call from `state.getActiveServices()` — no class fields tied to a single repo.
 4. **Handler** — Expose a method on `src/core/commands/CommandHandler.ts` that runs the new logic.
-5. **Bridge** — Route the command and events in `src/core/bridge/MessageBridge.ts`.
+5. **Bridge** — Add the handler to one of the `src/core/bridge/ipc/handlers*.ts` files (state, gitOps, repoExtras, ai). Use `op` / `opWithPostMerge` from `helpers.ts` so `repoPath` is snapshotted before the operation starts (a tab switch between events must not break the per-repo running flag).
 6. **Renderer API** — Invoke from the UI with `postCommand()` in `src/renderer/src/api.ts`.
-7. **UI** — Subscribe with `onMainEvent()` in a React component (or hook) to handle responses and updates.
+7. **UI** — Subscribe with `onMainEvent()` in a React component (or hook) to handle responses and updates. For per-repo operations, route the event by `repoPath` so it lands on the correct slice.
+
+### Adding an AI Provider
+
+If you need to plug in another AI backend:
+
+1. Implement `AiProvider` (`src/core/ai/providers/base.ts`) — `testConnection` and `complete(options)` with SSE streaming via `onChunk`.
+2. Add the new mode to `AiConnectionMode` in `src/core/ai/types.ts`.
+3. Branch in `AiService.ensureProvider()` to instantiate it.
+4. Add a preset in `src/renderer/src/features/ai/presets.ts` and a label key in both `en.ts` and `ru.ts`.
+5. Wire secret persistence in `AiConfigStore` (encrypt via `safeStorage`, fall back to `plain:`).
 
 ## Build
 

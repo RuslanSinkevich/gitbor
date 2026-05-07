@@ -12,11 +12,11 @@ SkyFork — четырёхслойное приложение на Electron. З�
 Renderer (React) → Preload (contextBridge) → Main (Node.js) → Git binary
 ```
 
-- **Renderer** — React 18, Vite, CSS Modules. Папки фич: graph, sidebar, changes, diff, merge, blame, file-history, rebase, repo-manager, repo-tabs, toolbar, titlebar, layout, ssh, settings. Состояние ведётся хуками: `useAppState`, `useMenuActions`, `useKeyboardShortcuts`, `useOperationToasts`, `useDiffState`, `useTheme`, `useToasts`, `useContextMenu`.
+- **Renderer** — React 18, Vite, CSS Modules. Папки фич: graph, sidebar, changes (с вынесенным `fileTreeModel.ts`), diff, merge, blame, file-history, rebase, repo-manager, repo-tabs, toolbar, titlebar, layout, ssh, settings, ai. Состояние ведёт `useAppState` (фасад над `useRepoSlices` + `useRunningOps` + `useStateSubscription`) плюс `useMenuActions`, `useKeyboardShortcuts`, `useOperationToasts`, `useDiffState`, `useTheme`, `useToasts`, `useContextMenu`, `useDialogs`, `useAutoFetch`.
 
 - **Preload** — `contextBridge.exposeInMainWorld('skyForkAPI', …)` отдаёт в изолированный renderer `invoke`, `onEvent` и `platform`.
 
-- **Main process** — Сервисы инициализируются в `main.ts`: `RepoServicesRegistry` (per-repo `GitExecutor` / `OperationQueue` / `SafetyNet`), `StateManager`, `CommandHandler`, `MessageBridge` (с разнесёнными хендлерами в `bridge/ipc/`), `FileWatcher`, `WorkerPool` для офлоада парсеров. IPC обрабатывается через `MessageBridge`. Нативное меню убрано — `Menu.setApplicationMenu(null)`. Все меню и шорткаты — в renderer.
+- **Main process** — Сервисы инициализируются в `main.ts`: `RepoServicesRegistry` (per-repo `GitExecutor` / `OperationQueue` / `SafetyNet`), `StateManager` (фасад над `RepoSlicesStore` + `RepoStateRefresher` + `RepoEventBus`), `CommandHandler`, `MessageBridge` (с разнесёнными хендлерами в `bridge/ipc/`), `FileWatcher`, `WorkerPool` для офлоада парсеров, `AiConfigStore` + `AiService` + `AiHandlers` для генерации commit message. IPC обрабатывается через `MessageBridge`. Нативное меню убрано — `Menu.setApplicationMenu(null)`. Все меню и шорткаты — в renderer.
 
 - **Git** — Запускается дочерним процессом через `execFile('git', args)`. `GitExecutor` отвечает за выполнение, таймаут, передачу env и логирование. `cwd` фиксируется на конструкторе — на репо приходится свой `GitExecutor`, чтобы переключение активного репо не «таскало» один executor между путями.
 
@@ -51,8 +51,11 @@ User clicks button in React
 | **DiffParser** | Преобразует unified diff в `FileDiff` / `DiffHunk` / `DiffLine`. |
 | **ConflictParser** | Разбор conflict markers для merge editor. |
 | **GitConfig** | Чтение/запись `user.name`, `user.email` (local/global scope). |
-| **StateManager** | Источник правды per-repo: `slicesByRepo: Map<repoPath, RepoSlice>` + общий `meta` (`openRepos`, `activeRepoIndex`). Все `refresh*` методы принимают `repoPath` и обновляют конкретный slice; перед работой проверяется `isRepoTracked(repoPath)`, чтобы фоновый refresh не «оживил» только что закрытый репо. `switchRepo` мгновенно публикует cached slice через `mirrorSliceToState` + `notify`, тяжёлый refresh уходит в фон. |
-| **repoSlice** | `RepoSlice` тип + `emptyRepoSlice` / `mirrorRepoSliceToAppState` / git-format константы (`GIT_LOG_FORMAT`, `GIT_REF_FORMAT`, `GIT_TAG_REF_FORMAT`, `GIT_STASH_FORMAT`) + `hashGitStdout` для дедупа `git log`. Вынесено из `StateManager` для чистоты. |
+| **StateManager** | Тонкий фасад. Публичная поверхность (`getState`, `getActiveServices`, `getGit`, `getRegistry`, `refresh*`, `switchRepo`, `setRepoPath`, `setOpenRepos`, `clearRepo`, `subscribe`, `onRepoSwitch`, `onRepoClose`, `notifyRepoClose`, `invalidateGraphCache`, `setOperationRunning`) сохранена 1:1, тело делегирует в три независимых класса (см. ниже). |
+| **RepoSlicesStore** | `Map<repoPath, RepoSlice>` + общий `meta` (`openRepos`, `activeRepoIndex`) + mirror-функция, которая показывает активный slice как единый `AppState`. Вынесено из `StateManager`. |
+| **RepoStateRefresher** | Все async `refresh*` методы (`refreshAll`, `refreshStatus`, `refreshCommits`, `refreshBranches`, ...). Каждый принимает `repoPath` и обновляет конкретный slice; перед работой проверяется `isRepoTracked(repoPath)`, чтобы фоновый refresh не «оживил» только что закрытый репо. Содержит `runSwitchRepoColdPhase` и `invalidateGraphCache`. |
+| **RepoEventBus** | Три канала подписок: `state` (любое изменение), `switch` (сменился активный репо), `close` (репо удалили). Используется `MessageBridge`, `FileWatcher`, recovery-флоу. |
+| **repoSlice** | `RepoSlice` тип + `emptyRepoSlice` / `mirrorRepoSliceToAppState` / git-format константы (`GIT_LOG_FORMAT`, `GIT_REF_FORMAT`, `GIT_TAG_REF_FORMAT`, `GIT_STASH_FORMAT`) + `hashGitStdout` для дедупа `git log`. |
 | **CommandHandler** | Оркестрирует работу с Git; делегирует в `readCommands` / `writeCommands`. Все исполнители (`git`/`queue`/`safety` + `RebaseManager`/`ConflictManager`/...) берутся per-call через `state.getActiveServices()` — никаких mutable polей класса с привязкой к одному репо. На `openRepo` бросается `AppError('repoErrors.notARepo', { path })` с локализационным кодом, если путь не Git-репо. |
 | **MessageBridge** | Electron IPC: тонкая обёртка ~150 строк. Принимает `RendererCommand`, ищет хендлер в `ipcCommandHandlers` (агрегат из `bridge/ipc/handlersState.ts`, `handlersGitOps.ts`, `handlersRepoExtras.ts`, `handlersAi.ts`). Ловит `AppError` и шлёт `error`-event с `code`+`data` для локализации в renderer. Шлёт `graphData` с дедупом по ссылкам (`sentGraphByRepo`) — повторное переключение A→B→A не гонит мегабайты JSON через IPC. |
 | **bridge/ipc/** | Подмодули IPC-хендлеров: `helpers.ts` (`runTracked`/`op`/`opWithPostMerge`/`errOnFail`/`mergeStateAfter`), `ready.ts`, `handlersState.ts` (lifecycle, diff/blame/history), `handlersGitOps.ts` (push/pull/fetch/commit/stage/merge/rebase), `handlersRepoExtras.ts` (LFS, worktrees, hooks, stats, bisect, repo-tabs, settings, SSH), `handlersAi.ts`. `op`/`opWithPostMerge` снимают `repoPath` ДО старта операции и шлют его в `operationStart`/`operationEnd`, чтобы переключение вкладки между событиями не сломало per-repo running-флаг. |
@@ -72,6 +75,14 @@ User clicks button in React
 | **LfsManager** | Статус Git LFS, track/untrack паттернов, список управляемых файлов. |
 | **pathSecurity** | Валидация путей: `safePath` (traversal + symlink через `realpathSync.native` + регистронезависимость на Windows), `isSafeFilename`. |
 | **AtomicWrite** | Атомарная запись через tmp+rename с fsync. Retry на Windows через `Atomics.wait` (без busy-spin). |
+| **AiService** | Фасад над `AiProvider`. `isConfigured()` проверяет активный режим (`openai-compatible` требует `baseUrl + model`; `qwen-web` требует `qwenWebToken + model`). `generateCommitMessage` строит промпты с учётом `commitLanguage`, зовёт провайдер и постпроцессит результат (срезает ```` ``` ```` и обрамляющие кавычки). |
+| **AiHandlers** | Map из `requestId → AbortController`. `getConfig` маскирует секрет (`apiKey` / `qwenWebToken` → `••••••••`) перед отправкой в renderer. `setConfig` мёрджит секреты: маскированное или пустое значение от UI значит «оставь предыдущий секрет». `cancelAll()` отменяет все inflight генерации при выключении. |
+| **AiConfigStore** | Хранилище конфига в `{userData}/ai-config.json` с `version: 2`. Atomic write через `atomicWriteJSON`. Секреты шифруются Electron `safeStorage` (DPAPI / Keychain / libsecret); если key store недоступен — fallback на префикс `plain:`, чтобы ключ оставался читаемым для диагностики. `clear()` пишет пустую запись, а не удаляет файл. |
+| **OpenAiCompatibleProvider** | `/v1/chat/completions` с SSE-стримом. OpenAI, Ollama, LM Studio, DeepSeek, Groq. Возвращает `usage` и `finishReason` (`stop`/`length`/`error`/`aborted`). |
+| **QwenWebProvider** | Неофициальный мост к `chat.qwen.ai`. Двушаговый флоу: `POST /api/v2/chats/new` для chat_id, потом `POST /api/v2/chat/completions?chat_id=…` с SSE. Сессионный токен из `localStorage` (без официального API-ключа DashScope). Для неизвестных id моделей фолбэк на `qwen3-max`. |
+| **gitActivityStore** | Журнал git-операций (start/append/finish) с `repoPath` per entry. `activityContext.ts` использует `AsyncLocalStorage`, чтобы `GitExecutor.exec` мог привязать выполненную команду к активной операции без явной передачи id. Renderer фильтрует журнал по `repoPath` активной вкладки; кэп = 100 entries; stdout/stderr обрезаются до `OUTPUT_CAP_BYTES = 16 KiB` с маркером `[truncated...]`. |
+| **AppError** | Структурированная ошибка с локализационным кодом (`code`) и параметрами шаблона (`data`) + technical fallback. `MessageBridge` превращает в `error`-event с `code`/`data`; renderer переводит через `locale.repoErrors[code]` и интерполирует. |
+| **Logger** | Уровневое логирование (`silent`/`error`/`warn`/`info`/`debug`) с разделением stdout/stderr и опциональным `WriteStream` в `<userData>/logs/YYYY-MM-DD.log`. Singleton `mainLogger` — один источник уровня для всех модулей. `configureMainLogger({ isProduction })` настраивается из `main.ts` после `app.whenReady`: prod → `silent`, dev → `debug`. ENV `SKYFORK_LOG_LEVEL` перебивает дефолт. |
 
 ## Модули renderer
 
@@ -80,21 +91,22 @@ User clicks button in React
 | Область | Содержимое |
 |---------|------------|
 | **graph/** | `CommitGraph` (virtualized), `CommitDetails`, `branchPaths`. |
-| **sidebar/** | Sidebar: дерево веток, tags, stashes, remotes, submodules. |
-| **changes/** | `LocalChanges` (tree), `CommitBar` (subject + description). |
-| **diff/** | `DiffPanel`, `DiffView`, `DiffHunkView`, `DiffSideBySide`, `ImageDiff`. |
+| **sidebar/** | Sidebar: `BranchTree` (current branch — зелёная точка вместо текстового бейджа), tags, stashes, remotes, submodules. |
+| **changes/** | `LocalChanges` (tree, контекстное меню по папкам применяет действия ко всем файлам внутри), `CommitBar` (subject + description), `FileTree` + вынесенные pure-helpers в `fileTreeModel.ts` (`buildFileTree`, `collectFiles`). |
+| **diff/** | `DiffPanel`, `DiffView`, `DiffHunkView` (без префиксов `+`/`−` в тексте строк — только цвет), `DiffSideBySide`, `ImageDiff`. |
 | **merge/** | `MergeDialog`, `MergeEditor`, `MergeBanner`, `ConflictPanel`. |
 | — | **`AppDialogs.tsx`** — все модальные диалоги вынесены из `App.tsx` для разделения ответственности. |
 | **blame/** | `BlameView`. |
 | **file-history/** | `FileHistory`. |
 | **rebase/** | `RebaseEditor`. |
 | **repo-manager/** | `RepoManager`, недавние репозитории. |
-| **repo-tabs/** | Вкладки для нескольких репозиториев. |
-| **toolbar/** | Fetch, Pull, Push, Stash. |
+| **repo-tabs/** | Вкладки для нескольких репозиториев. Вкладка «+» открывает `RepoManager`; повторный клик по активной вкладке — тоже открывает. Подсветка кнопки «+», когда менеджер активен. |
+| **toolbar/** | Fetch, Pull, Push, Stash (открывает `SgPromptDialog` с `allowEmpty` — пустое значение = `git stash` без `-m`). |
 | **titlebar/** | `TitleBar` с кастомным компонентом `MenuBar`. |
 | **layout/** | `CommitsView`, `ChangesView`, `RightPanelContent`. |
 | **ssh/** | `SshKeysDialog` — UI управления SSH-ключами. |
 | **settings/** | `RepoSettingsDialog` — настройки user.name/email репозитория. |
+| **ai/** | `AiSettingsDialog` (нативный `select` пресетов с optgroup Cloud/Local/Web + Custom; переключение между OpenAI-compatible и Qwen Web), `AiGenerateButton` (в `CommitBar`), хук `useAiConfig`, `presets.ts` с `detectPreset(mode, baseUrl, model)`, `errors.ts` для перевода `AiError.kind` в UI-сообщения. |
 | **reflog/** | `ReflogDialog`, `ReflogTable`, `ReflogRow`, `ActionBadge`. |
 | **bisect/** | `BisectDialog`, `BisectStartForm`, `BisectActiveSession`. |
 | **hooks/** | `HooksDialog`, `HookItem`. |
@@ -106,7 +118,10 @@ User clicks button in React
 
 | Хук | Назначение |
 |-----|------------|
-| **useAppState** | Глобальное состояние из main process, обработка IPC-событий. Смена языка вызывает ре-рендер через `configLang`. |
+| **useAppState** | Тонкий фасад. Композирует три хука ниже, держит transient state (`commitDetail`, `mergeState`, `error`, `viewOverride`, `rebase`, `recovery`, `pendingOpenDiff`/`MergeEditor`), собирает derived `AppState`, отдаёт `switchRepoFast` и `resetTransientState`. Публичная поверхность (форма return) не изменилась — `App.tsx` и потребители ничего не замечают. |
+| **useRepoSlices** | `slices: Map<repoPath, RepoSlice>` + `meta` (`openRepos`, `activeRepoIndex`) + helpers (`replaceSlice`, `updateSlice`, `removeSlice`, `applyMetaPatch`). Переключение вкладки — это просто `setActiveRepoIndex(i)`, UI ререндерит срез нового репо (или `EMPTY_SLICE`, если ещё нет данных). |
+| **useRunningOps** | Per-repo `runningOpsByRepo: Map<repoPath, operation>`. Отдаёт `getCurrentOp(repoPath)`, чтобы `state.isOperationRunning` зависел только от активной вкладки. Держит `lastOpResult` для `useOperationToasts`. |
+| **useStateSubscription** | Единственный `onMainEvent` listener и dispatcher: маршрутизирует `stateUpdate`, `graphData`, `repoSwitch`, `repoClose`, `commitDetail`, `mergeState`, `rebaseProgress`, `recoveryIssues`, `error`, `operationStart`/`operationEnd`, `openDiff`, `openMergeEditor` в нужные сеттеры. Создаётся один раз за сессию — без переподписок при смене props. |
 | **useMenuActions** | Единый обработчик для действий кастомного меню (dispatch по строке). |
 | **useKeyboardShortcuts** | Привязка клавиш (Ctrl+O, Ctrl+Shift+F, F5 и т.д.) к действиям меню. Пропускает в input/textarea/contentEditable. |
 | **useOperationToasts** | Автоматические тосты по результатам git-операций. |
@@ -114,7 +129,23 @@ User clicks button in React
 | **useTheme** | Переключение тёмной/светлой темы с сохранением в localStorage. |
 | **useToasts** | Очередь тост-уведомлений с автоскрытием. |
 | **useContextMenu** | Состояние контекстного меню (позиция + пункты). |
-| **useDialogs** | Централизованное состояние видимости диалогов (about, ssh, reflog, bisect, hooks, worktrees, lfs, gitignore). |
+| **useDialogs** | Централизованное состояние видимости диалогов (about, ssh, reflog, bisect, hooks, worktrees, lfs, gitignore, ai). |
+| **useAutoFetch** | Периодический фоновый `fetch` для активного репо (настраиваемый интервал). |
+| **useAiConfig** | Загружает/сохраняет `AiProviderConfig`; отдаёт `testConnection` и `generateCommitMessage` со стримингом через `onChunk`. |
+
+## AI-модуль
+
+`src/core/ai/`. Модуль независим: провайдеры — за маленьким интерфейсом `AiProvider`, остальная часть приложения общается с `AiHandlers` через IPC.
+
+- **Режимы** — `openai-compatible` (любой `/v1/chat/completions` endpoint: OpenAI, Ollama, LM Studio, DeepSeek, Groq) и `qwen-web` (chat.qwen.ai через сессионный токен).
+- **`AiProviderConfig`** — `mode`, `baseUrl`, `apiKey`, `qwenWebToken?`, `model`, `commitLanguage` (`auto`/`en`/`ru`), `headers?`, `timeoutMs?`.
+- **Промпты** (`prompts.ts`) — `buildCommitSystemPrompt(language)` добавляет правила под язык; `buildCommitUserPrompt(diff, language)` обрезает diff до `MAX_DIFF_CHARS = 6000` (head 70% + tail 20% с маркером `[diff truncated, N chars omitted]` посередине); user-промпт повторяет language-инструкцию, потому что мелкие/квантизованные локальные модели часто «забывают» system prompt.
+- **`AiService.generateCommitMessage`** — зовёт провайдер, потом `postProcessCommit` срезает ```` ``` ```` и обрамляющие кавычки (модели любят оборачивать ответ, даже когда просишь plain text).
+- **Streaming** — оба провайдера стримят через SSE (`onChunk(delta)`). Renderer выводит чанки live в поле subject коммита.
+- **Cancellation** — `AiHandlers` держит `Map<requestId, AbortController>`. UI зовёт `aiCancel(requestId)` при клике Stop или закрытии диалога.
+- **Persistence** — `AiConfigStore` пишет `{userData}/ai-config.json` атомарно (`atomicWriteJSON`). Секреты шифруются Electron `safeStorage` с префиксом `enc:`; если системное key store недоступно — fallback на `plain:` с предупреждением в лог.
+- **Маскирование секретов** — `AiHandlers.getConfig` возвращает конфиг с `apiKey`/`qwenWebToken`, заменёнными на `••••••••`, чтобы renderer никогда не видел настоящее значение. `setConfig` использует `mergeSecrets`: маскированное или пустое значение из UI трактуется как «оставь предыдущий секрет».
+- **IPC-команды** — `aiGetConfig`, `aiSetConfig`, `aiTestConnection`, `aiGenerateCommitMessage`, `aiCancel`. События: `aiConfig`, `aiTestResult`, `aiChunk`, `aiResult`, `aiError`. Хендлеры в `bridge/ipc/handlersAi.ts`.
 
 ## Протокол IPC
 
@@ -122,11 +153,22 @@ User clicks button in React
 
 ## Управление состоянием
 
-В main `StateManager` хранит per-repo срезы (`slicesByRepo`) и общий `meta` (`openRepos`, `activeRepoIndex`). При каждом значимом изменении активного репо в renderer уходит `stateUpdate` (без `commits`/`graphLayout` — они отдельно через `graphData` с `repoPath` и дедупом по ссылкам). Срезы НЕ-активных репо обновляются молча — когда юзер вернётся на вкладку, `switchRepo` мгновенно отзеркалит свежий slice.
+**В main** `StateManager` — тонкий фасад. Композирует:
 
-В renderer `useAppState` тоже хранит per-repo: `slices: Map<repoPath, RepoSlice>` плюс глобальный `meta`. При смене вкладки UI мгновенно показывает срез нового репо (или пусто, если ещё не наполнено) — никаких полей чужого репо в state быть не может. Дополнительно:
+- `RepoSlicesStore` — per-repo срезы (`slicesByRepo`) + общий `meta` (`openRepos`, `activeRepoIndex`).
+- `RepoStateRefresher` — все async `refresh*`. `RepoStateRefresher.runSwitchRepoColdPhase(repoPath)` — это тяжёлая работа после смены вкладки (полный status + log + branches + tags); дешёвый `mirror+notify` срабатывает мгновенно в `switchRepo`.
+- `RepoEventBus` — три канала: `state` (любое изменение), `switch` (сменился активный репо), `close` (репо удалили).
 
-- `runningOpsByRepo: Map<repoPath, operation>` — per-repo карта активных операций. `state.isOperationRunning` и `state.currentOperation` берутся ИСКЛЮЧИТЕЛЬНО от активной вкладки. Это решает «переключился на B пока fetch идёт на A — кнопки на B не должны быть disabled».
+При каждом значимом изменении активного репо в renderer уходит `stateUpdate` (без `commits`/`graphLayout` — они отдельно через `graphData` с `repoPath` и дедупом по ссылкам в `MessageBridge.sentGraphByRepo`). Срезы НЕ-активных репо обновляются молча — когда юзер вернётся на вкладку, `switchRepo` мгновенно отзеркалит свежий slice.
+
+**В renderer** `useAppState` — тоже тонкий фасад. Композирует:
+
+- `useRepoSlices` — `slices: Map<repoPath, RepoSlice>` плюс глобальный `meta`.
+- `useRunningOps` — `runningOpsByRepo: Map<repoPath, operation>`. `state.isOperationRunning` и `state.currentOperation` берутся ИСКЛЮЧИТЕЛЬНО от активной вкладки. Это решает «переключился на B пока fetch идёт на A — кнопки на B не должны быть disabled».
+- `useStateSubscription` — единственный `onMainEvent` listener / dispatcher, создаётся один раз за сессию.
+
+При смене вкладки UI мгновенно показывает срез нового репо (или пусто, если ещё не наполнено) — никаких полей чужого репо в state быть не может. Дополнительно:
+
 - `translateError(code, data, fallback)` — переводит `error`-events с локализационным кодом (`repoErrors.notARepo`, ...) через `t()` + `tpl()`. Если кода нет в локали — fallback на `message` от main.
 - `GitActivityIndicator` / `GitActivityDialog` принимают `repoPath` как props и фильтруют snapshot по нему: на вкладке репо A не видно операций B, и наоборот.
 

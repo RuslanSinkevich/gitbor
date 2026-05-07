@@ -10,13 +10,13 @@ SkyFork is an Electron desktop Git client.
 
 1. **Define types** — Add the command type to `RendererCommand` in `src/core/bridge/messages.ts`. Add the response event type to `MainEvent`. Mirror both in `src/renderer/src/types/ipc.ts`.
 
-2. **Implement git logic** — Add function in `src/core/commands/readCommands.ts` (for read operations) or `writeCommands.ts` (for write operations). Use `queue.enqueueRead()` or `queue.enqueueWrite()`.
+2. **Implement git logic** — Add function in `src/core/commands/readCommands.ts` (for read operations) or `writeCommands.ts` (for write operations). Use `queue.enqueueRead()` or `queue.enqueueWrite()`. Take services per-call from `state.getActiveServices()` — the registry is per-repo, never cache `git`/`queue`/`safety` in class fields.
 
 3. **Wire to CommandHandler** — Add a method in `src/core/commands/CommandHandler.ts` that delegates to the function from step 2.
 
-4. **Handle in MessageBridge** — Add a `case` in `src/core/bridge/MessageBridge.ts` `handleCommand()` switch. Call the CommandHandler method, send the response via `this.send()`.
+4. **Add an IPC handler** — Add an entry to one of the handler tables in `src/core/bridge/ipc/handlers*.ts` (`handlersState.ts`, `handlersGitOps.ts`, `handlersRepoExtras.ts`, `handlersAi.ts`). Use `op` / `opWithPostMerge` from `helpers.ts` so `repoPath` is snapshotted **before** the operation starts — a tab switch between `operationStart` and `operationEnd` must not break the per-repo running flag.
 
-5. **Call from renderer** — Use `postCommand({ type: 'yourCommand', ... })` from `src/renderer/src/api.ts`. Listen for response via `onMainEvent()` in your React component.
+5. **Call from renderer** — Use `postCommand({ type: 'yourCommand', ... })` from `src/renderer/src/api.ts`. Listen for response via `onMainEvent()` in your React component or hook. Route by `repoPath` if the event is per-repo so it lands on the correct slice.
 
 ### How to Add a New UI Feature
 
@@ -38,12 +38,15 @@ SkyFork is an Electron desktop Git client.
 
 - **Imports**: React hooks first, then local modules, then types, then styles
 - **IPC types**: Always keep `src/core/bridge/messages.ts` and `src/renderer/src/types/ipc.ts` in sync
-- **State**: Global state lives in `StateManager` (main). UI-only state in React `useState`
-- **Error handling**: Git errors caught in `MessageBridge.handleCommand()`, sent as `{ type: 'error', message }` event
-- **Path safety**: Validate all user-provided IPC paths with `safePath()` from `src/core/utils/pathSecurity.ts`; filenames with `isSafeFilename()`
+- **State**: Global state lives in `StateManager` (main, per-repo via `RepoSlicesStore`). UI-only state in React `useState`. Per-repo running ops live in `useRunningOps` — `state.isOperationRunning` is derived from the active tab only.
+- **Error handling**: Throw `AppError(code, data, fallback)` in main for translatable errors — `MessageBridge` will turn it into an `error`-event with `code`/`data` and the renderer translates via `locale.repoErrors[code]`. Plain `throw new Error('...')` is fine only for technical errors that don't need i18n.
+- **Logging**: Use `mainLogger` from `src/core/utils/Logger.ts` — never raw `console.warn/error` in core (the only exception is `process.on('unhandledRejection'/'uncaughtException')`, which must work before `configureMainLogger`).
+- **Path safety**: Validate all user-provided IPC paths with `safePath()` from `src/core/utils/pathSecurity.ts`; filenames with `isSafeFilename()`. Use `isDangerousRepoRoot()` before starting a recursive watcher.
+- **Sensitive args**: Pass them via `env` or stdin where possible; if they end up in argv, ensure `sanitizeArgs` redacts them in logs.
 - **Clipboard**: Use `copyToClipboard()` from `src/renderer/src/api.ts` instead of raw `navigator.clipboard.writeText`
 - **Timers**: Always clean up `setTimeout` in React components via `clearTimeout` in `useEffect` cleanup or `useRef`
-- **Dialogs**: Add new dialogs via `useDialogs` hook (`src/renderer/src/hooks/useDialogs.ts`)
+- **Dialogs**: Add new dialogs via `useDialogs` hook (`src/renderer/src/hooks/useDialogs.ts`) and render them from `AppDialogs.tsx`
+- **AI secrets**: Never log API keys / Qwen tokens. Persist via `AiConfigStore` (encrypted by `safeStorage`); mask in any UI-bound payload (`••••••••`).
 
 ### Branch Naming
 - `feat/description` — new features

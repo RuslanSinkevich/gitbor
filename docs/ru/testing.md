@@ -88,11 +88,16 @@ tests/
 │   └── helpers.test.ts           # ipc/helpers: op/opWithPostMerge снимок repoPath, errOnFail, runTracked
 │
 ├── ai/
-│   ├── AiConfigStore.test.ts     # Конфиг провайдера, шифрование через safeStorage
-│   ├── AiHandlers.test.ts        # IPC хендлеры AI
+│   ├── AiConfigStore.test.ts     # Конфиг провайдера, шифрование через safeStorage, persistence qwen-web
+│   ├── AiHandlers.test.ts        # IPC хендлеры AI (mask secrets, mergeSecrets, cancel)
 │   ├── AiService.test.ts         # generateCommitMessage, testConnection
 │   ├── OpenAiCompatibleProvider.test.ts # SSE-парсер, finishReason, usage
-│   └── prompts.test.ts           # buildCommitSystemPrompt / buildCommitUserPrompt
+│   ├── QwenWebProvider.test.ts   # constructor, testConnection, SSE-стрим, RateLimited, abort, fallback модели
+│   ├── presets.test.ts           # detectPreset (openai-compatible, qwen-web, нормализация trailing slashes)
+│   └── prompts.test.ts           # buildCommitSystemPrompt (auto/en/ru) / buildCommitUserPrompt
+│
+├── changes/
+│   └── fileTree.test.ts          # buildFileTree / collectFiles (pure-helpers из fileTreeModel.ts)
 │
 └── i18n/
     ├── i18n.test.ts              # Полнота локализации (en ↔ ru ключи, плейсхолдеры)
@@ -118,7 +123,7 @@ tests/
 | `parseStatus` | Staged/unstaged модификации, `MM` (обе), untracked (`??`), staged add (`A`), delete (`D`), конфликты (`UU`, `AA`), несколько файлов |
 | `parseFileChanges` | Модификация, добавление, удаление, переименование (`R100`), копирование (`C100`) |
 
-**347 тестов / 37 файлов — всё зелёное.**
+**407 тестов / 41 файл — всё зелёное.**
 
 ### 2. DiffParser (`tests/git/DiffParser.test.ts`)
 
@@ -348,6 +353,65 @@ tests/
 - POSIX-системные: `/etc`, `/usr`, `/var`, `/home`, `/Users`
 - Обычные проектные пути → `dangerous: false`
 
+### 20. AI-провайдеры и presets
+
+**`tests/ai/AiConfigStore.test.ts`** — `src/core/ai/AiConfigStore.ts`:
+
+- Сохраняет OpenAI-compatible конфиг; шифрует `apiKey` через инжектированный `CryptoProvider` (мок для `safeStorage`)
+- Сохраняет Qwen Web конфиг: пишет `qwenWebTokenEncrypted`, восстанавливает `mode: 'qwen-web'`, baseUrl принудительно `https://chat.qwen.ai`
+- Fallback на префикс `plain:` когда `isEncryptionAvailable()` возвращает false (или `encryptString` бросает)
+- `clear()` пишет пустую запись, не удаляет файл
+- `commitLanguage` round-trip через `auto`/`en`/`ru`; невалидные значения нормализуются в `auto`
+
+**`tests/ai/AiHandlers.test.ts`** — `src/core/ai/AiHandlers.ts`:
+
+- `getConfig` маскирует `apiKey` и `qwenWebToken` (возвращает `••••••••`), чтобы renderer никогда не видел реальное значение
+- `setConfig` с маскированным ключом из UI оставляет предыдущий секрет (`mergeSecrets`)
+- `setConfig(null)` чистит in-memory сервис и on-disk хранилище
+- `generateCommitMessage` маршрутизирует `requestId → AbortController`; `cancel(requestId)` отменяет нужный; `cancelAll()` отменяет всё
+- Пустой ответ модели с `finish_reason: 'length'` бросает понятный `AiError('parse')` с упоминанием `max_tokens`
+
+**`tests/ai/AiService.test.ts`** — `src/core/ai/AiService.ts`:
+
+- `isConfigured` возвращает false при отсутствии модели; для `qwen-web` требует `qwenWebToken`; для `openai-compatible` требует `baseUrl`
+- `generateCommitMessage` строит промпты по `commitLanguage`, постпроцессит ответ (срезает ```` ``` ```` и обрамляющие кавычки)
+
+**`tests/ai/OpenAiCompatibleProvider.test.ts`** — `src/core/ai/providers/OpenAiCompatibleProvider.ts`:
+
+- SSE-парсинг через границы чанков, термин `[DONE]`, мэппинг `usage` и `finish_reason`
+- HTTP-ошибки несут `status` в `AiError`; abort прокидывается через `signal`
+
+**`tests/ai/QwenWebProvider.test.ts`** — `src/core/ai/providers/QwenWebProvider.ts`:
+
+- Конструктор отвергает неверный mode, отсутствие токена, отсутствие модели
+- `testConnection` зовёт `POST /api/v2/chats/new` с `Bearer` токеном и таймаутом 10с
+- Streaming-флоу: создание чата → SSE chat completions; эмитит `onChunk` для `delta.content`
+- `code: 'RateLimited'` в payload превращается в `AiError('http', 429)`
+- Пустой стрим (вероятно истёкший токен) превращается в `AiError('parse')` с подсказкой обновить токен в `chat.qwen.ai → localStorage.token`
+- Неизвестный id модели даёт fallback на `qwen3-max` (whitelist в `qwenWebModels.ts`)
+- Внешний `signal.abort()` отменяет inflight `fetch`
+
+**`tests/ai/presets.test.ts`** — `src/renderer/src/features/ai/presets.ts`:
+
+- `detectPreset('openai-compatible', baseUrl, model)` мэтчит пресеты с нормализацией trailing slashes
+- `detectPreset('qwen-web', _, model)` возвращает `qwen-web` только если `model` равен дефолтной модели пресета; иначе `custom`
+- Неизвестный URL → `custom`
+
+**`tests/ai/prompts.test.ts`** — `src/core/ai/prompts.ts`:
+
+- `buildCommitSystemPrompt('auto')` не добавляет language-инструкцию
+- `buildCommitSystemPrompt('en')` добавляет английскую инструкцию; `'ru'` добавляет и русскую, и английскую плюс правило сохранять технические английские термины непереведёнными
+- `buildCommitUserPrompt` включает diff verbatim при ≤ `MAX_DIFF_CHARS = 6000`; обрезает с маркером `[diff truncated, N chars omitted]`, сохраняя head и tail
+
+### 21. fileTree (`tests/changes/fileTree.test.ts`)
+
+Модуль: `src/renderer/src/features/changes/fileTreeModel.ts`
+
+- `buildFileTree` строит folder-tree из плоского `FileStatus[]`
+- Папки сортируются перед файлами; case-insensitive natural ordering на каждом уровне
+- Trailing slashes в `path` нормализуются
+- `collectFiles(node)` плющит все файлы под нодой — используется контекстным меню по папкам (stage/unstage/discard/delete на всю папку)
+
 ---
 
 ## Конфигурация Vitest
@@ -441,15 +505,16 @@ npx vitest run tests/git/MyNewParser.test.ts
 | Git-менеджеры | WorktreeManager, GitExecutor (sanitizeArgs), RebaseManager | ~18 |
 | Команды | writeCommands, readCommands, ConflictManager | ~32 |
 | Утилиты | pathSecurity, repoPathGuard, AppError, Logger | ~40 |
-| Safety | OperationQueue, AtomicWrite, OperationJournal | ~23 |
+| Safety | OperationQueue, AtomicWrite, OperationJournal, RecoveryManager | ~25 |
 | i18n | Полнота ключей en↔ru, tpl | ~14 |
 | Менеджеры | BisectManager, HooksManager, LfsManager (контракты) | ~6 |
 | State | StateManager (мульти-репо, isRepoTracked гард), repoSlice | ~10 |
 | Services | RepoServicesRegistry (lifecycle, isolation) | ~7 |
 | Activity | GitActivityStore (per-repo, кэп, обрезка) | ~13 |
 | IPC | messages контракты, ipc/helpers (snapshot repoPath) | ~21 |
-| AI | AiConfigStore, AiHandlers, AiService, OpenAiCompatibleProvider, prompts | ~30 |
-| **Итого** | **37 файлов** | **347** |
+| AI | AiConfigStore, AiHandlers, AiService, OpenAiCompatibleProvider, QwenWebProvider, prompts, presets | ~80 |
+| Changes | fileTree (buildFileTree, collectFiles) | ~11 |
+| **Итого** | **41 файл** | **407** |
 
 ---
 
@@ -516,7 +581,7 @@ steps:
   - npm run lint                        # ESLint проверка
   - npx tsc -p tsconfig.main.json       # TypeScript (main + core)
   - npx tsc -b (src/renderer)           # TypeScript (renderer)
-  - npm test                            # Vitest (347 тестов)
+  - npm test                            # Vitest (407 тестов в 41 файле)
   - npm run build:renderer              # Vite сборка
   - npm run build:main                  # tsc main process
 ```

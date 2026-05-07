@@ -88,11 +88,16 @@ tests/
 │   └── helpers.test.ts           # ipc/helpers: op/opWithPostMerge repoPath snapshot, errOnFail, runTracked
 │
 ├── ai/
-│   ├── AiConfigStore.test.ts     # Provider config, encryption via safeStorage
-│   ├── AiHandlers.test.ts        # AI IPC handlers
+│   ├── AiConfigStore.test.ts     # Provider config, encryption via safeStorage, qwen-web persistence
+│   ├── AiHandlers.test.ts        # AI IPC handlers (mask secrets, mergeSecrets, cancel)
 │   ├── AiService.test.ts         # generateCommitMessage, testConnection
 │   ├── OpenAiCompatibleProvider.test.ts # SSE parser, finishReason, usage
-│   └── prompts.test.ts           # buildCommitSystemPrompt / buildCommitUserPrompt
+│   ├── QwenWebProvider.test.ts   # constructor, testConnection, SSE stream, RateLimited, abort, fallback model
+│   ├── presets.test.ts           # detectPreset (openai-compatible, qwen-web, trailing-slash normalization)
+│   └── prompts.test.ts           # buildCommitSystemPrompt (auto/en/ru) / buildCommitUserPrompt
+│
+├── changes/
+│   └── fileTree.test.ts          # buildFileTree / collectFiles (pure helpers from fileTreeModel.ts)
 │
 └── i18n/
     ├── i18n.test.ts              # Localization completeness (en ↔ ru keys, placeholders)
@@ -349,6 +354,65 @@ Module: `src/core/utils/repoPathGuard.ts`
 - POSIX system roots: `/etc`, `/usr`, `/var`, `/home`, `/Users`
 - Normal project paths → `dangerous: false`
 
+### 20. AI providers and presets
+
+**`tests/ai/AiConfigStore.test.ts`** — `src/core/ai/AiConfigStore.ts`:
+
+- Persists OpenAI-compatible config; encrypts `apiKey` via injected `CryptoProvider` (mock for `safeStorage`)
+- Persists Qwen Web config: stores `qwenWebTokenEncrypted`, restores `mode: 'qwen-web'`, baseUrl forced to `https://chat.qwen.ai`
+- Falls back to `plain:` prefix when `isEncryptionAvailable()` returns false (or `encryptString` throws)
+- `clear()` writes an empty entry, doesn't delete the file
+- `commitLanguage` round-trips through `auto`/`en`/`ru`; invalid values normalize to `auto`
+
+**`tests/ai/AiHandlers.test.ts`** — `src/core/ai/AiHandlers.ts`:
+
+- `getConfig` masks `apiKey` and `qwenWebToken` (returns `••••••••`) so the renderer never sees the real value
+- `setConfig` with a masked key from the UI keeps the previous secret (`mergeSecrets`)
+- `setConfig(null)` clears both the in-memory service and the on-disk store
+- `generateCommitMessage` routes `requestId → AbortController`; `cancel(requestId)` aborts the right one; `cancelAll()` aborts everything
+- Empty model response with `finish_reason: 'length'` throws a friendly `AiError('parse')` mentioning `max_tokens`
+
+**`tests/ai/AiService.test.ts`** — `src/core/ai/AiService.ts`:
+
+- `isConfigured` returns false for missing model; for `qwen-web` requires `qwenWebToken`; for `openai-compatible` requires `baseUrl`
+- `generateCommitMessage` builds prompts via `commitLanguage`, post-processes the response (strips ```` ``` ```` and surrounding quotes)
+
+**`tests/ai/OpenAiCompatibleProvider.test.ts`** — `src/core/ai/providers/OpenAiCompatibleProvider.ts`:
+
+- SSE parsing across chunk boundaries, `[DONE]` termination, `usage` and `finish_reason` mapping
+- HTTP errors carry `status` in `AiError`; abort propagates through `signal`
+
+**`tests/ai/QwenWebProvider.test.ts`** — `src/core/ai/providers/QwenWebProvider.ts`:
+
+- Constructor rejects wrong mode, missing token, missing model
+- `testConnection` calls `POST /api/v2/chats/new` with `Bearer` token and times out after 10s
+- Streaming flow: create chat → SSE chat completions; emits `onChunk` for `delta.content`
+- `code: 'RateLimited'` in payload becomes `AiError('http', 429)`
+- Empty stream (likely expired token) becomes `AiError('parse')` with a hint to refresh the token in `chat.qwen.ai → localStorage.token`
+- Unknown model id falls back to `qwen3-max` (the whitelist in `qwenWebModels.ts`)
+- External `signal.abort()` cancels the inflight `fetch`
+
+**`tests/ai/presets.test.ts`** — `src/renderer/src/features/ai/presets.ts`:
+
+- `detectPreset('openai-compatible', baseUrl, model)` matches presets normalized for trailing slashes
+- `detectPreset('qwen-web', _, model)` returns `qwen-web` only when `model` matches the preset's default; else `custom`
+- Unknown URL → `custom`
+
+**`tests/ai/prompts.test.ts`** — `src/core/ai/prompts.ts`:
+
+- `buildCommitSystemPrompt('auto')` does not add a language line
+- `buildCommitSystemPrompt('en')` adds the English instruction; `'ru'` adds both Russian and English variants plus the rule to keep technical English terms untranslated
+- `buildCommitUserPrompt` includes the diff verbatim when ≤ `MAX_DIFF_CHARS = 6000`; truncates with a `[diff truncated, N chars omitted]` marker preserving head and tail
+
+### 21. fileTree (`tests/changes/fileTree.test.ts`)
+
+Module: `src/renderer/src/features/changes/fileTreeModel.ts`
+
+- `buildFileTree` builds a folder tree from a flat `FileStatus[]`
+- Folders are sorted before files; case-insensitive natural ordering inside each level
+- Trailing slashes in `path` are normalized
+- `collectFiles(node)` flattens all files under a node — used by the folder context menu (stage/unstage/discard/delete on a whole folder)
+
 ---
 
 ## Coverage Summary
@@ -360,15 +424,16 @@ Module: `src/core/utils/repoPathGuard.ts`
 | Git managers | WorktreeManager, GitExecutor (sanitizeArgs), RebaseManager | ~18 |
 | Commands | writeCommands, readCommands, ConflictManager | ~32 |
 | Utils | pathSecurity, repoPathGuard, AppError, Logger | ~40 |
-| Safety | OperationQueue, AtomicWrite, OperationJournal | ~16 |
+| Safety | OperationQueue, AtomicWrite, OperationJournal, RecoveryManager | ~25 |
 | i18n | Key completeness en↔ru, tpl | ~15 |
 | Managers | BisectManager, HooksManager, LfsManager (contracts) | ~10 |
 | State | StateManager (multi-repo, isRepoTracked guard), repoSlice | ~10 |
 | Services | RepoServicesRegistry (lifecycle, isolation) | ~7 |
 | Activity | GitActivityStore (per-repo, cap, truncation) | ~13 |
 | IPC | messages contracts, ipc/helpers (op repoPath snapshot) | ~21 |
-| AI | AiConfigStore, AiHandlers, AiService, OpenAiCompatibleProvider, prompts | ~30 |
-| **Total** | **37 files** | **347** |
+| AI | AiConfigStore, AiHandlers, AiService, OpenAiCompatibleProvider, QwenWebProvider, prompts, presets | ~80 |
+| Changes | fileTree (buildFileTree, collectFiles) | ~11 |
+| **Total** | **41 files** | **407** |
 
 ---
 
@@ -459,7 +524,7 @@ steps:
   - npm run lint                        # ESLint check
   - npx tsc -p tsconfig.main.json       # TypeScript check (main + core)
   - npx tsc -b (src/renderer)           # TypeScript check (renderer)
-  - npm test                            # Vitest (347 tests)
+  - npm test                            # Vitest (407 tests in 41 files)
   - npm run build:renderer              # Vite build
   - npm run build:main                  # tsc main process
 ```

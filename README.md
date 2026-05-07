@@ -98,17 +98,25 @@ App.tsx → api.invoke() → preload (ipcRenderer) → MessageBridge (ipcMain)
 skyfork/
 ├── src/
 │   ├── core/                      # Backend (Main Process)
-│   │   ├── bridge/                # IPC bridge (MessageBridge, messages)
-│   │   ├── commands/              # Command orchestration (checkout, commit, merge, diff...)
-│   │   │   ├── CommandHandler.ts  # Main command dispatcher
+│   │   ├── bridge/                # IPC bridge
+│   │   │   ├── MessageBridge.ts   # Thin (~150 lines) router: cmd → handler from ipc/
+│   │   │   ├── messages.ts        # RendererCommand / MainEvent contracts
+│   │   │   └── ipc/               # Handler submodules
+│   │   │       ├── helpers.ts            # op / opWithPostMerge / runTracked / errOnFail
+│   │   │       ├── handlersState.ts      # lifecycle, diff, blame, history
+│   │   │       ├── handlersGitOps.ts     # push, pull, fetch, commit, stage, merge, rebase
+│   │   │       ├── handlersRepoExtras.ts # LFS, worktrees, hooks, stats, bisect, settings, SSH
+│   │   │       └── handlersAi.ts         # AI provider config, generateCommitMessage
+│   │   ├── commands/              # Command orchestration
+│   │   │   ├── CommandHandler.ts  # Main command dispatcher (per-call services lookup)
 │   │   │   ├── ConflictManager.ts # Merge conflicts
 │   │   │   ├── readCommands.ts    # Read operations (log, status, branches)
 │   │   │   └── writeCommands.ts   # Write operations (commit, push, merge)
 │   │   ├── git/                   # Git layer
-│   │   │   ├── GitExecutor.ts     # Run git processes
-│   │   │   ├── GitParser.ts       # Parse git output
+│   │   │   ├── GitExecutor.ts     # Run git processes (cwd fixed at construction)
+│   │   │   ├── GitParser.ts       # Parse git output (large stdout offloaded to WorkerPool)
 │   │   │   ├── GitConfig.ts       # Read/write git config (user.name, user.email)
-│   │   │   ├── GraphLayout.ts     # Commit graph layout algorithm
+│   │   │   ├── GraphLayout.ts     # Commit graph layout (worker thread when commits > 2000)
 │   │   │   ├── DiffParser.ts      # Parse unified diff
 │   │   │   ├── ConflictParser.ts  # Parse conflict markers
 │   │   │   ├── BlameParser.ts     # Parse git blame
@@ -121,19 +129,47 @@ skyfork/
 │   │   │   ├── WorktreeManager.ts # Git worktrees: list, add, remove
 │   │   │   ├── LfsManager.ts      # Git LFS: status, track, untrack
 │   │   │   └── types/             # Types: Commit, Branch, Tag, GraphNode, etc.
+│   │   ├── ai/                    # AI module (commit message generation)
+│   │   │   ├── AiService.ts       # Facade: ensureProvider + generateCommitMessage
+│   │   │   ├── AiHandlers.ts      # Per-requestId AbortController, mask secrets
+│   │   │   ├── AiConfigStore.ts   # Persistent config in {userData}/ai-config.json
+│   │   │   ├── prompts.ts         # buildCommitSystemPrompt (auto/en/ru), MAX_DIFF_CHARS
+│   │   │   ├── qwenWebModels.ts   # Whitelist of qwen3-* model ids
+│   │   │   ├── types.ts           # AiProviderConfig, AiCompletionResult, AiError
+│   │   │   └── providers/
+│   │   │       ├── base.ts                 # AiProvider interface
+│   │   │       ├── OpenAiCompatibleProvider.ts # /v1/chat/completions + SSE
+│   │   │       └── QwenWebProvider.ts          # chat.qwen.ai via session token
 │   │   ├── ssh/                   # SSH key management
 │   │   │   └── SshKeyManager.ts   # List, generate, delete SSH keys
-│   │   ├── safety/                # 5 levels of data protection
-│   │   │   ├── OperationQueue.ts  # Queue: reads parallel, writes serial
+│   │   ├── safety/                # Data protection layer
+│   │   │   ├── OperationQueue.ts  # Per-repo: reads parallel, writes serial
 │   │   │   ├── OperationJournal.ts # WAL operation journal
 │   │   │   ├── SafetyNet.ts       # Auto-stash + rollback
+│   │   │   ├── AtomicWrite.ts     # Atomic writes (tmp+rename+fsync, Windows retry via Atomics.wait)
 │   │   │   └── RecoveryManager.ts # Startup checks (locks, journal, rebase)
+│   │   ├── services/
+│   │   │   └── RepoServicesRegistry.ts # Map<repoPath, {git, queue, safety}> + bootstrap
 │   │   ├── state/
-│   │   │   ├── StateManager.ts    # Single source of truth, multi-repo
-│   │   │   └── FileWatcher.ts     # Per-repo chokidar watchers (git: 120ms, worktree: 150ms debounce)
+│   │   │   ├── StateManager.ts        # Facade over the 3 layers below
+│   │   │   ├── RepoSlicesStore.ts     # slicesByRepo Map + meta + mirror
+│   │   │   ├── RepoStateRefresher.ts  # All async refresh* + cold phase
+│   │   │   ├── RepoEventBus.ts        # state / switch / close subscription channels
+│   │   │   ├── repoSlice.ts           # RepoSlice type, GIT_*_FORMAT, hashGitStdout
+│   │   │   ├── FileWatcher.ts         # Per-repo chokidar (debounce: .git 50ms, worktree 200ms)
+│   │   │   ├── GraphCache.ts          # Cached graph layouts per repo
+│   │   │   └── AuthorStatsCache.ts    # Cached per-author code stats
+│   │   ├── workers/
+│   │   │   ├── WorkerPool.ts      # 2 workers, round-robin, auto-respawn
+│   │   │   └── parserWorker.ts    # parseStatus / parseCommits / computeGraphLayout
+│   │   ├── activity/
+│   │   │   ├── gitActivityStore.ts # Journal of git operations (per-repo, cap 100)
+│   │   │   └── activityContext.ts  # AsyncLocalStorage to attribute exec → operation
 │   │   └── utils/
-│   │       ├── Logger.ts          # File logging
-│   │       └── pathSecurity.ts    # Path traversal protection (safePath, isSafeFilename)
+│   │       ├── Logger.ts          # Singleton mainLogger (silent in prod, debug in dev)
+│   │       ├── AppError.ts        # Structured error: code + data for renderer-side i18n
+│   │       ├── pathSecurity.ts    # safePath (traversal + symlink), isSafeFilename
+│   │       └── repoPathGuard.ts   # isDangerousRepoRoot (home, drive root, Windows...)
 │   │
 │   ├── main/                      # Electron entry point
 │   │   └── main.ts                # Window creation, service init, no native menu
@@ -144,11 +180,12 @@ skyfork/
 │   └── renderer/                  # Frontend (React)
 │       ├── src/
 │       │   ├── App.tsx            # Root component (composition only)
+│       │   ├── AppDialogs.tsx     # All modal dialogs in one place
 │       │   ├── api.ts             # skyForkAPI wrapper (invoke, onEvent)
 │       │   ├── features/          # Feature modules
 │       │   │   ├── graph/         # Commit graph (virtualized)
 │       │   │   ├── sidebar/       # Sidebar (branches, tags, stash, remotes)
-│       │   │   ├── changes/       # Changed files (tree), CommitBar (subject + desc)
+│       │   │   ├── changes/       # Changed files (tree + fileTreeModel.ts), CommitBar
 │       │   │   ├── diff/          # Diff viewer (inline + split, ignore whitespace)
 │       │   │   ├── merge/         # Merge conflict resolution (ConflictPanel, MergeEditor)
 │       │   │   ├── toolbar/       # Toolbar actions
@@ -156,19 +193,33 @@ skyfork/
 │       │   │   ├── file-history/  # File history
 │       │   │   ├── rebase/        # Interactive rebase editor
 │       │   │   ├── repo-manager/  # Repository management
-│       │   │   ├── repo-tabs/     # Multi-repo tabs
+│       │   │   ├── repo-tabs/     # Multi-repo tabs (+ tab opens RepoManager)
 │       │   │   ├── titlebar/      # Custom menu bar (replaces native Electron menu)
 │       │   │   ├── layout/        # CommitsView, ChangesView, RightPanelContent
 │       │   │   ├── ssh/           # SSH Keys Manager dialog
 │       │   │   ├── settings/      # Repository Settings dialog
+│       │   │   ├── ai/            # AI: AiSettingsDialog, AiGenerateButton, presets, useAiConfig
 │       │   │   ├── reflog/        # Git Reflog viewer
 │       │   │   ├── bisect/        # Git Bisect UI
 │       │   │   ├── hooks/         # Git Hooks manager
 │       │   │   ├── worktrees/     # Git Worktrees manager
 │       │   │   ├── lfs/           # Git LFS manager
 │       │   │   └── gitignore/     # .gitignore editor
-│       │   ├── ui/                # UI kit (SgButton, SgDialog, SgToast, MenuBar...)
-│       │   ├── hooks/             # React hooks (useAppState, useMenuActions, useOperationToasts...)
+│       │   ├── ui/                # UI kit (SgButton, SgDialog, SgToast, SgPromptDialog, MenuBar...)
+│       │   ├── hooks/             # React hooks
+│       │   │   ├── useAppState.ts          # Facade over the 3 hooks below
+│       │   │   ├── useRepoSlices.ts        # slices Map + meta
+│       │   │   ├── useRunningOps.ts        # Per-repo running ops + lastOpResult
+│       │   │   ├── useStateSubscription.ts # Single onMainEvent listener + dispatcher
+│       │   │   ├── useMenuActions.ts       # Menu/keyboard action dispatcher
+│       │   │   ├── useKeyboardShortcuts.ts # Maps shortcuts to menu actions
+│       │   │   ├── useOperationToasts.ts   # Toast on op result
+│       │   │   ├── useDiffState.ts         # Current diff target
+│       │   │   ├── useTheme.ts             # Dark/light + localStorage
+│       │   │   ├── useToasts.ts            # Toast queue
+│       │   │   ├── useContextMenu.ts       # Context menu state
+│       │   │   ├── useDialogs.ts           # Centralized dialog visibility
+│       │   │   └── useAutoFetch.ts         # Background fetch
 │       │   ├── i18n/              # UI localization (ru, en)
 │       │   ├── styles/            # Global styles, CSS variables, themes
 │       │   ├── types/             # TypeScript types for renderer
@@ -177,11 +228,18 @@ skyfork/
 │       ├── package.json
 │       └── vite.config.ts
 │
-├── tests/                         # Tests (Vitest)
+├── tests/                         # Tests (Vitest, ~407 tests in 41 files)
 │   ├── git/                       # Parsers, managers
-│   ├── safety/                    # OperationQueue, AtomicWrite, Journal
-│   ├── bridge/                    # IPC contracts
-│   └── i18n/                      # Localization completeness, templates
+│   ├── commands/                  # writeCommands, readCommands, ConflictManager
+│   ├── state/                     # StateManager (multi-repo), repoSlice
+│   ├── services/                  # RepoServicesRegistry (lifecycle, isolation)
+│   ├── activity/                  # GitActivityStore
+│   ├── safety/                    # OperationQueue, AtomicWrite, OperationJournal, RecoveryManager
+│   ├── bridge/                    # IPC contracts (messages.ts), ipc/helpers
+│   ├── ai/                        # AiConfigStore, AiHandlers, AiService, providers (OpenAI/QwenWeb), prompts, presets
+│   ├── changes/                   # fileTree (buildFileTree, collectFiles)
+│   ├── utils/                     # pathSecurity, repoPathGuard, AppError, Logger
+│   └── i18n/                      # Localization completeness, tpl
 │
 ├── docs/                          # Documentation
 │   ├── getting-started.md         # Setup and dev workflow
@@ -203,20 +261,26 @@ skyfork/
 ## Key Features
 
 - **Commit graph** — virtualized scroll, branch coloring, search
-- **Branch/Tag/Stash sidebar** — tree view, checkout, merge, rename, delete
+- **Branch/Tag/Stash sidebar** — tree view, checkout, merge, rename, delete; current branch marked with green dot
 - **Local changes** — tree view, stage/unstage/discard per file and per hunk
-- **Diff viewer** — inline + split, ignore whitespace, stage hunk
+- **Folder context menu** — stage / unstage / discard / delete applied to all files inside (Staged/Unstaged sections)
+- **Diff viewer** — inline + split, ignore whitespace, stage hunk; no `+`/`−` text prefix in line content (color-only)
 - **Merge conflict resolution** — two-column editor, auto-advance, conflict prediction
 - **File history & Git blame** — per-file commit history, line-by-line annotations
 - **Interactive rebase** — pick/reword/edit/squash/fixup/drop, progress banner
-- **Multi-repo tabs** — open multiple repositories simultaneously
+- **Multi-repo tabs** — independent per-repo engines, the `+` tab opens RepoManager
+- **Repository Manager** — recent list, open/clone/init; reachable via the `+` tab or by clicking the active tab again
+- **AI commit messages** — one-click generation from staged diff; OpenAI-compatible (OpenAI/Ollama/LM Studio/DeepSeek/Groq) and Qwen Web (chat.qwen.ai session token); commit language `auto`/`en`/`ru`
 - **Custom menu bar** — HTML/CSS menu with Edit actions, keyboard shortcuts (no native menu)
 - **SSH Keys Manager** — generate, view, copy, delete SSH keys
 - **Repository Settings** — user.name/email, global/local toggle
+- **Stash dialog** — name field with empty-allowed (empty value = `git stash` without `-m`)
 - **Toast notifications** — success/error feedback for all git operations
 - **Confirmation dialogs** — destructive actions require confirmation
 - **Shell integration** — open in Explorer/Terminal, refresh (F5)
 - **Error boundary** — React ErrorBoundary prevents blank screens
+- **Git activity log** — per-repo journal of git invocations (start/append/finish, cap 100, stdout/stderr truncated to 16 KiB)
+- **Repository statistics** — contributors, code stats with cached author heatmaps
 - **Reflog** — HEAD history with restore
 - **Git Bisect** — interactive binary search for buggy commits
 - **Git Hooks** — view and enable/disable hooks
@@ -226,11 +290,34 @@ skyfork/
 - **.gitignore editor** — templates for Node, Python, Java, Rust, Go, IDE, OS
 - **Compare two commits** — diff between arbitrary commits
 - **Arrow key navigation** — ↑/↓ in commit graph
-- **i18n** — English and Russian
+- **i18n** — English and Russian (every UI string covered by `i18n.test.ts`)
 - **Themes** — dark and light mode
 - **Distribution** — electron-builder for Win/Mac/Linux
 
 ---
+
+## Multi-Repo Engine
+
+Each open repository is a fully independent set of services — a long `git pull` on repo A never blocks operations on repo B.
+
+- **`RepoServicesRegistry`** — `Map<repoPath, { git, queue, safety }>`. `acquire(repoPath)` lazily creates services with `cwd` fixed at construction; `release(repoPath)` SIGTERMs only that repo's inflight processes.
+- **`StateManager`** = facade over three layers:
+  - `RepoSlicesStore` — `slicesByRepo: Map<repoPath, RepoSlice>` + shared `meta` (`openRepos`, `activeRepoIndex`).
+  - `RepoStateRefresher` — all async `refresh*` methods, with `isRepoTracked(repoPath)` guard so a background refresh cannot resurrect a just-closed repo.
+  - `RepoEventBus` — three subscription channels (state / switch / close).
+- **WorkerPool** — 2 `worker_threads`, round-robin, auto-respawn. `parseStatus`/`parseCommits`/`computeGraphLayout` go through workers when input crosses size thresholds (status > 256 KB, log > 512 KB, layout > 2000 commits).
+- **Renderer mirror** — `useAppState` is a facade over `useRepoSlices` / `useRunningOps` / `useStateSubscription`. `state.isOperationRunning` and `state.currentOperation` are derived from the active tab only — fetch on A doesn't disable buttons on B.
+- **`graphData` deduplication** — `MessageBridge.sentGraphByRepo` skips emitting identical layout payloads, so toggling A→B→A doesn't push megabytes of JSON over IPC.
+
+## AI Module
+
+- **Providers**:
+  - `OpenAiCompatibleProvider` — `/v1/chat/completions` with SSE streaming, used by OpenAI, Ollama, LM Studio, DeepSeek, Groq.
+  - `QwenWebProvider` — unofficial bridge to `chat.qwen.ai` via session token from `localStorage` (no DashScope API key needed).
+- **`AiConfigStore`** — `{userData}/ai-config.json`, atomic write, API key / Qwen token encrypted via Electron `safeStorage` (DPAPI / Keychain / libsecret); fallback to `plain:` prefix when key store is unavailable.
+- **`AiHandlers`** — per-`requestId` `AbortController`, `cancelAll()` on shutdown, secret masking (`••••••••`) in `getConfig` for the UI.
+- **Prompts** — system + user prompts with commit language `auto`/`en`/`ru`; diff truncated to `MAX_DIFF_CHARS = 6000` (head 70% + tail 20%).
+- **UI** — `AiSettingsDialog` (preset `select` with Cloud/Local/Web optgroups + Custom), `AiGenerateButton` in the commit bar, hot path through `useAiConfig`.
 
 ## Data Safety
 
@@ -240,15 +327,19 @@ skyfork/
 2. **Auto-stash** — saves uncommitted changes before destructive operations
 3. **HEAD hash** — saved for rollback
 4. **WAL journal** — `.git/SkyFork-journal.json`, begin/complete/fail
-5. **RecoveryManager** — startup checks: lock files, incomplete operations, rebase, merge
+5. **RecoveryManager** — startup checks: lock files (stale `.git/index.lock` is ignored on startup), incomplete operations, rebase, merge
 
 ### Input Safety
 
-- **Path traversal protection** — `safePath()` validates all IPC paths, preventing access outside the repository
+- **Path traversal protection** — `safePath()` validates all IPC paths via `realpathSync.native` (resolves symlinks, case-insensitive on Windows), preventing access outside the repository
+- **Dangerous root guard** — `isDangerousRepoRoot()` skips the worktree watcher for home / drive root / `C:\Windows` / `Program Files` / `node_modules` (opening such folders is allowed; only the watcher is suppressed to avoid `EPERM` cascades)
 - **Filename validation** — `isSafeFilename()` checks SSH key and git hook names for special characters
-- **Safe clipboard** — `copyToClipboard()` wrapper with error handling for all clipboard operations
+- **`AppError`** — structured error with `code` + `data`; `MessageBridge` ships an `error` event with the code, the renderer translates via `locale.repoErrors[code]`
+- **Log sanitization** — `sanitizeArgs` redacts commit messages and passphrases after `-m` / `-C` / `-N` / `--message`
+- **Shell injection protection** — `openInTerminal` uses `execFile`/`spawn`, never `exec`
+- **Safe clipboard** — `copyToClipboard()` wrapper with error handling
 - **Electron sandbox** — `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`
-- **Atomic writes** — writes via tmp+rename with fsync, Windows retry logic, crash-safe
+- **Atomic writes** — tmp+rename with fsync, Windows retry via `Atomics.wait` (no busy-spin)
 
 ### Cross-Platform
 
@@ -256,6 +347,14 @@ skyfork/
 - Cross-platform paths via `path.join()` / `path.resolve()` throughout the codebase
 - Terminal: fallback chain for Linux (gnome-terminal, konsole, xfce4-terminal, xterm)
 - `NUL` / `/dev/null` auto-selection per platform
+
+## Logging
+
+Two-sided system: both main and renderer log only in dev mode; production console stays silent.
+
+- **Main** — singleton `mainLogger` with levels `silent`/`error`/`warn`/`info`/`debug`. `configureMainLogger({ isProduction })` in `main.ts` sets default by `app.isPackaged`. `SKYFORK_LOG_LEVEL=debug` env var overrides without rebuild.
+- **Renderer** — `[SkyFork]` prefix; methods are no-ops in Vite production build (`import.meta.env.DEV === false`).
+- **`perf.ts`** — separate diagnostic tool with its own opt-in (`SKYFORK_PERF=1` / `window.__SKYFORK_PERF__ = true`).
 
 ---
 
@@ -275,7 +374,7 @@ Russian translations: [`docs/ru/`](docs/ru/)
 
 ## Status
 
-Version 0.1.0. Backend and UI feature-complete for MVP. ~220 unit tests across 25 files (Vitest). ESLint + Prettier configured. CI via GitHub Actions. Not production-tested.
+Version 0.1.0. Backend and UI feature-complete for MVP. ~407 unit tests across 41 files (Vitest). ESLint + Prettier configured. CI via GitHub Actions on Ubuntu / Windows / macOS with Node 20. Not production-tested.
 
 ## License
 
