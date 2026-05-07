@@ -1,7 +1,26 @@
 import { useEffect } from 'react';
 import { postCommand } from '../api';
 
-export function useKeyboardShortcuts(dispatch: (action: string) => void) {
+/**
+ * Per-tab actions, передаются из App.tsx (там живут openRepos и
+ * switchRepoFast). Опционально: useKeyboardShortcuts продолжает работать
+ * даже если хост-компонент таб-handler'ы не передал — тогда таб-хоткеи
+ * просто игнорируются.
+ */
+export interface TabKeyboardActions {
+  /** Переключиться на N-й (0-based) таб. Игнор если N >= openReposCount. */
+  switchToTab: (index: number) => void;
+  /** Циклически следующий/предыдущий таб. */
+  nextTab: () => void;
+  prevTab: () => void;
+  /** Текущее число открытых репо — нужно чтобы отсечь Ctrl+N для несуществующих. */
+  openReposCount: number;
+}
+
+export function useKeyboardShortcuts(
+  dispatch: (action: string) => void,
+  tabActions?: TabKeyboardActions,
+) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -20,6 +39,17 @@ export function useKeyboardShortcuts(dispatch: (action: string) => void) {
 
       if (isEditable) return;
       if (!ctrl) return;
+
+      // Tab navigation: Ctrl+Tab → следующий, Ctrl+Shift+Tab → предыдущий.
+      // В Electron Ctrl+Tab не зарезервирован за браузером (нет UI-табов),
+      // preventDefault страхует от любых системных перехватов.
+      if (e.key === 'Tab' && tabActions) {
+        if (tabActions.openReposCount <= 1) return;
+        e.preventDefault();
+        if (shift) tabActions.prevTab();
+        else tabActions.nextTab();
+        return;
+      }
 
       if (shift) {
         switch (key) {
@@ -40,12 +70,22 @@ export function useKeyboardShortcuts(dispatch: (action: string) => void) {
       }
 
       if (!shift && !alt) {
+        // Ctrl+1..9 → переключение на N-й таб. Бывшие Ctrl+1/Ctrl+2
+        // (viewChanges/viewCommits) перенесены под этот биндинг — см.
+        // «Принятые решения» в ответе ассистента.
+        if (e.key >= '1' && e.key <= '9' && tabActions) {
+          const tabIndex = Number(e.key) - 1;
+          if (tabIndex < tabActions.openReposCount) {
+            e.preventDefault();
+            tabActions.switchToTab(tabIndex);
+            return;
+          }
+        }
+
         switch (key) {
           case 'O': e.preventDefault(); postCommand({ type: 'openRepoDialog' }); return;
           case 'W': e.preventDefault(); dispatch('closeRepo'); return;
           case 'M': e.preventDefault(); dispatch('merge'); return;
-          case '1': e.preventDefault(); dispatch('viewChanges'); return;
-          case '2': e.preventDefault(); dispatch('viewCommits'); return;
         }
       }
 
@@ -53,5 +93,5 @@ export function useKeyboardShortcuts(dispatch: (action: string) => void) {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [dispatch]);
+  }, [dispatch, tabActions]);
 }

@@ -32,6 +32,20 @@ export function sameRepoPath(a: string, b: string): boolean {
   return normRepoPath(a) === normRepoPath(b);
 }
 
+/**
+ * Найти индекс репо в `openRepos` по сохранённому пути (нормализованное
+ * сравнение слэшей/регистра). Используется при старте: восстановление
+ * активного таба по пути, а не по индексу — индексы нестабильны при
+ * изменении порядка/закрытии вкладок между сессиями.
+ */
+export function findRepoIndexByPath<T extends { path: string }>(repos: readonly T[], path: string): number {
+  if (!path) return -1;
+  for (let i = 0; i < repos.length; i++) {
+    if (sameRepoPath(repos[i].path, path)) return i;
+  }
+  return -1;
+}
+
 export function loadRecent(): RecentRepo[] {
   return loadStoredJson<RecentRepo[]>(STORAGE_KEY) ?? [];
 }

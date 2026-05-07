@@ -402,6 +402,19 @@ export const en = {
     invalidRepo: 'Repository unavailable',
     removeFromList: 'Remove from list',
   },
+  repoTabs: {
+    context: {
+      close: 'Close',
+      closeOthers: 'Close Others',
+      closeToRight: 'Close to the Right',
+      openInExplorer: 'Open in Explorer',
+      copyPath: 'Copy Path',
+    },
+    dnd: {
+      hint: 'Drop to open repository',
+      onlyFolders: 'Drop a folder containing a git repository.',
+    },
+  },
   operations: {
     fetchSuccess: 'Fetch completed',
     pullSuccess: 'Pull completed',

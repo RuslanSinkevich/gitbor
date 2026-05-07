@@ -47,8 +47,8 @@ export function TitleBar({ loc, page, setPage, lang, toggleLang, theme, toggleTh
     {
       label: loc.menu.view,
       items: [
-        { label: loc.menu.changes, accelerator: 'Ctrl+1', action: () => onMenuAction('viewChanges') },
-        { label: loc.menu.graph, accelerator: 'Ctrl+2', action: () => onMenuAction('viewCommits') },
+        { label: loc.menu.changes, action: () => onMenuAction('viewChanges') },
+        { label: loc.menu.graph, action: () => onMenuAction('viewCommits') },
       ],
     },
     {

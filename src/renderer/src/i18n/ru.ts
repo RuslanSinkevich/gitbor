@@ -404,6 +404,19 @@ export const ru: LocaleMap = {
     invalidRepo: 'Репозиторий недоступен',
     removeFromList: 'Удалить из списка',
   },
+  repoTabs: {
+    context: {
+      close: 'Закрыть',
+      closeOthers: 'Закрыть остальные',
+      closeToRight: 'Закрыть справа',
+      openInExplorer: 'Открыть в проводнике',
+      copyPath: 'Копировать путь',
+    },
+    dnd: {
+      hint: 'Отпустите чтобы открыть',
+      onlyFolders: 'Перетащите папку с git-репозиторием.',
+    },
+  },
   operations: {
     fetchSuccess: 'Fetch выполнен',
     pullSuccess: 'Pull выполнен',

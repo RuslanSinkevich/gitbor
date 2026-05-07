@@ -16,7 +16,7 @@ import { MergeBanner } from './features/merge';
 import { Toolbar } from './features/toolbar';
 import { Sidebar, BranchStatus } from './features/sidebar';
 import { RepoTabs } from './features/repo-tabs';
-import { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo, clearLastActiveRepo, removeRecentRepo } from './features/repo-manager';
+import { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo, clearLastActiveRepo, removeRecentRepo, findRepoIndexByPath } from './features/repo-manager';
 import { SgSplitPane } from './ui/SgSplitPane';
 import { usePromptDialog } from './ui/SgPromptDialog';
 import { AppDialogs } from './AppDialogs';
@@ -106,7 +106,34 @@ export function App() {
     state, setViewMode, ...dlg, showPrompt, promptStash, handleOpenMergeDialog, runPull, runPush,
   });
 
-  useKeyboardShortcuts(handleMenuAction);
+  /**
+   * Хоткеи переключения вкладок. Хост-компонент держит реальный
+   * `switchRepoFast` и список openRepos, поэтому формирует actions здесь
+   * (хук сам про репо ничего не знает). Switch напрямую через
+   * `switchRepoFast`, минуя `handleSwitchRepo` — последний открывает
+   * RepoManager при свитче, что для хоткея неуместно (юзер ждёт
+   * мгновенного перехода в workspace выбранного репо).
+   */
+  const tabActions = useMemo(() => ({
+    openReposCount: state.openRepos.length,
+    switchToTab: (index: number) => {
+      if (index >= 0 && index < state.openRepos.length && index !== state.activeRepoIndex) {
+        switchRepoFast(index);
+      }
+    },
+    nextTab: () => {
+      const n = state.openRepos.length;
+      if (n <= 1) return;
+      switchRepoFast((state.activeRepoIndex + 1) % n);
+    },
+    prevTab: () => {
+      const n = state.openRepos.length;
+      if (n <= 1) return;
+      switchRepoFast((state.activeRepoIndex - 1 + n) % n);
+    },
+  }), [state.openRepos.length, state.activeRepoIndex, switchRepoFast]);
+
+  useKeyboardShortcuts(handleMenuAction, tabActions);
 
   const restoreLastRepoAttempted = useRef(false);
 
@@ -140,6 +167,27 @@ export function App() {
       addRecentRepo(state.repoName, state.repoPath);
     }
   }, [state.repoPath, state.repoName]);
+
+  // Restore активного таба по сохранённому path. Запускается один раз
+  // когда openRepos впервые становится непустым (либо сразу после старта
+  // если main отдал список, либо после рендер-side openRepo). Сравниваем
+  // по path (sameRepoPath нормализует слэши/регистр) — индекс между
+  // сессиями нестабилен (порядок открытия/закрытия меняется).
+  const restoreActiveTabAttempted = useRef(false);
+  useEffect(() => {
+    if (restoreActiveTabAttempted.current) return;
+    if (state.openRepos.length === 0) return;
+    const last = loadLastActiveRepo();
+    if (!last) {
+      restoreActiveTabAttempted.current = true;
+      return;
+    }
+    const idx = findRepoIndexByPath(state.openRepos, last);
+    if (idx >= 0 && idx !== state.activeRepoIndex) {
+      switchRepoFast(idx);
+    }
+    restoreActiveTabAttempted.current = true;
+  }, [state.openRepos, state.activeRepoIndex, switchRepoFast]);
 
   /**
    * Унифицированный reset локального UI-state'а при смене активного репо.
@@ -313,8 +361,75 @@ export function App() {
     setShowRepoManager(true);
   }, []);
 
+  // Drag&drop: дроп папок из ОС → openRepo на каждую. Папка определяется
+  // через `webkitGetAsEntry().isDirectory` (надёжнее чем по File.size,
+  // который у директорий часто 0, но и у пустых файлов тоже).
+  // Файл (не папка) → toast-подсказка вместо openRepo, иначе main падал
+  // бы на `git rev-parse` любого случайного файла.
+  const [isDraggingFolder, setIsDraggingFolder] = useState(false);
+  const dragDepthRef = useRef(0);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  // dragenter/dragleave фолят при движении внутри детей: enter/leave
+  // стреляются КАЖДЫЙ раз при пересечении границы вложенного элемента.
+  // Считаем глубину как счётчик, чтобы overlay не моргал.
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
+    e.preventDefault();
+    dragDepthRef.current += 1;
+    if (dragDepthRef.current === 1) setIsDraggingFolder(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
+    e.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingFolder(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDraggingFolder(false);
+
+    const items = e.dataTransfer ? Array.from(e.dataTransfer.items) : [];
+    const folderPaths: string[] = [];
+    let droppedFiles = 0;
+    for (const item of items) {
+      if (item.kind !== 'file') continue;
+      const entry = item.webkitGetAsEntry?.();
+      const file = item.getAsFile();
+      // Electron-specific: у File из ОС-перетаскивания есть .path (абсолютный).
+      const fsPath = (file as (File & { path?: string }) | null)?.path;
+      if (entry?.isDirectory && fsPath) {
+        folderPaths.push(fsPath);
+      } else {
+        droppedFiles += 1;
+      }
+    }
+
+    if (folderPaths.length === 0) {
+      if (droppedFiles > 0) addToast(loc.repoTabs.dnd.onlyFolders, 'info');
+      return;
+    }
+    for (const p of folderPaths) {
+      postCommand({ type: 'openRepo', path: p });
+    }
+  }, [addToast, loc.repoTabs.dnd.onlyFolders]);
+
   return (
-    <div className={s.app}>
+    <div
+      className={s.app}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <TitleBar
         loc={loc} page={page} setPage={setPage}
         lang={lang} toggleLang={toggleLang}
@@ -334,6 +449,7 @@ export function App() {
             onSwitch={handleSwitchRepo}
             managerActive={repoManagerVisible}
             onShowManager={handleShowRepoManager}
+            onContextMenu={showContextMenu}
           />
 
           {hasRepo && !repoManagerVisible && (
@@ -460,6 +576,10 @@ export function App() {
       />
 
       {syncDialogs}
+
+      {isDraggingFolder && (
+        <div className={s.dropOverlay}>{loc.repoTabs.dnd.hint}</div>
+      )}
     </div>
   );
 }
