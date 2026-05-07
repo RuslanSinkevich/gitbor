@@ -14,17 +14,6 @@
   font-size: 13px;
 }
 
-/* Conflict banner */
-.conflictBanner {
-  padding: 6px 12px;
-  background: color-mix(in srgb, var(--sg-file-conflict) 15%, transparent);
-  color: var(--sg-file-conflict);
-  font-size: 12px;
-  font-weight: 500;
-  border-bottom: 1px solid var(--sg-border);
-  flex-shrink: 0;
-}
-
 /* Section (staged / unstaged) */
 .section {
   display: flex;
@@ -285,17 +274,6 @@
   display: inline-block;
 }
 
-/* File name with dir */
-.fileDir {
-  color: var(--sg-foreground-muted);
-  font-family: var(--sg-font-mono);
-  font-size: 11px;
-  flex-shrink: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .fileName {
   color: var(--sg-foreground);
   font-family: var(--sg-font-mono);
@@ -305,43 +283,3 @@
   white-space: nowrap;
 }
 
-/* Action buttons on each file row */
-.fileActions {
-  display: flex;
-  gap: 2px;
-  opacity: 0;
-  flex-shrink: 0;
-  margin-left: auto;
-  transition: opacity var(--sg-transition);
-}
-
-.fileItem:hover .fileActions {
-  opacity: 1;
-}
-
-.fileAction {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  color: var(--sg-foreground-muted);
-  cursor: pointer;
-  border-radius: 3px;
-  font-size: 14px;
-  font-family: inherit;
-  line-height: 1;
-  transition: all var(--sg-transition);
-}
-
-.fileAction:hover {
-  background: rgba(128, 128, 128, 0.2);
-  color: var(--sg-foreground);
-}
-
-.fileActionDanger:hover {
-  background: color-mix(in srgb, var(--sg-danger) 20%, transparent);
-  color: var(--sg-danger);
-}

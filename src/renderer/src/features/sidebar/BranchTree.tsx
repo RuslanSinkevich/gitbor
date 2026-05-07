@@ -63,24 +63,6 @@ export function countLeaves(node: BranchTreeNode): number {
   return node.children.reduce((sum, c) => sum + countLeaves(c), 0) + (node.branch ? 1 : 0);
 }
 
-/** Промежуточные сегменты пути к ветке (папки до листа), нап. feature/SinkevichRN для feature/SinkevichRN/x. */
-export function prefixFolderPathsForBranch(branchName: string): string[] {
-  const parts = branchName.split('/');
-  if (parts.length <= 1) return [];
-  const out: string[] = [];
-  let acc = '';
-  for (let i = 0; i < parts.length - 1; i++) {
-    acc = acc ? `${acc}/${parts[i]}` : parts[i];
-    out.push(acc);
-  }
-  return out;
-}
-
-/** У корня дерева — fullPath узлов-папок (первый уровень развёрнут по умолчанию, как раньше при depth < 1). */
-export function rootFolderFullPaths(nodes: BranchTreeNode[]): string[] {
-  return nodes.filter(n => n.children.length > 0).map(n => n.fullPath);
-}
-
 export interface BranchFolderExpand {
   isExpanded: (fullPath: string) => boolean;
   toggle: (fullPath: string) => void;

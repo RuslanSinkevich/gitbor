@@ -2,7 +2,6 @@ export const ROW_HEIGHT = 28;
 export const COL_WIDTH = 14;
 export const LEFT_PAD = 20;
 export const NODE_RADIUS = 5;
-export const LINE_WIDTH = 1.8;
 export const MERGE_RADIUS = 4;
 export const OVERSCAN = 30;
 export const DESC_PAD = 16;

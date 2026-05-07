@@ -245,33 +245,6 @@
   color: var(--sg-foreground);
 }
 
-/* Load More */
-.loadMore {
-  position: absolute;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  padding: 12px 0;
-}
-
-.loadMoreBtn {
-  padding: 6px 16px;
-  font-size: 12px;
-  font-family: inherit;
-  color: var(--sg-primary);
-  background: transparent;
-  border: 1px solid var(--sg-primary);
-  border-radius: var(--sg-radius-sm);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.loadMoreBtn:hover {
-  background: var(--sg-primary);
-  color: var(--sg-primary-foreground);
-}
-
 /* ─── GPG signature badges ─── */
 
 .gpgBadge {

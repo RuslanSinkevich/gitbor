@@ -182,16 +182,6 @@
   font-weight: 700;
 }
 
-.itemRemoteName {
-  padding-left: 20px;
-  font-weight: 500;
-  color: var(--sg-foreground-muted);
-}
-
-.itemRemoteBranch {
-  padding-left: 40px;
-}
-
 .itemName {
   overflow: hidden;
   text-overflow: ellipsis;
