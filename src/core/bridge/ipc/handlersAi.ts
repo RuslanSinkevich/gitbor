@@ -41,7 +41,7 @@ export const ipcHandlersAi: HandlerTable = {
       ctx.send({ type: 'aiError', requestId, message: 'No repository open', kind: 'config' });
       return;
     }
-    let diff = '';
+    let diff: string;
     try {
       const res = await ctx.sm.getGit().exec(['diff', '--cached', '--no-color'], { cwd: repoPath });
       diff = res.stdout ?? '';

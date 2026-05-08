@@ -85,7 +85,7 @@ export class RecoveryManager {
     // Старые lock'и от убитого git-процесса (наш SIGTERM на выходе) удаляем
     // тихо, без диалога. Молодые — могут быть от параллельно запущенного git
     // (например, юзер открыл терминал и делает там commit) — спрашиваем.
-    let ageMs = 0;
+    let ageMs: number;
     try {
       ageMs = Date.now() - statSync(lockPath).mtimeMs;
     } catch {

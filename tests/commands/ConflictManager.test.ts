@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ConflictManager } from '@core/commands/ConflictManager';
 
 function createMockGit(responses: Record<string, { stdout: string; stderr: string; exitCode: number }> = {}) {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { safePath, isSafeFilename } from '@core/utils/pathSecurity';
-import { resolve, sep } from 'path';
+import { resolve } from 'path';
 
 const isWin = process.platform === 'win32';
 

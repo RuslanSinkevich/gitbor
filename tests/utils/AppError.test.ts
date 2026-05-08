@@ -38,7 +38,7 @@ describe('AppError', () => {
   });
 
   it('is catchable as Error', () => {
-    let caught: unknown = null;
+    let caught: unknown;
     try {
       throw new AppError('repoErrors.notARepo', { path: '/p' }, 'fb');
     } catch (err) {
