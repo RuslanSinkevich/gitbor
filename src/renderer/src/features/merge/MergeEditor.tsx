@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import type { ConflictBlock } from '../../types';
 import { t, tpl } from '../../i18n';
 import { useConflictResolution, mkKey, type LineKey } from './useConflictResolution';
@@ -95,8 +96,6 @@ function ModalShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
-import { forwardRef } from 'react';
 
 interface SideColumnPaneProps {
   label: string;
@@ -200,7 +199,7 @@ function SideColumn({ blocks, side, selected, activeConflict, onToggleLine, onTo
 function ResultPane({ resultLines, resolvedConflicts, conflictCount, allResolved, resolving, onResolve, onCancel, me }: {
   resultLines: { text: string; source: 'clean' | 'ours' | 'theirs' }[];
   resolvedConflicts: number; conflictCount: number; allResolved: boolean; resolving: boolean;
-  onResolve: () => void; onCancel?: () => void; me: any;
+  onResolve: () => void; onCancel?: () => void; me: ReturnType<typeof t>['mergeEditor'];
 }) {
   return (
     <>

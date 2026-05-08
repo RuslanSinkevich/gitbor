@@ -29,8 +29,8 @@ export function SshKeysDialog({ onClose }: Props) {
     const unsub = onMainEvent((msg: MainEvent) => {
       if (msg.type === 'sshKeys') setKeys(msg.data as SshKeyInfo[]);
       if (msg.type === 'publicKey') {
-        copyToClipboard((msg as any).content);
-        setCopiedName((msg as any).name);
+        copyToClipboard(msg.content);
+        setCopiedName(msg.name);
         clearTimeout(copyTimer.current);
         copyTimer.current = setTimeout(() => setCopiedName(null), 2000);
       }
@@ -173,8 +173,8 @@ function GenerateForm({ loc, onDone }: { loc: ReturnType<typeof t>['sshKeys']; o
       <div className={s.formRow}>
         <label>{loc.keyType}</label>
         <select className="sg-select" value={keyType} onChange={e => setKeyType(e.target.value as 'ed25519' | 'rsa')}>
-          <option value="ed25519">Ed25519 (recommended)</option>
-          <option value="rsa">RSA (4096 bit)</option>
+          <option value="ed25519">{loc.keyTypeEd25519}</option>
+          <option value="rsa">{loc.keyTypeRsa}</option>
         </select>
       </div>
       <div className={s.formRow}>

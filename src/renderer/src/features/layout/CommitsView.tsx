@@ -2,6 +2,8 @@ import { CommitGraph, CommitDetails } from '../graph';
 import { RightPanelContent, type RightPanel } from './RightPanelContent';
 import { postCommand } from '../../api';
 import type { AppState, CommitDetail } from '../../types';
+import type { ShowContextMenuFn } from '../../hooks/useContextMenu';
+import type { ShowPromptFn } from '../../ui/SgPromptDialog';
 import s from '../../App.module.css';
 
 interface Props {
@@ -14,8 +16,8 @@ interface Props {
   openDiff: (file: string, hash: string) => void;
   openFileHistory: (file: string) => void;
   openFileBlame: (file: string, hash?: string) => void;
-  showContextMenu: (e: React.MouseEvent, items: any[]) => void;
-  showPrompt: any;
+  showContextMenu: ShowContextMenuFn;
+  showPrompt: ShowPromptFn;
   setRebaseOnto: (onto: string | null) => void;
   compareFrom?: string | null;
   onCompareFrom?: (hash: string) => void;
@@ -33,7 +35,7 @@ export function CommitsView({
       <div className={s.graphPane}>
         <CommitGraph
           commits={state.commits}
-          graphNodes={state.graphLayout.nodes as any}
+          graphNodes={state.graphLayout.nodes}
           maxColumns={state.graphLayout.maxColumns}
           mergeLinks={state.graphLayout.mergeLinks ?? []}
           selectedHash={state.selectedCommitHash}

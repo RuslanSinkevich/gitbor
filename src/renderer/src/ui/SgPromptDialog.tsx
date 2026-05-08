@@ -15,20 +15,24 @@ interface PromptState {
   onConfirm: (value: string) => void;
 }
 
+export interface ShowPromptOptions {
+  title: string;
+  label?: string;
+  defaultValue?: string;
+  placeholder?: string;
+  message?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  allowEmpty?: boolean;
+  onConfirm: (value: string) => void;
+}
+
+export type ShowPromptFn = (opts: ShowPromptOptions) => void;
+
 export function usePromptDialog() {
   const [prompt, setPrompt] = useState<PromptState | null>(null);
 
-  const showPrompt = useCallback((opts: {
-    title: string;
-    label?: string;
-    defaultValue?: string;
-    placeholder?: string;
-    message?: string;
-    confirmLabel?: string;
-    danger?: boolean;
-    allowEmpty?: boolean;
-    onConfirm: (value: string) => void;
-  }) => {
+  const showPrompt = useCallback<ShowPromptFn>((opts) => {
     setPrompt({
       title: opts.title,
       label: opts.label ?? '',

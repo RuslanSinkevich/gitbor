@@ -48,7 +48,7 @@ export class HooksManager {
       const isDisabled = file.endsWith('.disabled');
       const name = isDisabled ? file.replace(/\.disabled$/, '') : file;
 
-      if (!KNOWN_HOOKS.includes(name as any) && !isDisabled) {
+      if (!(KNOWN_HOOKS as readonly string[]).includes(name) && !isDisabled) {
         const fileStat = await stat(join(dir, file)).catch(() => null);
         if (!fileStat || !fileStat.isFile()) continue;
       }

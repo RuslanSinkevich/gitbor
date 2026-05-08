@@ -5,6 +5,8 @@ import { RightPanelContent, type RightPanel } from './RightPanelContent';
 import { SgSplitPane } from '../../ui/SgSplitPane';
 import type { AppState, MergeState } from '../../types';
 import type { t } from '../../i18n';
+import type { ShowContextMenuFn } from '../../hooks/useContextMenu';
+import type { ShowPromptFn } from '../../ui/SgPromptDialog';
 import { buildStorageKey } from '../../shared/uiPersist';
 import s from '../../App.module.css';
 
@@ -17,7 +19,7 @@ interface Props {
   conflictFile: string | null;
   setConflictFile: (f: string | null) => void;
   setMergeEditorFile: (f: string | null) => void;
-  showContextMenu: (e: React.MouseEvent, items: any[]) => void;
+  showContextMenu: ShowContextMenuFn;
   openDiff: (file: string, hash: string) => void;
   closeDiff: () => void;
   openFileHistory: (file: string) => void;
@@ -25,7 +27,7 @@ interface Props {
   handleOpenMergeEditor: (file: string) => void;
   handleConflictResolved: (resolvedPath: string) => void;
   selectCommit: (hash: string) => void;
-  showPrompt: any;
+  showPrompt: ShowPromptFn;
   loc: ReturnType<typeof t>;
   onOpenAiSettings: () => void;
 }
