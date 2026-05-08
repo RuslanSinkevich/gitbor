@@ -201,11 +201,19 @@ export const ipcHandlersRepoExtras: HandlerTable = {
   openInTerminal: async (_cmd, ctx) => {
     const repoPath = ctx.sm.getState().repoPath;
     if (!repoPath) return;
-    const { execFile, spawn } = await import('child_process');
+    const { spawn } = await import('child_process');
     if (process.platform === 'win32') {
-      execFile('cmd.exe', ['/K', `cd /d "${repoPath}"`], { cwd: repoPath, windowsHide: false });
+      // ВАЖНО: НЕ передаём repoPath в строку команды (`cd /d "${repoPath}"`)
+      // — там был shell-injection через `&`/`"` в имени папки. Вместо этого
+      // запускаем cmd.exe с cwd=repoPath, чтобы новый терминал открылся уже
+      // в нужной директории, и repoPath никогда не парсится cmd-парсером.
+      const proc = spawn('cmd.exe', [], { cwd: repoPath, windowsHide: false, detached: true, stdio: 'ignore' });
+      proc.unref();
     } else if (process.platform === 'darwin') {
-      execFile('open', ['-a', 'Terminal', repoPath]);
+      // open -a Terminal <path> — `path` идёт отдельным аргументом
+      // (массив args, не shell), shell-injection невозможен.
+      const proc = spawn('open', ['-a', 'Terminal', repoPath], { detached: true, stdio: 'ignore' });
+      proc.unref();
     } else {
       const terminals = [
         { cmd: 'x-terminal-emulator', args: ['--working-directory', repoPath] },
