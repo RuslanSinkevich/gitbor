@@ -10,7 +10,7 @@
  *
  * Если когда-то потребуется временно включить логи в собранном билде —
  * проще всего добавить ручку через `localStorage.setItem('skyfork.log', '1')`
- * и читать её в `isLoggingEnabled()`. Сейчас умышленно не делаю — YAGNI.
+ * и читать её в условии isDev ниже. Сейчас умышленно не делаю — YAGNI.
  */
 
 const isDev: boolean = !!(import.meta as unknown as { env?: { DEV?: boolean } })?.env?.DEV;
@@ -43,7 +43,3 @@ export const logger: Logger = isDev
       error: noop,
     };
 
-/** Проверка для условного кода (например тяжёлых debug-вычислений). */
-export function isLoggingEnabled(): boolean {
-  return isDev;
-}

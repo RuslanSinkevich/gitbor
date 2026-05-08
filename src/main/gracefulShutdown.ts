@@ -12,7 +12,7 @@
  * мокать целиком модуль electron.
  */
 
-export interface GracefulShutdownEvent {
+interface GracefulShutdownEvent {
   preventDefault(): void;
 }
 

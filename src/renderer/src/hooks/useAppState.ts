@@ -12,7 +12,6 @@ import {
 // Реэкспорт публичных типов: внешние потребители (useOperationToasts и пр.)
 // импортируют их из 'hooks/useAppState' — фасад сохраняет старую поверхность.
 export type { OperationResult } from './useRunningOps';
-export type { OpenDiffEvent, OpenMergeEditorEvent } from './useStateSubscription';
 
 /**
  * Фасад app-level state. Оркестрирует три специализированных хука:

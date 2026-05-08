@@ -1,8 +1,8 @@
 import type { AppState } from '../git/types';
 
-export type StateListener = (state: AppState) => void;
-export type RepoSwitchListener = (newPath: string) => void;
-export type RepoCloseListener = (closedPath: string) => void;
+type StateListener = (state: AppState) => void;
+type RepoSwitchListener = (newPath: string) => void;
+type RepoCloseListener = (closedPath: string) => void;
 
 /**
  * Шина событий StateManager. Три независимых канала:

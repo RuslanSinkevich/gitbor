@@ -11,6 +11,6 @@ export { SgContextMenu } from './SgContextMenu';
 export { SgSplitPane } from './SgSplitPane';
 export { SgProgressBar } from './SgProgressBar';
 export { SgTooltip } from './SgTooltip';
-export { SgToast, SgToastContainer } from './SgToast';
+export { SgToastContainer } from './SgToast';
 export { SgBadge } from './SgBadge';
 export { SgTable } from './SgTable';

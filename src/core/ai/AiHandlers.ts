@@ -2,7 +2,7 @@ import type { AiService } from './AiService';
 import type { AiConfigStore } from './AiConfigStore';
 import { AiError, type AiConnectionMode, type AiProviderConfig } from './types';
 
-export interface AiTestResult {
+interface AiTestResult {
   success: boolean;
   error?: string;
 }

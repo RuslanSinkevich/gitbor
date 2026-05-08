@@ -91,10 +91,3 @@ export async function saveGraphCache(
   }
 }
 
-export async function clearGraphCache(repoPath: string): Promise<void> {
-  try {
-    await fs.unlink(cacheFile(repoPath));
-  } catch {
-    // файла могло не быть
-  }
-}

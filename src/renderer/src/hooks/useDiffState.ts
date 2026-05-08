@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-export interface DiffTarget {
+interface DiffTarget {
   file: string;
   hash: string;
 }

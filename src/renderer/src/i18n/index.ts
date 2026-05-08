@@ -1,7 +1,6 @@
 import { ru } from './ru';
 import { en } from './en';
 import { loadStoredString, saveStoredString } from '../shared/uiPersist';
-export { useLocale } from './useLocale';
 
 type DeepString<T> = { [K in keyof T]: T[K] extends object ? DeepString<T[K]> : string };
 export type LocaleMap = DeepString<typeof en>;

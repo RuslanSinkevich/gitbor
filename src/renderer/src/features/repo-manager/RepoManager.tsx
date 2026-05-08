@@ -7,7 +7,7 @@ import { extractSummary, dtoToSummary, type RepoSummary } from './repoSummary';
 import { RepoDetail } from './RepoDetail';
 import s from './RepoManager.module.css';
 
-export { addRecentRepo, loadLastActiveRepo, saveLastActiveRepo, sameRepoPath } from './recentRepos';
+export { addRecentRepo, loadLastActiveRepo, saveLastActiveRepo } from './recentRepos';
 
 type Panel = 'none' | 'clone' | 'init';
 

@@ -11,7 +11,7 @@ function mkKey(bi: number, side: 'ours' | 'theirs', li: number): LineKey {
 
 export { mkKey, type LineKey };
 
-export interface ConflictEntry { index: number; blockIndex: number }
+interface ConflictEntry { index: number; blockIndex: number }
 
 export function useConflictResolution(file: string, onResolved?: () => void) {
   const me = t().mergeEditor;

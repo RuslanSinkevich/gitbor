@@ -10,7 +10,7 @@ import { app } from 'electron';
  * - 'info'   — инфо + warn + error.
  * - 'debug'  — всё (dev по умолчанию).
  */
-export type LogLevel = 'silent' | 'error' | 'warn' | 'info' | 'debug';
+type LogLevel = 'silent' | 'error' | 'warn' | 'info' | 'debug';
 
 const LEVEL_ORDER: Record<LogLevel, number> = {
   silent: 0,

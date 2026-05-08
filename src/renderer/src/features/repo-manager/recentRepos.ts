@@ -50,7 +50,7 @@ export function loadRecent(): RecentRepo[] {
   return loadStoredJson<RecentRepo[]>(STORAGE_KEY) ?? [];
 }
 
-export function saveRecent(repos: RecentRepo[]): void {
+function saveRecent(repos: RecentRepo[]): void {
   saveStoredJson(STORAGE_KEY, repos.slice(0, MAX_RECENT));
 }
 

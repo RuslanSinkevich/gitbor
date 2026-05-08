@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-export interface SgTableColumn<T> {
+interface SgTableColumn<T> {
   key: string;
   title: string;
   width?: number | string;

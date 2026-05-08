@@ -1,4 +1,2 @@
-export { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo, sameRepoPath } from './RepoManager';
+export { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo } from './RepoManager';
 export { clearLastActiveRepo, removeRecentRepo, findRepoIndexByPath } from './recentRepos';
-export type { RecentRepo } from './recentRepos';
-export type { RepoSummary } from './repoSummary';

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { loadStoredString, saveStoredString } from '../shared/uiPersist';
 
-export type Theme = 'dark' | 'light';
+type Theme = 'dark' | 'light';
 
 function getInitialTheme(): Theme {
   return (loadStoredString('sg-theme') as Theme) || 'light';

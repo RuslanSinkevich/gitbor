@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 
-export interface SgTab {
+interface SgTab {
   id: string;
   label: string;
   content: ReactNode;

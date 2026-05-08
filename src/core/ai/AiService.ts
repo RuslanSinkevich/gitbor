@@ -5,7 +5,7 @@ import { QwenWebProvider } from './providers/QwenWebProvider';
 import { AiError, type AiCompletionResult, type AiProviderConfig } from './types';
 import { mainLogger } from '../utils/Logger';
 
-export interface CommitMessageOptions {
+interface CommitMessageOptions {
   diff: string;
   systemPrompt?: string;
   temperature?: number;

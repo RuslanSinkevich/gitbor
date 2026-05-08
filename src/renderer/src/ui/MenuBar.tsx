@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import styles from './MenuBar.module.css';
 
-export interface MenuItem {
+interface MenuItem {
   label: string;
   accelerator?: string;
   action?: () => void;

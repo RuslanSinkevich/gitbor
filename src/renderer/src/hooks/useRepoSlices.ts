@@ -35,7 +35,7 @@ export type RepoSlice = Pick<
 // свой статус, флаг для UI берётся от активной вкладки.
 export type Meta = Pick<AppState, 'openRepos' | 'activeRepoIndex'>;
 
-export const SLICE_KEYS: readonly (keyof RepoSlice)[] = [
+const SLICE_KEYS: readonly (keyof RepoSlice)[] = [
   'repoPath',
   'repoName',
   'currentBranch',
@@ -53,7 +53,7 @@ export const SLICE_KEYS: readonly (keyof RepoSlice)[] = [
   'selectedCommitHash',
 ];
 
-export const META_KEYS: readonly (keyof Meta)[] = [
+const META_KEYS: readonly (keyof Meta)[] = [
   'openRepos',
   'activeRepoIndex',
 ];
@@ -76,7 +76,7 @@ export const EMPTY_SLICE: RepoSlice = {
   selectedCommitHash: null,
 };
 
-export const EMPTY_META: Meta = {
+const EMPTY_META: Meta = {
   openRepos: [],
   activeRepoIndex: 0,
 };

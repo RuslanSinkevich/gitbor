@@ -1,6 +1,6 @@
 import type { AiConnectionMode } from '../../types';
 
-export type AiPresetLabelKey =
+type AiPresetLabelKey =
   | 'presetOpenai'
   | 'presetOllama'
   | 'presetLmStudio'
