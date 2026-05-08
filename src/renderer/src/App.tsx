@@ -339,23 +339,14 @@ export function App() {
     }
   }, [state.openRepos.length, showRepoManager]);
 
-  // Клик по репо-табу:
-  //  • другой индекс → переключаем активный репо И открываем RepoManager
-  //    (как при нажатии «+»). Так юзер при смене проекта сначала видит
-  //    обзорный экран, а не сразу проваливается в graph/changes.
-  //  • тот же индекс → ничего не свитчим, лишь закрываем менеджер
-  //    (даёт способ выйти из «+»-вкладки кликом по уже активному табу).
-  // Открытие репо из RepoManager (через postCommand 'openRepo') в эту
-  // функцию НЕ попадает — оно идёт мимо switchRepoFast напрямую к main,
-  // и менеджер закрывается эффектом на рост openRepos.length выше.
+  // Клик по репо-табу: просто переключаем активный репо в workspace.
+  // RepoManager показываем только по «+» (handleShowRepoManager) или
+  // когда вообще нет открытых репо (repoManagerVisible).
   const handleSwitchRepo = useCallback((index: number) => {
-    if (index === state.activeRepoIndex) {
-      setShowRepoManager(false);
-      return;
-    }
-    setShowRepoManager(true);
+    if (showRepoManager) setShowRepoManager(false);
+    if (index === state.activeRepoIndex) return;
     switchRepoFast(index);
-  }, [switchRepoFast, state.activeRepoIndex]);
+  }, [switchRepoFast, state.activeRepoIndex, showRepoManager]);
 
   const handleShowRepoManager = useCallback(() => {
     setShowRepoManager(true);
