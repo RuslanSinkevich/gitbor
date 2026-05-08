@@ -158,6 +158,15 @@
   font-size: 13px;
 }
 
+.lazyFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--sg-foreground-muted);
+  font-size: 13px;
+}
+
 .dropOverlay {
   position: fixed;
   inset: 0;

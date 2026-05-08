@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { useAppState } from './hooks/useAppState';
 import { useDiffState } from './hooks/useDiffState';
 import { useTheme } from './hooks/useTheme';
@@ -22,7 +22,10 @@ import { usePromptDialog } from './ui/SgPromptDialog';
 import { AppDialogs } from './AppDialogs';
 import { postCommand, onMainEvent, invokeCommand } from './api';
 import { t, tpl, setLang, getLang } from './i18n';
-import { UiShowcase } from './pages/UiShowcase';
+// UiShowcase — dev-only страница UI-Kit, рендерится только при page === 'ui-kit'.
+// Lazy-load экономит ~десятки кБ из основного бандла (showcase секции импортят
+// демо-данные графа, токены, кучу sg-компонентов разом).
+const UiShowcase = lazy(() => import('./pages/UiShowcase').then(m => ({ default: m.UiShowcase })));
 import { buildStorageKey } from './shared/uiPersist';
 import s from './App.module.css';
 
@@ -429,7 +432,11 @@ export function App() {
         onOpenRepo={() => postCommand({ type: 'openRepoDialog' })}
       />
 
-      {page === 'ui-kit' && <UiShowcase />}
+      {page === 'ui-kit' && (
+        <Suspense fallback={<div className={s.lazyFallback}>{loc.app.loading}</div>}>
+          <UiShowcase />
+        </Suspense>
+      )}
 
       {page === 'app' && (
         <>
