@@ -101,7 +101,7 @@ export function TitleBar({ loc, page, setPage, lang, toggleLang, theme, toggleTh
       <div className={s.nav}>
         {isDev && (
           <>
-            <SgButton variant={page === 'app' ? 'primary' : 'ghost'} size="sm" onClick={() => setPage('app')}>App</SgButton>
+            <SgButton variant={page === 'app' ? 'primary' : 'ghost'} size="sm" onClick={() => setPage('app')}>{loc.app.appPage}</SgButton>
             <SgButton variant={page === 'ui-kit' ? 'primary' : 'ghost'} size="sm" onClick={() => setPage('ui-kit')}>{loc.showcase.title}</SgButton>
           </>
         )}

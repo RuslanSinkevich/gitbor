@@ -10,6 +10,7 @@ export const ru: LocaleMap = {
     unknownError: 'Неизвестная ошибка',
     reloadUi: 'Перезагрузить UI',
     loading: 'Загрузка...',
+    appPage: 'Приложение',
   },
   repoErrors: {
     notARepo: '«{path}» — не Git-репозиторий.',
@@ -462,6 +463,8 @@ export const ru: LocaleMap = {
     comment: 'Комментарий',
     generating: 'Генерация...',
     close: 'Закрыть',
+    keyTypeEd25519: 'Ed25519 (рекомендуется)',
+    keyTypeRsa: 'RSA (4096 бит)',
   },
   lfs: {
     title: 'Git LFS',

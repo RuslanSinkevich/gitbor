@@ -8,6 +8,7 @@ export const en = {
     unknownError: 'Unknown error',
     reloadUi: 'Reload UI',
     loading: 'Loading...',
+    appPage: 'App',
   },
   repoErrors: {
     notARepo: '"{path}" is not a Git repository.',
@@ -460,6 +461,8 @@ export const en = {
     comment: 'Comment',
     generating: 'Generating...',
     close: 'Close',
+    keyTypeEd25519: 'Ed25519 (recommended)',
+    keyTypeRsa: 'RSA (4096 bit)',
   },
   lfs: {
     title: 'Git LFS',

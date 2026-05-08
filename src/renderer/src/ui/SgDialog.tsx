@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { t } from '../i18n';
 
 interface SgDialogProps {
   open: boolean;
@@ -34,7 +35,7 @@ export function SgDialog({ open, title, onClose, children, footer, width = 480 }
     <dialog ref={dialogRef} className="sg-dialog" style={{ width }}>
       <header className="sg-dialog-header">
         <h2 className="sg-dialog-title">{title}</h2>
-        <button className="sg-dialog-close" onClick={onClose} aria-label="Close">&times;</button>
+        <button className="sg-dialog-close" onClick={onClose} aria-label={t().dialog.close}>&times;</button>
       </header>
       <div className="sg-dialog-body">{children}</div>
       {footer && <footer className="sg-dialog-footer">{footer}</footer>}
