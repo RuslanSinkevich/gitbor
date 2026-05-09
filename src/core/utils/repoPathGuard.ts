@@ -52,12 +52,23 @@ export function isDangerousRepoRoot(repoPath: string): DangerousRepoCheck {
     // git репо в C:\Users.
     if (/[\\/]Users[\\/]?$/i.test(normalized)) return { dangerous: true, reason: 'usersRoot' };
 
-    const winSystemRoots = [
-      'c:\\windows',
-      'c:\\program files',
-      'c:\\program files (x86)',
-      'c:\\programdata',
-    ];
+    // Берём реальные системные корни из env (SystemRoot, ProgramFiles,
+    // ProgramData), а не хардкодим 'c:\'. На машинах, где Windows стоит
+    // на D:/E:/..., старая проверка не ловила ничего.
+    const winSystemRoots: string[] = [];
+    const sysRoot = process.env.SystemRoot;
+    const progFiles = process.env.ProgramFiles;
+    const progFilesX86 = process.env['ProgramFiles(x86)'];
+    const progData = process.env.ProgramData;
+    if (sysRoot) winSystemRoots.push(path.resolve(sysRoot).toLowerCase());
+    if (progFiles) winSystemRoots.push(path.resolve(progFiles).toLowerCase());
+    if (progFilesX86) winSystemRoots.push(path.resolve(progFilesX86).toLowerCase());
+    if (progData) winSystemRoots.push(path.resolve(progData).toLowerCase());
+    // Безопасный fallback на C:, если переменные окружения почему-то пусты
+    // (например, Windows Sandbox без полного env).
+    if (winSystemRoots.length === 0) {
+      winSystemRoots.push('c:\\windows', 'c:\\program files', 'c:\\program files (x86)', 'c:\\programdata');
+    }
     if (winSystemRoots.some(r => lower === r || lower.startsWith(r + '\\'))) {
       return { dangerous: true, reason: 'systemDirectory' };
     }
