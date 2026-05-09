@@ -12,6 +12,7 @@ import { CommandHandler } from '../core/commands/CommandHandler';
 import { MessageBridge } from '../core/bridge/MessageBridge';
 import { RecoveryManager } from '../core/safety/RecoveryManager';
 import { checkGitAvailable, showGitNotFoundMessage, showRecoveryDialog } from '../core/safety/RecoveryUI';
+import { attachLongPathSuggester } from '../core/safety/LongPathSuggester';
 import { AiService } from '../core/ai/AiService';
 import { AiConfigStore } from '../core/ai/AiConfigStore';
 import { AiHandlers } from '../core/ai/AiHandlers';
@@ -175,6 +176,10 @@ async function initServices(): Promise<void> {
   if (!gitCheck.available) {
     await showGitNotFoundMessage();
   }
+
+  // На Windows глубокие репо валятся в Filename too long, пока не выставлен
+  // core.longpaths=true. При первом совпадении показываем диалог-подсказку.
+  attachLongPathSuggester(probeGit);
 
   repoRegistry = new RepoServicesRegistry();
   stateManager = new StateManager(repoRegistry);

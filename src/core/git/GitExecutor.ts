@@ -18,6 +18,27 @@ export class GitError extends Error {
 
 export class GitExecutor {
   private readonly activeProcesses = new Set<ChildProcess>();
+  private static stderrInspector: ((stderr: string) => void) | null = null;
+
+  /**
+   * Регистрирует глобальный инспектор stderr. Используется
+   * `LongPathSuggester` для разовой подсказки про `core.longpaths`.
+   * Регистрируется один раз из main bootstrap; не зависит от текущего
+   * экземпляра GitExecutor (в приложении один на весь main).
+   */
+  static setStderrInspector(fn: ((stderr: string) => void) | null): void {
+    GitExecutor.stderrInspector = fn;
+  }
+
+  private static notifyStderr(stderr: string): void {
+    const fn = GitExecutor.stderrInspector;
+    if (!fn || !stderr) return;
+    try {
+      fn(stderr);
+    } catch {
+      // Inspector — диагностика, его падения никогда не должны влиять на git-операцию.
+    }
+  }
 
   constructor(private defaultCwd: string) {
     // Logger общий через `mainLogger` singleton: уровень/файл-вывод
@@ -82,6 +103,7 @@ export class GitExecutor {
           mainLogger.debug(`git done: exit=${exitCode} duration=${duration}ms`);
 
           this.reportToActivity(args, cwd, stdout, stderr, exitCode, duration, startTime);
+          if (exitCode !== 0) GitExecutor.notifyStderr(stderr);
 
           resolve({ stdout, stderr, exitCode, duration });
         }
@@ -139,9 +161,11 @@ export class GitExecutor {
         clearTimeout(timer);
         this.activeProcesses.delete(proc);
         const duration = Date.now() - startTime;
-        mainLogger.debug(`git done(stdin): exit=${code ?? 1} duration=${duration}ms`);
-        this.reportToActivity(displayArgs, cwd, stdout, stderr, code ?? 1, duration, startTime);
-        resolve({ stdout, stderr, exitCode: code ?? 1, duration });
+        const exitCode = code ?? 1;
+        mainLogger.debug(`git done(stdin): exit=${exitCode} duration=${duration}ms`);
+        this.reportToActivity(displayArgs, cwd, stdout, stderr, exitCode, duration, startTime);
+        if (exitCode !== 0) GitExecutor.notifyStderr(stderr);
+        resolve({ stdout, stderr, exitCode, duration });
       });
 
       proc.on('error', (err) => {
