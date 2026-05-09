@@ -95,6 +95,7 @@ export class CommandHandler {
   unstageFile(file: string): Promise<OperationResult> { return Write.unstageFile(this.queue, this.git, this.state, file); }
   unstageAll(files: string[]): Promise<OperationResult> { return Write.unstageAll(this.queue, this.git, this.state, files); }
   discardFileChanges(file: string): Promise<OperationResult> { return Write.discardFileChanges(this.queue, this.git, this.state, file); }
+  discardFiles(files: string[]): Promise<OperationResult> { return Write.discardFiles(this.queue, this.git, this.state, files); }
   async deleteUntrackedFile(file: string): Promise<void> {
     await this.queue.enqueueWrite('deleteUntrackedFile', async () => {
       const { rm, stat } = await import('fs/promises');
@@ -103,6 +104,26 @@ export class CommandHandler {
       const fullPath = safePath(repoPath, file);
       const fileStat = await stat(fullPath);
       await rm(fullPath, { recursive: fileStat.isDirectory(), force: false });
+      await this.state.refreshStatusAndNotify();
+    });
+  }
+  async deleteUntrackedFiles(files: string[]): Promise<void> {
+    if (files.length === 0) return;
+    await this.queue.enqueueWrite('deleteUntrackedFiles', async () => {
+      const { rm, stat } = await import('fs/promises');
+      const { safePath } = await import('../utils/pathSecurity');
+      const repoPath = this.state.getState().repoPath;
+      // Сначала валидируем все пути через safePath, только потом удаляем — иначе
+      // можем удалить часть и потом упасть на запретном пути с грязным состоянием.
+      const targets: { fullPath: string; isDir: boolean }[] = [];
+      for (const f of files) {
+        const fullPath = safePath(repoPath, f);
+        const fileStat = await stat(fullPath);
+        targets.push({ fullPath, isDir: fileStat.isDirectory() });
+      }
+      for (const t of targets) {
+        await rm(t.fullPath, { recursive: t.isDir, force: false });
+      }
       await this.state.refreshStatusAndNotify();
     });
   }

@@ -186,6 +186,11 @@ export async function discardFileChanges(queue: OperationQueue, git: GitExecutor
   return gitExecSimple(queue, git, state, 'discardFileChanges', ['checkout', '--', file], 'refreshStatusAndNotify');
 }
 
+export async function discardFiles(queue: OperationQueue, git: GitExecutor, state: StateManager, files: string[]): Promise<OperationResult> {
+  if (files.length === 0) return { success: true, rollbackAvailable: false };
+  return gitExecSimple(queue, git, state, 'discardFiles', ['checkout', '--', ...files], 'refreshStatusAndNotify');
+}
+
 export async function cloneRepo(queue: OperationQueue, git: GitExecutor, state: StateManager, url: string, targetPath: string): Promise<OperationResult> {
   return gitWrite(queue, state, 'clone', async () => {
     const { dirname } = await import('path');

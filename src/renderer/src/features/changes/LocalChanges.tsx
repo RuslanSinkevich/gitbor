@@ -125,7 +125,7 @@ export function LocalChanges({
         danger: true,
         action: () => {
           const doDiscard = () => {
-            for (const f of trackedFiles) postCommand({ type: 'discardFileChanges', file: f.path });
+            postCommand({ type: 'discardFiles', files: trackedFiles.map(f => f.path) });
           };
           if (showPrompt) {
             showPrompt({
@@ -147,7 +147,7 @@ export function LocalChanges({
         danger: true,
         action: () => {
           const doDelete = () => {
-            for (const f of untrackedFiles) postCommand({ type: 'deleteUntrackedFile', file: f.path });
+            postCommand({ type: 'deleteUntrackedFiles', files: untrackedFiles.map(f => f.path) });
           };
           if (showPrompt) {
             showPrompt({
@@ -194,9 +194,8 @@ export function LocalChanges({
   const handleUnstageAll = () => { postCommand({ type: 'unstageAll', files: stagedFiles.map(f => f.path) }); };
   const handleDiscardAll = () => {
     const doDiscard = () => {
-      for (const f of normalUnstaged) {
-        if (f.status !== '?') postCommand({ type: 'discardFileChanges', file: f.path });
-      }
+      const tracked = normalUnstaged.filter(f => f.status !== '?').map(f => f.path);
+      if (tracked.length > 0) postCommand({ type: 'discardFiles', files: tracked });
     };
     if (showPrompt) {
       showPrompt({

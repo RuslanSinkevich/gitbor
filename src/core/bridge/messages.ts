@@ -90,6 +90,8 @@ export type RendererCommand =
   | { type: 'unstageAll'; files: string[] }
   | { type: 'discardFileChanges'; file: string }
   | { type: 'deleteUntrackedFile'; file: string }
+  | { type: 'discardFiles'; files: string[] }
+  | { type: 'deleteUntrackedFiles'; files: string[] }
 
   // Merge conflict operations
   | { type: 'startMerge'; source: string; options: MergeOptions }

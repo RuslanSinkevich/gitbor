@@ -168,6 +168,26 @@ describe('writeCommands', () => {
     });
   });
 
+  describe('discardFiles', () => {
+    it('passes all files в один git вызов', async () => {
+      const git = createMockGit();
+      const queue = createMockQueue();
+      const state = createMockState();
+      await Write.discardFiles(queue as any, git as any, state as any, ['a.ts', 'b/c.ts']);
+      expect(git.exec).toHaveBeenCalledTimes(1);
+      expect(git.exec).toHaveBeenCalledWith(['checkout', '--', 'a.ts', 'b/c.ts']);
+    });
+
+    it('пустой список — не дёргает git', async () => {
+      const git = createMockGit();
+      const queue = createMockQueue();
+      const state = createMockState();
+      const r = await Write.discardFiles(queue as any, git as any, state as any, []);
+      expect(git.exec).not.toHaveBeenCalled();
+      expect(r.success).toBe(true);
+    });
+  });
+
   describe('cloneRepo', () => {
     it('uses parent dir as cwd and sets timeout', async () => {
       const git = createMockGit();

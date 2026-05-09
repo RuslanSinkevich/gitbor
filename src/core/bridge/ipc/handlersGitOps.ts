@@ -85,8 +85,14 @@ export const ipcHandlersGitOps: HandlerTable = {
   discardFileChanges: async (cmd, ctx) => {
     await ctx.ch.discardFileChanges(cmd.file);
   },
+  discardFiles: async (cmd, ctx) => {
+    await ctx.ch.discardFiles(cmd.files);
+  },
   deleteUntrackedFile: async (cmd, ctx) => {
     await ctx.ch.deleteUntrackedFile(cmd.file);
+  },
+  deleteUntrackedFiles: async (cmd, ctx) => {
+    await ctx.ch.deleteUntrackedFiles(cmd.files);
   },
 
   startMerge: async (cmd, ctx) => {
