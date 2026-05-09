@@ -59,8 +59,8 @@ npm run dist:linux   # Linux (AppImage + deb)
 | UI | React 18, TypeScript 5.9, Vite 6 |
 | Styles | CSS Modules, `--sg-*` custom properties |
 | File watcher | chokidar 4 |
-| Tests | Vitest 4.1 (unit, 45 files), Playwright 1.59 (E2E, Windows) |
-| DX | husky 9 + lint-staged 17 (pre-commit), `npm run analyze` (rollup-plugin-visualizer) |
+| Tests | Vitest 4.1 (unit, 46 files / 470 tests), Playwright 1.59 (E2E, Windows) |
+| DX | husky 9 + lint-staged 17 (pre-commit) + `npm test` (pre-push), `npm run analyze` (rollup-plugin-visualizer) |
 | Git | Bundled git binary (`resources/git/{platform}/git`) |
 
 ---
@@ -230,13 +230,13 @@ skyfork/
 │       ├── package.json
 │       └── vite.config.ts
 │
-├── tests/                         # Unit tests (Vitest, 461 tests in 45 files)
+├── tests/                         # Unit tests (Vitest, 470 tests in 46 files)
 │   ├── git/                       # Parsers, managers
-│   ├── commands/                  # writeCommands, readCommands, ConflictManager
+│   ├── commands/                  # writeCommands (incl. batch discardFiles), readCommands, ConflictManager
 │   ├── state/                     # StateManager (multi-repo), repoSlice
 │   ├── services/                  # RepoServicesRegistry (lifecycle, isolation)
 │   ├── activity/                  # GitActivityStore
-│   ├── safety/                    # OperationQueue, AtomicWrite, OperationJournal, RecoveryManager
+│   ├── safety/                    # OperationQueue, AtomicWrite, OperationJournal, RecoveryManager, LongPathSuggester
 │   ├── bridge/                    # IPC contracts, ipc/helpers, MessageBridge.handleCommand, handlersGitOps
 │   ├── ai/                        # AiConfigStore, AiHandlers, AiService, providers (OpenAI/QwenWeb), prompts, presets
 │   ├── changes/                   # fileTree (buildFileTree, collectFiles)
@@ -263,6 +263,7 @@ skyfork/
 │
 ├── .github/workflows/             # ci.yml (push, 3 OS, Node 20) + pr.yml (PR, Win, Node 22, +e2e)
 ├── .husky/pre-commit              # husky 9 + lint-staged 17 + project-wide tsc
+├── .husky/pre-push                # npm test (bypass via SKIP_TESTS=1)
 ├── dist/                          # Build output
 ├── .gitattributes                 # Line ending normalization
 ├── vitest.config.ts               # Vitest configuration
@@ -389,7 +390,7 @@ Russian translations: [`docs/ru/`](docs/ru/)
 
 ## Status
 
-Version 0.1.0. Backend and UI feature-complete for MVP. 461 unit tests across 45 files (Vitest 4.1) plus 3 Playwright E2E specs (Windows). ESLint + Prettier configured; husky 9 + lint-staged 17 enforce `eslint --fix` and project-wide `tsc --noEmit` on each commit. CI: `ci.yml` runs lint/typecheck/test/build on Ubuntu / Windows / macOS (Node 20) for push events; `pr.yml` runs the same plus E2E on Windows / Node 22 for pull requests. 0 npm audit vulnerabilities (root + renderer). Not production-tested.
+Version 0.1.0. Backend and UI feature-complete for MVP. 470 unit tests across 46 files (Vitest 4.1) plus 3 Playwright E2E specs (Windows). ESLint + Prettier configured; husky 9 + lint-staged 17 enforce `eslint --fix` and project-wide `tsc --noEmit` on each commit; `npm test` runs in `.husky/pre-push` (bypass via `SKIP_TESTS=1`). CI: `ci.yml` runs lint/typecheck/test/build on Ubuntu / Windows / macOS (Node 20) for push events; `pr.yml` runs the same plus E2E on Windows / Node 22 for pull requests. 0 npm audit vulnerabilities (root + renderer). Not production-tested.
 
 ## License
 

@@ -67,8 +67,10 @@ SkyFork — настольный Git-клиент на Electron.
 - [ ] Форматирование корректно (`npm run format`)
 - [ ] Типы IPC синхронизированы между core и renderer
 - [ ] Новые возможности имеют соответствующие IPC-команды от начала до конца
-- [ ] Тесты проходят (`npm test`)
+- [ ] Юнит-тесты проходят (`npm test` — Vitest, 461 тест в 45 файлах)
+- [ ] E2E-тесты проходят на Windows (`npm run e2e` — Playwright, 3 спека, ~27 сек)
 - [ ] Пользовательские пути валидируются через `safePath()` / `isSafeFilename()`
 - [ ] Новые ключи i18n добавлены в оба языка (en + ru)
 - [ ] Проверено вручную в Electron (не только в браузере)
-- [ ] CI проходит (GitHub Actions: lint, typecheck, test, build на 3 ОС)
+- [ ] `pr.yml` workflow зелёный (lint / tsc / test / build / e2e на Windows + Node 22)
+- [ ] `ci.yml` workflow зелёный после merge (матрица 3 ОС на Node 20)

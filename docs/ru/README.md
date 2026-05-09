@@ -60,8 +60,8 @@ npm run dist:linux   # Linux (AppImage + deb)
 | UI | React 18, TypeScript 5.9, Vite 6 |
 | Стили | CSS Modules, CSS-переменные `--sg-*` |
 | Файловый наблюдатель | chokidar 4 |
-| Тесты | Vitest 4.1 (unit, 45 файлов), Playwright 1.59 (E2E, Windows) |
-| DX | husky 9 + lint-staged 17 (pre-commit), `npm run analyze` (rollup-plugin-visualizer) |
+| Тесты | Vitest 4.1 (unit, 46 файлов / 470 тестов), Playwright 1.59 (E2E, Windows) |
+| DX | husky 9 + lint-staged 17 (pre-commit) + `npm test` (pre-push), `npm run analyze` (rollup-plugin-visualizer) |
 | Линтинг | ESLint 10 (flat config) + Prettier |
 | CI | GitHub Actions: `ci.yml` (push, 3 ОС, Node 20) + `pr.yml` (PR, Windows, Node 22, +e2e) |
 | Git | Встроенный git binary (`resources/git/{platform}/git`) |
@@ -233,29 +233,38 @@ skyfork/
 │       ├── package.json
 │       └── vite.config.ts
 │
-├── tests/                         # Тесты (Vitest, 461 тест в 45 файлах)
+├── tests/                         # Юнит-тесты (Vitest, 461 тест в 45 файлах)
 │   ├── git/                       # Парсеры и менеджеры (GitExecutor, RebaseManager, ...)
 │   ├── commands/                  # writeCommands, readCommands, ConflictManager
 │   ├── state/                     # StateManager (мульти-репо), repoSlice
 │   ├── services/                  # RepoServicesRegistry (lifecycle, изоляция)
 │   ├── activity/                  # GitActivityStore
 │   ├── safety/                    # OperationQueue, AtomicWrite, OperationJournal, RecoveryManager
-│   ├── bridge/                    # IPC-контракты (messages.ts), ipc/helpers
+│   ├── bridge/                    # IPC-контракты, ipc/helpers, MessageBridge.handleCommand, handlersGitOps
 │   ├── ai/                        # AiConfigStore, AiHandlers, AiService, providers (OpenAI/QwenWeb), prompts, presets
 │   ├── changes/                   # fileTree (buildFileTree, collectFiles)
+│   ├── repo-manager/              # recentRepos (фильтрация невалидных путей)
+│   ├── main/                      # gracefulShutdown
 │   ├── utils/                     # pathSecurity, repoPathGuard, AppError, Logger
 │   └── i18n/                      # Полнота локализации, tpl
+│
+├── tests-e2e/                     # Playwright E2E (Windows-only, 3 спека)
+│   ├── helpers.ts                 # launchApp(), makeFixtureRepo()
+│   ├── app-launch.spec.ts         # Smoke: видимость titlebar
+│   ├── open-repo.spec.ts          # autoOpenRepo через cwd=fixture
+│   └── switch-tab.spec.ts         # Переключение между табами репозиториев
 │
 ├── docs/                          # Документация
 │   ├── getting-started.md         # Установка и рабочий процесс
 │   ├── architecture.md            # Обзор архитектуры
 │   ├── features.md                # Список возможностей
 │   ├── contributing.md            # Руководство по контрибьюции
-│   ├── testing.md                 # Тестирование (Vitest)
+│   ├── testing.md                 # Тестирование (Vitest + Playwright)
+│   ├── cross-platform-checklist.md # Cross-platform аудит
+│   ├── audit/                     # Отчёты аудит-стримов + bundle analyzer
 │   └── ru/                        # Русские переводы
 │
 ├── dist/                          # Результат сборки
-├── tests-e2e/                     # Playwright E2E (Windows-only)
 ├── .github/workflows/ci.yml       # CI на push (3 ОС, Node 20)
 ├── .github/workflows/pr.yml       # PR-гейт (Windows, Node 22, +e2e)
 ├── .husky/pre-commit              # husky 9 + lint-staged 17 + project-wide tsc
