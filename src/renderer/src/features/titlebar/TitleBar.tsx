@@ -96,7 +96,7 @@ export function TitleBar({ loc, page, setPage, lang, toggleLang, theme, toggleTh
   ];
 
   return (
-    <header className={s.titlebar}>
+    <header className={s.titlebar} data-testid="titlebar">
       <MenuBar menus={menus} />
       <div className={s.nav}>
         {isDev && (

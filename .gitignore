@@ -46,3 +46,9 @@ resources/git/
 
 COMMIT_TMP.txt
 docs/audit/.commit-msg-tmp
+
+# Playwright
+tests-e2e/_report/
+tests-e2e/test-results/
+playwright-report/
+test-results/

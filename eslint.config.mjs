@@ -7,12 +7,18 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   prettierConfig,
   {
-    files: ['src/**/*.ts', 'src/**/*.tsx', 'tests/**/*.ts'],
+    files: ['src/**/*.ts', 'src/**/*.tsx', 'tests/**/*.ts', 'tests-e2e/**/*.ts', 'playwright.config.ts'],
     rules: {
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-require-imports': 'off',
       'no-console': 'off',
+    },
+  },
+  {
+    files: ['tests-e2e/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
   {
@@ -22,6 +28,7 @@ export default tseslint.config(
       'node_modules/',
       'src/renderer/node_modules/',
       'src/renderer/dist/',
+      'tests-e2e/_report/',
       '**/*.js',
       '**/*.mjs',
     ],

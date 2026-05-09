@@ -114,7 +114,7 @@ export function Sidebar({
   }, [remotes, filteredRemote, sections.remotes]);
 
   return (
-    <div className={s.root}>
+    <div className={s.root} data-testid="sidebar">
       <div className={`${s.navItem} ${activeView === 'changes' ? s.navItemActive : ''}`} onClick={() => onSwitchView('changes')}>
         <span className={s.navIcon}>{ICONS.changes}</span>
         <span className={s.navLabel}>{loc.sidebar.localChanges}</span>

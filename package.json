@@ -26,6 +26,8 @@
     "dist:mac": "npm run build && npm test && electron-builder --mac",
     "dist:linux": "npm run build && npm test && electron-builder --linux",
     "analyze": "cross-env SKYFORK_ANALYZE=1 npm run build:renderer",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install chromium",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -77,6 +79,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.59.1",
     "@types/node": "^22.19.0",
     "concurrently": "^8.2.0",
     "cross-env": "^7.0.3",

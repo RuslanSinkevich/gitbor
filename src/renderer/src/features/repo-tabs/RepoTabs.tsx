@@ -85,7 +85,7 @@ export function RepoTabs({ repos, activeIndex, hasChanges, onSwitch, managerActi
   }, [repos, loc, onContextMenu]);
 
   return (
-    <div className={s.root}>
+    <div className={s.root} data-testid="repo-tabs">
       <div className={s.tabs}>
         {repos.map((repo, i) => (
           <div
@@ -94,6 +94,7 @@ export function RepoTabs({ repos, activeIndex, hasChanges, onSwitch, managerActi
             onClick={() => onSwitch ? onSwitch(i) : postCommand({ type: 'switchRepo', index: i })}
             onContextMenu={(e) => handleContext(e, i)}
             title={repo.path}
+            data-testid={`repo-tab-${i}`}
           >
             <span className={s.tabName}>{repo.name}</span>
             {!managerActive && i === activeIndex && hasChanges && <span className={s.tabDot} />}
