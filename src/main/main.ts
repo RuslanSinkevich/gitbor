@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, safeStorage } from 'electron';
+import { app, BrowserWindow, Menu, dialog, safeStorage, shell } from 'electron';
 import { existsSync } from 'fs';
 import * as path from 'path';
 import * as net from 'net';
@@ -79,10 +79,47 @@ async function createWindow(): Promise<void> {
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
+      // Жёсткий security-минимум: sandbox + contextIsolation + webSecurity.
+      // Все четыре флага явно прописаны (не полагаемся на дефолты Electron),
+      // потому что обновление major-версии может изменить дефолт без warning.
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
+      webSecurity: true,
+      // Spellcheck не нужен в git-клиенте, отключаем — экономия RAM,
+      // меньше fingerprinting через спорные словари.
+      spellcheck: false,
+      // Worker thread'ы в renderer'е тоже без node API.
+      nodeIntegrationInWorker: false,
     },
+  });
+
+  // Лочим открытие новых окон через window.open(...) и target=_blank.
+  // Renderer не должен уметь породить второй BrowserWindow; внешние ссылки
+  // открываем системным браузером через shell.openExternal.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      void shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  // Запрещаем навигацию внутри renderer'а на любой URL, кроме стартового
+  // (file://.../index.html или http://127.0.0.1:5188 в dev). Защита от
+  // случайной/злонамеренной навигации через <a href> или history.pushState.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const allowedPrefixes = ['file://', 'http://127.0.0.1:', 'http://localhost:'];
+    if (!allowedPrefixes.some((p) => url.startsWith(p))) {
+      event.preventDefault();
+      if (url.startsWith('https://') || url.startsWith('http://')) {
+        void shell.openExternal(url);
+      }
+    }
+  });
+
+  // Блокируем любые попытки прицепить <webview> — в нашем UI их нет.
+  mainWindow.webContents.on('will-attach-webview', (event) => {
+    event.preventDefault();
   });
 
   mainWindow.once('ready-to-show', () => {
