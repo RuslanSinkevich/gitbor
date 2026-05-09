@@ -424,7 +424,7 @@ Module: `src/renderer/src/features/changes/fileTreeModel.ts`
 | Git managers | WorktreeManager, GitExecutor (sanitizeArgs), RebaseManager | ~18 |
 | Commands | writeCommands, readCommands, ConflictManager | ~32 |
 | Utils | pathSecurity, repoPathGuard, AppError, Logger | ~40 |
-| Safety | OperationQueue, AtomicWrite, OperationJournal, RecoveryManager | ~25 |
+| Safety | OperationQueue, AtomicWrite, OperationJournal, RecoveryManager, LongPathSuggester | ~32 |
 | i18n | Key completeness en↔ru, tpl | ~15 |
 | Managers | BisectManager, HooksManager, LfsManager (contracts) | ~10 |
 | State | StateManager (multi-repo, isRepoTracked guard), repoSlice | ~10 |
@@ -435,7 +435,7 @@ Module: `src/renderer/src/features/changes/fileTreeModel.ts`
 | Changes | fileTree (buildFileTree, collectFiles) | ~11 |
 | Repo Manager | recentRepos (invalid path filtering) | ~3 |
 | Main | gracefulShutdown | ~5 |
-| **Total** | **45 files** | **461** |
+| **Total** | **46 files** | **470** |
 
 ---
 
@@ -528,7 +528,7 @@ steps:
   - npm run lint                        # ESLint check
   - npx tsc -p tsconfig.main.json       # TypeScript check (main + core)
   - npx tsc -b (src/renderer)           # TypeScript check (renderer)
-  - npm test                            # Vitest (461 tests in 45 files)
+  - npm test                            # Vitest (470 tests in 46 files)
   - npm run build:renderer              # Vite build
   - npm run build:main                  # tsc main process
 ```
@@ -563,14 +563,19 @@ e2e:
 
 Helpers in `tests-e2e/helpers.ts`: `launchApp({ cwd? })` and `makeFixtureRepo(prefix)` (creates a temp git repo with an initial commit, cleanup in `finally`).
 
-### Pre-commit hook
+### Pre-commit and pre-push hooks
 
-`.husky/pre-commit` runs:
+`.husky/pre-commit` (lightweight, ~1–2s):
 
 1. `npx lint-staged` — `eslint --fix` on staged `*.{ts,tsx}` files (auto-fix and re-stage).
 2. If any TS/TSX is staged, project-wide `npx tsc --noEmit -p tsconfig.main.json && npx tsc --noEmit -p src/renderer/tsconfig.json` (per-file `tsc` is meaningless — types depend on the whole project).
 
-`npm test` is **not** part of the hook (5–7s per commit was too slow on rebases) — tests run in CI instead.
+`.husky/pre-push` (~5–7s):
+
+1. `npm test` (Vitest, 470 tests in 46 files) — full suite to catch regressions before they reach the remote.
+2. Bypass: `SKIP_TESTS=1 git push` — for branches that touch only docs/configs and have no code under test.
+
+Split rationale: keep commits cheap (lint-staged + tsc), put the full test suite at push time where the latency is acceptable and the safety net catches red trees before they hit the remote.
 
 ### Coverage
 
