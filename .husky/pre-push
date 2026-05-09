@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+
+# pre-push: гоняем полный набор тестов перед отправкой в remote.
+# Для commit'ов это слишком дорого (461+ тест) — поэтому на pre-commit
+# ограничиваемся ESLint + tsc, а тесты переносим сюда.
+#
+# Skip-механика: SKIP_TESTS=1 git push  — для случаев типа hotfix-доков,
+# когда тестам прогоняться неоткуда; ответственность на разработчике.
+
+if [ "$SKIP_TESTS" = "1" ]; then
+  echo "[pre-push] SKIP_TESTS=1 — пропускаем npm test"
+  exit 0
+fi
+
+echo "[pre-push] npm test"
+npm test --silent || {
+  echo ""
+  echo "[pre-push] Тесты упали. Push отменён."
+  echo "  Чтобы всё-таки запушить: SKIP_TESTS=1 git push"
+  exit 1
+}
