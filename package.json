@@ -24,7 +24,12 @@
     "dist": "npm run build && npm test && electron-builder",
     "dist:win": "npm run build && npm test && electron-builder --win",
     "dist:mac": "npm run build && npm test && electron-builder --mac",
-    "dist:linux": "npm run build && npm test && electron-builder --linux"
+    "dist:linux": "npm run build && npm test && electron-builder --linux",
+    "analyze": "cross-env SKYFORK_ANALYZE=1 npm run build:renderer",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": "eslint --fix"
   },
   "build": {
     "appId": "com.skycode.skyfork",
@@ -79,6 +84,8 @@
     "electron-builder": "^26.0.20",
     "eslint": "^10.2.0",
     "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.3",
     "prettier": "^3.8.3",
     "rimraf": "^5.0.0",
     "typescript": "^5.9.3",

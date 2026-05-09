@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+# 1. ESLint --fix на staged TS/TSX-файлах через lint-staged.
+npx lint-staged || exit 1
+
+# 2. Project-wide tsc --noEmit. tsc per-file бессмыслен (типы зависят от
+#    всего проекта), поэтому прогоняем оба тсконфига целиком, но ТОЛЬКО
+#    если есть staged TS-файлы — иначе hook молча пропускает.
+STAGED_TS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx)$' || true)
+if [ -n "$STAGED_TS" ]; then
+  echo "[pre-commit] tsc --noEmit (main + renderer)"
+  npx tsc --noEmit -p tsconfig.main.json || exit 1
+  npx tsc --noEmit -p src/renderer/tsconfig.json || exit 1
+fi
