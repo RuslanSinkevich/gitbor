@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { visualizer } from 'rollup-plugin-visualizer';
 import path from 'path';
 
 /** Dev URL port; keep in sync with `VITE_DEV_PORT` in root `package.json` and `main.ts` default. */
@@ -29,8 +30,28 @@ function cspPlugin(): Plugin {
   };
 }
 
+// SKYFORK_ANALYZE=1 — добавляем rollup-plugin-visualizer и кладём отчёт
+// в docs/audit/bundle-<today>.html. Используется через `npm run analyze`.
+const ANALYZE = process.env.SKYFORK_ANALYZE === '1';
+const today = new Date().toISOString().slice(0, 10);
+const analyzeOut = path.resolve(__dirname, '../../docs/audit', `bundle-${today}.html`);
+
 export default defineConfig(({ command }) => ({
-  plugins: [react(), cspPlugin()],
+  plugins: [
+    react(),
+    cspPlugin(),
+    ...(ANALYZE
+      ? [
+          visualizer({
+            filename: analyzeOut,
+            template: 'treemap',
+            gzipSize: true,
+            brotliSize: true,
+            open: false,
+          }) as Plugin,
+        ]
+      : []),
+  ],
   base: command === 'serve' ? '/' : './',
   server: {
     host: '127.0.0.1',
