@@ -505,7 +505,7 @@ npx vitest run tests/git/MyNewParser.test.ts
 | Git-менеджеры | WorktreeManager, GitExecutor (sanitizeArgs), RebaseManager | ~18 |
 | Команды | writeCommands, readCommands, ConflictManager | ~32 |
 | Утилиты | pathSecurity, repoPathGuard, AppError, Logger | ~40 |
-| Safety | OperationQueue, AtomicWrite, OperationJournal, RecoveryManager | ~25 |
+| Safety | OperationQueue, AtomicWrite, OperationJournal, RecoveryManager, LongPathSuggester | ~32 |
 | i18n | Полнота ключей en↔ru, tpl | ~14 |
 | Менеджеры | BisectManager, HooksManager, LfsManager (контракты) | ~6 |
 | State | StateManager (мульти-репо, isRepoTracked гард), repoSlice | ~10 |
@@ -516,7 +516,7 @@ npx vitest run tests/git/MyNewParser.test.ts
 | Changes | fileTree (buildFileTree, collectFiles) | ~11 |
 | Repo Manager | recentRepos (фильтрация невалидных путей) | ~3 |
 | Main | gracefulShutdown | ~5 |
-| **Итого** | **45 файлов** | **461** |
+| **Итого** | **46 файлов** | **470** |
 
 ---
 
@@ -585,7 +585,7 @@ steps:
   - npm run lint                        # ESLint проверка
   - npx tsc -p tsconfig.main.json       # TypeScript (main + core)
   - npx tsc -b (src/renderer)           # TypeScript (renderer)
-  - npm test                            # Vitest (461 тест в 45 файлах)
+  - npm test                            # Vitest (470 тестов в 46 файлах)
   - npm run build:renderer              # Vite сборка
   - npm run build:main                  # tsc main process
 ```
