@@ -233,13 +233,13 @@ skyfork/
 │       ├── package.json
 │       └── vite.config.ts
 │
-├── tests/                         # Юнит-тесты (Vitest, 461 тест в 45 файлах)
+├── tests/                         # Юнит-тесты (Vitest, 470 тестов в 46 файлах)
 │   ├── git/                       # Парсеры и менеджеры (GitExecutor, RebaseManager, ...)
-│   ├── commands/                  # writeCommands, readCommands, ConflictManager
+│   ├── commands/                  # writeCommands (вкл. batch discardFiles), readCommands, ConflictManager
 │   ├── state/                     # StateManager (мульти-репо), repoSlice
 │   ├── services/                  # RepoServicesRegistry (lifecycle, изоляция)
 │   ├── activity/                  # GitActivityStore
-│   ├── safety/                    # OperationQueue, AtomicWrite, OperationJournal, RecoveryManager
+│   ├── safety/                    # OperationQueue, AtomicWrite, OperationJournal, RecoveryManager, LongPathSuggester
 │   ├── bridge/                    # IPC-контракты, ipc/helpers, MessageBridge.handleCommand, handlersGitOps
 │   ├── ai/                        # AiConfigStore, AiHandlers, AiService, providers (OpenAI/QwenWeb), prompts, presets
 │   ├── changes/                   # fileTree (buildFileTree, collectFiles)
@@ -268,6 +268,7 @@ skyfork/
 ├── .github/workflows/ci.yml       # CI на push (3 ОС, Node 20)
 ├── .github/workflows/pr.yml       # PR-гейт (Windows, Node 22, +e2e)
 ├── .husky/pre-commit              # husky 9 + lint-staged 17 + project-wide tsc
+├── .husky/pre-push                # npm test (bypass через SKIP_TESTS=1)
 ├── .gitattributes                 # Нормализация line endings
 ├── .editorconfig                  # Единый стиль отступов и EOL
 ├── .prettierrc                    # Конфигурация Prettier
@@ -394,7 +395,7 @@ skyfork/
 
 ## Статус
 
-Версия 0.1.0. Бэкенд и UI функционально готовы для MVP. **461** юнит-тест в 45 файлах (Vitest 4.1) плюс 3 Playwright E2E-спека (Windows). ESLint + Prettier настроены; husky 9 + lint-staged 17 на pre-commit гонят `eslint --fix` и project-wide `tsc --noEmit`. CI: `ci.yml` (push, lint/typecheck/test/build на Ubuntu / Windows / macOS, Node 20) + `pr.yml` (PR, всё то же плюс E2E на Windows, Node 22). 0 уязвимостей в `npm audit` (root + renderer). Не протестирован в production.
+Версия 0.1.0. Бэкенд и UI функционально готовы для MVP. **470** юнит-тестов в 46 файлах (Vitest 4.1) плюс 3 Playwright E2E-спека (Windows). ESLint + Prettier настроены; husky 9 + lint-staged 17 на pre-commit гонят `eslint --fix` и project-wide `tsc --noEmit`; `npm test` запускается в `.husky/pre-push` (bypass через `SKIP_TESTS=1`). CI: `ci.yml` (push, lint/typecheck/test/build на Ubuntu / Windows / macOS, Node 20) + `pr.yml` (PR, всё то же плюс E2E на Windows, Node 22). 0 уязвимостей в `npm audit` (root + renderer). Не протестирован в production.
 
 ## Лицензия
 
