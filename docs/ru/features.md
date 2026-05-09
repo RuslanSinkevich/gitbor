@@ -23,7 +23,7 @@
 - Дерево с группировкой по папкам (как в Fork)
 - Сверху секция Unstaged, снизу Staged
 - Действия по файлу: stage (+), unstage (-), discard
-- **Контекстное меню по папкам** — stage / unstage / discard / delete применяется ко всем файлам внутри (работает в Staged и Unstaged)
+- **Контекстное меню по папкам** — stage / unstage / discard / delete применяется ко всем файлам внутри (работает в Staged и Unstaged); папочные действия идут через batch-IPC (`discardFiles` / `deleteUntrackedFiles`) — один round-trip и один `git checkout -- a b c …` вместо N invokes
 - Кнопки Stage All / Unstage All
 - Откатить всё с подтверждением
 - Файлы с конфликтом помечаются иконкой (!)
@@ -239,6 +239,12 @@
 - Тёмная и светлая тема
 - Переключатель темы в title bar
 - CSS variables (`--sg-*`) для единообразной темизации
+
+## Авто-подсказка core.longpaths на Windows
+
+- На Windows при ошибке git `Filename too long` показывается single-shot диалог: «Включить / Не сейчас / Подробнее»
+- На «Включить» — `git config --global core.longpaths true` без перезапуска; pre-check пропускает диалог если опция уже выставлена глобально
+- `LongPathSuggester` подключён через `GitExecutor.setStderrInspector` и no-op на macOS / Linux
 
 ## Дистрибуция
 

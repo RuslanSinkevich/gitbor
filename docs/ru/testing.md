@@ -123,7 +123,7 @@ tests/
 | `parseStatus` | Staged/unstaged модификации, `MM` (обе), untracked (`??`), staged add (`A`), delete (`D`), конфликты (`UU`, `AA`), несколько файлов |
 | `parseFileChanges` | Модификация, добавление, удаление, переименование (`R100`), копирование (`C100`) |
 
-**461 тест / 45 файлов — всё зелёное.**
+**470 тестов / 46 файлов — всё зелёное.**
 
 ### 2. DiffParser (`tests/git/DiffParser.test.ts`)
 
@@ -620,14 +620,19 @@ e2e:
 
 Хелперы в `tests-e2e/helpers.ts`: `launchApp({ cwd? })` и `makeFixtureRepo(prefix)` (создаёт пустой git-репо в temp-каталоге с initial commit, cleanup в `finally`).
 
-### Pre-commit хук
+### Pre-commit и pre-push хуки
 
-`.husky/pre-commit`:
+`.husky/pre-commit` (лёгкий, ~1–2 сек):
 
 1. `npx lint-staged` — `eslint --fix` на staged `*.{ts,tsx}` файлах (авто-фикс + re-stage).
 2. Если есть staged TS/TSX — project-wide `npx tsc --noEmit -p tsconfig.main.json && npx tsc --noEmit -p src/renderer/tsconfig.json` (per-file `tsc` бессмыслен — типы зависят от всего проекта).
 
-`npm test` **не** в hook'е (5–7 сек на каждый коммит — слишком медленно при rebase) — тесты гоняет CI.
+`.husky/pre-push` (~5–7 сек):
+
+1. `npm test` (Vitest, 470 тестов в 46 файлах) — полный набор перед пушем в remote.
+2. Bypass: `SKIP_TESTS=1 git push` — для веток, где менялись только doc/config и тесты прогонять не из чего.
+
+Логика разделения: коммит держим дешёвым (lint-staged + tsc), полный тестовый прогон уезжает в pre-push, где задержка приемлема и страхует от пуша красного.
 
 ### Покрытие
 

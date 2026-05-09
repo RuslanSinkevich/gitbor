@@ -23,7 +23,7 @@
 - Tree view grouped by folders (like Fork)
 - Unstaged section on top, Staged on bottom
 - Per-file actions: stage (+), unstage (-), discard
-- **Folder context menu** — stage / unstage / discard / delete applied to all files inside (works in both Staged and Unstaged sections)
+- **Folder context menu** — stage / unstage / discard / delete applied to all files inside (works in both Staged and Unstaged sections); folder-level actions go through batch IPC commands (`discardFiles` / `deleteUntrackedFiles`) — one round-trip and one `git checkout -- a b c …` instead of N invokes
 - Stage All / Unstage All buttons
 - Discard All with confirmation dialog
 - Conflict files marked with (!) icon
@@ -239,6 +239,12 @@
 - Dark and Light mode
 - Theme toggle in title bar
 - CSS variables (`--sg-*`) for consistent theming
+
+### Windows long-path auto-suggest
+
+- On Windows, when git fails with `Filename too long`, a single dialog offers to enable `git config --global core.longpaths true` (per-session single-shot, "Enable / Not now / Learn more")
+- `LongPathSuggester` hooks `GitExecutor.setStderrInspector` and skips when the option is already enabled globally
+- Bypassed entirely on macOS / Linux
 
 ### Distribution
 
