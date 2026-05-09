@@ -430,10 +430,12 @@ Module: `src/renderer/src/features/changes/fileTreeModel.ts`
 | State | StateManager (multi-repo, isRepoTracked guard), repoSlice | ~10 |
 | Services | RepoServicesRegistry (lifecycle, isolation) | ~7 |
 | Activity | GitActivityStore (per-repo, cap, truncation) | ~13 |
-| IPC | messages contracts, ipc/helpers (op repoPath snapshot) | ~21 |
+| IPC | messages contracts, ipc/helpers (op repoPath snapshot), MessageBridge.handleCommand, handlersGitOps | ~40 |
 | AI | AiConfigStore, AiHandlers, AiService, OpenAiCompatibleProvider, QwenWebProvider, prompts, presets | ~80 |
 | Changes | fileTree (buildFileTree, collectFiles) | ~11 |
-| **Total** | **41 files** | **407** |
+| Repo Manager | recentRepos (invalid path filtering) | ~3 |
+| Main | gracefulShutdown | ~5 |
+| **Total** | **45 files** | **461** |
 
 ---
 
@@ -514,22 +516,61 @@ describe('myFunction', () => {
 
 ## CI/CD
 
-GitHub Actions workflow in `.github/workflows/ci.yml` runs on push/PR to `main` and `develop`:
+Two complementary workflows:
+
+**`.github/workflows/ci.yml`** — runs on `push` to `main`/`develop`:
 
 ```yaml
-# Runs on ubuntu-latest, windows-latest, macos-latest with Node 20
+# Matrix: ubuntu-latest, windows-latest, macos-latest with Node 20
 steps:
   - npm ci                              # Install root deps
   - npm ci (src/renderer)               # Install renderer deps
   - npm run lint                        # ESLint check
   - npx tsc -p tsconfig.main.json       # TypeScript check (main + core)
   - npx tsc -b (src/renderer)           # TypeScript check (renderer)
-  - npm test                            # Vitest (407 tests in 41 files)
+  - npm test                            # Vitest (461 tests in 45 files)
   - npm run build:renderer              # Vite build
   - npm run build:main                  # tsc main process
 ```
 
-`npm test` runs `vitest run` — single pass with exit code 0 on success, 1 on failure.
+**`.github/workflows/pr.yml`** — gate on `pull_request` to `main` (Windows-only, Node 22):
+
+```yaml
+build:
+  runs-on: windows-latest
+  steps: same as ci.yml (lint / tsc / test / build)
+e2e:
+  needs: build
+  runs-on: windows-latest
+  steps:
+    - npm ci (root + renderer)
+    - npm run build
+    - npx playwright test                # 3 specs, ~27s
+    - upload tests-e2e/_report on failure
+```
+
+`npm test` runs `vitest run` — single pass with exit code 0 on success, 1 on failure. `npm run e2e` runs Playwright; specs are `test.skip(process.platform !== 'win32')` so they're a no-op on Mac/Linux.
+
+### E2E (Playwright + Electron)
+
+3 specs in `tests-e2e/`:
+
+| Spec | Scenario | Time |
+|------|----------|------|
+| `app-launch.spec.ts` | Application launch, `[data-testid=titlebar]` visible. | ~7.5s |
+| `open-repo.spec.ts` | Launch with `cwd=fixture` → autoOpenRepo picks it up → TitleBar + Sidebar + "main" text visible. | ~4.2s |
+| `switch-tab.spec.ts` | Launch with fixture A → open fixture B via `window.skyForkAPI.invoke({ type: 'openRepo', path: B })` → click `[data-testid=repo-tab-0]` and `[data-testid=repo-tab-1]`. | ~12.9s |
+
+Helpers in `tests-e2e/helpers.ts`: `launchApp({ cwd? })` and `makeFixtureRepo(prefix)` (creates a temp git repo with an initial commit, cleanup in `finally`).
+
+### Pre-commit hook
+
+`.husky/pre-commit` runs:
+
+1. `npx lint-staged` — `eslint --fix` on staged `*.{ts,tsx}` files (auto-fix and re-stage).
+2. If any TS/TSX is staged, project-wide `npx tsc --noEmit -p tsconfig.main.json && npx tsc --noEmit -p src/renderer/tsconfig.json` (per-file `tsc` is meaningless — types depend on the whole project).
+
+`npm test` is **not** part of the hook (5–7s per commit was too slow on rebases) — tests run in CI instead.
 
 ### Coverage
 
@@ -538,3 +579,11 @@ npm run test:coverage    # Vitest with v8 coverage
 ```
 
 Configuration in `vitest.config.ts` under `test.coverage`.
+
+### Bundle analyzer
+
+```bash
+npm run analyze          # Builds with rollup-plugin-visualizer → docs/audit/bundle-<today>.html
+```
+
+Sets `SKYFORK_ANALYZE=1` so `vite.config.ts` enables the visualizer treemap (gzip + brotli sizes, `open: false`).

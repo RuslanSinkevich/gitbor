@@ -56,12 +56,14 @@ npm run dist:linux   # Linux (AppImage + deb)
 
 | Компонент | Технология |
 |-----------|-----------|
-| Desktop runtime | Electron 28 |
-| UI | React 18, TypeScript, Vite 5 |
+| Desktop runtime | Electron 40 |
+| UI | React 18, TypeScript 5.9, Vite 6 |
 | Стили | CSS Modules, CSS-переменные `--sg-*` |
-| Файловый наблюдатель | chokidar |
-| Линтинг | ESLint (flat config) + Prettier |
-| CI | GitHub Actions (lint, typecheck, test, build на 3 ОС) |
+| Файловый наблюдатель | chokidar 4 |
+| Тесты | Vitest 4.1 (unit, 45 файлов), Playwright 1.59 (E2E, Windows) |
+| DX | husky 9 + lint-staged 17 (pre-commit), `npm run analyze` (rollup-plugin-visualizer) |
+| Линтинг | ESLint 10 (flat config) + Prettier |
+| CI | GitHub Actions: `ci.yml` (push, 3 ОС, Node 20) + `pr.yml` (PR, Windows, Node 22, +e2e) |
 | Git | Встроенный git binary (`resources/git/{platform}/git`) |
 
 ---
@@ -231,7 +233,7 @@ skyfork/
 │       ├── package.json
 │       └── vite.config.ts
 │
-├── tests/                         # Тесты (Vitest, ~407 тестов в 41 файле)
+├── tests/                         # Тесты (Vitest, 461 тест в 45 файлах)
 │   ├── git/                       # Парсеры и менеджеры (GitExecutor, RebaseManager, ...)
 │   ├── commands/                  # writeCommands, readCommands, ConflictManager
 │   ├── state/                     # StateManager (мульти-репо), repoSlice
@@ -253,13 +255,17 @@ skyfork/
 │   └── ru/                        # Русские переводы
 │
 ├── dist/                          # Результат сборки
-├── .github/workflows/ci.yml      # GitHub Actions CI
+├── tests-e2e/                     # Playwright E2E (Windows-only)
+├── .github/workflows/ci.yml       # CI на push (3 ОС, Node 20)
+├── .github/workflows/pr.yml       # PR-гейт (Windows, Node 22, +e2e)
+├── .husky/pre-commit              # husky 9 + lint-staged 17 + project-wide tsc
 ├── .gitattributes                 # Нормализация line endings
 ├── .editorconfig                  # Единый стиль отступов и EOL
 ├── .prettierrc                    # Конфигурация Prettier
 ├── eslint.config.mjs              # ESLint flat config
 ├── vitest.config.ts               # Конфигурация Vitest + coverage
-├── package.json                   # Electron 28, TypeScript 5.3
+├── playwright.config.ts           # Playwright (Windows-only E2E)
+├── package.json                   # Electron 40, TypeScript 5.9, Vite 6
 └── tsconfig.json
 ```
 
@@ -379,7 +385,7 @@ skyfork/
 
 ## Статус
 
-Версия 0.1.0. Бэкенд и UI функционально готовы для MVP. **~407** юнит-тестов в 41 файле (Vitest), ESLint + Prettier, CI через GitHub Actions на Ubuntu / Windows / macOS с Node 20. Не протестирован в production.
+Версия 0.1.0. Бэкенд и UI функционально готовы для MVP. **461** юнит-тест в 45 файлах (Vitest 4.1) плюс 3 Playwright E2E-спека (Windows). ESLint + Prettier настроены; husky 9 + lint-staged 17 на pre-commit гонят `eslint --fix` и project-wide `tsc --noEmit`. CI: `ci.yml` (push, lint/typecheck/test/build на Ubuntu / Windows / macOS, Node 20) + `pr.yml` (PR, всё то же плюс E2E на Windows, Node 22). 0 уязвимостей в `npm audit` (root + renderer). Не протестирован в production.
 
 ## Лицензия
 

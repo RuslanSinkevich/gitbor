@@ -55,10 +55,12 @@ npm run dist:linux   # Linux (AppImage + deb)
 
 | Component | Technology |
 |-----------|-----------|
-| Desktop runtime | Electron 28 |
-| UI | React 18, TypeScript, Vite 5 |
+| Desktop runtime | Electron 40 |
+| UI | React 18, TypeScript 5.9, Vite 6 |
 | Styles | CSS Modules, `--sg-*` custom properties |
-| File watcher | chokidar |
+| File watcher | chokidar 4 |
+| Tests | Vitest 4.1 (unit, 45 files), Playwright 1.59 (E2E, Windows) |
+| DX | husky 9 + lint-staged 17 (pre-commit), `npm run analyze` (rollup-plugin-visualizer) |
 | Git | Bundled git binary (`resources/git/{platform}/git`) |
 
 ---
@@ -228,31 +230,44 @@ skyfork/
 │       ├── package.json
 │       └── vite.config.ts
 │
-├── tests/                         # Tests (Vitest, ~407 tests in 41 files)
+├── tests/                         # Unit tests (Vitest, 461 tests in 45 files)
 │   ├── git/                       # Parsers, managers
 │   ├── commands/                  # writeCommands, readCommands, ConflictManager
 │   ├── state/                     # StateManager (multi-repo), repoSlice
 │   ├── services/                  # RepoServicesRegistry (lifecycle, isolation)
 │   ├── activity/                  # GitActivityStore
 │   ├── safety/                    # OperationQueue, AtomicWrite, OperationJournal, RecoveryManager
-│   ├── bridge/                    # IPC contracts (messages.ts), ipc/helpers
+│   ├── bridge/                    # IPC contracts, ipc/helpers, MessageBridge.handleCommand, handlersGitOps
 │   ├── ai/                        # AiConfigStore, AiHandlers, AiService, providers (OpenAI/QwenWeb), prompts, presets
 │   ├── changes/                   # fileTree (buildFileTree, collectFiles)
+│   ├── repo-manager/              # recentRepos (invalid path filtering)
+│   ├── main/                      # gracefulShutdown
 │   ├── utils/                     # pathSecurity, repoPathGuard, AppError, Logger
 │   └── i18n/                      # Localization completeness, tpl
+│
+├── tests-e2e/                     # Playwright E2E (Windows-only, 3 specs)
+│   ├── helpers.ts                 # launchApp(), makeFixtureRepo()
+│   ├── app-launch.spec.ts         # Smoke: titlebar visible
+│   ├── open-repo.spec.ts          # autoOpenRepo via cwd=fixture
+│   └── switch-tab.spec.ts         # Multi-repo tab switching
 │
 ├── docs/                          # Documentation
 │   ├── getting-started.md         # Setup and dev workflow
 │   ├── architecture.md            # Architecture overview
 │   ├── features.md                # Feature list
 │   ├── contributing.md            # Contributing guide
-│   ├── testing.md                 # Testing (Vitest)
+│   ├── testing.md                 # Testing (Vitest + Playwright)
+│   ├── cross-platform-checklist.md # Cross-platform audit
+│   ├── audit/                     # Per-stream audit reports + bundle analyzer output
 │   └── ru/                        # Russian translations
 │
+├── .github/workflows/             # ci.yml (push, 3 OS, Node 20) + pr.yml (PR, Win, Node 22, +e2e)
+├── .husky/pre-commit              # husky 9 + lint-staged 17 + project-wide tsc
 ├── dist/                          # Build output
 ├── .gitattributes                 # Line ending normalization
 ├── vitest.config.ts               # Vitest configuration
-├── package.json                   # Electron 28, TypeScript 5.3
+├── playwright.config.ts           # Playwright (Windows-only E2E)
+├── package.json                   # Electron 40, TypeScript 5.9, Vite 6
 └── tsconfig.json
 ```
 
@@ -374,7 +389,7 @@ Russian translations: [`docs/ru/`](docs/ru/)
 
 ## Status
 
-Version 0.1.0. Backend and UI feature-complete for MVP. ~407 unit tests across 41 files (Vitest). ESLint + Prettier configured. CI via GitHub Actions on Ubuntu / Windows / macOS with Node 20. Not production-tested.
+Version 0.1.0. Backend and UI feature-complete for MVP. 461 unit tests across 45 files (Vitest 4.1) plus 3 Playwright E2E specs (Windows). ESLint + Prettier configured; husky 9 + lint-staged 17 enforce `eslint --fix` and project-wide `tsc --noEmit` on each commit. CI: `ci.yml` runs lint/typecheck/test/build on Ubuntu / Windows / macOS (Node 20) for push events; `pr.yml` runs the same plus E2E on Windows / Node 22 for pull requests. 0 npm audit vulnerabilities (root + renderer). Not production-tested.
 
 ## License
 

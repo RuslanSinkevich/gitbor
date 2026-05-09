@@ -123,7 +123,7 @@ tests/
 | `parseStatus` | Staged/unstaged модификации, `MM` (обе), untracked (`??`), staged add (`A`), delete (`D`), конфликты (`UU`, `AA`), несколько файлов |
 | `parseFileChanges` | Модификация, добавление, удаление, переименование (`R100`), копирование (`C100`) |
 
-**407 тестов / 41 файл — всё зелёное.**
+**461 тест / 45 файлов — всё зелёное.**
 
 ### 2. DiffParser (`tests/git/DiffParser.test.ts`)
 
@@ -511,10 +511,12 @@ npx vitest run tests/git/MyNewParser.test.ts
 | State | StateManager (мульти-репо, isRepoTracked гард), repoSlice | ~10 |
 | Services | RepoServicesRegistry (lifecycle, isolation) | ~7 |
 | Activity | GitActivityStore (per-repo, кэп, обрезка) | ~13 |
-| IPC | messages контракты, ipc/helpers (snapshot repoPath) | ~21 |
+| IPC | messages контракты, ipc/helpers (snapshot repoPath), MessageBridge.handleCommand, handlersGitOps | ~40 |
 | AI | AiConfigStore, AiHandlers, AiService, OpenAiCompatibleProvider, QwenWebProvider, prompts, presets | ~80 |
 | Changes | fileTree (buildFileTree, collectFiles) | ~11 |
-| **Итого** | **41 файл** | **407** |
+| Repo Manager | recentRepos (фильтрация невалидных путей) | ~3 |
+| Main | gracefulShutdown | ~5 |
+| **Итого** | **45 файлов** | **461** |
 
 ---
 
@@ -571,22 +573,61 @@ npx vitest run tests/git/MyNewParser.test.ts
 
 ## CI/CD
 
-GitHub Actions workflow в `.github/workflows/ci.yml` запускается на push/PR в `main` и `develop`:
+Два workflow дополняют друг друга:
+
+**`.github/workflows/ci.yml`** — запускается на `push` в `main`/`develop`:
 
 ```yaml
-# Запуск на ubuntu-latest, windows-latest, macos-latest с Node 20
+# Матрица: ubuntu-latest, windows-latest, macos-latest с Node 20
 steps:
   - npm ci                              # Установка зависимостей корня
   - npm ci (src/renderer)               # Установка зависимостей renderer
   - npm run lint                        # ESLint проверка
   - npx tsc -p tsconfig.main.json       # TypeScript (main + core)
   - npx tsc -b (src/renderer)           # TypeScript (renderer)
-  - npm test                            # Vitest (407 тестов в 41 файле)
+  - npm test                            # Vitest (461 тест в 45 файлах)
   - npm run build:renderer              # Vite сборка
   - npm run build:main                  # tsc main process
 ```
 
-`npm test` выполняет `vitest run` — однократный прогон, exit-код 0 при успехе, 1 при ошибках.
+**`.github/workflows/pr.yml`** — гейт на `pull_request` в `main` (windows-only, Node 22):
+
+```yaml
+build:
+  runs-on: windows-latest
+  steps: то же, что в ci.yml (lint / tsc / test / build)
+e2e:
+  needs: build
+  runs-on: windows-latest
+  steps:
+    - npm ci (root + renderer)
+    - npm run build
+    - npx playwright test                # 3 спека, ~27 сек
+    - upload tests-e2e/_report при failure
+```
+
+`npm test` выполняет `vitest run` — однократный прогон, exit-код 0 при успехе, 1 при ошибках. `npm run e2e` запускает Playwright; спеки помечены `test.skip(process.platform !== 'win32')`, на Mac/Linux это no-op.
+
+### E2E (Playwright + Electron)
+
+3 спека в `tests-e2e/`:
+
+| Спек | Сценарий | Время |
+|------|----------|-------|
+| `app-launch.spec.ts` | Запуск приложения, видимость `[data-testid=titlebar]`. | ~7.5с |
+| `open-repo.spec.ts` | Запуск с `cwd=fixture` → autoOpenRepo подхватывает → TitleBar + Sidebar + текст «main» в Sidebar. | ~4.2с |
+| `switch-tab.spec.ts` | Запуск с фикстурой A → открытие фикстуры B через `window.skyForkAPI.invoke({ type: 'openRepo', path: B })` → клик по `[data-testid=repo-tab-0]` и `[data-testid=repo-tab-1]`. | ~12.9с |
+
+Хелперы в `tests-e2e/helpers.ts`: `launchApp({ cwd? })` и `makeFixtureRepo(prefix)` (создаёт пустой git-репо в temp-каталоге с initial commit, cleanup в `finally`).
+
+### Pre-commit хук
+
+`.husky/pre-commit`:
+
+1. `npx lint-staged` — `eslint --fix` на staged `*.{ts,tsx}` файлах (авто-фикс + re-stage).
+2. Если есть staged TS/TSX — project-wide `npx tsc --noEmit -p tsconfig.main.json && npx tsc --noEmit -p src/renderer/tsconfig.json` (per-file `tsc` бессмыслен — типы зависят от всего проекта).
+
+`npm test` **не** в hook'е (5–7 сек на каждый коммит — слишком медленно при rebase) — тесты гоняет CI.
 
 ### Покрытие
 
@@ -595,3 +636,11 @@ npm run test:coverage    # Vitest с v8 coverage
 ```
 
 Конфигурация в `vitest.config.ts` в секции `test.coverage`.
+
+### Анализ бандла
+
+```bash
+npm run analyze          # Сборка с rollup-plugin-visualizer → docs/audit/bundle-<today>.html
+```
+
+Выставляет `SKYFORK_ANALYZE=1`, после чего `vite.config.ts` подключает treemap визуализатора (gzip + brotli размеры, `open: false`).
