@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import chokidar from 'chokidar';
+import { watch as chokidarWatch, type FSWatcher } from 'chokidar';
 import { StateManager } from './StateManager';
 import { isDangerousRepoRoot } from '../utils/repoPathGuard';
 import { mainLogger } from '../utils/Logger';
@@ -23,8 +23,8 @@ const WORKTREE_DEBOUNCE_MS = 200;
 const WORKTREE_TOPLEVEL_LIMIT = 1000;
 
 interface WatcherPair {
-  gitWatcher: chokidar.FSWatcher;
-  worktreeWatcher: chokidar.FSWatcher | null;
+  gitWatcher: FSWatcher;
+  worktreeWatcher: FSWatcher | null;
 }
 
 /**
@@ -100,12 +100,12 @@ export class FileWatcher {
 
       try {
         const gitDir = path.join(repoPath, '.git');
-        const gitWatcher = chokidar.watch(gitDir, {
+        const gitWatcher = chokidarWatch(gitDir, {
           ignoreInitial: true,
           depth: 3,
           awaitWriteFinish: { stabilityThreshold: 50, pollInterval: 20 },
         });
-        const worktreeWatcher: chokidar.FSWatcher | null = isHugeWorktree ? null : chokidar.watch(repoPath, {
+        const worktreeWatcher: FSWatcher | null = isHugeWorktree ? null : chokidarWatch(repoPath, {
           ignoreInitial: true,
           ignored: [
             /(^|[/\\])\.git([/\\]|$)/,

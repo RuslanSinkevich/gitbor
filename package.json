@@ -68,7 +68,7 @@
     }
   },
   "dependencies": {
-    "chokidar": "^3.6.0"
+    "chokidar": "^4.0.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
