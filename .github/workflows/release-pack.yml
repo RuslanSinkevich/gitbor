@@ -1,0 +1,62 @@
+name: Release Pack Smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  pack:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-smoke'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            src/renderer/package-lock.json
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Install renderer deps
+        run: npm ci
+        working-directory: src/renderer
+
+      - name: Linux deps for electron-builder
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgbm1 libgtk-3-0 libnss3 libxss1 libasound2t64 fakeroot dpkg
+
+      - name: Build (renderer + main)
+        run: npm run build
+
+      - name: Generate placeholder icons
+        run: npm run build:icons
+
+      - name: Pack (electron-builder --dir, no signing)
+        run: npx electron-builder --dir
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: skyfork-${{ runner.os }}-unpacked
+          path: |
+            release/win-unpacked/**
+            release/mac/**
+            release/linux-unpacked/**
+          if-no-files-found: warn
+          retention-days: 7

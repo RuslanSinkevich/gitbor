@@ -1,7 +1,7 @@
 # Cross-platform чек-лист (Skyfork)
 
-> Дата создания: 2026-05-09. Обновлено: 2026-05-09 (стрим 3). Стрим аудита для
-> определения «что ломается, если завтра запустить на Mac/Linux».
+> Дата создания: 2026-05-09. Обновлено: 2026-05-10 (стрим 4 — параллельный).
+> Стрим аудита для определения «что ломается, если завтра запустить на Mac/Linux».
 > Runtime-валидация на Mac/Linux вне скоупа этого стрима — здесь только
 > статический аудит и точечные фиксы, проверяемые на Windows.
 
@@ -10,14 +10,13 @@
 | Файл | Ветви | Полная тройка? | Заметки |
 |---|---|---|---|
 | `src/main/main.ts:279` | `!== 'darwin'` | da (стандарт macOS quit-on-window-close) | OK |
-| `src/core/utils/repoPathGuard.ts:28` | win32 / else (POSIX) | macOS попадает в POSIX-ветку, у неё в `posixSystemRoots` есть `/Library`, `/System`, `/Applications` нет (см. 8) | macOS частично |
-| `src/core/utils/repoPathGuard.ts:50` | win32 / else | то же | macOS частично |
+| `src/core/utils/repoPathGuard.ts` | win32 / else (POSIX) + `isCaseInsensitiveFs()` | **Закрыто в стриме 4 (2026-05-10):** `/Applications` добавлен в `posixSystemRoots` и `prohibited`, POSIX-ветка делает case-insensitive сравнение на darwin, `path.win32`/`path.posix.resolve` для корректной работы под мокнутый `process.platform`. Тесты — `tests/utils/repoPathGuard.test.ts` (+5 darwin/linux кейсов). |
 | `src/core/utils/pathSecurity.ts` | `isCaseInsensitiveFs() = win32 \|\| darwin` | linux = case-sensitive | **Закрыто в стриме 3 (2026-05-09):** `process.platform` читается при каждом вызове, ветка case-insensitive расширена на `darwin`. Тесты с моком platform — `tests/utils/pathSecurity.test.ts`. |
 | `src/core/bridge/ipc/handlersRepoExtras.ts:205,212` | win32 / darwin / else | OK, явная тройка | OK |
 | `src/core/commands/readCommands.ts:86` | `nullDev = NUL : /dev/null` | Linux/macOS общий `/dev/null`, OK | OK |
 | `src/preload/index.ts:30` | `process.platform` экспортируется в renderer | renderer использует для ветки UI (если есть) | OK |
 
-**Вывод:** грубых дыр в платформенных ветвях нет. macOS-specific секция в `repoPathGuard.ts` не выделена (она получает POSIX-ветку), но `posixSystemRoots` уже содержит `/Library`, `/System`, что покрывает большинство кейсов. `/Applications` не отбит — пользователь может случайно `git init` в `/Applications/SkyFork.app/...`. Маловероятно.
+**Вывод (после стрима 4):** грубых дыр в платформенных ветвях нет. `/Applications` добавлен; case-insensitive сравнение применяется на darwin/win32, на linux — case-sensitive (default ext4).
 
 ## 2. Path-сепараторы (`\\` vs `/` vs `path.sep`)
 
@@ -43,12 +42,12 @@
 | Аспект | Текущее состояние |
 |---|---|
 | `mac.target` в `package.json` | `[dmg]` — OK, dmg производится |
-| `mac.icon` | **Закрыто в стриме 3:** ссылка убрана. Electron-builder использует встроенную default-иконку (Electron-логотип). Временное решение, см. §11. |
+| `mac.icon` | **Закрыто в стриме 4:** `resources/icon.icns` генерится `npm run build:icons` (placeholder через png2icons), путь возвращён в `package.json`. См. §11. |
 | `mac.category` | `public.app-category.developer-tools` — OK |
 | `mac.hardenedRuntime` | **Закрыто в стриме 3:** `true`. |
 | `mac.entitlements` / `mac.entitlementsInherit` | **Закрыто в стриме 3:** `build/entitlements.mac.plist` (allow-jit, allow-unsigned-executable-memory, disable-library-validation, inherit). |
 | `mac.notarize` | `false` — реальная нотаризация требует Apple Developer ID, не настроено. |
-| Подпись (`mac.identity`) | **не указана** — будет ad-hoc. Для распространения нужен Developer ID. |
+| Подпись (`mac.identity`) | **Закрыто в стриме 4:** `null` явно (ad-hoc). Без этого electron-builder в CI без env-переменных мог зависать на интерактивном prompt. Для Developer ID — flip + `CSC_LINK`/`APPLE_ID`. |
 
 **Что нужно перед первым DMG:**
 1. Положить `resources/icon.icns` (1024×1024 PNG → `iconutil -c icns`).
@@ -82,7 +81,7 @@
 |---|---|
 | Long paths (>260) | Node 22+ использует `\\?\`-префикс автоматически в `fs.realpathSync.native`, `fs.openSync`, etc. **OK для приложения.** Но git без `core.longpaths=true` падает на репо с глубокими путями. SkyFork эту настройку не ставит сам. |
 | File locking (`.git/index.lock`) | Уже обработано в `src/core/safety/RecoveryManager.ts` — есть проверка stale-локов на старте. |
-| NSIS installer + LongPathsEnabled | NSIS не устанавливает Win10 Long-paths registry (это ручной reg-tweak пользователя). Добавлять — опциональный custom NSIS-step. |
+| NSIS installer + LongPathsEnabled | **Закрыто в стриме 4:** `build/installer.nsh` с `customInstall` macro выставляет `HKLM\SYSTEM\CurrentControlSet\Control\FileSystem\LongPathsEnabled = 1` для Win10 1607+ при инсталляции. Подключено через `nsis.include`. |
 | Antivirus задержка fs-операций | Не контролируется приложением; chokidar уже использует `awaitWriteFinish` для git-папки. |
 | `windowsHide: true` в spawn'ах git | Уже стоит во всех вызовах `GitExecutor`. Терминал-окна git не мелькают. **OK.** |
 | `core.quotePath=false` | Уже передаётся как `git -c core.quotePath=false ...` в каждом вызове — non-ASCII пути не выводятся в `\nnn`-эскейпах. **OK.** |
@@ -96,20 +95,21 @@
 | Wayland | **Закрыто в стриме 3:** `app.commandLine.appendSwitch('ozone-platform-hint', 'auto')` добавлено в `src/main/main.ts` под guard'ом `process.platform === 'linux'`. |
 | `inotify` watch limits | chokidar 4 на Linux использует `fs.watch` (рекурсивный с Node 20+). На больших worktree упирается в `fs.inotify.max_user_watches` (default 8192–65536). Уже есть hard-stop по `WORKTREE_TOPLEVEL_LIMIT=1000` в `FileWatcher.ts` — рандомные большие репо не валятся. **OK.** |
 | `linux.target` | `[AppImage, deb]` — OK для Ubuntu/Debian + universal AppImage. Snap/flatpak не сделано. |
-| `linux.icon` | **Закрыто в стриме 3:** ссылка убрана из `package.json`. Electron-builder использует default. См. §11. |
+| `linux.icon` | **Закрыто в стриме 4:** `resources/icon.png` генерится placeholder'ом, путь в `package.json`. |
+| `.deb` metadata | **Закрыто в стриме 4:** `linux.maintainer`, `linux.synopsis`, `linux.description`, `linux.desktop.entry` (Name/Categories/StartupWMClass/MimeType). |
 | Rendering glitches на Wayland (transparent BG) | Возможны, но конкретные баги без runtime неизвестны. |
 
 ## 7. Bundled git (`resources/git/{platform}/git`)
 
 | Платформа | Содержимое | Размер |
 |---|---|---|
-| `resources/` | только `.gitkeep` | 0 B |
+| `resources/` | `.gitkeep`, `.gitignore` (для иконок) | мало |
 
 **Вывод:** git **не бандлится**. Используется системный (`PATH`-lookup в `GitExecutor`). На Windows — пользователь должен иметь Git for Windows; на macOS — Xcode CLT или brew git; на Linux — пакет менеджера.
 
-`src/core/safety/RecoveryUI.ts:checkGitAvailable` обнаруживает отсутствие git и показывает диалог со ссылкой на git-scm.com.
+`src/core/safety/RecoveryUI.ts:checkGitAvailable` + `showGitNotFoundMessage` (закрыто в стриме 4: i18n en/ru, кнопки Download/Quit, ранний `app.quit()` при Quit) обнаруживают отсутствие git и не дают мёртвому UI стартовать.
 
-**Кандидат на следующий стрим (опционально):** бандлить portable git для Windows (~50 MB) → нулевая зависимость от системного git. На mac/Linux — не нужно (git везде есть из коробки или через bundled CLT).
+**Кандидат на следующий стрим (опционально):** бандлить portable git для Windows (Fork-style: MinGit ~30 МБ + Settings UI с переключением на системный git + GPL-2 attribution в About-диалоге). Технически готова треть инфраструктуры (`GitExecutor` параметризуется путём, `RecoveryUI` уже маршрутизирует error path). Решение продуктовое, не техническое.
 
 ## 8. Native modules (rebuild при cross-build)
 
@@ -134,31 +134,49 @@
 | Платформа | Описание | Где | Статус |
 |---|---|---|---|
 | macOS | `pathSecurity.ts` без case-insensitive ветки на darwin | `src/core/utils/pathSecurity.ts` | **закрыто (стрим 3)** |
-| macOS | Иконка `resources/icon.icns` отсутствует | `package.json/build.mac.icon` | смягчено: ссылка убрана, default Electron icon, см. §11 |
+| macOS | `repoPathGuard.ts` — `/Applications` отсутствует, нет CI-сравнения | `src/core/utils/repoPathGuard.ts` | **закрыто (стрим 4)** |
+| macOS | Иконка `resources/icon.icns` отсутствует | `package.json/build.mac.icon` | **закрыто (стрим 4)** placeholder через `npm run build:icons` |
 | macOS | Нет `hardenedRuntime` + entitlements | `package.json/build.mac` + `build/entitlements.mac.plist` | **закрыто (стрим 3)** |
 | macOS | Нет `notarize` конфига | `package.json/build.mac.notarize` | `false` явно; реальная нотаризация требует Apple Developer ID, off-scope |
-| Linux | Иконка `resources/icon.png` отсутствует | `package.json/build.linux.icon` | смягчено: ссылка убрана, default Electron icon, см. §11 |
+| macOS | Нет `mac.identity` — потенциальный hang в CI | `package.json/build.mac.identity` | **закрыто (стрим 4):** `null` явно (ad-hoc) |
+| Linux | Иконка `resources/icon.png` отсутствует | `package.json/build.linux.icon` | **закрыто (стрим 4)** placeholder |
 | Linux | Нет `--ozone-platform-hint=auto` для нативного Wayland | `src/main/main.ts` | **закрыто (стрим 3)** |
+| Linux | `.deb` без maintainer/synopsis/desktop entry | `package.json/build.linux` | **закрыто (стрим 4)** |
 | Linux | Не хватает Snap/Flatpak target'ов | `package.json/build.linux.target` | средний приоритет, не делаем |
-| Linux | `safeStorage` без `secret-service` (KWallet/gnome-keyring) — fallback неясен | `src/main/main.ts` `aiStore` | в чек-лист, отдельная задача |
+| Linux | `safeStorage` без `secret-service` (KWallet/gnome-keyring) — fallback неясен | `src/main/main.ts` `aiStore` | проверено: `AiConfigStore.encode/decode` корректно fallback'ит на `plain:` префикс если `isEncryptionAvailable() === false`. Тесты в `tests/ai/AiConfigStore.test.ts` покрывают сценарий. |
 | Win | Не предлагаем `git config core.longpaths true` при path-too-long | `src/core/safety/LongPathSuggester.ts` | закрыто ранее (стрим hardening 2026-05-09) |
 | Win | LongPathSuggester только на русском | `src/core/safety/LongPathSuggester.locales.ts` | **закрыто (стрим 3)**: en/ru, выбор по `app.getLocale()` |
-| Win | NSIS не предлагает включить Win10 Long-paths registry | `package.json/build.nsis` | низкий, не делаем |
+| Win | NSIS не предлагает включить Win10 Long-paths registry | `package.json/build.nsis` + `build/installer.nsh` | **закрыто (стрим 4)** |
+| Cross | `showGitNotFoundMessage` — мёртвая кнопка «Указать путь», только ru, не quit'ит | `src/core/safety/RecoveryUI.ts` + `RecoveryUI.locales.ts` | **закрыто (стрим 4):** i18n en/ru, удалена мёртвая кнопка, ранний `app.quit()` при Quit, новый return type `{ shouldQuit: boolean }` |
+| Cross | CI не валидирует electron-builder на mac/linux | `.github/workflows/release-pack.yml` | **закрыто (стрим 4):** matrix `[win/mac/ubuntu]`, `electron-builder --dir`, артефакты на 7 дней, триггер `workflow_dispatch` или PR-label `release-smoke` |
+| Cross | Нет инструкций по сборке на разных платформах | `BUILD.md` + `docs/ru/BUILD.md` | **закрыто (стрим 4)** |
 
-## 11. Иконки (TODO)
+## 11. Иконки
 
-В стриме 3 ссылки `mac.icon` / `win.icon` / `linux.icon` убраны из
-`package.json`, потому что соответствующих файлов в `resources/` нет.
-Electron-builder при отсутствии `icon` использует встроенную default-иконку
-(Electron-логотип) — это явный warning в логе сборки, но не блокер.
+**Стрим 4:** установлен placeholder-генератор `scripts/build-icons.mjs`
+(зависимости: `png2icons`, `pngjs` — обе pure-JS, без бинарных
+зависимостей, не требуют `iconutil`/`sharp`).
 
-**Что нужно добавить позже:**
-- `resources/icon.ico` — multi-resolution Windows ICO (16/32/48/64/128/256).
-- `resources/icon.icns` — Apple iconset (от 16×16 до 1024×1024 через `iconutil -c icns`).
-- `resources/icon.png` — 512×512 PNG для Linux (AppImage/deb).
+Запуск: `npm run build:icons` → создаёт три файла из единого 1024×1024
+PNG-шаблона:
+- `resources/icon.ico` (~430 КБ, multi-res Windows ICO).
+- `resources/icon.icns` (~8 КБ, Apple iconset).
+- `resources/icon.png` (~9 КБ, Linux AppImage/deb).
 
-После добавления — вернуть строки `"icon": "resources/icon.<ext>"` в
-`package.json/build.{win,mac,linux}`.
+`resources/.gitignore` исключает эти файлы из репо — они генерируются
+из шаблона при каждой сборке (locally + в CI release-pack workflow).
+
+**Дизайн placeholder'а:** плоский синий фон + центральный блок
+(геометрический). Это явное временное решение. Замена на реальный
+дизайн-логотип не требует правок инфраструктуры — только замена
+функции рисования в `scripts/build-icons.mjs` или подкладывание
+готового master-PNG.
+
+**Что не закрыто:**
+- Реальный дизайн-логотип (нужен ассет от дизайнера, см.
+  `docs/audit/cross-platform-2026-05-10.md` пункт «Что не делается»).
+- Light/dark variant для macOS menu bar tray.
+- Windows Tile icons (нужны только для Microsoft Store).
 
 ## Что проверить вручную (Mac/Linux runtime — следующий стрим)
 

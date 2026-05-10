@@ -176,13 +176,27 @@ async function loadWindow(): Promise<void> {
   await mainWindow.loadFile(indexHtml);
 }
 
-async function initServices(): Promise<void> {
+/**
+ * Возвращает `aborted: true` только в одном кейсе: git не найден И пользователь
+ * выбрал «Закрыть» в `showGitNotFoundMessage`. В этом случае вызывающий код
+ * (whenReady-callback) обязан сделать ранний `return` ДО создания окна — иначе
+ * SkyFork покажет мёртвый welcome-экран после `app.quit()` (quit асинхронный,
+ * пара тиков остаётся на выполнение остального колбэка).
+ */
+async function initServices(): Promise<{ aborted: boolean }> {
   // Бутстрапный GitExecutor — только для проверки наличия git в PATH.
   // Реальные операции на репо идут через per-repo services в registry.
   const probeGit = new GitExecutor(process.cwd());
   const gitCheck = await checkGitAvailable(probeGit);
   if (!gitCheck.available) {
-    await showGitNotFoundMessage();
+    const { shouldQuit } = await showGitNotFoundMessage();
+    if (shouldQuit) {
+      app.quit();
+      return { aborted: true };
+    }
+    // shouldQuit=false — пользователь ушёл качать git; UI поднимаем как
+    // обычно, дальнейшие git-зависимые операции упадут штатно через
+    // их собственные error paths.
   }
 
   // На Windows глубокие репо валятся в Filename too long, пока не выставлен
@@ -220,6 +234,8 @@ async function initServices(): Promise<void> {
   // renderer теперь держит per-repo карту runningOpsByRepo и сам считает
   // флаг от активной вкладки. Глобальная подписка на onAnyOperationStatusChange
   // ломала UX (fetch на A блокировал кнопки на B).
+
+  return { aborted: false };
 }
 
 async function autoOpenRepo(): Promise<void> {
@@ -269,7 +285,13 @@ app.whenReady().then(async () => {
   configureMainLogger({ isProduction: app.isPackaged });
   mainLogger.debug(`startup: pid=${process.pid} platform=${process.platform} packaged=${app.isPackaged}`);
 
-  await initServices();
+  const { aborted } = await initServices();
+  if (aborted) {
+    // initServices уже вызвал app.quit(); просто не создаём окно. Дальнейшие
+    // process-level хэндлеры (window-all-closed, before-quit) сами всё
+    // дочистят.
+    return;
+  }
 
   Menu.setApplicationMenu(null);
 

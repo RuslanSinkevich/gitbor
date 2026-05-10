@@ -1,9 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import * as os from 'os';
 import * as path from 'path';
 import { isDangerousRepoRoot } from '@core/utils/repoPathGuard';
 
 const isWin = process.platform === 'win32';
+
+let originalPlatform: PropertyDescriptor | undefined;
+function setPlatform(p: NodeJS.Platform): void {
+  originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+  Object.defineProperty(process, 'platform', { value: p, configurable: true });
+}
+function restorePlatform(): void {
+  if (originalPlatform) Object.defineProperty(process, 'platform', originalPlatform);
+  originalPlatform = undefined;
+}
 
 describe('isDangerousRepoRoot', () => {
   it('rejects empty / non-string', () => {
@@ -70,5 +80,45 @@ describe('isDangerousRepoRoot', () => {
       expect(isDangerousRepoRoot('/home/alice/projects/x').dangerous).toBe(false);
       expect(isDangerousRepoRoot('/Users/alice/code').dangerous).toBe(false);
     }
+  });
+});
+
+describe('isDangerousRepoRoot — /Applications + case-insensitive FS', () => {
+  afterEach(() => {
+    restorePlatform();
+  });
+
+  it('darwin: blocks exactly /Applications as systemDirectory', () => {
+    setPlatform('darwin');
+    const r = isDangerousRepoRoot('/Applications');
+    expect(r.dangerous).toBe(true);
+    expect(r.reason).toBe('systemDirectory');
+  });
+
+  it('darwin: blocks /Applications/SkyFork.app/Contents as systemDirectory', () => {
+    setPlatform('darwin');
+    const r = isDangerousRepoRoot('/Applications/SkyFork.app/Contents');
+    expect(r.dangerous).toBe(true);
+    expect(r.reason).toBe('systemDirectory');
+  });
+
+  it('darwin: blocks /applications/foo (lowercase, case-insensitive)', () => {
+    setPlatform('darwin');
+    const r = isDangerousRepoRoot('/applications/foo');
+    expect(r.dangerous).toBe(true);
+    expect(r.reason).toBe('systemDirectory');
+  });
+
+  it('darwin: blocks /LIBRARY/Preferences (uppercase, case-insensitive)', () => {
+    setPlatform('darwin');
+    const r = isDangerousRepoRoot('/LIBRARY/Preferences');
+    expect(r.dangerous).toBe(true);
+    expect(r.reason).toBe('systemDirectory');
+  });
+
+  it('linux: does NOT match /applications/foo case-insensitively', () => {
+    setPlatform('linux');
+    const r = isDangerousRepoRoot('/applications/foo');
+    expect(r.dangerous).toBe(false);
   });
 });

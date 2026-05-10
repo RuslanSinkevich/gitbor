@@ -1,10 +1,27 @@
-import { dialog, shell, BrowserWindow } from 'electron';
+import { app, dialog, shell, BrowserWindow } from 'electron';
 import { GitExecutor } from '../git/GitExecutor';
 import { RecoveryAction, RecoveryIssue, RecoveryReport } from '../git/types';
 import { RecoveryManager } from './RecoveryManager';
+import { pickGitNotFoundLocale, type GitNotFoundLocale } from './RecoveryUI.locales';
 
 function getWindow(): BrowserWindow | null {
   return BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
+}
+
+/**
+ * `app.getLocale()` доступен только после `whenReady()`. На случай вызова
+ * из unit-тестов с пустым моком electron — try/catch с fallback на `en`.
+ */
+function currentGitNotFoundLocale(): GitNotFoundLocale {
+  let tag: string | undefined;
+  try {
+    if (typeof app.getLocale === 'function') {
+      tag = app.getLocale();
+    }
+  } catch {
+    tag = undefined;
+  }
+  return pickGitNotFoundLocale(tag);
 }
 
 export async function checkGitAvailable(git: GitExecutor): Promise<{ available: boolean; version?: string }> {
@@ -16,17 +33,40 @@ export async function checkGitAvailable(git: GitExecutor): Promise<{ available: 
   }
 }
 
-export async function showGitNotFoundMessage(): Promise<void> {
+/**
+ * Диалог-предупреждение «Git не найден». Возвращает решение пользователя:
+ *
+ * - `shouldQuit: true`  — пользователь выбрал «Закрыть» (или закрыл диалог
+ *   через cancelId). Вызывающий код должен сделать `app.quit()` и НЕ создавать
+ *   главное окно — без git UI всё равно нерабочий, чтобы не вводить юзера
+ *   в заблуждение мёртвой welcome-страницей.
+ * - `shouldQuit: false` — пользователь нажал «Скачать Git». Открыли страницу
+ *   загрузки во внешнем браузере; UI оставляем поднятым, пользователь сам
+ *   решит, когда перезапускать приложение после установки.
+ *
+ * Прошлая кнопка «Указать путь к Git» удалена: обработчика для неё нет,
+ * file picker — отдельный стрим, держать мёртвую кнопку = вводить в
+ * заблуждение.
+ */
+export async function showGitNotFoundMessage(): Promise<{ shouldQuit: boolean }> {
   const win = getWindow();
+  const locale = currentGitNotFoundLocale();
   const options = {
     type: 'error' as const,
-    title: 'SkyFork',
-    message: 'Git не обнаружен. Для работы приложения необходим Git.',
-    buttons: ['Скачать Git', 'Указать путь к Git', 'Закрыть'],
+    title: locale.title,
+    message: locale.message,
+    buttons: [...locale.buttons],
     defaultId: 0,
+    // ESC/закрытие крестиком трактуем как «Закрыть» — без git стартовать
+    // welcome-экран бессмысленно.
+    cancelId: 1,
   };
   const result = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options);
-  if (result.response === 0) shell.openExternal('https://git-scm.com/downloads');
+  if (result.response === 0) {
+    void shell.openExternal(locale.downloadUrl);
+    return { shouldQuit: false };
+  }
+  return { shouldQuit: true };
 }
 
 function getButtonsForIssue(issue: RecoveryIssue): { label: string; action: RecoveryAction }[] {

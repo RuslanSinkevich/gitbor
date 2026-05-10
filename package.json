@@ -13,6 +13,7 @@
     "build": "npm run build:renderer && npm run build:main",
     "build:main": "npx tsc -p tsconfig.main.json",
     "build:renderer": "npm run build --prefix src/renderer",
+    "build:icons": "node scripts/build-icons.mjs",
     "start": "npx electron .",
     "clean": "rimraf dist",
     "lint": "eslint src/ tests/",
@@ -49,7 +50,8 @@
       "target": [
         "nsis",
         "portable"
-      ]
+      ],
+      "icon": "resources/icon.ico"
     },
     "mac": {
       "target": [
@@ -60,20 +62,35 @@
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
-      "notarize": false
+      "notarize": false,
+      "icon": "resources/icon.icns",
+      "identity": null
     },
     "linux": {
       "target": [
         "AppImage",
         "deb"
       ],
-      "category": "Development"
+      "category": "Development",
+      "icon": "resources/icon.png",
+      "maintainer": "Skycode <noreply@skycode.local>",
+      "synopsis": "Cross-platform desktop Git client",
+      "description": "SkyFork is a cross-platform desktop Git client built on Electron, providing a fast and intuitive interface for Git repository management.",
+      "desktop": {
+        "entry": {
+          "Name": "SkyFork",
+          "Categories": "Development;RevisionControl;",
+          "StartupWMClass": "SkyFork",
+          "MimeType": "inode/directory;"
+        }
+      }
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "include": "build/installer.nsh"
     }
   },
   "dependencies": {
@@ -91,6 +108,8 @@
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.3",
+    "png2icons": "^2.0.1",
+    "pngjs": "^7.0.0",
     "prettier": "^3.8.3",
     "rimraf": "^5.0.0",
     "typescript": "^5.9.3",
