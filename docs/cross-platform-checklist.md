@@ -1,7 +1,9 @@
 # Cross-platform чек-лист (Skyfork)
 
-> Дата: 2026-05-09. Стрим аудита для определения «что ломается, если завтра запустить на Mac/Linux».
-> Runtime-валидация на Mac/Linux вне скоупа этого стрима — здесь только статический аудит.
+> Дата создания: 2026-05-09. Обновлено: 2026-05-09 (стрим 3). Стрим аудита для
+> определения «что ломается, если завтра запустить на Mac/Linux».
+> Runtime-валидация на Mac/Linux вне скоупа этого стрима — здесь только
+> статический аудит и точечные фиксы, проверяемые на Windows.
 
 ## 1. Ветви по `process.platform`
 
@@ -10,7 +12,7 @@
 | `src/main/main.ts:279` | `!== 'darwin'` | da (стандарт macOS quit-on-window-close) | OK |
 | `src/core/utils/repoPathGuard.ts:28` | win32 / else (POSIX) | macOS попадает в POSIX-ветку, у неё в `posixSystemRoots` есть `/Library`, `/System`, `/Applications` нет (см. 8) | macOS частично |
 | `src/core/utils/repoPathGuard.ts:50` | win32 / else | то же | macOS частично |
-| `src/core/utils/pathSecurity.ts:4` | `isWin = win32` | else = case-sensitive POSIX | macOS HFS+/APFS обычно case-insensitive по умолчанию (как Win), но не всегда. Сравнение через `toLowerCase()` отключено для не-Win — на macOS с case-insensitive FS path-traversal через регистр имени теоретически проходит. **Низкий риск, в чек-лист.** |
+| `src/core/utils/pathSecurity.ts` | `isCaseInsensitiveFs() = win32 \|\| darwin` | linux = case-sensitive | **Закрыто в стриме 3 (2026-05-09):** `process.platform` читается при каждом вызове, ветка case-insensitive расширена на `darwin`. Тесты с моком platform — `tests/utils/pathSecurity.test.ts`. |
 | `src/core/bridge/ipc/handlersRepoExtras.ts:205,212` | win32 / darwin / else | OK, явная тройка | OK |
 | `src/core/commands/readCommands.ts:86` | `nullDev = NUL : /dev/null` | Linux/macOS общий `/dev/null`, OK | OK |
 | `src/preload/index.ts:30` | `process.platform` экспортируется в renderer | renderer использует для ветки UI (если есть) | OK |
@@ -41,11 +43,11 @@
 | Аспект | Текущее состояние |
 |---|---|
 | `mac.target` в `package.json` | `[dmg]` — OK, dmg производится |
-| `mac.icon` | `resources/icon.icns` — **файла нет** (только `.gitkeep` в `resources/`). При первой mac-сборке `electron-builder` упадёт «icon not found». |
+| `mac.icon` | **Закрыто в стриме 3:** ссылка убрана. Electron-builder использует встроенную default-иконку (Electron-логотип). Временное решение, см. §11. |
 | `mac.category` | `public.app-category.developer-tools` — OK |
-| `mac.hardenedRuntime` | **не выставлено** → не пройдёт notarization (Apple требует с 2019). |
-| `mac.entitlements` / `mac.entitlementsInherit` | **не выставлены** → даже с hardenedRuntime не запустится Electron из-за allow-jit и allow-unsigned-executable-memory. |
-| `mac.notarize` | **не настроено** (нужен Apple ID + app-specific password или API key). |
+| `mac.hardenedRuntime` | **Закрыто в стриме 3:** `true`. |
+| `mac.entitlements` / `mac.entitlementsInherit` | **Закрыто в стриме 3:** `build/entitlements.mac.plist` (allow-jit, allow-unsigned-executable-memory, disable-library-validation, inherit). |
+| `mac.notarize` | `false` — реальная нотаризация требует Apple Developer ID, не настроено. |
 | Подпись (`mac.identity`) | **не указана** — будет ad-hoc. Для распространения нужен Developer ID. |
 
 **Что нужно перед первым DMG:**
@@ -91,10 +93,10 @@
 
 | Аспект | Состояние |
 |---|---|
-| Wayland | Electron 32+ работает в Wayland через `--ozone-platform-hint=auto`, но по умолчанию ставится X11 в XWayland. Для нативного Wayland нужно добавить аргумент в `app.commandLine.appendSwitch('ozone-platform-hint', 'auto')` либо документировать как ручной флаг. **Не сделано.** |
+| Wayland | **Закрыто в стриме 3:** `app.commandLine.appendSwitch('ozone-platform-hint', 'auto')` добавлено в `src/main/main.ts` под guard'ом `process.platform === 'linux'`. |
 | `inotify` watch limits | chokidar 4 на Linux использует `fs.watch` (рекурсивный с Node 20+). На больших worktree упирается в `fs.inotify.max_user_watches` (default 8192–65536). Уже есть hard-stop по `WORKTREE_TOPLEVEL_LIMIT=1000` в `FileWatcher.ts` — рандомные большие репо не валятся. **OK.** |
 | `linux.target` | `[AppImage, deb]` — OK для Ubuntu/Debian + universal AppImage. Snap/flatpak не сделано. |
-| `linux.icon` | `resources/icon.png` — **файла нет**, нужен 512×512. |
+| `linux.icon` | **Закрыто в стриме 3:** ссылка убрана из `package.json`. Electron-builder использует default. См. §11. |
 | Rendering glitches на Wayland (transparent BG) | Возможны, но конкретные баги без runtime неизвестны. |
 
 ## 7. Bundled git (`resources/git/{platform}/git`)
@@ -127,19 +129,36 @@
 
 **Стало:** читаем `process.env.SystemRoot`, `process.env.ProgramFiles`, `process.env['ProgramFiles(x86)']`, `process.env.ProgramData`, нормализуем через `path.resolve` + `toLowerCase`. Fallback на старые `c:\` пути если env пуст (Windows Sandbox без env).
 
-## 10. Mac/Linux баги — В ЧЕК-ЛИСТ (не фиксим в этом стриме)
+## 10. Статус задач по платформам
 
-| Платформа | Описание | Где | Приоритет |
+| Платформа | Описание | Где | Статус |
 |---|---|---|---|
-| macOS/Linux | `pathSecurity.ts` не делает case-insensitive сравнение в POSIX-ветке. На case-insensitive APFS path-traversal через `Foo/../foo` теоретически проходит | `src/core/utils/pathSecurity.ts:4-23` | низкий — в renderer паттернах нет userland-источников path |
-| macOS | Иконка `resources/icon.icns` отсутствует — `electron-builder --mac` упадёт | `package.json/build.mac.icon` | блокер для DMG |
-| macOS | Нет `hardenedRuntime` + entitlements — DMG не запустится после notarize | `package.json/build.mac` | блокер для распространения |
-| macOS | Нет `notarize` конфига — Apple Gatekeeper отклонит | `package.json/build.mac` | блокер |
-| Linux | Иконка `resources/icon.png` отсутствует | `package.json/build.linux.icon` | блокер для AppImage |
-| Linux | Нет `--ozone-platform-hint=auto` для нативного Wayland — крутится через XWayland | `src/main/main.ts` `app.commandLine.appendSwitch` | улучшение UX |
-| Linux | Не хватает Snap/Flatpak target'ов — мейнстрим-дистрибуции через snap/flathub | `package.json/build.linux.target` | средний |
-| Win | Не предлагаем `git config core.longpaths true` при ENOENT/path-too-long | `src/core/git/GitExecutor.ts` обработка ошибок | средний |
-| Win | NSIS не предлагает включить Win10 Long-paths registry | `package.json/build.nsis` | низкий |
+| macOS | `pathSecurity.ts` без case-insensitive ветки на darwin | `src/core/utils/pathSecurity.ts` | **закрыто (стрим 3)** |
+| macOS | Иконка `resources/icon.icns` отсутствует | `package.json/build.mac.icon` | смягчено: ссылка убрана, default Electron icon, см. §11 |
+| macOS | Нет `hardenedRuntime` + entitlements | `package.json/build.mac` + `build/entitlements.mac.plist` | **закрыто (стрим 3)** |
+| macOS | Нет `notarize` конфига | `package.json/build.mac.notarize` | `false` явно; реальная нотаризация требует Apple Developer ID, off-scope |
+| Linux | Иконка `resources/icon.png` отсутствует | `package.json/build.linux.icon` | смягчено: ссылка убрана, default Electron icon, см. §11 |
+| Linux | Нет `--ozone-platform-hint=auto` для нативного Wayland | `src/main/main.ts` | **закрыто (стрим 3)** |
+| Linux | Не хватает Snap/Flatpak target'ов | `package.json/build.linux.target` | средний приоритет, не делаем |
+| Linux | `safeStorage` без `secret-service` (KWallet/gnome-keyring) — fallback неясен | `src/main/main.ts` `aiStore` | в чек-лист, отдельная задача |
+| Win | Не предлагаем `git config core.longpaths true` при path-too-long | `src/core/safety/LongPathSuggester.ts` | закрыто ранее (стрим hardening 2026-05-09) |
+| Win | LongPathSuggester только на русском | `src/core/safety/LongPathSuggester.locales.ts` | **закрыто (стрим 3)**: en/ru, выбор по `app.getLocale()` |
+| Win | NSIS не предлагает включить Win10 Long-paths registry | `package.json/build.nsis` | низкий, не делаем |
+
+## 11. Иконки (TODO)
+
+В стриме 3 ссылки `mac.icon` / `win.icon` / `linux.icon` убраны из
+`package.json`, потому что соответствующих файлов в `resources/` нет.
+Electron-builder при отсутствии `icon` использует встроенную default-иконку
+(Electron-логотип) — это явный warning в логе сборки, но не блокер.
+
+**Что нужно добавить позже:**
+- `resources/icon.ico` — multi-resolution Windows ICO (16/32/48/64/128/256).
+- `resources/icon.icns` — Apple iconset (от 16×16 до 1024×1024 через `iconutil -c icns`).
+- `resources/icon.png` — 512×512 PNG для Linux (AppImage/deb).
+
+После добавления — вернуть строки `"icon": "resources/icon.<ext>"` в
+`package.json/build.{win,mac,linux}`.
 
 ## Что проверить вручную (Mac/Linux runtime — следующий стрим)
 

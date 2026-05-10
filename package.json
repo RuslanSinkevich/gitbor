@@ -49,22 +49,24 @@
       "target": [
         "nsis",
         "portable"
-      ],
-      "icon": "resources/icon.ico"
+      ]
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "icon": "resources/icon.icns",
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": false
     },
     "linux": {
       "target": [
         "AppImage",
         "deb"
       ],
-      "icon": "resources/icon.png",
       "category": "Development"
     },
     "nsis": {

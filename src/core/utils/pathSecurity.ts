@@ -1,11 +1,23 @@
 import { resolve, normalize, sep } from 'path';
 import { realpathSync } from 'fs';
 
-const isWin = process.platform === 'win32';
+/**
+ * Считается ли FS на текущей платформе case-insensitive по умолчанию.
+ * - Windows (NTFS) — да.
+ * - macOS (APFS/HFS+) — да по умолчанию (можно отформатировать как case-sensitive,
+ *   но дефолт у пользователей именно case-insensitive).
+ * - Linux (ext4/btrfs/xfs) — нет.
+ *
+ * Читаем `process.platform` при каждом вызове, а не на module-level: тесты
+ * мокают platform через `Object.defineProperty(process, 'platform', ...)`.
+ */
+function isCaseInsensitiveFs(): boolean {
+  return process.platform === 'win32' || process.platform === 'darwin';
+}
 
 /**
  * Validates that `filePath` (relative) stays inside `basePath` after resolution.
- * Handles Windows case-insensitivity and follows symlinks for robust validation.
+ * Handles Windows/macOS case-insensitivity and follows symlinks for robust validation.
  * Returns the resolved absolute path or throws on traversal attempt.
  */
 export function safePath(basePath: string, filePath: string): string {
@@ -15,7 +27,7 @@ export function safePath(basePath: string, filePath: string): string {
   let actualBase = base;
   let actualFull = full;
 
-  if (isWin) {
+  if (isCaseInsensitiveFs()) {
     actualBase = base.toLowerCase();
     actualFull = full.toLowerCase();
   }
@@ -29,7 +41,7 @@ export function safePath(basePath: string, filePath: string): string {
     const realBase = realpathSync.native(basePath) + sep;
     let checkFull = realFull;
     let checkBase = realBase;
-    if (isWin) {
+    if (isCaseInsensitiveFs()) {
       checkFull = realFull.toLowerCase();
       checkBase = realBase.toLowerCase();
     }

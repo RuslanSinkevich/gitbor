@@ -1,6 +1,25 @@
-import { dialog, shell, BrowserWindow } from 'electron';
+import { app, dialog, shell, BrowserWindow } from 'electron';
 import { GitExecutor } from '../git/GitExecutor';
 import { mainLogger } from '../utils/Logger';
+import { pickLongPathLocale, type LongPathLocale } from './LongPathSuggester.locales';
+
+/**
+ * Получаем актуальный локалевой пакет: `app.getLocale()` доступен только
+ * после `whenReady()`, но `inspectStderr` вызывается при exec'ах git, что
+ * заведомо позже. На случай unit-тестов с пустым моком electron — try/catch
+ * с fallback на `en`.
+ */
+function currentLocale(): LongPathLocale {
+  let tag: string | undefined;
+  try {
+    if (typeof app.getLocale === 'function') {
+      tag = app.getLocale();
+    }
+  } catch {
+    tag = undefined;
+  }
+  return pickLongPathLocale(tag);
+}
 
 /**
  * На Windows глубокие node_modules (а также репозитории с длинными путями
@@ -53,17 +72,14 @@ async function tryEnableLongPathsGlobally(git: GitExecutor): Promise<{ ok: boole
   }
 }
 
-async function showSuggestDialog(): Promise<number> {
+async function showSuggestDialog(locale: LongPathLocale): Promise<number> {
   const win = getWindow();
   const options = {
     type: 'warning' as const,
-    title: 'SkyFork — длинные пути',
-    message: 'Git не справляется с длинными путями',
-    detail:
-      'На Windows по умолчанию максимальная длина пути ~260 символов. ' +
-      'Включить глобально `git config --global core.longpaths true`? ' +
-      'Это рекомендованная настройка для разработки на Windows.',
-    buttons: ['Включить', 'Не сейчас', 'Подробнее'],
+    title: locale.title,
+    message: locale.message,
+    detail: locale.detail,
+    buttons: [...locale.buttons],
     defaultId: 0,
     cancelId: 1,
   };
@@ -95,28 +111,26 @@ export function inspectStderr(stderr: string, git: GitExecutor): void {
 
   alreadyOffered = true;
   void (async () => {
+    const locale = currentLocale();
     try {
       if (await isLongPathsEnabledGlobally(git)) {
         alreadyKnownEnabled = true;
         return;
       }
-      const choice = await showSuggestDialog();
+      const choice = await showSuggestDialog(locale);
       if (choice === 0) {
         const r = await tryEnableLongPathsGlobally(git);
         if (r.ok) {
           alreadyKnownEnabled = true;
-          await showResultDialog(
-            'core.longpaths=true включено глобально. Повторите операцию.',
-            false,
-          );
+          await showResultDialog(locale.successMessage, false);
         } else {
           await showResultDialog(
-            `Не удалось установить core.longpaths: ${r.error ?? 'неизвестная ошибка'}`,
+            locale.errorMessage(r.error ?? 'unknown error'),
             true,
           );
         }
       } else if (choice === 2) {
-        shell.openExternal('https://learn.microsoft.com/windows/win32/fileio/maximum-file-path-limitation');
+        shell.openExternal(locale.learnMoreUrl);
       }
     } catch (e) {
       mainLogger.warn(`LongPathSuggester failed: ${e instanceof Error ? e.message : String(e)}`);

@@ -44,6 +44,14 @@ process.on('uncaughtException', (err) => {
   console.error('[SkyFork] uncaughtException:', err instanceof Error ? err.stack ?? err.message : err);
 });
 
+// На Linux под Wayland Electron по дефолту работает через XWayland — это
+// заметно деградирует HiDPI и вводит лишний layer. `auto` оставляет Electron'у
+// право выбрать X11, если Wayland недоступен (без жёсткого требования).
+// Guard по `process.platform === 'linux'` исключает влияние на Win/macOS.
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+}
+
 function waitForDevTcp(port: number, host = '127.0.0.1', timeoutMs = 45000): Promise<void> {
   const started = Date.now();
   return new Promise((resolve, reject) => {

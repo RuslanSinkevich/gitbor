@@ -1,8 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { safePath, isSafeFilename } from '@core/utils/pathSecurity';
 import { resolve } from 'path';
 
 const isWin = process.platform === 'win32';
+
+let originalPlatform: PropertyDescriptor | undefined;
+function setPlatform(p: NodeJS.Platform): void {
+  originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+  Object.defineProperty(process, 'platform', { value: p, configurable: true });
+}
+function restorePlatform(): void {
+  if (originalPlatform) Object.defineProperty(process, 'platform', originalPlatform);
+  originalPlatform = undefined;
+}
 
 describe('safePath', () => {
   const base = resolve('/tmp/test-repo');
@@ -47,6 +57,38 @@ describe('safePath', () => {
   it('allows paths that contain .. as part of filename', () => {
     const result = safePath(base, 'src/..hidden-file');
     expect(result).toBe(resolve(base, 'src/..hidden-file'));
+  });
+});
+
+describe('safePath case-insensitive FS (darwin/win32)', () => {
+  afterEach(() => {
+    restorePlatform();
+  });
+
+  it('on darwin: rejects ../ traversal even with case mismatch', () => {
+    // На macOS APFS case-insensitive по дефолту, но `../etc/passwd` всё
+    // равно выходит за пределы базы и должен отбиваться.
+    setPlatform('darwin');
+    const base = resolve('/tmp/Test-Repo');
+    expect(() => safePath(base, '../etc/passwd')).toThrow('Path traversal');
+  });
+
+  it('on darwin: rejects traversal that walks out via case-mismatched parent', () => {
+    // base = /tmp/Test-Repo, путь `../OtherRepo/secret` после resolve =
+    // /tmp/OtherRepo/secret — это совершенно другая директория, должна
+    // отбиваться независимо от case-insensitive семантики FS.
+    setPlatform('darwin');
+    const base = resolve('/tmp/Test-Repo');
+    expect(() => safePath(base, '../OtherRepo/secret')).toThrow('Path traversal');
+  });
+
+  it('on linux: case-sensitive — путь с другим регистром базы воспринимается как traversal', () => {
+    // На linux ext4 регистры различаются. `/tmp/Test-Repo` и `/tmp/test-repo` —
+    // разные директории. resolve('/tmp/Test-Repo', '../test-repo/x') = '/tmp/test-repo/x',
+    // что НЕ внутри базы — должно отбиваться.
+    setPlatform('linux');
+    const base = resolve('/tmp/Test-Repo');
+    expect(() => safePath(base, '../test-repo/secret')).toThrow('Path traversal');
   });
 });
 
