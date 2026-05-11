@@ -12,14 +12,16 @@ export default defineConfig({
       include: ['src/core/**/*.ts'],
       exclude: ['src/core/git/types/**'],
       reporter: ['text', 'text-summary'],
-      // baseline 2026-05-11: statements=49.9%, branches=49.88%, lines=51.66%, functions=40.34%
+      // baseline 2026-05-11-2: statements=56.89%, branches=55.83%, lines=58.87%, functions=45.97%
+      // (предыдущий baseline 2026-05-11: 49.9 / 49.88 / 51.66 / 40.34)
+      // Прирост обеспечен добавлением GraphCache/AuthorStatsCache/SshKeyManager/SafetyNet/FileWatcher тестов.
       // Запас 2% против случайных флуктуаций (округление вниз). Поднимаем
       // числа по мере роста покрытия — но НЕ опускаем без явной причины.
       thresholds: {
-        statements: 47,
-        branches: 47,
-        lines: 49,
-        functions: 38,
+        statements: 54,
+        branches: 53,
+        lines: 56,
+        functions: 43,
       },
     },
   },

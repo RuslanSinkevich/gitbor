@@ -116,19 +116,20 @@ export class OpenAiCompatibleProvider implements AiProvider {
   }
 
   private async readJson(response: Response): Promise<AiCompletionResult> {
-    let data: any;
+    let data: unknown;
     try {
       data = await response.json();
     } catch {
       throw new AiError('malformed JSON response', 'parse');
     }
-    const choice = data?.choices?.[0];
+    const root = data as OpenAiChatResponse | null | undefined;
+    const choice = root?.choices?.[0];
     const text = choice?.message?.content ?? '';
     if (typeof text !== 'string') throw new AiError('missing choices[0].message.content', 'parse');
     return {
       text,
       finishReason: mapFinishReason(choice?.finish_reason),
-      usage: mapUsage(data?.usage),
+      usage: mapUsage(root?.usage),
     };
   }
 
@@ -154,7 +155,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
       for (const payload of dataLines) {
         if (payload === '[DONE]') return true;
         try {
-          const chunk = JSON.parse(payload);
+          const chunk = JSON.parse(payload) as OpenAiChatChunk;
           const choice = chunk?.choices?.[0];
           // OpenAI / Ollama / vLLM кладут стриминговый контент в delta.content.
           // llama.cpp-сервер иногда шлёт `content` или legacy-формат `text`.
@@ -268,4 +269,31 @@ function wrapFetchError(err: unknown): AiError {
   if (isAbortError(err)) return new AiError('request aborted', 'aborted');
   const msg = err instanceof Error ? err.message : String(err);
   return new AiError(msg, 'network');
+}
+
+// Минимальные «структурные» типы для ответов OpenAI-compatible API. Намеренно
+// partial: разные серверы (Ollama, llama.cpp, vLLM) кладут поля в разные
+// места, поэтому всё опциональное и читается через type-guard / optional chaining.
+interface OpenAiChatChoice {
+  delta?: {
+    content?: unknown;
+    reasoning_content?: unknown;
+  };
+  message?: { content?: unknown };
+  content?: unknown;
+  text?: unknown;
+  finish_reason?: unknown;
+}
+
+interface OpenAiChatResponse {
+  choices?: OpenAiChatChoice[];
+  usage?: unknown;
+}
+
+interface OpenAiChatChunk extends OpenAiChatResponse {
+  // Ollama-native: фрейм `done: true` за рамками OpenAI-структуры
+  done?: boolean;
+  // llama.cpp legacy fields на верхнем уровне
+  content?: unknown;
+  response?: unknown;
 }

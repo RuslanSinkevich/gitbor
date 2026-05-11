@@ -107,6 +107,7 @@
     "electron-builder": "^26.0.20",
     "eslint": "^10.2.0",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.3",
     "png2icons": "^2.0.1",

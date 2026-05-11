@@ -72,7 +72,6 @@ export function UiShowcase() {
     setLang(next);
     setLangState(next);
     forceUpdate(n => n + 1);
-    (window as any).skyForkAPI?.setLang?.(next);
   };
 
   const activeLabel = SECTIONS.find(s => s.id === activeSection)?.label ?? '';

@@ -71,6 +71,7 @@ export const en = {
     pushSetUpstream: 'Push -u origin',
     stash: 'Stash',
     stashPop: 'Pop',
+    moreOptions: 'More options',
   },
   submodules: {
     init: 'Init',

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { t } from '../i18n';
 
 interface SgDialogProps {
@@ -10,8 +10,19 @@ interface SgDialogProps {
   width?: number;
 }
 
+/**
+ * Modal-обёртка над нативным <dialog>. Используется .showModal() — браузер
+ * имплементирует focus-trap, role="dialog" + aria-modal и возврат фокуса
+ * на триггер автоматически. Через `aria-labelledby` связываем заголовок,
+ * чтобы скринридер озвучивал название при открытии.
+ *
+ * Esc обрабатывается через 'cancel' event (preventDefault, чтобы не дать
+ * dialog'у мгновенно скрыться без вызова onClose — это позволяет родителю
+ * корректно убрать state).
+ */
 export function SgDialog({ open, title, onClose, children, footer, width = 480 }: SgDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
   useEffect(() => {
     const el = dialogRef.current;
@@ -32,9 +43,9 @@ export function SgDialog({ open, title, onClose, children, footer, width = 480 }
   }, [onClose]);
 
   return (
-    <dialog ref={dialogRef} className="sg-dialog" style={{ width }}>
+    <dialog ref={dialogRef} className="sg-dialog" style={{ width }} aria-labelledby={titleId}>
       <header className="sg-dialog-header">
-        <h2 className="sg-dialog-title">{title}</h2>
+        <h2 className="sg-dialog-title" id={titleId}>{title}</h2>
         <button className="sg-dialog-close" onClick={onClose} aria-label={t().dialog.close}>&times;</button>
       </header>
       <div className="sg-dialog-body">{children}</div>

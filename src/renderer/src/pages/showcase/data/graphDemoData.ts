@@ -76,7 +76,7 @@ function buildDemoGraph(): { commits: Commit[]; graphNodes: GraphNode[]; maxColu
     cm(h(62), [], 'Alice', d(61), 'Initial commit'),
   ];
 
-  const layout = computeGraphLayout(commits as any);
+  const layout = computeGraphLayout(commits as unknown as Parameters<typeof computeGraphLayout>[0]);
 
   return {
     commits,

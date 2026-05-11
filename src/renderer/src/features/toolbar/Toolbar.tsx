@@ -50,6 +50,7 @@ function DropdownButton({ label, icon, disabled, mainAction, items }: {
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const loc = t();
 
   useEffect(() => {
     if (!open) return;
@@ -66,15 +67,28 @@ function DropdownButton({ label, icon, disabled, mainAction, items }: {
         {icon}
         <span className={s.actionLabel}>{label}</span>
       </button>
-      <button className={s.dropdownToggle} onClick={() => setOpen(o => !o)} disabled={disabled}>
+      <button
+        className={s.dropdownToggle}
+        onClick={() => setOpen(o => !o)}
+        disabled={disabled}
+        aria-label={`${label}: ${loc.toolbar.moreOptions}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
         <IconDropdown />
       </button>
       {open && (
-        <div className={s.dropdownMenu}>
+        <div className={s.dropdownMenu} role="menu">
           {items.map((item, i) => (
-            <div key={i} className={s.dropdownItem} onClick={() => { item.action(); setOpen(false); }}>
+            <button
+              type="button"
+              key={i}
+              className={s.dropdownItem}
+              role="menuitem"
+              onClick={() => { item.action(); setOpen(false); }}
+            >
               {item.label}
-            </div>
+            </button>
           ))}
         </div>
       )}

@@ -2,6 +2,8 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import path from 'path';
+import fs from 'fs';
+import zlib from 'zlib';
 
 /** Dev URL port; keep in sync with `VITE_DEV_PORT` in root `package.json` and `main.ts` default. */
 const SKYFORK_DEV_PORT = Number(process.env.VITE_DEV_PORT) || 5188;
@@ -36,10 +38,69 @@ const ANALYZE = process.env.SKYFORK_ANALYZE === '1';
 const today = new Date().toISOString().slice(0, 10);
 const analyzeOut = path.resolve(__dirname, '../../docs/audit', `bundle-${today}.html`);
 
+// Bundle size regression gate. baseline 2026-05-11: главный chunk ~340 KB raw,
+// ~104 KB gzip. Threshold с запасом ~17% для зелёных мерчей. При SKYFORK_BUNDLE_GATE_OFF=1
+// чек отключается (для локальных экспериментов).
+const BUNDLE_MAX_RAW_BYTES = 400 * 1024;
+const BUNDLE_MAX_GZIP_BYTES = 120 * 1024;
+const BUNDLE_GATE_DISABLED = process.env.SKYFORK_BUNDLE_GATE_OFF === '1';
+
+function bundleSizeGatePlugin(): Plugin {
+  return {
+    name: 'skyfork-bundle-size-gate',
+    apply: 'build',
+    closeBundle() {
+      if (BUNDLE_GATE_DISABLED) {
+        console.log('[bundle-gate] skipped (SKYFORK_BUNDLE_GATE_OFF=1)');
+        return;
+      }
+      const assetsDir = path.resolve(__dirname, '../../dist/renderer/assets');
+      if (!fs.existsSync(assetsDir)) {
+        console.warn(`[bundle-gate] assets dir not found: ${assetsDir}`);
+        return;
+      }
+      const jsFiles = fs.readdirSync(assetsDir).filter((f) => f.endsWith('.js'));
+      if (jsFiles.length === 0) {
+        console.warn('[bundle-gate] no .js assets found');
+        return;
+      }
+      // Главный chunk — самый большой .js (как правило index-<hash>.js).
+      let mainFile = '';
+      let mainRaw = 0;
+      let mainGzip = 0;
+      for (const f of jsFiles) {
+        const buf = fs.readFileSync(path.join(assetsDir, f));
+        if (buf.length > mainRaw) {
+          mainFile = f;
+          mainRaw = buf.length;
+          mainGzip = zlib.gzipSync(buf, { level: 9 }).length;
+        }
+      }
+      const rawKb = (mainRaw / 1024).toFixed(2);
+      const gzipKb = (mainGzip / 1024).toFixed(2);
+      const rawLimitKb = (BUNDLE_MAX_RAW_BYTES / 1024).toFixed(0);
+      const gzipLimitKb = (BUNDLE_MAX_GZIP_BYTES / 1024).toFixed(0);
+      console.log(
+        `[bundle-gate] main chunk ${mainFile}: ${rawKb} KB raw / ${gzipKb} KB gzip ` +
+          `(limit ${rawLimitKb} KB raw / ${gzipLimitKb} KB gzip)`,
+      );
+      if (mainRaw > BUNDLE_MAX_RAW_BYTES || mainGzip > BUNDLE_MAX_GZIP_BYTES) {
+        const msg =
+          `[bundle-gate] FAIL: main chunk exceeds limit. ` +
+          `${rawKb} KB raw (max ${rawLimitKb}) / ${gzipKb} KB gzip (max ${gzipLimitKb}). ` +
+          `Investigate the regression or raise the threshold in src/renderer/vite.config.ts.`;
+        console.error(msg);
+        process.exit(1);
+      }
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
   plugins: [
     react(),
     cspPlugin(),
+    bundleSizeGatePlugin(),
     ...(ANALYZE
       ? [
           visualizer({

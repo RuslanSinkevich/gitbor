@@ -73,6 +73,7 @@ export const ru: LocaleMap = {
     pushSetUpstream: 'Отправить -u origin',
     stash: 'Отложить',
     stashPop: 'Вернуть',
+    moreOptions: 'Дополнительно',
   },
   submodules: {
     init: 'Инициализ.',

@@ -113,13 +113,24 @@
 }
 
 .dropdownItem {
+  display: block;
+  width: 100%;
+  text-align: left;
   padding: 6px 12px;
   font-size: 12px;
+  font-family: inherit;
   cursor: pointer;
   color: var(--sg-foreground);
+  background: none;
+  border: none;
   white-space: nowrap;
 }
 
 .dropdownItem:hover {
   background: rgba(128, 128, 128, 0.15);
+}
+
+.dropdownItem:focus-visible {
+  outline: 2px solid var(--sg-focus-ring, var(--sg-accent));
+  outline-offset: -2px;
 }
