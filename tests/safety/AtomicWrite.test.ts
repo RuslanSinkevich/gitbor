@@ -54,9 +54,10 @@ describe('atomicWriteFileSync', () => {
     try {
       atomicWriteFileSync(p, 'sync-data');
       expect(readFileSync(p, 'utf-8')).toBe('sync-data');
-    } catch (err: any) {
+    } catch (err) {
       // fsyncSync may fail on Windows with EPERM — acceptable in test env
-      if (err.code !== 'EPERM') throw err;
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== 'EPERM') throw err;
     }
   });
 });

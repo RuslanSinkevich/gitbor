@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { en } from '../../src/renderer/src/i18n/en';
 import { ru } from '../../src/renderer/src/i18n/ru';
 
-function flattenKeys(obj: Record<string, any>, prefix = ''): string[] {
+type LocaleNode = string | { [key: string]: LocaleNode };
+type LocaleTree = Record<string, LocaleNode>;
+
+function flattenKeys(obj: LocaleTree, prefix = ''): string[] {
   const keys: string[] = [];
   for (const [k, v] of Object.entries(obj)) {
     const path = prefix ? `${prefix}.${k}` : k;
@@ -36,7 +39,7 @@ describe('i18n completeness', () => {
   });
 
   it('no empty string values in en', () => {
-    function checkNoEmpty(obj: Record<string, any>, path = ''): string[] {
+    function checkNoEmpty(obj: LocaleTree, path = ''): string[] {
       const empties: string[] = [];
       for (const [k, v] of Object.entries(obj)) {
         const p = path ? `${path}.${k}` : k;
@@ -49,7 +52,7 @@ describe('i18n completeness', () => {
   });
 
   it('no empty string values in ru', () => {
-    function checkNoEmpty(obj: Record<string, any>, path = ''): string[] {
+    function checkNoEmpty(obj: LocaleTree, path = ''): string[] {
       const empties: string[] = [];
       for (const [k, v] of Object.entries(obj)) {
         const p = path ? `${path}.${k}` : k;
@@ -67,18 +70,22 @@ describe('i18n completeness', () => {
       return matches ? matches.sort() : [];
     }
 
-    function compareTemplates(enObj: Record<string, any>, ruObj: Record<string, any>, path = ''): string[] {
+    function compareTemplates(enObj: LocaleTree, ruObj: LocaleTree, path = ''): string[] {
       const mismatches: string[] = [];
       for (const [k, v] of Object.entries(enObj)) {
         const p = path ? `${path}.${k}` : k;
         if (typeof v === 'string') {
+          const ruVal = ruObj[k];
           const enP = getPlaceholders(v);
-          const ruP = getPlaceholders(ruObj[k] ?? '');
+          const ruP = getPlaceholders(typeof ruVal === 'string' ? ruVal : '');
           if (JSON.stringify(enP) !== JSON.stringify(ruP)) {
             mismatches.push(`${p}: en=${enP.join(',')} ru=${ruP.join(',')}`);
           }
-        } else if (typeof v === 'object' && v !== null && ruObj[k]) {
-          mismatches.push(...compareTemplates(v, ruObj[k], p));
+        } else if (typeof v === 'object' && v !== null) {
+          const ruVal = ruObj[k];
+          if (typeof ruVal === 'object' && ruVal !== null) {
+            mismatches.push(...compareTemplates(v, ruVal, p));
+          }
         }
       }
       return mismatches;

@@ -33,16 +33,18 @@ describe('RecoveryManager.checkLockFiles', () => {
     try { rmSync(repoDir, { recursive: true, force: true }); } catch { /* ignore */ }
   });
 
-  function makeManager() {
-    const git: any = {
+  type RecoveryDeps = ConstructorParameters<typeof import('../../src/core/safety/RecoveryManager').RecoveryManager>;
+
+  function makeManager(): { git: RecoveryDeps[0]; journal: RecoveryDeps[1]; safetyNet: RecoveryDeps[2] } {
+    const git = {
       getCwd: () => repoDir,
       exec: vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 })),
-    };
-    const journal: any = {
+    } as unknown as RecoveryDeps[0];
+    const journal = {
       getIncomplete: vi.fn(async () => []),
       cleanup: vi.fn(async () => {}),
-    };
-    const safetyNet: any = {};
+    } as unknown as RecoveryDeps[1];
+    const safetyNet = {} as unknown as RecoveryDeps[2];
     return { git, journal, safetyNet };
   }
 

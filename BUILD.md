@@ -93,6 +93,35 @@ glibc-based distros (Ubuntu 22.04+, Fedora 38+, Debian 12+).
   smoke-packaging on all 3 platforms via `electron-builder --dir`.
   Artifacts uploaded for inspection. Does NOT sign or notarize.
 
+### Running release-pack smoke locally
+
+The `release-pack.yml` workflow is meant to be triggered manually — there
+is no scheduled run. Two ways to fire it:
+
+**Via GitHub CLI (any branch):**
+
+```bash
+gh workflow run "Release Pack Smoke" --ref main
+```
+
+Replace `main` with the branch you want to smoke-pack. The workflow runs
+on Windows / macOS / Ubuntu in parallel.
+
+**Via PR label:** add the `release-smoke` label to an open pull request.
+The workflow will pick it up automatically and pack from the PR head.
+
+**Where to look at artifacts:** GitHub Actions → the workflow run page →
+**Artifacts** section. Retention is 7 days. Names:
+
+- `skyfork-Windows-unpacked` — `win-unpacked/` from `electron-builder --win --dir`.
+- `skyfork-macOS-unpacked` — `mac-arm64/SkyFork.app` (or `mac/` on x64).
+- `skyfork-Linux-unpacked` — `linux-unpacked/`.
+
+**What to verify after download:** each archive unpacks without errors
+and contains the SkyFork binary (`skyfork.exe` / `SkyFork.app/Contents/MacOS/SkyFork`
+/ `skyfork`). Launch is **not** part of the smoke (no UI runtime in CI
+runners), only the packaging pipeline is validated.
+
 ## Known limitations
 
 - macOS notarization requires Apple Developer ID — not configured.

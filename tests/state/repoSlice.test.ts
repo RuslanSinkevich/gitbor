@@ -8,7 +8,7 @@ import {
   GIT_TAG_REF_FORMAT,
   GIT_STASH_FORMAT,
 } from '../../src/core/state/repoSlice';
-import type { AppState } from '../../src/core/git/types';
+import type { AppState, Branch, Commit } from '../../src/core/git/types';
 
 /**
  * `repoSlice` — pure-функции, выделенные из StateManager. Тесты гарантируют:
@@ -80,8 +80,8 @@ describe('repoSlice', () => {
       const state = makeState();
       const slice = emptyRepoSlice();
       slice.currentBranch = 'main';
-      slice.branches = [{ name: 'main', isRemote: false, currentBranch: true } as any];
-      slice.commits = [{ hash: 'aaa1' } as any];
+      slice.branches = [{ name: 'main', isRemote: false, currentBranch: true } as unknown as Branch];
+      slice.commits = [{ hash: 'aaa1' } as unknown as Commit];
       slice.ahead = 3;
       slice.behind = 1;
 

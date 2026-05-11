@@ -6,8 +6,8 @@ Developer guide for SkyFork — an Electron-based desktop Git client (similar to
 
 ## Prerequisites
 
-- Node.js 18+
-- npm
+- Node.js 22+ (matches PR gate; CI matrix runs on Node 20)
+- npm 10+
 - `git` on your PATH
 
 ## Quick Start

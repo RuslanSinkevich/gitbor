@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { op, opWithPostMerge, errOnFail, mergeStateAfter, runTracked } from '../../src/core/bridge/ipc/helpers';
 import { gitActivityStore } from '../../src/core/activity/GitActivityStore';
+import type { CmdOf } from '../../src/core/bridge/ipc/types';
+import type { MainEvent, RendererCommand } from '../../src/core/bridge/messages';
+import { makeMockBridgeContext } from '../_mocks';
 
 /**
  * Тесты на ipc/helpers — самая чувствительная точка per-repo running-флага.
@@ -10,70 +13,65 @@ import { gitActivityStore } from '../../src/core/activity/GitActivityStore';
  * события всё равно прилетят с одним и тем же repoPath (исходное активное
  * репо), и renderer корректно очистит `runningOpsByRepo` для него.
  */
+
+type SentEvent<K extends MainEvent['type']> = Extract<MainEvent, { type: K }>;
+
+function findEvent<K extends MainEvent['type']>(events: MainEvent[], type: K): SentEvent<K> | undefined {
+  return events.find((e): e is SentEvent<K> => e.type === type);
+}
+
+function commandOf<K extends RendererCommand['type']>(type: K, extra: Omit<CmdOf<K>, 'type'> | object = {}): CmdOf<K> {
+  return { type, ...(extra as object) } as CmdOf<K>;
+}
+
 describe('ipc/helpers', () => {
   beforeEach(() => {
     gitActivityStore.clear();
   });
 
-  function makeCtx(initialRepoPath: string) {
-    let repoPath = initialRepoPath;
-    const sent: any[] = [];
-    const ctx: any = {
-      ch: {
-        getMergeState: vi.fn(async () => ({ inProgress: false, sourceBranch: '', targetBranch: '', conflictedFiles: [] })),
-      },
-      sm: {
-        getState: () => ({ repoPath }),
-      },
-      ai: null,
-      send: (e: any) => sent.push(e),
-    };
-    return { ctx, sent, setRepoPath: (p: string) => { repoPath = p; } };
-  }
-
   it('op snapshots repoPath before start; tab switch mid-op does not change end event', async () => {
-    const { ctx, sent, setRepoPath } = makeCtx('/repo/A');
+    const { ctx, sent, setRepoPath } = makeMockBridgeContext('/repo/A');
     const handler = op('fetch', async () => {
       // Симулируем переключение таба ВО ВРЕМЯ операции:
       setRepoPath('/repo/B');
       return { success: true };
     });
 
-    await handler({ type: 'fetch' } as any, ctx);
+    await handler(commandOf('fetch'), ctx);
 
-    const startEv = sent.find(e => e.type === 'operationStart');
-    const endEv = sent.find(e => e.type === 'operationEnd');
+    const startEv = findEvent(sent, 'operationStart');
+    const endEv = findEvent(sent, 'operationEnd');
     expect(startEv).toBeDefined();
     expect(endEv).toBeDefined();
-    expect(startEv.operation).toBe('fetch');
-    expect(endEv.operation).toBe('fetch');
-    expect(endEv.success).toBe(true);
+    expect(startEv!.operation).toBe('fetch');
+    expect(endEv!.operation).toBe('fetch');
+    expect(endEv!.success).toBe(true);
     // Ключевой инвариант: оба события несут ИСХОДНЫЙ repoPath, не /repo/B.
-    expect(startEv.repoPath).toBe('/repo/A');
-    expect(endEv.repoPath).toBe('/repo/A');
+    expect(startEv!.repoPath).toBe('/repo/A');
+    expect(endEv!.repoPath).toBe('/repo/A');
   });
 
   it('op forwards error from result to end event', async () => {
-    const { ctx, sent } = makeCtx('/r');
+    const { ctx, sent } = makeMockBridgeContext('/r');
     const handler = op('push', async () => ({ success: false, error: 'remote rejected' }));
-    await handler({ type: 'push' } as any, ctx);
-    const endEv = sent.find(e => e.type === 'operationEnd');
-    expect(endEv.success).toBe(false);
-    expect(endEv.error).toBe('remote rejected');
+    await handler(commandOf('push'), ctx);
+    const endEv = findEvent(sent, 'operationEnd');
+    expect(endEv!.success).toBe(false);
+    expect(endEv!.error).toBe('remote rejected');
   });
 
   it('op handles null repoPath (clone before any repo opened)', async () => {
-    const { ctx, sent } = makeCtx('');
+    const { ctx, sent } = makeMockBridgeContext('');
     const handler = op('clone', async () => ({ success: true }));
-    await handler({ type: 'cloneRepo', url: '', path: '' } as any, ctx);
-    const startEv = sent.find(e => e.type === 'operationStart');
-    expect(startEv.repoPath).toBeNull();
+    await handler(commandOf('cloneRepo', { url: '', path: '' }), ctx);
+    const startEv = findEvent(sent, 'operationStart');
+    expect(startEv!.repoPath).toBeNull();
   });
 
   it('opWithPostMerge sends mergeState after end', async () => {
-    const { ctx, sent } = makeCtx('/r');
+    const { ctx, sent } = makeMockBridgeContext('/r');
     const handler = opWithPostMerge('merge', async () => ({ success: true }));
-    await handler({ type: 'merge' } as any, ctx);
+    await handler(commandOf('merge', { branch: 'main' }), ctx);
 
     const types = sent.map(e => e.type);
     // Порядок: operationStart → operationEnd → mergeState.
@@ -82,35 +80,36 @@ describe('ipc/helpers', () => {
   });
 
   it('errOnFail sends error event when result.success is false', async () => {
-    const { ctx, sent } = makeCtx('/r');
+    const { ctx, sent } = makeMockBridgeContext('/r');
     const handler = errOnFail(async () => ({ success: false, error: 'no upstream' }), 'fallback');
-    await handler({ type: 'deleteBranch' } as any, ctx);
+    await handler(commandOf('deleteBranch', { branch: 'x' }), ctx);
     expect(sent.some(e => e.type === 'error' && e.message === 'no upstream')).toBe(true);
   });
 
   it('errOnFail uses fallback message when error is missing', async () => {
-    const { ctx, sent } = makeCtx('/r');
+    const { ctx, sent } = makeMockBridgeContext('/r');
     const handler = errOnFail(async () => ({ success: false }), 'Default failure msg');
-    await handler({ type: 'deleteBranch' } as any, ctx);
-    expect(sent.find(e => e.type === 'error').message).toBe('Default failure msg');
+    await handler(commandOf('deleteBranch', { branch: 'x' }), ctx);
+    const errEv = findEvent(sent, 'error');
+    expect(errEv!.message).toBe('Default failure msg');
   });
 
   it('errOnFail sends nothing on success', async () => {
-    const { ctx, sent } = makeCtx('/r');
+    const { ctx, sent } = makeMockBridgeContext('/r');
     const handler = errOnFail(async () => ({ success: true }), 'fb');
-    await handler({ type: 'deleteBranch' } as any, ctx);
+    await handler(commandOf('deleteBranch', { branch: 'x' }), ctx);
     expect(sent.length).toBe(0);
   });
 
   it('mergeStateAfter always sends mergeState event', async () => {
-    const { ctx, sent } = makeCtx('/r');
+    const { ctx, sent } = makeMockBridgeContext('/r');
     const handler = mergeStateAfter(async () => {});
-    await handler({ type: 'getMergeState' } as any, ctx);
-    expect(sent.find(e => e.type === 'mergeState')).toBeDefined();
+    await handler(commandOf('getMergeState'), ctx);
+    expect(findEvent(sent, 'mergeState')).toBeDefined();
   });
 
   it('runTracked records activity via gitActivityStore (start + finish)', async () => {
-    const { ctx } = makeCtx('/repo/r1');
+    const { ctx } = makeMockBridgeContext('/repo/r1');
     const result = await runTracked('fetch', ctx, async () => ({ success: true }));
     expect(result.success).toBe(true);
     const snap = gitActivityStore.getSnapshot();
@@ -120,7 +119,7 @@ describe('ipc/helpers', () => {
   });
 
   it('runTracked marks activity as error if work throws', async () => {
-    const { ctx } = makeCtx('/r');
+    const { ctx } = makeMockBridgeContext('/r');
     await expect(runTracked('push', ctx, async () => { throw new Error('boom'); }))
       .rejects.toThrow('boom');
     const snap = gitActivityStore.getSnapshot();

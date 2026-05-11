@@ -95,6 +95,36 @@ Debian 12+).
   smoke-пакетинга на всех 3 платформах через `electron-builder --dir`.
   Артефакты загружаются для инспекции. НЕ подписывает и не нотаризует.
 
+### Локальный запуск release-pack smoke
+
+Workflow `release-pack.yml` запускается только вручную — расписания нет.
+Два способа запустить:
+
+**Через GitHub CLI (любая ветка):**
+
+```bash
+gh workflow run "Release Pack Smoke" --ref main
+```
+
+Замени `main` на нужную ветку. Workflow крутит Windows / macOS / Ubuntu
+параллельно.
+
+**Через PR-label:** добавь метку `release-smoke` к открытому pull
+request — workflow сам подхватит её и запакует с HEAD'а PR.
+
+**Где смотреть артефакты:** GitHub Actions → страница run'а → раздел
+**Artifacts**. Retention — 7 дней. Имена:
+
+- `skyfork-Windows-unpacked` — `win-unpacked/` от `electron-builder --win --dir`.
+- `skyfork-macOS-unpacked` — `mac-arm64/SkyFork.app` (или `mac/` на x64).
+- `skyfork-Linux-unpacked` — `linux-unpacked/`.
+
+**Что проверять после скачивания:** каждый архив распаковывается без
+ошибок и содержит бинарь SkyFork (`skyfork.exe` /
+`SkyFork.app/Contents/MacOS/SkyFork` / `skyfork`). Запуск UI в smoke не
+входит (в CI-runner'ах нет дисплея) — валидируется только pipeline
+пакетинга.
+
 ## Известные ограничения
 
 - Нотаризация macOS требует Apple Developer ID — не настроена.

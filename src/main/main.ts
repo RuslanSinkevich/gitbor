@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, Menu, dialog, safeStorage, session, shell } from 'electron';
 import { existsSync } from 'fs';
 import * as path from 'path';
 import * as net from 'net';
@@ -18,6 +18,7 @@ import { AiConfigStore } from '../core/ai/AiConfigStore';
 import { AiHandlers } from '../core/ai/AiHandlers';
 import { configureMainLogger, mainLogger } from '../core/utils/Logger';
 import { setupGracefulShutdown } from './gracefulShutdown';
+import { computeAiOrigins } from './cspOrigins';
 
 let mainWindow: BrowserWindow | null = null;
 let messageBridge: MessageBridge | null = null;
@@ -25,6 +26,7 @@ let fileWatcher: FileWatcher | null = null;
 let commandHandler: CommandHandler | null = null;
 let stateManager: StateManager | null = null;
 let repoRegistry: RepoServicesRegistry | null = null;
+let aiService: AiService | null = null;
 
 /**
  * Глобальный safety net: если что-то в main кинуло unhandledRejection или
@@ -214,7 +216,7 @@ async function initServices(): Promise<{ aborted: boolean }> {
     encryptString: (plain) => safeStorage.encryptString(plain),
     decryptString: (buf) => safeStorage.decryptString(buf),
   });
-  const aiService = new AiService(aiStore.load());
+  aiService = new AiService(aiStore.load());
   const aiHandlers = new AiHandlers(aiService, aiStore);
 
   messageBridge = new MessageBridge(commandHandler, stateManager, aiHandlers);
@@ -278,6 +280,82 @@ async function autoOpenRepo(): Promise<void> {
   }
 }
 
+/**
+ * HTTP-header CSP, накладываемый на ответы для renderer'а (file:// в prod,
+ * loopback в dev). Это второй слой поверх HTML-meta CSP в `index.html`:
+ * meta задаёт строгий жёсткий минимум, header динамически расширяет
+ * `connect-src` ровно на те AI-origin'ы, что соответствуют текущему
+ * AiProviderConfig (см. `computeAiOrigins`).
+ *
+ * Скоуп URL'ов:
+ * - file:// — прод-загрузка index.html и его ассетов.
+ * - http://127.0.0.1:* и http://localhost:* — dev/HMR Vite (порт 5188 по
+ *   умолчанию). На внешние домены (включая AI-API) hook не вешает CSP —
+ *   там CSP не имеет смысла, ответ всё равно потребляет main process.
+ *
+ * DEV vs PROD:
+ * - В dev (`!app.isPackaged`) hook вообще пропускает запрос (callback({})),
+ *   оставляя действовать только HTML-meta DEV_CSP с `unsafe-inline`/
+ *   `unsafe-eval` и широким `connect-src` для HMR ws://. Иначе Vite HMR
+ *   ляжет, и dev-режим станет неюзабельным.
+ * - В prod hook инжектит жёсткий CSP с `connect-src 'self' <ai-origin>`,
+ *   перекрывая meta `connect-src 'self' https:` ровно на нужные origin'ы.
+ *
+ * Пересчёт: hook вызывается на каждый response, конфиг читается через
+ * `aiService.getConfig()` (in-memory, обновляется через `aiSetConfig` IPC
+ * без перезапуска). Поэтому смена AI-провайдера в UI сразу отражается на
+ * следующем запросе.
+ */
+function registerCspHook(): void {
+  if (!app.isPackaged) {
+    mainLogger.debug('CSP header hook: skipped (dev mode)');
+    return;
+  }
+
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const url = details.url;
+    const isLocalScheme =
+      url.startsWith('file://') ||
+      url.startsWith('http://localhost:') ||
+      url.startsWith('http://127.0.0.1:');
+    if (!isLocalScheme) {
+      callback({});
+      return;
+    }
+
+    const cfg = aiService?.getConfig() ?? null;
+    const aiOriginsList = computeAiOrigins(cfg);
+    const aiOrigins = aiOriginsList.join(' ');
+    const connectSrc = aiOrigins ? `connect-src 'self' ${aiOrigins}` : "connect-src 'self'";
+
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data:",
+      "font-src 'self' data:",
+      connectSrc,
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'none'",
+      "frame-ancestors 'none'",
+    ].join('; ');
+
+    // Удаляем чужие CSP-заголовки (на всякий случай, если ассет вернёт свой)
+    // и инжектим единственный наш — Electron не мерджит несколько CSP, при
+    // дублировании работает самый строгий из набора.
+    const headers: Record<string, string[] | string> = {};
+    const src = details.responseHeaders ?? {};
+    for (const [key, value] of Object.entries(src)) {
+      if (key.toLowerCase() === 'content-security-policy') continue;
+      if (value !== undefined) headers[key] = value;
+    }
+    headers['Content-Security-Policy'] = [csp];
+
+    callback({ responseHeaders: headers });
+  });
+}
+
 app.whenReady().then(async () => {
   // Настраиваем логирование ДО initServices: prod = silent, dev = debug
   // (или явный SKYFORK_LOG_LEVEL). Это нужно сделать после whenReady,
@@ -292,6 +370,8 @@ app.whenReady().then(async () => {
     // дочистят.
     return;
   }
+
+  registerCspHook();
 
   Menu.setApplicationMenu(null);
 

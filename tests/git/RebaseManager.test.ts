@@ -1,19 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { RebaseManager } from '@core/git/RebaseManager';
-import type { RebaseTodoEntry } from '@core/git/types';
+import type { GitExecutor } from '@core/git/GitExecutor';
+import type { GitExecOptions, RebaseTodoEntry } from '@core/git/types';
+import { makeScriptedGit, type GitExecResponse, type MockGit } from '../_mocks';
 
-function createMockGit(responses: Record<string, { stdout: string; stderr: string; exitCode: number }> = {}) {
-  const defaultResponse = { stdout: '', stderr: '', exitCode: 0, duration: 5 };
-  return {
-    exec: vi.fn(async (args: string[], opts?: any) => {
-      const key = args.join(' ');
-      for (const [pattern, resp] of Object.entries(responses)) {
-        if (key.includes(pattern)) return { ...defaultResponse, ...resp };
-      }
-      return defaultResponse;
-    }),
-    getCwd: vi.fn().mockReturnValue('/repo'),
-  };
+const asGit = (m: MockGit) => m as unknown as GitExecutor;
+
+function createMockGit(responses: Record<string, GitExecResponse> = {}): MockGit {
+  return makeScriptedGit(responses);
 }
 
 describe('RebaseManager', () => {
@@ -26,7 +20,7 @@ describe('RebaseManager', () => {
           exitCode: 0,
         },
       });
-      const rm = new RebaseManager(git as any);
+      const rm = new RebaseManager(asGit(git));
       const todo = await rm.getTodoList('main');
 
       expect(todo.onto).toBe('main');
@@ -49,7 +43,7 @@ describe('RebaseManager', () => {
       const git = createMockGit({
         'log --reverse': { stdout: '', stderr: '', exitCode: 0 },
       });
-      const rm = new RebaseManager(git as any);
+      const rm = new RebaseManager(asGit(git));
       const todo = await rm.getTodoList('main');
       expect(todo.entries).toEqual([]);
     });
@@ -58,7 +52,7 @@ describe('RebaseManager', () => {
   describe('executeRebase', () => {
     it('sets GIT_SEQUENCE_EDITOR with cp command using forward slashes', async () => {
       const git = createMockGit();
-      const rm = new RebaseManager(git as any);
+      const rm = new RebaseManager(asGit(git));
 
       const entries: RebaseTodoEntry[] = [
         { action: 'pick', hash: 'aaa111', shortHash: 'aaa', subject: 'fix: bug' },
@@ -68,20 +62,20 @@ describe('RebaseManager', () => {
       await rm.executeRebase('main', entries);
 
       const rebaseCall = git.exec.mock.calls.find(
-        (c: any[]) => c[0].includes('rebase') && c[0].includes('-i'),
+        c => c[0].includes('rebase') && c[0].includes('-i'),
       );
       expect(rebaseCall).toBeTruthy();
       expect(rebaseCall![0]).toEqual(['rebase', '-i', 'main']);
 
-      const opts = rebaseCall![1];
-      expect(opts.env.GIT_SEQUENCE_EDITOR).toMatch(/^cp "/);
-      expect(opts.env.GIT_SEQUENCE_EDITOR).not.toContain('\\');
-      expect(opts.timeout).toBe(60_000);
+      const opts = rebaseCall![1] as GitExecOptions | undefined;
+      expect(opts?.env?.GIT_SEQUENCE_EDITOR).toMatch(/^cp "/);
+      expect(opts?.env?.GIT_SEQUENCE_EDITOR).not.toContain('\\');
+      expect(opts?.timeout).toBe(60_000);
     });
 
     it('filters out dropped entries from todo content', async () => {
       const git = createMockGit();
-      const rm = new RebaseManager(git as any);
+      const rm = new RebaseManager(asGit(git));
 
       const entries: RebaseTodoEntry[] = [
         { action: 'pick', hash: 'aaa111', shortHash: 'aaa', subject: 'keep' },
@@ -100,7 +94,7 @@ describe('RebaseManager', () => {
       const git = createMockGit({
         'rebase -i': { stdout: '', stderr: 'conflict', exitCode: 1 },
       });
-      const rm = new RebaseManager(git as any);
+      const rm = new RebaseManager(asGit(git));
       const result = await rm.executeRebase('main', [
         { action: 'pick', hash: 'aaa', shortHash: 'a', subject: 'x' },
       ]);
@@ -112,7 +106,7 @@ describe('RebaseManager', () => {
   describe('continueRebase', () => {
     it('calls git rebase --continue', async () => {
       const git = createMockGit();
-      const rm = new RebaseManager(git as any);
+      const rm = new RebaseManager(asGit(git));
       const result = await rm.continueRebase();
       expect(git.exec).toHaveBeenCalledWith(['rebase', '--continue']);
       expect(result.success).toBe(true);
@@ -122,7 +116,7 @@ describe('RebaseManager', () => {
   describe('abortRebase', () => {
     it('calls git rebase --abort', async () => {
       const git = createMockGit();
-      const rm = new RebaseManager(git as any);
+      const rm = new RebaseManager(asGit(git));
       const result = await rm.abortRebase();
       expect(git.exec).toHaveBeenCalledWith(['rebase', '--abort']);
       expect(result.success).toBe(true);

@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { GitExecOptions, GitExecResult } from '../../src/core/git/types';
+import { makeFakeRegistry, type MockGit } from '../_mocks';
 
 /**
  * Unit-тесты для дедупликации refreshGraph в StateManager.
@@ -35,9 +37,10 @@ const REPO_STDOUT_B = [
   makeCommitLine('bbb2', 'bbb1', 'other2'),
 ].join('\n') + '\n';
 
-function createMockGit(scripted: Map<string, string>) {
+/** Заводим scripted-mock GitExecutor с killAll/setCwd, как ждёт StateManager. */
+function createMockGit(scripted: Map<string, string>): MockGit {
   return {
-    exec: vi.fn(async (args: string[]) => {
+    exec: vi.fn(async (args: string[]): Promise<GitExecResult> => {
       const key = args.join(' ');
       if (key.startsWith('rev-parse HEAD')) {
         return { stdout: 'aaa3\n', stderr: '', exitCode: 0, duration: 1 };
@@ -53,31 +56,6 @@ function createMockGit(scripted: Map<string, string>) {
   };
 }
 
-/**
- * Минимальный фейковый registry для тестов: всегда возвращает один и тот же
- * git (плюс заглушки `OperationQueue`/`SafetyNet`). Имитирует реальный API
- * `RepoServicesRegistry`, чтобы StateManager работал без изменения тестов.
- */
-function fakeRegistry(git: any) {
-  const services = {
-    repoPath: '/repo',
-    git,
-    queue: { enqueueRead: (_l: string, op: any) => op(), enqueueWrite: (_l: string, op: any) => op(), onStatusChange: () => () => {} },
-    safety: { wrapDestructive: (_n: string, _p: any, op: any) => op() },
-  };
-  return {
-    has: () => true,
-    bootstrap: () => services,
-    acquire: () => services,
-    get: () => services,
-    release: () => {},
-    disposeAll: () => {},
-    onAnyOperationStatusChange: () => () => {},
-    size: () => 1,
-  } as any;
-}
-
-
 describe('StateManager.refreshGraph dedup', () => {
   let StateManager: typeof import('@core/state/StateManager').StateManager;
 
@@ -87,7 +65,7 @@ describe('StateManager.refreshGraph dedup', () => {
 
   it('не пересоздаёт ссылки на commits/graphLayout при идентичном повторном refreshGraph', async () => {
     const git = createMockGit(new Map());
-    const sm = new StateManager(fakeRegistry(git));
+    const sm = new StateManager(makeFakeRegistry(git));
     sm.setRepoPath('/repo');
 
     await sm.refreshGraph(500);
@@ -108,8 +86,8 @@ describe('StateManager.refreshGraph dedup', () => {
 
   it('пересоздаёт массив если stdout изменился (реальный новый коммит)', async () => {
     let stdout = REPO_STDOUT_A;
-    const git = {
-      exec: vi.fn(async (args: string[]) => {
+    const git: MockGit = {
+      exec: vi.fn(async (args: string[]): Promise<GitExecResult> => {
         const key = args.join(' ');
         if (key.startsWith('rev-parse HEAD')) {
           return { stdout: 'xxx\n', stderr: '', exitCode: 0, duration: 1 };
@@ -121,17 +99,16 @@ describe('StateManager.refreshGraph dedup', () => {
       }),
       setCwd: vi.fn(),
       getCwd: vi.fn().mockReturnValue('/repo'),
+      killAll: vi.fn().mockReturnValue(0),
     };
-
-    (git as any).killAll = vi.fn().mockReturnValue(0);
-    const sm = new StateManager(fakeRegistry(git));
+    const sm = new StateManager(makeFakeRegistry(git));
     sm.setRepoPath('/repo');
     await sm.refreshGraph(500);
     const firstCommits = sm.getState().commits;
 
     // Симулируем новый коммит сверху — меняется и stdout, и headHash.
     stdout = makeCommitLine('aaa4', 'aaa3', 'c4') + '\n' + REPO_STDOUT_A;
-    git.exec = vi.fn(async (args: string[]) => {
+    git.exec = vi.fn(async (args: string[]): Promise<GitExecResult> => {
       const key = args.join(' ');
       if (key.startsWith('rev-parse HEAD')) {
         return { stdout: 'aaa4\n', stderr: '', exitCode: 0, duration: 1 };
@@ -151,7 +128,7 @@ describe('StateManager.refreshGraph dedup', () => {
 
   it('invalidateGraphCache форсит пересборку при следующем refreshGraph', async () => {
     const git = createMockGit(new Map());
-    const sm = new StateManager(fakeRegistry(git));
+    const sm = new StateManager(makeFakeRegistry(git));
     sm.setRepoPath('/repo');
 
     await sm.refreshGraph(500);
@@ -169,12 +146,24 @@ describe('StateManager.refreshGraph dedup', () => {
 
   it('refreshAll(closedPath) — no-op после notifyRepoClose, services не пересоздаются', async () => {
     const git = createMockGit(new Map());
-    const acquireSpy = vi.fn(() => ({
+
+    // Здесь нужны явные spy для acquire/release, поэтому собираем кастомный
+    // registry вручную (а не через makeFakeRegistry). Это единственный кейс
+    // во всём StateManager.test.ts, где спайны нужны для проверки релиза.
+    const fakeServices = {
       repoPath: '/repo/x',
       git,
-      queue: { enqueueRead: (_l: string, op: any) => op(), enqueueWrite: (_l: string, op: any) => op(), onStatusChange: () => () => {} },
-      safety: { wrapDestructive: (_n: string, _p: any, op: any) => op() },
-    }));
+      queue: {
+        enqueueRead: <T>(_l: string, op: () => Promise<T>) => op(),
+        enqueueWrite: <T>(_l: string, op: () => Promise<T>) => op(),
+        onStatusChange: () => () => {},
+      },
+      safety: {
+        wrapDestructive: <T>(_n: string, _p: Record<string, string>, op: () => Promise<T>) => op(),
+      },
+    };
+
+    const acquireSpy = vi.fn(() => fakeServices);
     const releaseSpy = vi.fn();
     const registry = {
       has: () => true,
@@ -185,9 +174,9 @@ describe('StateManager.refreshGraph dedup', () => {
       disposeAll: () => {},
       onAnyOperationStatusChange: () => () => {},
       size: () => 1,
-    } as any;
+    };
 
-    const sm = new StateManager(registry);
+    const sm = new StateManager(registry as unknown as import('../../src/core/services/RepoServicesRegistry').RepoServicesRegistry);
     sm.setRepoPath('/repo/x'); // добавляет в openRepos
     await sm.refreshAll();
 
@@ -211,8 +200,8 @@ describe('StateManager.refreshGraph dedup', () => {
   });
 
   it('работает на двух репо с разными stdout подряд (после инвалидации)', async () => {
-    const git: any = {
-      exec: vi.fn(async (args: string[]) => {
+    const git: MockGit = {
+      exec: vi.fn(async (args: string[]): Promise<GitExecResult> => {
         const key = args.join(' ');
         if (key.startsWith('rev-parse HEAD')) return { stdout: 'aaa3\n', stderr: '', exitCode: 0, duration: 1 };
         if (key.startsWith('log ')) return { stdout: REPO_STDOUT_A, stderr: '', exitCode: 0, duration: 1 };
@@ -222,7 +211,7 @@ describe('StateManager.refreshGraph dedup', () => {
       getCwd: vi.fn().mockReturnValue('/repo'),
       killAll: vi.fn().mockReturnValue(0),
     };
-    const sm = new StateManager(fakeRegistry(git));
+    const sm = new StateManager(makeFakeRegistry(git));
     sm.setRepoPath('/repo');
 
     await sm.refreshGraph(500);
@@ -230,7 +219,7 @@ describe('StateManager.refreshGraph dedup', () => {
 
     sm.invalidateGraphCache();
 
-    git.exec = vi.fn(async (args: string[]) => {
+    git.exec = vi.fn(async (args: string[]): Promise<GitExecResult> => {
       const key = args.join(' ');
       if (key.startsWith('rev-parse HEAD')) return { stdout: 'bbb2\n', stderr: '', exitCode: 0, duration: 1 };
       if (key.startsWith('log ')) return { stdout: REPO_STDOUT_B, stderr: '', exitCode: 0, duration: 1 };
@@ -251,37 +240,39 @@ describe('StateManager.refreshStatus untracked-files mode', () => {
   });
 
   it('использует --untracked-files=all для нормальных репо (не опасный путь)', async () => {
-    const git = {
-      exec: vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 })),
+    const git: MockGit = {
+      exec: vi.fn(async (): Promise<GitExecResult> => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 })),
       setCwd: vi.fn(),
       getCwd: vi.fn().mockReturnValue('/projects/normal-repo'),
       killAll: vi.fn().mockReturnValue(0),
     };
-    const sm = new StateManager(fakeRegistry(git));
+    const sm = new StateManager(makeFakeRegistry(git));
     sm.setRepoPath('/projects/normal-repo');
 
     await sm.refreshStatus('/projects/normal-repo');
 
-    const statusCalls = git.exec.mock.calls.filter((c: any[]) => c[0]?.[0] === 'status');
+    type ExecCall = [string[], GitExecOptions?];
+    const statusCalls = (git.exec.mock.calls as ExecCall[]).filter(c => c[0]?.[0] === 'status');
     expect(statusCalls.length).toBeGreaterThan(0);
     expect(statusCalls[0][0]).toContain('--untracked-files=all');
   });
 
   it('использует --untracked-files=normal для опасных корней (домашка/корень диска)', async () => {
-    const git = {
-      exec: vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 })),
+    const git: MockGit = {
+      exec: vi.fn(async (): Promise<GitExecResult> => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 })),
       setCwd: vi.fn(),
       getCwd: vi.fn().mockReturnValue('/'),
       killAll: vi.fn().mockReturnValue(0),
     };
-    const sm = new StateManager(fakeRegistry(git));
+    const sm = new StateManager(makeFakeRegistry(git));
     // На POSIX `/` — опасный путь (driveRoot). На Windows — `C:\`.
     const dangerousPath = process.platform === 'win32' ? 'C:\\' : '/';
     sm.setRepoPath(dangerousPath);
 
     await sm.refreshStatus(dangerousPath);
 
-    const statusCalls = git.exec.mock.calls.filter((c: any[]) => c[0]?.[0] === 'status');
+    type ExecCall = [string[], GitExecOptions?];
+    const statusCalls = (git.exec.mock.calls as ExecCall[]).filter(c => c[0]?.[0] === 'status');
     expect(statusCalls.length).toBeGreaterThan(0);
     expect(statusCalls[0][0]).toContain('--untracked-files=normal');
   });

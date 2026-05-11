@@ -1,11 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { WorktreeManager } from '@core/git/WorktreeManager';
+import type { GitExecutor } from '@core/git/GitExecutor';
+import { makeMockGit, type MockGit } from '../_mocks';
 
-function createMockGit(stdout: string) {
-  return {
-    exec: vi.fn().mockResolvedValue({ stdout, stderr: '', exitCode: 0, duration: 5 }),
-    getCwd: vi.fn().mockReturnValue('/repo'),
-  };
+const asGit = (m: MockGit) => m as unknown as GitExecutor;
+
+function createMockGit(stdout: string): MockGit {
+  return makeMockGit({ stdout });
 }
 
 describe('WorktreeManager', () => {
@@ -23,7 +24,7 @@ describe('WorktreeManager', () => {
       ].join('\n');
 
       const git = createMockGit(porcelain);
-      const wm = new WorktreeManager(git as any);
+      const wm = new WorktreeManager(asGit(git));
       const result = await wm.list();
 
       expect(result).toHaveLength(2);
@@ -54,7 +55,7 @@ describe('WorktreeManager', () => {
       ].join('\n');
 
       const git = createMockGit(porcelain);
-      const wm = new WorktreeManager(git as any);
+      const wm = new WorktreeManager(asGit(git));
       const result = await wm.list();
 
       expect(result[1].branch).toBe('(detached)');
@@ -69,7 +70,7 @@ describe('WorktreeManager', () => {
       ].join('\n');
 
       const git = createMockGit(porcelain);
-      const wm = new WorktreeManager(git as any);
+      const wm = new WorktreeManager(asGit(git));
       const result = await wm.list();
 
       expect(result).toHaveLength(1);
@@ -79,14 +80,14 @@ describe('WorktreeManager', () => {
 
     it('returns empty array for empty output', async () => {
       const git = createMockGit('');
-      const wm = new WorktreeManager(git as any);
+      const wm = new WorktreeManager(asGit(git));
       const result = await wm.list();
       expect(result).toEqual([]);
     });
 
     it('calls git with correct args', async () => {
       const git = createMockGit('');
-      const wm = new WorktreeManager(git as any);
+      const wm = new WorktreeManager(asGit(git));
       await wm.list();
       expect(git.exec).toHaveBeenCalledWith(['worktree', 'list', '--porcelain']);
     });
@@ -95,14 +96,14 @@ describe('WorktreeManager', () => {
   describe('add', () => {
     it('creates branch with -b flag when createBranch=true', async () => {
       const git = createMockGit('');
-      const wm = new WorktreeManager(git as any);
+      const wm = new WorktreeManager(asGit(git));
       await wm.add('/tmp/wt', 'new-branch', true);
       expect(git.exec).toHaveBeenCalledWith(['worktree', 'add', '-b', 'new-branch', '/tmp/wt']);
     });
 
     it('uses existing branch without -b flag', async () => {
       const git = createMockGit('');
-      const wm = new WorktreeManager(git as any);
+      const wm = new WorktreeManager(asGit(git));
       await wm.add('/tmp/wt', 'existing-branch', false);
       expect(git.exec).toHaveBeenCalledWith(['worktree', 'add', '/tmp/wt', 'existing-branch']);
     });
@@ -111,14 +112,14 @@ describe('WorktreeManager', () => {
   describe('remove', () => {
     it('removes with --force when force=true', async () => {
       const git = createMockGit('');
-      const wm = new WorktreeManager(git as any);
+      const wm = new WorktreeManager(asGit(git));
       await wm.remove('/tmp/wt', true);
       expect(git.exec).toHaveBeenCalledWith(['worktree', 'remove', '--force', '/tmp/wt']);
     });
 
     it('removes without --force normally', async () => {
       const git = createMockGit('');
-      const wm = new WorktreeManager(git as any);
+      const wm = new WorktreeManager(asGit(git));
       await wm.remove('/tmp/wt', false);
       expect(git.exec).toHaveBeenCalledWith(['worktree', 'remove', '/tmp/wt']);
     });
