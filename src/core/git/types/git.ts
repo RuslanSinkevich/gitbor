@@ -8,6 +8,12 @@ export interface Commit {
   subject: string;
   /** GPG signature status: G=good, B=bad, U=untrusted, N=none, etc. */
   gpgStatus?: string;
+  /**
+   * Commit reachable only from refs/remotes (fetched but not merged into
+   * any local branch yet). Filled by RepoStateRefresher after parse;
+   * GitParser leaves it as false.
+   */
+  isRemoteOnly: boolean;
 }
 
 export interface RefInfo {

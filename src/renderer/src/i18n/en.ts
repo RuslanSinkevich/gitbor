@@ -72,6 +72,8 @@ export const en = {
     stash: 'Stash',
     stashPop: 'Pop',
     moreOptions: 'More options',
+    pullBadge: '{n} commit(s) to pull',
+    pushBadge: '{n} commit(s) to push',
   },
   submodules: {
     init: 'Init',
@@ -104,6 +106,7 @@ export const en = {
     searchPlaceholder: 'Search commits...',
     noSearchResults: 'No results',
     loadMore: 'Load more commits ({loaded} loaded)',
+    remoteOnlyHint: 'Fetched from remote, not in any local branch yet',
   },
   details: {
     commit: 'Commit',

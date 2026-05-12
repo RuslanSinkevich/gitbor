@@ -16,7 +16,9 @@ import * as crypto from 'crypto';
 import type { Commit } from '../git/types';
 import type { GraphLayoutData, GraphNode } from '../git/types';
 
-const CACHE_VERSION = 1;
+// v2: Commit.isRemoteOnly + GraphNode.isRemoteOnly. Старые v1-кеши не имеют
+// этих полей — отбрасываем, чтобы при первом refresh переcчитать с маркировкой.
+const CACHE_VERSION = 2;
 const MAX_CACHED_COMMITS = 5000;
 
 export interface GraphCacheEntry {

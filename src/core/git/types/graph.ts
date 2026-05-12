@@ -5,6 +5,8 @@ export interface GraphNode {
   column: number;
   color: string;
   connections: GraphConnection[];
+  /** Mirror of Commit.isRemoteOnly — copied during layout for fast UI access. */
+  isRemoteOnly: boolean;
 }
 
 export interface GraphConnection {

@@ -74,6 +74,8 @@ export const ru: LocaleMap = {
     stash: 'Отложить',
     stashPop: 'Вернуть',
     moreOptions: 'Дополнительно',
+    pullBadge: 'Готово к получению: {n} коммит(ов)',
+    pushBadge: 'Готово к отправке: {n} коммит(ов)',
   },
   submodules: {
     init: 'Инициализ.',
@@ -106,6 +108,7 @@ export const ru: LocaleMap = {
     searchPlaceholder: 'Поиск коммитов...',
     noSearchResults: 'Нет результатов',
     loadMore: 'Загрузить ещё ({loaded} загружено)',
+    remoteOnlyHint: 'Загружен с remote, ещё не в локальной ветке',
   },
   details: {
     commit: 'Коммит',

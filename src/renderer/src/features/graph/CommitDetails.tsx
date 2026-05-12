@@ -3,6 +3,7 @@ import { t } from '../../i18n';
 import { postCommand, copyToClipboard } from '../../api';
 import type { CommitDetail, FileChange } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
+import { AuthorAvatar } from '../../ui/AuthorAvatar';
 import s from './CommitDetails.module.css';
 
 type Tab = 'commit' | 'changes' | 'tree';
@@ -155,7 +156,10 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
             <div className={s.meta}>
               <div className={s.metaRow}>
                 <span className={s.label}>{loc.details.author}:</span>
-                <span>{detail.authorName} &lt;{detail.authorEmail}&gt;</span>
+                <span className={s.authorLine}>
+                  <AuthorAvatar name={detail.authorName} email={detail.authorEmail} size="md" />
+                  <span>{detail.authorName} &lt;{detail.authorEmail}&gt;</span>
+                </span>
               </div>
               <div className={s.metaRow}>
                 <span className={s.label}>{loc.graph.date}:</span>

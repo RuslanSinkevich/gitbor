@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { computeGraphLayout } from '../../src/core/git/GraphLayout';
 import type { Commit } from '../../src/core/git/types';
 
-function makeCommit(hash: string, parents: string[], subject = ''): Commit {
-  return { hash, parents, authorName: 'A', authorEmail: 'a@x', authorDate: 0, refs: [], subject };
+function makeCommit(hash: string, parents: string[], subject = '', isRemoteOnly = false): Commit {
+  return { hash, parents, authorName: 'A', authorEmail: 'a@x', authorDate: 0, refs: [], subject, isRemoteOnly };
 }
 
 describe('computeGraphLayout', () => {
@@ -72,5 +72,40 @@ describe('computeGraphLayout', () => {
     }
     const result = computeGraphLayout(commits);
     expect(result.nodes).toHaveLength(20);
+  });
+
+  describe('isRemoteOnly propagation', () => {
+    it('defaults to false on all nodes when no commit is marked', () => {
+      const commits = [
+        makeCommit('c', ['b']),
+        makeCommit('b', ['a']),
+        makeCommit('a', []),
+      ];
+      const result = computeGraphLayout(commits);
+      expect(result.nodes.every(n => n.isRemoteOnly === false)).toBe(true);
+    });
+
+    it('mirrors Commit.isRemoteOnly into GraphNode.isRemoteOnly index-by-index', () => {
+      const commits = [
+        makeCommit('c', ['b'], '', false),
+        makeCommit('b', ['a'], '', true),
+        makeCommit('a', [], '', true),
+      ];
+      const result = computeGraphLayout(commits);
+      expect(result.nodes[0].isRemoteOnly).toBe(false);
+      expect(result.nodes[1].isRemoteOnly).toBe(true);
+      expect(result.nodes[2].isRemoteOnly).toBe(true);
+    });
+
+    it('marks remote-only flag for a mixed set with branch/merge topology', () => {
+      const commits = [
+        makeCommit('m', ['a', 'b'], '', false),
+        makeCommit('a', ['root'], '', true),
+        makeCommit('b', ['root'], '', false),
+        makeCommit('root', [], '', false),
+      ];
+      const result = computeGraphLayout(commits);
+      expect(result.nodes.map(n => n.isRemoteOnly)).toEqual([false, true, false, false]);
+    });
   });
 });

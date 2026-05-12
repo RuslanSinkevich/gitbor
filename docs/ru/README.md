@@ -60,7 +60,7 @@ npm run dist:linux   # Linux (AppImage + deb)
 | UI | React 18, TypeScript 5.9, Vite 6 |
 | Стили | CSS Modules, CSS-переменные `--sg-*` |
 | Файловый наблюдатель | chokidar 4 |
-| Тесты | Vitest 4.1 (unit, <!-- TESTS_FILES -->48<!-- /TESTS_FILES --> файлов / <!-- TESTS_COUNT -->494<!-- /TESTS_COUNT --> тестов), Playwright 1.59 (E2E, Windows) |
+| Тесты | Vitest 4.1 (unit, <!-- TESTS_FILES -->55<!-- /TESTS_FILES --> файлов / <!-- TESTS_COUNT -->601<!-- /TESTS_COUNT --> тестов), Playwright 1.59 (E2E, Windows) |
 | DX | husky 9 + lint-staged 17 (pre-commit) + `npm test` (pre-push), `npm run analyze` (rollup-plugin-visualizer) |
 | Линтинг | ESLint 10 (flat config) + Prettier |
 | CI | GitHub Actions: `ci.yml` (push, 3 ОС, Node 20) + `pr.yml` (PR, Windows, Node 22, +e2e) |
@@ -233,7 +233,7 @@ skyfork/
 │       ├── package.json
 │       └── vite.config.ts
 │
-├── tests/                         # Юнит-тесты (Vitest, <!-- TESTS_COUNT -->494<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->48<!-- /TESTS_FILES --> файлах)
+├── tests/                         # Юнит-тесты (Vitest, <!-- TESTS_COUNT -->601<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->55<!-- /TESTS_FILES --> файлах)
 │   ├── git/                       # Парсеры и менеджеры (GitExecutor, RebaseManager, ...)
 │   ├── commands/                  # writeCommands (вкл. batch discardFiles), readCommands, ConflictManager
 │   ├── state/                     # StateManager (мульти-репо), repoSlice
@@ -395,7 +395,7 @@ skyfork/
 
 ## Статус
 
-Версия 0.1.0. Бэкенд и UI функционально готовы для MVP. **<!-- TESTS_COUNT -->494<!-- /TESTS_COUNT -->** юнит-тестов в <!-- TESTS_FILES -->48<!-- /TESTS_FILES --> файлах (Vitest 4.1) плюс 3 Playwright E2E-спека (Windows). ESLint + Prettier настроены; husky 9 + lint-staged 17 на pre-commit гонят `eslint --fix` и project-wide `tsc --noEmit`; `npm test` запускается в `.husky/pre-push` (bypass через `SKIP_TESTS=1`). CI: `ci.yml` (push, lint/typecheck/test/build на Ubuntu / Windows / macOS, Node 20) + `pr.yml` (PR, всё то же плюс E2E на Windows, Node 22). 0 уязвимостей в `npm audit` (root + renderer). Не протестирован в production.
+Версия 0.1.0. Бэкенд и UI функционально готовы для MVP. **<!-- TESTS_COUNT -->601<!-- /TESTS_COUNT -->** юнит-тестов в <!-- TESTS_FILES -->55<!-- /TESTS_FILES --> файлах (Vitest 4.1) плюс 3 Playwright E2E-спека (Windows). ESLint + Prettier настроены; husky 9 + lint-staged 17 на pre-commit гонят `eslint --fix` и project-wide `tsc --noEmit`; `npm test` запускается в `.husky/pre-push` (bypass через `SKIP_TESTS=1`). CI: `ci.yml` (push, lint/typecheck/test/build на Ubuntu / Windows / macOS, Node 20) + `pr.yml` (PR, всё то же плюс E2E на Windows, Node 22). 0 уязвимостей в `npm audit` (root + renderer). Не протестирован в production.
 
 ## Лицензия
 

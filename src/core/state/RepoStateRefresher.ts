@@ -11,6 +11,7 @@ import {
   GIT_STASH_FORMAT,
   hashGitStdout,
 } from './repoSlice';
+import { parseRemoteOnlyHashes } from './remoteOnly';
 import type { AppState } from '../git/types';
 import type { RepoSlicesStore } from './RepoSlicesStore';
 
@@ -276,6 +277,18 @@ export class RepoStateRefresher {
       const commitsParsed = workerPool.parseCommits(logResult.stdout);
       const commits = commitsParsed instanceof Promise ? await commitsParsed : commitsParsed;
       if (slice.token !== startToken) return;
+
+      // Помечаем коммиты, которые есть только на remote'ах (fetched, но
+      // ни в одну локальную ветку ещё не интегрированы). Делаем ДО layout,
+      // чтобы GraphNode.isRemoteOnly прокинулся корректно.
+      const remoteOnly = await this.computeRemoteOnlySet(target);
+      if (slice.token !== startToken) return;
+      if (remoteOnly.size > 0) {
+        for (const c of commits) {
+          if (remoteOnly.has(c.hash)) c.isRemoteOnly = true;
+        }
+      }
+
       const layoutParsed = workerPool.computeGraphLayout(commits);
       const layout = layoutParsed instanceof Promise ? await layoutParsed : layoutParsed;
       if (slice.token !== startToken) return;
@@ -396,6 +409,28 @@ export class RepoStateRefresher {
     slice.cachedHeadHash = null;
     slice.cachedLogHash = null;
     slice.cachedLogLimit = 0;
+  }
+
+  /**
+   * Считает множество хэшей коммитов, достижимых из `refs/remotes/*`, но
+   * НЕ достижимых из `refs/heads/*`. Используется для маркировки
+   * `Commit.isRemoteOnly` — fetched, но не интегрированных в локальную ветку.
+   *
+   * На больших монорепо `rev-list` может занять 100-500ms. Это в рамках
+   * рефреша и редко (только после `refreshGraph`), оптимизация пока не нужна.
+   */
+  private async computeRemoteOnlySet(repoPath: string): Promise<Set<string>> {
+    try {
+      const git = this.registry.acquire(repoPath).git;
+      const result = await git.exec([
+        'rev-list', 'refs/remotes', '--not', 'refs/heads',
+      ]);
+      return parseRemoteOnlyHashes(result.stdout);
+    } catch {
+      // Нет remote'ов / нет head'ов / ошибка git — в любом случае возвращаем
+      // пустое множество, ничего не маркируем (fail-safe).
+      return new Set<string>();
+    }
   }
 
   private async refreshAheadBehind(repoPath?: string): Promise<void> {

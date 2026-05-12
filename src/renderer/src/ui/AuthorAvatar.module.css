@@ -1,0 +1,24 @@
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 600;
+  font-family: var(--sg-font, system-ui);
+  flex-shrink: 0;
+  user-select: none;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  letter-spacing: 0.2px;
+}
+
+.sm {
+  width: 18px;
+  height: 18px;
+  font-size: 9px;
+}
+
+.md {
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+}

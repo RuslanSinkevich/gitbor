@@ -7,6 +7,10 @@ import s from './Toolbar.module.css';
 interface Props {
   isOperationRunning: boolean;
   hasUpstream?: boolean;
+  /** Commits ahead of upstream for the current branch (push counter). */
+  ahead?: number;
+  /** Commits behind upstream for the current branch (pull counter). */
+  behind?: number;
   onPull?: (rebase?: boolean) => void;
   onPush?: (force?: boolean) => void;
   /**
@@ -17,6 +21,10 @@ interface Props {
   onOpenActivity?: () => void;
   /** Путь активного репо — для фильтрации индикатора git-активности. */
   repoPath?: string | null;
+}
+
+function formatBadgeCount(n: number): string {
+  return n > 99 ? '99+' : String(n);
 }
 
 const IconFetch = () => (
@@ -43,10 +51,14 @@ const IconDropdown = () => (
   <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><path d="M1 2.5l3 3 3-3" /></svg>
 );
 
-function DropdownButton({ label, icon, disabled, mainAction, items }: {
+function DropdownButton({ label, icon, disabled, mainAction, items, badge, tooltip }: {
   label: string; icon: React.ReactNode; disabled: boolean;
   mainAction: () => void;
   items: { label: string; action: () => void }[];
+  /** Counter rendered as a pill in the top-right corner of the button. */
+  badge?: number;
+  /** Override the default button tooltip (label by default). */
+  tooltip?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -63,9 +75,12 @@ function DropdownButton({ label, icon, disabled, mainAction, items }: {
 
   return (
     <div ref={ref} className={s.dropdownWrap}>
-      <button className={s.action} onClick={mainAction} disabled={disabled} title={label}>
+      <button className={s.action} onClick={mainAction} disabled={disabled} title={tooltip ?? label}>
         {icon}
         <span className={s.actionLabel}>{label}</span>
+        {badge !== undefined && badge > 0 && (
+          <span className={s.badge} aria-hidden="true">{formatBadgeCount(badge)}</span>
+        )}
       </button>
       <button
         className={s.dropdownToggle}
@@ -98,6 +113,8 @@ function DropdownButton({ label, icon, disabled, mainAction, items }: {
 
 export function Toolbar(props: Props) {
   const { isOperationRunning, hasUpstream, onPull, onPush, onStash, onOpenActivity } = props;
+  const ahead = props.ahead ?? 0;
+  const behind = props.behind ?? 0;
   const loc = t();
   const runPull = (rebase?: boolean) => {
     if (onPull) onPull(rebase);
@@ -112,6 +129,13 @@ export function Toolbar(props: Props) {
     else postCommand({ type: 'stash' });
   };
 
+  const pullTooltip = behind > 0
+    ? `${loc.toolbar.pull} — ${loc.toolbar.pullBadge.replace('{n}', String(behind))}`
+    : loc.toolbar.pull;
+  const pushTooltip = ahead > 0
+    ? `${loc.toolbar.push} — ${loc.toolbar.pushBadge.replace('{n}', String(ahead))}`
+    : loc.toolbar.push;
+
   return (
     <div className={s.root}>
       <div className={s.left}>
@@ -125,6 +149,8 @@ export function Toolbar(props: Props) {
           icon={<IconPull />}
           disabled={isOperationRunning}
           mainAction={() => runPull(false)}
+          badge={behind}
+          tooltip={pullTooltip}
           items={[
             { label: loc.toolbar.pull, action: () => runPull(false) },
             { label: loc.toolbar.pullRebase, action: () => runPull(true) },
@@ -136,6 +162,8 @@ export function Toolbar(props: Props) {
           icon={<IconPush />}
           disabled={isOperationRunning}
           mainAction={() => runPush(false)}
+          badge={ahead}
+          tooltip={pushTooltip}
           items={[
             { label: loc.toolbar.push, action: () => runPush(false) },
             { label: loc.toolbar.pushForce, action: () => runPush(true) },

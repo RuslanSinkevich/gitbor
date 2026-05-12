@@ -34,6 +34,7 @@
 }
 
 .action {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -46,6 +47,25 @@
   font-size: 12px;
   font-family: inherit;
   transition: background var(--sg-transition);
+}
+
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--sg-foreground);
+  color: var(--sg-background);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  opacity: 0.85;
+  pointer-events: none;
+  box-sizing: border-box;
 }
 
 .action:hover {

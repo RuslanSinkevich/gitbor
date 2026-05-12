@@ -32,6 +32,7 @@ function makeCommit(hash: string, parent = ''): Commit {
     authorDate: 1700000000,
     refs: [],
     subject: `commit ${hash}`,
+    isRemoteOnly: false,
   };
 }
 
@@ -42,6 +43,7 @@ function makeLayout(nodeCount: number): GraphLayoutData {
       column: 0,
       color: '#fff',
       connections: [],
+      isRemoteOnly: false,
     })),
     maxColumns: 1,
     mergeLinks: [],

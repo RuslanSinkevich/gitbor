@@ -117,9 +117,17 @@
   padding: 0 8px;
   color: var(--sg-foreground-muted);
   font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.rowAuthorName {
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
 }
 
 .rowDate {
@@ -166,6 +174,15 @@
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.rowDimmed {
+  opacity: 0.55;
+  transition: opacity 120ms ease;
+}
+
+.rowDimmed:hover {
+  opacity: 0.9;
 }
 
 .rowSearchMatch {

@@ -8,6 +8,7 @@ import { groupBranchPaths, getNodeCircles, getMergeLinkPaths, type BranchPathDat
 import { GpgBadge } from './GpgBadge';
 import { useVirtualScroll } from './useVirtualScroll';
 import { useGraphSearch } from './useGraphSearch';
+import { AuthorAvatar } from '../../ui/AuthorAvatar';
 import s from './CommitGraph.module.css';
 
 /**
@@ -18,7 +19,7 @@ import s from './CommitGraph.module.css';
  */
 const branchPathsByNodes = new WeakMap<GraphNode[], BranchPathData[]>();
 const nodeCirclesByNodes = new WeakMap<GraphNode[], NodeCircle[]>();
-const rowMetaByNodes = new WeakMap<GraphNode[], { rightEdge: number; color: string }[]>();
+const rowMetaByNodes = new WeakMap<GraphNode[], { rightEdge: number; color: string; isRemoteOnly: boolean }[]>();
 
 function getOrComputeBranchPaths(nodes: GraphNode[]): BranchPathData[] {
   const cached = branchPathsByNodes.get(nodes);
@@ -36,18 +37,18 @@ function getOrComputeNodeCircles(nodes: GraphNode[], commits: Commit[]): NodeCir
   return result;
 }
 
-function getOrComputeRowMeta(nodes: GraphNode[], commitsLen: number): { rightEdge: number; color: string }[] {
+function getOrComputeRowMeta(nodes: GraphNode[], commitsLen: number): { rightEdge: number; color: string; isRemoteOnly: boolean }[] {
   const cached = rowMetaByNodes.get(nodes);
   if (cached) return cached;
-  const meta = new Array<{ rightEdge: number; color: string }>(commitsLen);
-  for (let i = 0; i < commitsLen; i++) meta[i] = { rightEdge: 0, color: '#888' };
+  const meta = new Array<{ rightEdge: number; color: string; isRemoteOnly: boolean }>(commitsLen);
+  for (let i = 0; i < commitsLen; i++) meta[i] = { rightEdge: 0, color: '#888', isRemoteOnly: false };
   for (const node of nodes) {
     let maxCol = node.column;
     for (const conn of node.connections) {
       if (conn.fromCol > maxCol) maxCol = conn.fromCol;
       if (conn.toCol > maxCol) maxCol = conn.toCol;
     }
-    meta[node.commitIndex] = { rightEdge: maxCol, color: node.color };
+    meta[node.commitIndex] = { rightEdge: maxCol, color: node.color, isRemoteOnly: node.isRemoteOnly === true };
   }
   rowMetaByNodes.set(nodes, meta);
   return meta;
@@ -170,27 +171,28 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
             style={{ width: graphWidth, top: svgTop, position: 'absolute', left: 0 }}
             viewBox={`0 ${svgTop} ${graphWidth} ${svgHeight}`}>
             {visiblePaths.branches.map((bp, i) => (
-              <path key={i} d={bp.d} stroke={bp.color} strokeWidth={bp.lineWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <path key={i} d={bp.d} stroke={bp.color} strokeWidth={bp.lineWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={bp.dimmed ? 0.35 : 1} />
             ))}
             {visiblePaths.merges.map((bp, i) => (
-              <path key={`m${i}`} d={bp.d} stroke={bp.color} strokeWidth={bp.lineWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <path key={`m${i}`} d={bp.d} stroke={bp.color} strokeWidth={bp.lineWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={bp.dimmed ? 0.35 : 1} />
             ))}
             {visibleCircles.map((nc, i) => (
               nc.isMerge
-                ? <polygon key={`n${i}`} points={`${nc.cx},${nc.cy - MERGE_RADIUS} ${nc.cx + MERGE_RADIUS},${nc.cy} ${nc.cx},${nc.cy + MERGE_RADIUS} ${nc.cx - MERGE_RADIUS},${nc.cy}`} fill={nc.color} stroke={bgColor} strokeWidth={2} />
-                : <circle key={`n${i}`} cx={nc.cx} cy={nc.cy} r={NODE_RADIUS} fill={nc.color} stroke={bgColor} strokeWidth={2} />
+                ? <polygon key={`n${i}`} points={`${nc.cx},${nc.cy - MERGE_RADIUS} ${nc.cx + MERGE_RADIUS},${nc.cy} ${nc.cx},${nc.cy + MERGE_RADIUS} ${nc.cx - MERGE_RADIUS},${nc.cy}`} fill={nc.color} stroke={bgColor} strokeWidth={2} opacity={nc.dimmed ? 0.45 : 1} />
+                : <circle key={`n${i}`} cx={nc.cx} cy={nc.cy} r={NODE_RADIUS} fill={nc.color} stroke={bgColor} strokeWidth={2} opacity={nc.dimmed ? 0.45 : 1} />
             ))}
           </svg>
 
           {visibleCommits.map((commit, vi) => {
             const i = visibleRange.start + vi;
-            const { rightEdge, color: nodeColor } = rowMeta[i];
+            const { rightEdge, color: nodeColor, isRemoteOnly } = rowMeta[i];
             const descLeft = Math.min(colX(rightEdge) + DESC_PAD, graphWidth);
             return (
               <div key={commit.hash}
-                className={`${s.row} ${hashMatch(commit.hash, selectedHash) ? s.rowSelected : ''} ${isHead(commit) ? s.rowHead : ''} ${search.searchMatchSet.has(i) ? s.rowSearchMatch : ''}`}
+                className={`${s.row} ${hashMatch(commit.hash, selectedHash) ? s.rowSelected : ''} ${isHead(commit) ? s.rowHead : ''} ${search.searchMatchSet.has(i) ? s.rowSearchMatch : ''} ${isRemoteOnly ? s.rowDimmed : ''}`}
                 style={{ top: i * ROW_HEIGHT, height: ROW_HEIGHT }}
                 onClick={() => onSelect(commit.hash)}
+                title={isRemoteOnly ? loc.graph.remoteOnlyHint : undefined}
                 onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getCommitMenuItems(commit, currentBranch, showPrompt, onRebase, compareFrom, onCompareFrom, onCompareTo)); }}>
                 <div className={s.rowDesc} style={{ paddingLeft: descLeft }}>
                   {commit.refs.map((ref) => (
@@ -199,7 +201,10 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
                   {commit.gpgStatus && <GpgBadge status={commit.gpgStatus} />}
                   <span className={s.subject}>{commit.subject}</span>
                 </div>
-                <div className={s.rowAuthor}>{commit.authorName}</div>
+                <div className={s.rowAuthor}>
+                  <AuthorAvatar name={commit.authorName} email={commit.authorEmail} size="sm" />
+                  <span className={s.rowAuthorName}>{commit.authorName}</span>
+                </div>
                 <div className={s.rowDate}>{formatCommitDate(commit.authorDate)}</div>
                 <div className={s.rowHash}>{commit.hash.substring(0, 7)}</div>
               </div>

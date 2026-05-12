@@ -63,6 +63,7 @@ export function parseCommits(stdout: string): Commit[] {
       authorDate: Number.isNaN(ts) ? 0 : ts * 1000,
       refs: refs ? parseRefs(refs) : [],
       subject,
+      isRemoteOnly: false,
     };
 
     if (gpg && gpg !== 'N') commit.gpgStatus = gpg;

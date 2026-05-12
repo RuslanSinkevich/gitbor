@@ -8,6 +8,16 @@
 - Branch coloring — each branch lane gets a unique color
 - Click on commit — loads details + auto-selects first file diff
 - Search commits (Ctrl+F) — by subject, author, or hash prefix
+- **Author avatars** — small colored circle with author initials in every row; HSL hue is a deterministic hash of the email so the same contributor looks the same everywhere (Cyrillic supported, fallback to email local part)
+- **Remote-only commits dimmed** — commits reachable from `refs/remotes/*` but not from any local branch render at ~0.45 node / ~0.35 line opacity; hover boosts to 0.9 to make them readable
+
+### Ahead/Behind Indicators
+
+- Pull button shows a `behind` badge — how many commits the current branch's upstream has that you have not pulled yet
+- Push button shows an `ahead` badge — how many local commits are not on the upstream yet
+- Counts > 99 render as `99+`; the badge disappears at zero
+- Fetch button stays badge-free (it is not branch-scoped)
+- Tooltip on Pull/Push expands the number into a localized phrase
 
 ### Branch / Tag / Stash Sidebar
 

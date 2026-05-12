@@ -454,6 +454,8 @@ export function App() {
             <Toolbar
               isOperationRunning={state.isOperationRunning}
               hasUpstream={state.branches.some(b => b.isCurrent && b.upstream)}
+              ahead={state.ahead}
+              behind={state.behind}
               onPull={runPull}
               onPush={runPush}
               onStash={promptStash}

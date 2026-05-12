@@ -285,6 +285,7 @@ export function computeGraphLayout(commits: Commit[]): GraphLayoutData {
       column: col,
       color,
       connections: rowConns[i],
+      isRemoteOnly: commits[i].isRemoteOnly === true,
     });
   }
 

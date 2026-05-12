@@ -11,6 +11,8 @@ export interface BranchPathData {
   lineWidth: number;
   minY: number;
   maxY: number;
+  /** Whole chain consists of segments touching only remote-only commits. */
+  dimmed: boolean;
 }
 
 interface Point {
@@ -67,6 +69,17 @@ export function groupBranchPaths(graphNodes: GraphNode[]): BranchPathData[] {
     fromCol: number;
     toCol: number;
     row: number;
+    /** Either endpoint touches a remote-only commit. */
+    dimmed: boolean;
+  }
+
+  // Быстрый индекс remote-only по commitIndex для маркировки сегментов
+  // ниже. Сегмент считается dimmed, если он соединяет хотя бы один
+  // remote-only коммит — это даёт корректный визуальный эффект на стыке
+  // локальной и dimmed части ветки.
+  const remoteOnlyByIdx = new Set<number>();
+  for (const node of graphNodes) {
+    if (node.isRemoteOnly) remoteOnlyByIdx.add(node.commitIndex);
   }
 
   const segments: Segment[] = [];
@@ -85,6 +98,7 @@ export function groupBranchPaths(graphNodes: GraphNode[]): BranchPathData[] {
         fromCol: conn.fromCol,
         toCol: conn.toCol,
         row: node.commitIndex,
+        dimmed: remoteOnlyByIdx.has(node.commitIndex) || remoteOnlyByIdx.has(node.commitIndex + 1),
       });
     }
   }
@@ -101,17 +115,19 @@ export function groupBranchPaths(graphNodes: GraphNode[]): BranchPathData[] {
   }
 
   const used = new Set<number>();
-  const chains: { color: string; points: Point[] }[] = [];
+  const chains: { color: string; points: Point[]; dimmed: boolean }[] = [];
 
   for (let i = 0; i < segments.length; i++) {
     if (used.has(i)) continue;
 
     const chain: Point[] = [];
     let idx = i;
+    let allDimmed = true;
 
     while (idx !== -1 && !used.has(idx)) {
       used.add(idx);
       const seg = segments[idx];
+      if (!seg.dimmed) allDimmed = false;
 
       if (chain.length === 0) {
         chain.push({ x: seg.fromX, y: seg.fromY });
@@ -134,7 +150,7 @@ export function groupBranchPaths(graphNodes: GraphNode[]): BranchPathData[] {
     }
 
     if (chain.length >= 2) {
-      chains.push({ color: segments[i].color, points: chain });
+      chains.push({ color: segments[i].color, points: chain, dimmed: allDimmed });
     }
   }
 
@@ -150,6 +166,7 @@ export function groupBranchPaths(graphNodes: GraphNode[]): BranchPathData[] {
       lineWidth: 2,
       minY,
       maxY,
+      dimmed: chain.dimmed,
     };
   });
 }
@@ -179,6 +196,7 @@ export function getMergeLinkPaths(mergeLinks: MergeLink[]): BranchPathData[] {
       lineWidth: 2,
       minY: Math.min(y1, y2),
       maxY: Math.max(y1, y2),
+      dimmed: false,
     };
   });
 }
@@ -188,6 +206,8 @@ export interface NodeCircle {
   cy: number;
   color: string;
   isMerge: boolean;
+  /** Mirrors GraphNode.isRemoteOnly so the renderer can fade the dot. */
+  dimmed: boolean;
 }
 
 export function getNodeCircles(graphNodes: GraphNode[], commits: { parents: string[] }[]): NodeCircle[] {
@@ -196,5 +216,6 @@ export function getNodeCircles(graphNodes: GraphNode[], commits: { parents: stri
     cy: rowY(node.commitIndex),
     color: node.color,
     isMerge: commits[node.commitIndex]?.parents.length > 1,
+    dimmed: node.isRemoteOnly === true,
   }));
 }

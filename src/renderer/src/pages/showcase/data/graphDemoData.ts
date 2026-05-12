@@ -4,7 +4,7 @@ import type { Commit, GraphNode, MergeLink } from '../../../types';
 function h(id: number): string { return id.toString(16).padStart(4, '0'); }
 
 function cm(hash: string, parents: string[], author: string, date: number, subject: string, refs: Commit['refs'] = []): Commit {
-  return { hash, parents, authorName: author, authorEmail: `${author.toLowerCase()}@dev`, authorDate: date, refs, subject };
+  return { hash, parents, authorName: author, authorEmail: `${author.toLowerCase()}@dev`, authorDate: date, refs, subject, isRemoteOnly: false };
 }
 
 function buildDemoGraph(): { commits: Commit[]; graphNodes: GraphNode[]; maxColumns: number; mergeLinks: MergeLink[] } {
@@ -85,6 +85,7 @@ function buildDemoGraph(): { commits: Commit[]; graphNodes: GraphNode[]; maxColu
       column: n.column,
       color: n.color,
       connections: n.connections.map(cn => ({ fromCol: cn.fromCol, toCol: cn.toCol, color: cn.color })),
+      isRemoteOnly: false,
     })),
     maxColumns: layout.maxColumns,
     mergeLinks: layout.mergeLinks.map(ml => ({ ...ml })),

@@ -64,7 +64,7 @@ SkyFork is an Electron desktop Git client.
 - [ ] Formatting is consistent (`npm run format`)
 - [ ] IPC types synced between core and renderer
 - [ ] New features have corresponding IPC commands wired end-to-end
-- [ ] Unit tests pass (`npm test` — Vitest, <!-- TESTS_COUNT -->494<!-- /TESTS_COUNT --> in <!-- TESTS_FILES -->48<!-- /TESTS_FILES --> files; auto-run in `.husky/pre-push`, bypass with `SKIP_TESTS=1`)
+- [ ] Unit tests pass (`npm test` — Vitest, <!-- TESTS_COUNT -->601<!-- /TESTS_COUNT --> in <!-- TESTS_FILES -->55<!-- /TESTS_FILES --> files; auto-run in `.husky/pre-push`, bypass with `SKIP_TESTS=1`)
 - [ ] E2E tests pass on Windows (`npm run e2e` — Playwright, 3 specs, ~27s)
 - [ ] User-provided paths validated via `safePath()` / `isSafeFilename()`
 - [ ] New i18n keys added to both languages (en + ru)
