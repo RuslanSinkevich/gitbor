@@ -123,7 +123,7 @@ tests/
 | `parseStatus` | Staged/unstaged модификации, `MM` (обе), untracked (`??`), staged add (`A`), delete (`D`), конфликты (`UU`, `AA`), несколько файлов |
 | `parseFileChanges` | Модификация, добавление, удаление, переименование (`R100`), копирование (`C100`) |
 
-**<!-- TESTS_COUNT -->601<!-- /TESTS_COUNT --> тестов / <!-- TESTS_FILES -->55<!-- /TESTS_FILES --> файлов — всё зелёное.**
+**<!-- TESTS_COUNT -->631<!-- /TESTS_COUNT --> тестов / <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> файлов — всё зелёное.**
 
 ### 2. DiffParser (`tests/git/DiffParser.test.ts`)
 
@@ -516,7 +516,7 @@ npx vitest run tests/git/MyNewParser.test.ts
 | Changes | fileTree (buildFileTree, collectFiles) | ~11 |
 | Repo Manager | recentRepos (фильтрация невалидных путей) | ~3 |
 | Main | gracefulShutdown | ~5 |
-| **Итого** | **<!-- TESTS_FILES -->55<!-- /TESTS_FILES --> файлов** | **<!-- TESTS_COUNT -->601<!-- /TESTS_COUNT -->** |
+| **Итого** | **<!-- TESTS_FILES -->58<!-- /TESTS_FILES --> файлов** | **<!-- TESTS_COUNT -->631<!-- /TESTS_COUNT -->** |
 
 ---
 
@@ -585,7 +585,7 @@ steps:
   - npm run lint                        # ESLint проверка
   - npx tsc -p tsconfig.main.json       # TypeScript (main + core)
   - npx tsc -b (src/renderer)           # TypeScript (renderer)
-  - npm test                            # Vitest (<!-- TESTS_COUNT -->601<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->55<!-- /TESTS_FILES --> файлах)
+  - npm test                            # Vitest (<!-- TESTS_COUNT -->631<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> файлах)
   - npm run build:renderer              # Vite сборка
   - npm run build:main                  # tsc main process
 ```
@@ -629,7 +629,7 @@ e2e:
 
 `.husky/pre-push` (~5–7 сек):
 
-1. `npm test` (Vitest, <!-- TESTS_COUNT -->601<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->55<!-- /TESTS_FILES --> файлах) — полный набор перед пушем в remote.
+1. `npm test` (Vitest, <!-- TESTS_COUNT -->631<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> файлах) — полный набор перед пушем в remote.
 2. Bypass: `SKIP_TESTS=1 git push` — для веток, где менялись только doc/config и тесты прогонять не из чего.
 
 Логика разделения: коммит держим дешёвым (lint-staged + tsc), полный тестовый прогон уезжает в pre-push, где задержка приемлема и страхует от пуша красного.

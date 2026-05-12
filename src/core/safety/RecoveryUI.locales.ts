@@ -40,8 +40,6 @@ const ru: GitNotFoundLocale = {
   downloadUrl: 'https://git-scm.com/downloads',
 };
 
-export const gitNotFoundLocales = { en, ru } as const;
-
 /**
  * Выбор локали по тегу из `app.getLocale()` (BCP-47, напр. `ru-RU`, `en-US`).
  * Только две локали; всё неузнанное — `en` fallback.

@@ -17,7 +17,7 @@ import {
 import type { ConflictContent } from '../git/types';
 import type { GitActivityEntry } from '../activity/GitActivityStore';
 import type { AiProviderConfig } from '../ai/types';
-export type { GitActivityEntry, GitActivityCommand, GitActivityStatus } from '../activity/GitActivityStore';
+export type { GitActivityEntry, GitActivityCommand } from '../activity/GitActivityStore';
 export type { AiConnectionMode, AiProviderConfig, CommitLanguage } from '../ai/types';
 
 // ─── Renderer → Main (commands via IPC) ───

@@ -19,7 +19,7 @@ function decodeHtmlEntities(input: string): string {
   return textarea.value;
 }
 
-export function SgToast({ toast, onDismiss }: SgToastProps) {
+function SgToast({ toast, onDismiss }: SgToastProps) {
   useEffect(() => {
     const timer = setTimeout(() => onDismiss(toast.id), toast.duration || 4000);
     return () => clearTimeout(timer);

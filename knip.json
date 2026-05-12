@@ -1,7 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
   "entry": [
-    "src/main/main.ts",
     "src/preload/index.ts",
     "src/renderer/src/main.tsx",
     "tests/**/*.test.ts"
@@ -10,12 +9,5 @@
     "src/**/*.{ts,tsx}",
     "tests/**/*.ts"
   ],
-  "ignore": [
-    "src/renderer/dist/**",
-    "dist/**",
-    "release/**"
-  ],
-  "ignoreDependencies": [
-    "@vitest/coverage-v8"
-  ]
+  "ignore": []
 }

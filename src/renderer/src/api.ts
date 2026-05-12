@@ -18,13 +18,6 @@ function getAPI(): SkyForkAPI | null {
   return window.skyForkAPI ?? null;
 }
 
-type IpcErrorCallback = (commandType: string, error: string) => void;
-let ipcErrorHandler: IpcErrorCallback | null = null;
-
-export function setIpcErrorHandler(handler: IpcErrorCallback): void {
-  ipcErrorHandler = handler;
-}
-
 export interface PostCommandHooks {
   /** Called only when `ipcRenderer.invoke` rejects (no main handler completion). Main `error` events use `onMainEvent`. */
   onInvokeRejected?: () => void;
@@ -36,7 +29,6 @@ export function postCommand(command: RendererCommand, hooks?: PostCommandHooks):
     void api.invoke(command).catch((err) => {
       const msg = err instanceof Error ? err.message : String(err);
       logger.error(`IPC error for "${command.type}":`, msg);
-      if (ipcErrorHandler) ipcErrorHandler(command.type, msg);
       hooks?.onInvokeRejected?.();
     });
   } else {

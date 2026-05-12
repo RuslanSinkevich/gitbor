@@ -58,8 +58,6 @@ const ru: LongPathLocale = {
     'https://learn.microsoft.com/ru-ru/windows/win32/fileio/maximum-file-path-limitation',
 };
 
-export const longPathLocales = { en, ru } as const;
-
 /**
  * Выбор локали по тегу из `app.getLocale()` (BCP-47, напр. `ru-RU`, `en-US`).
  * Только две локали; всё неузнанное — `en` fallback.

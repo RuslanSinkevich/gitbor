@@ -1,6 +1,6 @@
 import { vi, type Mock } from 'vitest';
 import type { GitExecutor } from '../../src/core/git/GitExecutor';
-import type { GitExecOptions, GitExecResult } from '../../src/core/git/types';
+import type { GitExecResult } from '../../src/core/git/types';
 
 /**
  * Узкий тип «git-исполнителя» для тестов: ровно те методы реальных тестов
@@ -61,20 +61,3 @@ export function makeScriptedGit(
   };
 }
 
-/**
- * Mock с произвольным reducer-ом по args/opts. Для самых редких случаев
- * (StateManager.refreshGraph: разные ответы на rev-parse/log).
- */
-export function makeReducerGit(
-  reducer: (args: string[], opts?: GitExecOptions) => GitExecResponse,
-): MockGit {
-  return {
-    exec: vi.fn(async (args: string[], opts?: GitExecOptions) => ({
-      ...DEFAULT_RESULT,
-      ...reducer(args, opts),
-    })),
-    getCwd: vi.fn(() => '/repo'),
-    setCwd: vi.fn(),
-    killAll: vi.fn(() => 0),
-  };
-}

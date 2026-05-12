@@ -10,14 +10,12 @@ export type LangCode = 'ru' | 'en';
 const locales: Record<LangCode, Locale> = { ru, en };
 
 let currentLang: LangCode = (loadStoredString('sg-lang') as LangCode) ?? 'ru';
-const listeners = new Set<(lang: LangCode) => void>();
 
 export function setLang(lang: string): void {
   const next: LangCode = lang.startsWith('ru') ? 'ru' : 'en';
   if (next === currentLang) return;
   currentLang = next;
   saveStoredString('sg-lang', next);
-  listeners.forEach(fn => fn(next));
 }
 
 export function getLang(): LangCode {
@@ -26,11 +24,6 @@ export function getLang(): LangCode {
 
 export function t(): Locale {
   return locales[currentLang];
-}
-
-export function onLangChange(fn: (lang: LangCode) => void): () => void {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
 }
 
 export function tpl(template: string, params: Record<string, string | number>): string {
