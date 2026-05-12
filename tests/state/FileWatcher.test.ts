@@ -57,7 +57,10 @@ function makeFakeStateManager() {
 }
 
 // setImmediate + ждём fs.readdir внутри ensureWatcher. Берём с запасом.
-function flushAsync(ms = 30): Promise<void> {
+// 150мс — потому что под параллельной нагрузкой `npm test` (55 файлов
+// одновременно) 30мс иногда не хватало на цепочку
+// setImmediate → fs.readdir → ensureWatcher → mock chokidar.watch().
+function flushAsync(ms = 150): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
