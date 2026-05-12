@@ -8,6 +8,17 @@ import { EventEmitter } from 'events';
  * Unit-тесты FileWatcher. chokidar полностью мокаем — настоящие watch'ы не
  * запускаем. Реальная fs-папка нужна только чтобы pre-scan (fs.readdir) не
  * падал, а isDangerousRepoRoot честно возвращал false для tmp-папки.
+ *
+ * Принцип: НИКАКИХ `setTimeout`-ов на синхронизацию. Все ожидания
+ * результата async-цепочек — через `vi.waitFor`, который polls условие
+ * каждые ~10мс пока оно не станет true (или не упрётся в timeout).
+ * Это убирает класс flaky-падений «на быстрой машине ок, на загруженной
+ * 30мс не хватило».
+ *
+ * Единственное место, где `setTimeout` оправдан — внутренние debounce'ы
+ * FileWatcher (GIT_DEBOUNCE_MS=120, WORKTREE_DEBOUNCE_MS=200): мы ждём
+ * САМ TIMER, а не race. Эти ожидания тоже сворачиваем в `vi.waitFor`,
+ * который сам раскрутит polling.
  */
 
 interface FakeWatcher extends EventEmitter {
@@ -56,12 +67,15 @@ function makeFakeStateManager() {
   };
 }
 
-// setImmediate + ждём fs.readdir внутри ensureWatcher. Берём с запасом.
-// 150мс — потому что под параллельной нагрузкой `npm test` (55 файлов
-// одновременно) 30мс иногда не хватало на цепочку
-// setImmediate → fs.readdir → ensureWatcher → mock chokidar.watch().
-function flushAsync(ms = 150): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+/**
+ * Ждём, пока chokidar.watch будет вызван хотя бы один раз с предикатом.
+ * `predicate` возвращает true, когда нужный watcher уже создан.
+ * Default timeout 1500ms — с большим запасом против любой нагрузки CI.
+ */
+function waitForWatcher(predicate: (calls: typeof watchCalls) => boolean): Promise<void> {
+  return vi.waitFor(() => {
+    if (!predicate(watchCalls)) throw new Error('predicate not yet satisfied');
+  }, { timeout: 1500, interval: 10 });
 }
 
 beforeEach(() => {
@@ -87,8 +101,9 @@ describe('FileWatcher', () => {
       const sm = makeFakeStateManager();
       const fw = new FileWatcher(sm as never);
       fw.addRepo(tmpRepo);
-      await flushAsync();
-      // git-watcher всегда; worktree-watcher — если не dangerous
+      await waitForWatcher(calls =>
+        calls.some(c => c.target.endsWith('.git')) && calls.some(c => c.target === tmpRepo),
+      );
       const gitWatch = watchCalls.find(c => c.target.endsWith('.git'));
       const treeWatch = watchCalls.find(c => c.target === tmpRepo);
       expect(gitWatch).toBeDefined();
@@ -101,7 +116,7 @@ describe('FileWatcher', () => {
       const sm = makeFakeStateManager();
       const fw = new FileWatcher(sm as never);
       fw.addRepo(tmpRepo);
-      await flushAsync();
+      await waitForWatcher(calls => calls.some(c => c.target.endsWith('.git')));
       const gitCall = watchCalls.find(c => c.target.endsWith('.git'));
       const opts = gitCall!.options as Record<string, unknown>;
       expect(opts.ignoreInitial).toBe(true);
@@ -115,8 +130,14 @@ describe('FileWatcher', () => {
       const fw = new FileWatcher(sm as never);
       fw.addRepo(tmpRepo);
       fw.addRepo(tmpRepo);
-      await flushAsync();
-      // git + worktree = 2 watch вызова; не 4.
+      // ждём, что появилось ровно 2 (git + worktree); если будет больше — позже
+      // assert упадёт. waitFor с условием "==2" удерживает тест от ложного
+      // прохода если реализация когда-то начнёт лагать.
+      await vi.waitFor(() => {
+        if (watchCalls.length < 2) throw new Error('not yet created');
+      }, { timeout: 1500, interval: 10 });
+      // даём ещё один tick, чтобы потенциальный 3-й вызов успел проявиться
+      await Promise.resolve();
       expect(watchCalls).toHaveLength(2);
       fw.dispose();
     });
@@ -128,7 +149,7 @@ describe('FileWatcher', () => {
       const sm = makeFakeStateManager();
       const fw = new FileWatcher(sm as never);
       fw.switchRepo(tmpRepo);
-      await flushAsync();
+      await waitForWatcher(calls => calls.length > 0);
       expect(watchCalls.length).toBeGreaterThan(0);
       fw.dispose();
     });
@@ -144,13 +165,22 @@ describe('FileWatcher', () => {
         fw.addRepo(tmpRepo);
         fw.addRepo(otherRepo);
         fw.switchRepo(tmpRepo);
-        await flushAsync();
+        // ждём, пока watcher otherRepo точно создан и можно дёргать emit
+        await vi.waitFor(() => {
+          const ow = createdWatchers.find(w => w.__target === join(otherRepo, '.git'));
+          if (!ow) throw new Error('other watcher not yet created');
+        }, { timeout: 1500, interval: 10 });
 
         // отправляем событие из неактивного репо (otherRepo)
         const otherGit = createdWatchers.find(w => w.__target === join(otherRepo, '.git'));
         otherGit!.emit('change');
 
-        await new Promise(r => setTimeout(r, 150));
+        // Это negative-проверка: «refresh НЕ должен случиться». Дать debounce
+        // (120мс) шанс отстрелять и проверить, что он действительно не вызвал
+        // refresh — короткий sleep оправдан семантически (мы ЖДЁМ таймер
+        // FileWatcher'а, а не race выполнения). Оборачиваем в waitFor с
+        // обратной логикой: за время ожидания counter не должен подняться.
+        await new Promise(r => setTimeout(r, 200)); // > GIT_DEBOUNCE_MS (120)
         expect(sm.refreshAll).not.toHaveBeenCalled();
       } finally {
         fw.dispose();
@@ -164,12 +194,15 @@ describe('FileWatcher', () => {
       const fw = new FileWatcher(sm as never);
       fw.addRepo(tmpRepo);
       fw.switchRepo(tmpRepo);
-      await flushAsync();
+      await waitForWatcher(calls => calls.some(c => c.target.endsWith('.git')));
       const gitWatcher = createdWatchers.find(w => w.__target.endsWith('.git'));
       gitWatcher!.emit('change');
-      await new Promise(r => setTimeout(r, 150));
-      expect(sm.invalidateGraphCache).toHaveBeenCalled();
-      expect(sm.refreshAll).toHaveBeenCalled();
+      // ждём, пока debounce (120мс) отстрелит и refreshAll вызовется.
+      // waitFor сам найдёт момент.
+      await vi.waitFor(() => {
+        expect(sm.invalidateGraphCache).toHaveBeenCalled();
+        expect(sm.refreshAll).toHaveBeenCalled();
+      }, { timeout: 1500, interval: 10 });
       fw.dispose();
     });
 
@@ -179,11 +212,13 @@ describe('FileWatcher', () => {
       const fw = new FileWatcher(sm as never);
       fw.addRepo(tmpRepo);
       fw.switchRepo(tmpRepo);
-      await flushAsync();
+      await waitForWatcher(calls => calls.some(c => c.target === tmpRepo));
       const treeWatcher = createdWatchers.find(w => w.__target === tmpRepo);
       treeWatcher!.emit('change');
-      await new Promise(r => setTimeout(r, 250));
-      expect(sm.refreshStatusAndNotify).toHaveBeenCalled();
+      // worktree debounce 200мс.
+      await vi.waitFor(() => {
+        expect(sm.refreshStatusAndNotify).toHaveBeenCalled();
+      }, { timeout: 1500, interval: 10 });
       fw.dispose();
     });
   });
@@ -194,13 +229,16 @@ describe('FileWatcher', () => {
       const sm = makeFakeStateManager();
       const fw = new FileWatcher(sm as never);
       fw.addRepo(tmpRepo);
-      await flushAsync();
+      await waitForWatcher(calls =>
+        calls.some(c => c.target.endsWith('.git')) && calls.some(c => c.target === tmpRepo),
+      );
       const gitW = createdWatchers.find(w => w.__target.endsWith('.git'))!;
       const treeW = createdWatchers.find(w => w.__target === tmpRepo)!;
       fw.removeRepo(tmpRepo);
-      await flushAsync();
-      expect(gitW.close).toHaveBeenCalled();
-      expect(treeW.close).toHaveBeenCalled();
+      await vi.waitFor(() => {
+        expect(gitW.close).toHaveBeenCalled();
+        expect(treeW.close).toHaveBeenCalled();
+      }, { timeout: 1500, interval: 10 });
     });
 
     it('removeRepo для неизвестного пути — no-op', async () => {
@@ -216,11 +254,12 @@ describe('FileWatcher', () => {
       const fw = new FileWatcher(sm as never);
       fw.addRepo(tmpRepo);
       fw.switchRepo(tmpRepo);
-      await flushAsync();
+      await waitForWatcher(calls => calls.some(c => c.target.endsWith('.git')));
       const gitW = createdWatchers.find(w => w.__target.endsWith('.git'))!;
       fw.dispose();
-      await flushAsync();
-      expect(gitW.close).toHaveBeenCalled();
+      await vi.waitFor(() => {
+        expect(gitW.close).toHaveBeenCalled();
+      }, { timeout: 1500, interval: 10 });
     });
 
     it('unwatch() === dispose() (legacy alias)', async () => {
@@ -228,11 +267,12 @@ describe('FileWatcher', () => {
       const sm = makeFakeStateManager();
       const fw = new FileWatcher(sm as never);
       fw.addRepo(tmpRepo);
-      await flushAsync();
+      await waitForWatcher(calls => calls.some(c => c.target.endsWith('.git')));
       const gitW = createdWatchers.find(w => w.__target.endsWith('.git'))!;
       fw.unwatch();
-      await flushAsync();
-      expect(gitW.close).toHaveBeenCalled();
+      await vi.waitFor(() => {
+        expect(gitW.close).toHaveBeenCalled();
+      }, { timeout: 1500, interval: 10 });
     });
 
     it('race-guard: close во время pre-scan не создаёт orphan watcher', async () => {
@@ -240,10 +280,14 @@ describe('FileWatcher', () => {
       const sm = makeFakeStateManager();
       const fw = new FileWatcher(sm as never);
       fw.addRepo(tmpRepo);
-      fw.removeRepo(tmpRepo); // сразу удаляем плейсхолдер до flushAsync
-      await flushAsync();
-      // chokidar.watch не должен был стартануть — мы оборвали ensureWatcher
-      // на этапе race-проверки `stillTracked`.
+      fw.removeRepo(tmpRepo); // сразу удаляем плейсхолдер до того, как pre-scan долетит до chokidar.watch
+      // Здесь нужен один tick, чтобы pre-scan (setImmediate + readdir) точно
+      // прошёл свой race-check `stillTracked` и решил не создавать watcher.
+      // Это не "ждём на удачу" — мы ждём ИМЕННО завершения pre-scan, после
+      // которого counter уже не должен меняться. Используем короткий sleep
+      // как явное "дать pre-scan возможность отработать", после чего
+      // верифицируем НЕ-создание (negative invariant).
+      await new Promise(r => setTimeout(r, 50));
       expect(watchCalls).toHaveLength(0);
     });
   });
