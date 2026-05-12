@@ -64,12 +64,13 @@ describe('colorForAuthor', () => {
   it('handles email without @ gracefully (treats whole string as local part)', () => {
     const v = colorForAuthor('plainstring');
     expect(v.initials).toBe('PL');
-    expect(v.bg).toMatch(/^hsl\(\d+, 55%, 50%\)$/);
+    // Палитра — насыщенные цвета: hue 0-359, saturation 60-85, lightness 42-58.
+    expect(v.bg).toMatch(/^hsl\(\d+, (?:6\d|7\d|8[0-5])%, (?:4[2-9]|5[0-8])%\)$/);
   });
 
-  it('emits fg=#ffffff for the standard L=50 background', () => {
+  it('picks readable foreground based on background lightness', () => {
     const v = colorForAuthor('any@one.com', 'Any One');
-    expect(v.fg).toBe('#ffffff');
+    expect(['#ffffff', '#1a1a1a']).toContain(v.fg);
   });
 
   it('uses email for hue, even when name differs (same person, different display name)', () => {

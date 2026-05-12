@@ -62,6 +62,12 @@ interface Props {
   selectedHash: string | null;
   onSelect: (hash: string) => void;
   currentBranch: string;
+  /**
+   * Идентификатор репо/таба — используется как scope-ключ для запоминания
+   * scrollTop отдельно для каждого открытого репо, чтобы переключение
+   * туда-обратно возвращало юзера в ту же точку графа.
+   */
+  repoPath?: string;
   onContextMenu: (e: React.MouseEvent, items: SgContextMenuItem[]) => void;
   showPrompt: ShowPrompt;
   onRebase?: OnRebase;
@@ -71,12 +77,12 @@ interface Props {
   onCompareTo?: (from: string, to: string) => void;
 }
 
-function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, currentBranch, onContextMenu, showPrompt, onRebase, onLoadMore, compareFrom, onCompareFrom, onCompareTo }: Props) {
+function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, currentBranch, repoPath, onContextMenu, showPrompt, onRebase, onLoadMore, compareFrom, onCompareFrom, onCompareTo }: Props) {
   const loc = t();
   const graphWidth = LEFT_PAD * 2 + (maxColumns + 1) * COL_WIDTH + 12;
   const totalHeight = commits.length * ROW_HEIGHT;
 
-  const { bodyRef, visibleRange, scrollToRow } = useVirtualScroll(commits.length);
+  const { bodyRef, visibleRange, scrollToRow } = useVirtualScroll(commits.length, repoPath ?? '__default__');
   const search = useGraphSearch(commits, onSelect, scrollToRow);
 
   const hashMatch = useCallback((full: string, sel: string | null) => {
@@ -187,9 +193,15 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
             const i = visibleRange.start + vi;
             const { rightEdge, color: nodeColor, isRemoteOnly } = rowMeta[i];
             const descLeft = Math.min(colX(rightEdge) + DESC_PAD, graphWidth);
+            // Контрастная иерархия: коммиты с ref-бейджами (HEAD/branch/tag)
+            // выделены чуть более насыщенным subject — это «anchor-коммиты»,
+            // у которых есть имя. Остальные рендерятся в стандартной яркости.
+            // Раньше попытка дополнительно «приглушать» merge-коммиты без
+            // ref'ов давала слишком серый граф (пользователь жаловался).
+            const significant = commit.refs.length > 0;
             return (
               <div key={commit.hash}
-                className={`${s.row} ${hashMatch(commit.hash, selectedHash) ? s.rowSelected : ''} ${isHead(commit) ? s.rowHead : ''} ${search.searchMatchSet.has(i) ? s.rowSearchMatch : ''} ${isRemoteOnly ? s.rowDimmed : ''}`}
+                className={`${s.row} ${hashMatch(commit.hash, selectedHash) ? s.rowSelected : ''} ${isHead(commit) ? s.rowHead : ''} ${significant ? s.rowSignificant : ''} ${search.searchMatchSet.has(i) ? s.rowSearchMatch : ''} ${isRemoteOnly ? s.rowDimmed : ''}`}
                 style={{ top: i * ROW_HEIGHT, height: ROW_HEIGHT }}
                 onClick={() => onSelect(commit.hash)}
                 title={isRemoteOnly ? loc.graph.remoteOnlyHint : undefined}
@@ -233,5 +245,6 @@ export const CommitGraph = memo(CommitGraphImpl, (prev, next) => (
   prev.mergeLinks === next.mergeLinks &&
   prev.selectedHash === next.selectedHash &&
   prev.currentBranch === next.currentBranch &&
-  prev.compareFrom === next.compareFrom
+  prev.compareFrom === next.compareFrom &&
+  prev.repoPath === next.repoPath
 ));

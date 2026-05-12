@@ -248,8 +248,14 @@ export class RepoStateRefresher {
       const logArgs = ['log', '--all', '--date-order', `--format=${GIT_LOG_FORMAT}`];
       logArgs.push(`--max-count=${effectiveLimit}`);
 
+      // Большие монорепо (vscode, chromium) с лимитом 50k коммитов могут не
+      // уложиться в дефолтные 30s GitExecutor — git log и rev-list по сотням
+      // тысяч ref'ов реально занимают 40-90s на холодном диске. Поднимаем
+      // потолок до 5 минут, чтобы не ловить timeout-throw → пустой slice →
+      // мерцание UI до следующего рефреша.
+      const heavyReadTimeout = 5 * 60 * 1000;
       const endGitLog = perfMark(`git log(${effectiveLimit})`);
-      const logResult = await git.exec(logArgs);
+      const logResult = await git.exec(logArgs, { timeout: heavyReadTimeout });
       endGitLog();
       if (slice.token !== startToken) {
         perfLog('refreshGraph.aborted.afterGitLog', { limit: effectiveLimit });
@@ -296,8 +302,11 @@ export class RepoStateRefresher {
       slice.graphLayout = layout;
     } catch {
       if (slice.token !== startToken) return;
-      slice.commits = [];
-      slice.graphLayout = { nodes: [], maxColumns: 0, mergeLinks: [] };
+      // Раньше catch обнулял slice.commits и layout. На больших монорепо
+      // это давало белый граф при любом транзиентном таймауте git'а
+      // (vscode/chromium — 100k+ refs, log может уезжать за дефолтные 30s).
+      // Безопаснее оставить старые данные и сбросить только cache-метки,
+      // чтобы следующий refresh не пропустил пересчёт по headHash-skip.
       slice.cachedHeadHash = null;
       slice.cachedLogHash = null;
       slice.cachedLogLimit = 0;
@@ -422,9 +431,17 @@ export class RepoStateRefresher {
   private async computeRemoteOnlySet(repoPath: string): Promise<Set<string>> {
     try {
       const git = this.registry.acquire(repoPath).git;
+      // ВАЖНО: голый `refs/remotes` git rev-list трактует как ревизию и
+      // падает с "ambiguous argument" (exit=128). Правильно — разворачивать
+      // refspec через --glob=refs/remotes/* / --not --glob=refs/heads/*.
+      // Это даёт хэши коммитов, достижимых ТОЛЬКО с remote-веток.
       const result = await git.exec([
-        'rev-list', 'refs/remotes', '--not', 'refs/heads',
-      ]);
+        'rev-list', '--glob=refs/remotes/*', '--not', '--glob=refs/heads/*',
+      ], { timeout: 5 * 60 * 1000 });
+      // Если git вернул не-нулевой exit, exec обычно throw'ит — попадём в
+      // catch ниже. Если же реализация exec'а заглатывает ошибку и кладёт
+      // пустой stdout — parseRemoteOnlyHashes вернёт пустой Set, что тоже
+      // безопасно (просто ничего не помечаем dim'ом).
       return parseRemoteOnlyHashes(result.stdout);
     } catch {
       // Нет remote'ов / нет head'ов / ошибка git — в любом случае возвращаем

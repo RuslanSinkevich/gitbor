@@ -78,6 +78,11 @@ describe('parseCommits', () => {
     expect(parseCommits(line)[0].gpgStatus).toBeUndefined();
   });
 
+  it('skips GPG status E (cannot verify, no key) — visual noise on foreign repos', () => {
+    const line = ['abc', '', 'Bob', 'bob@x', '100', '', 'signed by stranger', 'E'].join(NUL);
+    expect(parseCommits(line)[0].gpgStatus).toBeUndefined();
+  });
+
   it('handles multiple parents', () => {
     const line = ['abc', 'p1 p2 p3', 'A', 'a@x', '0', '', 'merge'].join(NUL);
     expect(parseCommits(line)[0].parents).toEqual(['p1', 'p2', 'p3']);

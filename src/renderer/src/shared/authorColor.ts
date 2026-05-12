@@ -68,16 +68,30 @@ function firstLetter(word: string): string | null {
  * Same `email` (case-insensitive) → same `bg` and `fg` every call.
  * If both `email` and `name` are empty, returns a neutral grey avatar
  * with `?` initials.
+ *
+ * Палитра намеренно построена не «hash % 360», а через золотое сечение
+ * (0.61803...), чтобы соседние по хэшу значения разлетались по кругу
+ * максимально далеко. На практике это убирает «розовую стену», когда
+ * у команды много email'ов с похожим хэшем и они все падают в один
+ * 30°-сектор. Saturation/lightness слегка варьируются для дополнительной
+ * различимости, но в безопасном диапазоне читаемого контраста на тёмной
+ * теме.
  */
+const GOLDEN_RATIO_CONJUGATE = 0.6180339887498949;
+
 export function colorForAuthor(email: string, name?: string): AuthorVisual {
   const key = (email || name || '').trim().toLowerCase();
   if (!key) {
     return { bg: 'hsl(0, 0%, 50%)', fg: '#ffffff', initials: '?' };
   }
-  const hue = hashString(key) % 360;
-  const sat = 55;
-  const lit = 50;
+  const h = hashString(key);
+  // Hue: золотое сечение даёт max-spread по кругу для последовательных хэшей.
+  const hue = Math.floor(((h % 1000000) * GOLDEN_RATIO_CONJUGATE) % 1 * 360);
+  // Saturation 60-85% — насыщенные «брендовые» цвета, без пастели.
+  const sat = 60 + (h >> 8) % 26;
+  // Lightness 42-58% — гарантирует контраст и для светлых, и для тёмных тем.
+  const lit = 42 + (h >> 16) % 17;
   const bg = `hsl(${hue}, ${sat}%, ${lit}%)`;
-  const fg = lit > 60 ? '#1a1a1a' : '#ffffff';
+  const fg = lit > 55 ? '#1a1a1a' : '#ffffff';
   return { bg, fg, initials: computeInitials(name, email) };
 }

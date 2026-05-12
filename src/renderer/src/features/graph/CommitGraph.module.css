@@ -100,6 +100,30 @@
   font-weight: 600;
 }
 
+/*
+ * Контрастная иерархия Fork-style:
+ *   .rowSignificant — коммит с ref-бейджем (ветка/тег/HEAD): яркий, чуть жирнее.
+ *   .rowMuted       — merge-коммит без ref'ов: приглушённый subject и метаданные,
+ *                     визуально «уходит на второй план», как чисто-сервисная склейка.
+ *   обычные коммиты — стандартная яркость (без модификаторов).
+ */
+/*
+ * У значимых коммитов (HEAD/branch/tag) вся строка идёт в основном цвете —
+ * subject жирнее, а автор/дата/sha больше не приглушены через muted-цвет.
+ * Раньше выглядело так, будто правая половина anchor-коммита «затуманена».
+ */
+.rowSignificant .subject {
+  color: var(--sg-foreground);
+  font-weight: 500;
+}
+
+.rowSignificant .rowAuthor,
+.rowSignificant .rowAuthorName,
+.rowSignificant .rowDate,
+.rowSignificant .rowHash {
+  color: var(--sg-foreground);
+}
+
 .rowDesc {
   flex: 1;
   min-width: 0;

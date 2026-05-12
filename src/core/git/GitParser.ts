@@ -66,7 +66,11 @@ export function parseCommits(stdout: string): Commit[] {
       isRemoteOnly: false,
     };
 
-    if (gpg && gpg !== 'N') commit.gpgStatus = gpg;
+    // 'N' — нет подписи (норма для большинства коммитов).
+    // 'E' — подпись есть, но проверить нельзя (нет ключа в keyring) —
+    // это типично для чужих репо (vscode, chromium и т.п.) и заваливает
+    // экран бейджами "? Err". Считаем 'E' тоже шумом и не показываем.
+    if (gpg && gpg !== 'N' && gpg !== 'E') commit.gpgStatus = gpg;
 
     result.push(commit);
   }

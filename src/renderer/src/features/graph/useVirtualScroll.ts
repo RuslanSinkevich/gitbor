@@ -1,7 +1,15 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
 import { ROW_HEIGHT, OVERSCAN } from './graphConstants';
 
-export function useVirtualScroll(totalCount: number) {
+/**
+ * Сохранённые scrollTop'ы в разрезе scopeKey (обычно — repoPath). Память
+ * процесс-локальная: при переключении репо/таба возвращаем юзера туда же,
+ * где он был, а не на верх. Map переживает unmount компонента (модуль-
+ * левел), поэтому смена layout/панели тоже не теряет позицию.
+ */
+const scrollMemory = new Map<string, number>();
+
+export function useVirtualScroll(totalCount: number, scopeKey: string = '__default__') {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 50 });
 
@@ -15,30 +23,69 @@ export function useVirtualScroll(totalCount: number) {
     setVisibleRange(prev => (prev.start === start && prev.end === end) ? prev : { start, end });
   }, [totalCount]);
 
-  // Clamp scroll при уменьшении списка. Без этого при переходе с большого
-  // репо (15k коммитов, scrollTop=50000) на маленький (39 коммитов, totalHeight
-  // ~1090px) расчёт даёт start=1785, end=39 → пустой visibleCommits на один
-  // кадр, пока браузер сам не клэмпнет scrollTop. Визуально это и есть тот
-  // «скачок» при переходе большой→маленький.
+  // Сохраняем scrollTop пользователя на каждый scroll и сразу пишем в общий
+  // scrollMemory в разрезе текущего scopeKey. Так смена репо туда-обратно
+  // возвращает юзера в ту же точку, где он был.
+  const lastScrollTopRef = useRef(scrollMemory.get(scopeKey) ?? 0);
+  const onScroll = useCallback(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    lastScrollTopRef.current = el.scrollTop;
+    scrollMemory.set(scopeKey, el.scrollTop);
+    updateVisibleRange();
+  }, [updateVisibleRange, scopeKey]);
+
+  // При смене scopeKey (переключение репо) — подтягиваем сохранённый
+  // scrollTop из памяти и применяем синхронно перед paint. Если для этого
+  // ключа памяти нет (первый раз) — стартуем с 0.
+  const prevScopeRef = useRef(scopeKey);
+  useLayoutEffect(() => {
+    if (prevScopeRef.current === scopeKey) return;
+    const el = bodyRef.current;
+    prevScopeRef.current = scopeKey;
+    const remembered = scrollMemory.get(scopeKey) ?? 0;
+    lastScrollTopRef.current = remembered;
+    if (el) {
+      const maxScroll = Math.max(0, totalCount * ROW_HEIGHT - el.clientHeight);
+      el.scrollTop = Math.min(remembered, maxScroll);
+    }
+  }, [scopeKey, totalCount]);
+
+  // Защита от прыжка наверх при периодических refresh'ах в рамках одного
+  // репо: новый `commits` массив → React пере-рендерит → в части движков
+  // scrollTop сбрасывается в 0. Возвращаем последний известный.
   const prevTotalRef = useRef(totalCount);
-  useEffect(() => {
-    if (prevTotalRef.current !== totalCount) {
-      const el = bodyRef.current;
-      if (el) {
-        const maxScroll = Math.max(0, totalCount * ROW_HEIGHT - el.clientHeight);
-        if (el.scrollTop > maxScroll) el.scrollTop = maxScroll;
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const prevTotal = prevTotalRef.current;
+    const maxScroll = Math.max(0, totalCount * ROW_HEIGHT - el.clientHeight);
+    if (prevTotal !== totalCount) {
+      // Новое количество строк (refresh принёс +N или -N коммитов).
+      if (el.scrollTop > maxScroll) {
+        el.scrollTop = maxScroll;
+        lastScrollTopRef.current = maxScroll;
+        scrollMemory.set(scopeKey, maxScroll);
+      } else if (el.scrollTop !== lastScrollTopRef.current && lastScrollTopRef.current <= maxScroll) {
+        el.scrollTop = lastScrollTopRef.current;
       }
       prevTotalRef.current = totalCount;
+    } else if (
+      el.scrollTop !== lastScrollTopRef.current
+      && lastScrollTopRef.current <= maxScroll
+      && lastScrollTopRef.current > 0
+    ) {
+      el.scrollTop = lastScrollTopRef.current;
     }
-  }, [totalCount]);
+  });
 
   useEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
     updateVisibleRange();
-    el.addEventListener('scroll', updateVisibleRange, { passive: true });
-    return () => el.removeEventListener('scroll', updateVisibleRange);
-  }, [updateVisibleRange]);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [onScroll, updateVisibleRange]);
 
   const scrollToRow = useCallback((row: number) => {
     const el = bodyRef.current;
@@ -48,8 +95,11 @@ export function useVirtualScroll(totalCount: number) {
     // 500-1500мс анимации (это именно те длинные полосы в Performance
     // Animations-треке, которые читаются как «тормоз» при переключении
     // между репо, если у другого репо сохранён selectedCommitHash).
-    el.scrollTop = Math.max(0, targetY);
-  }, []);
+    const next = Math.max(0, targetY);
+    el.scrollTop = next;
+    lastScrollTopRef.current = next;
+    scrollMemory.set(scopeKey, next);
+  }, [scopeKey]);
 
   return { bodyRef, visibleRange, scrollToRow };
 }

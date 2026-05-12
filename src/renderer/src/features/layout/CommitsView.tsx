@@ -41,6 +41,7 @@ export function CommitsView({
           selectedHash={state.selectedCommitHash}
           onSelect={selectCommit}
           currentBranch={state.currentBranch}
+          repoPath={state.repoPath}
           onContextMenu={showContextMenu}
           showPrompt={showPrompt}
           onRebase={setRebaseOnto}

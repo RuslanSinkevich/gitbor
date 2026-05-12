@@ -7,7 +7,8 @@ const GPG_LABELS: Record<string, { label: string; cls: string }> = {
   X: { label: '✓ Expired', cls: s.gpgUntrusted },
   Y: { label: '✓ Exp.key', cls: s.gpgUntrusted },
   R: { label: '✗ Revoked', cls: s.gpgBad },
-  E: { label: '? Err', cls: s.gpgUntrusted },
+  // 'E' (signature cannot be verified — no key) намеренно отброшено в
+  // GitParser, чтобы не засорять граф чужих репо «? Err» бейджами.
 };
 
 /** Small inline badge showing GPG/SSH signature verification status. */
