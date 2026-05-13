@@ -1,8 +1,8 @@
 > English version: [docs/contributing.md](../contributing.md)
 
-# Участие в разработке SkyFork
+# Участие в разработке GitBor
 
-SkyFork — настольный Git-клиент на Electron.
+GitBor — настольный Git-клиент на Electron.
 
 ### Как добавить новую Git-команду
 

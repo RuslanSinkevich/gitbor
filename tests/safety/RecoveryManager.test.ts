@@ -14,7 +14,7 @@ import { join } from 'path';
  */
 
 vi.mock('electron', () => ({
-  app: { getPath: () => '/tmp/skyfork-recovery-test' },
+  app: { getPath: () => '/tmp/gitbor-recovery-test' },
 }));
 
 describe('RecoveryManager.checkLockFiles', () => {
@@ -23,7 +23,7 @@ describe('RecoveryManager.checkLockFiles', () => {
   let lockPath: string;
 
   beforeEach(() => {
-    repoDir = mkdtempSync(join(tmpdir(), 'skyfork-rec-'));
+    repoDir = mkdtempSync(join(tmpdir(), 'gitbor-rec-'));
     gitDir = join(repoDir, '.git');
     mkdirSync(gitDir, { recursive: true });
     lockPath = join(gitDir, 'index.lock');

@@ -79,7 +79,7 @@ function waitForWatcher(predicate: (calls: typeof watchCalls) => boolean): Promi
 }
 
 beforeEach(() => {
-  tmpRepo = mkdtempSync(join(tmpdir(), 'skyfork-fw-'));
+  tmpRepo = mkdtempSync(join(tmpdir(), 'gitbor-fw-'));
   // создаём .git, чтобы директория выглядела как репо
   mkdirSync(join(tmpRepo, '.git'));
   watchCalls.length = 0;
@@ -159,7 +159,7 @@ describe('FileWatcher', () => {
       const sm = makeFakeStateManager();
       const fw = new FileWatcher(sm as never);
 
-      const otherRepo = mkdtempSync(join(tmpdir(), 'skyfork-fw-other-'));
+      const otherRepo = mkdtempSync(join(tmpdir(), 'gitbor-fw-other-'));
       mkdirSync(join(otherRepo, '.git'));
       try {
         fw.addRepo(tmpRepo);

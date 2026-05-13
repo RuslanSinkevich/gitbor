@@ -28,7 +28,7 @@ export const AI_PRESETS: AiPreset[] = [
   { id: 'lmstudio', labelKey: 'presetLmStudio', mode: 'openai-compatible', baseUrl: 'http://localhost:1234/v1',      model: 'local-model',      needsKey: false },
   { id: 'deepseek', labelKey: 'presetDeepseek', mode: 'openai-compatible', baseUrl: 'https://api.deepseek.com/v1',   model: 'deepseek-chat',    needsKey: true  },
   { id: 'groq',     labelKey: 'presetGroq',     mode: 'openai-compatible', baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.1-8b-instant', needsKey: true },
-  /** Токен из localStorage https://chat.qwen.ai (как Qwen Web в Skycode). */
+  /** Токен из localStorage https://chat.qwen.ai (неофициальный Qwen Web API). */
   { id: 'qwen-web', labelKey: 'presetQwenWeb',  mode: 'qwen-web',            baseUrl: '',                              model: 'qwen3-max',        needsKey: true },
 ];
 

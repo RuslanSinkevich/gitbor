@@ -2,11 +2,11 @@
  * Performance instrumentation. Все логи префиксуются `[perf]`, чтобы потом
  * легко снять: grep -rn "\[perf\]" или удалить вызовы разом.
  *
- * Включается переменной окружения `SKYFORK_PERF=1`. По умолчанию выключено
+ * Включается переменной окружения `GITBOR_PERF=1`. По умолчанию выключено
  * и все обёртки вырождаются в no-op (zero-overhead в production).
  */
 
-const enabled = process.env.SKYFORK_PERF === '1';
+const enabled = process.env.GITBOR_PERF === '1';
 
 export function perfMark(label: string): () => void {
   if (!enabled) return () => {};

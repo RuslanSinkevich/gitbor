@@ -34,7 +34,7 @@
 
 - `StateManager.state` — единый «активный репо».
 - `GitExecutor` — один на процесс, его cwd переключается через `setCwd` при смене репо.
-- IPC `skyfork:command` обрабатывается синхронно в одном handler'е.
+- IPC `gitbor:command` обрабатывается синхронно в одном handler'е.
 - Парсеры (`GitParser.parseStatus`, `computeGraphLayout`) — синхронные, выполняются на main thread.
 - `execFile` callback ассемблирует stdout (десятки МБ для больших `git status`) тоже на main thread.
 

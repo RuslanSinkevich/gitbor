@@ -1,7 +1,7 @@
 import type { RendererCommand, MainEvent } from './types';
 import { logger } from './shared/logger';
 
-interface SkyForkAPI {
+interface GitBorAPI {
   invoke(command: unknown): Promise<unknown>;
   onEvent(callback: (event: unknown) => void): void;
   offEvent(): void;
@@ -10,12 +10,12 @@ interface SkyForkAPI {
 
 declare global {
   interface Window {
-    skyForkAPI?: SkyForkAPI;
+    gitBorAPI?: GitBorAPI;
   }
 }
 
-function getAPI(): SkyForkAPI | null {
-  return window.skyForkAPI ?? null;
+function getAPI(): GitBorAPI | null {
+  return window.gitBorAPI ?? null;
 }
 
 export interface PostCommandHooks {
@@ -44,7 +44,7 @@ export function postCommand(command: RendererCommand, hooks?: PostCommandHooks):
  */
 export function invokeCommand(command: RendererCommand): Promise<unknown> {
   const api = getAPI();
-  if (!api) return Promise.reject(new Error('SkyFork IPC недоступен'));
+  if (!api) return Promise.reject(new Error('GitBor IPC недоступен'));
   return api.invoke(command);
 }
 
@@ -81,7 +81,7 @@ export function sendReady(): void {
   postCommand({ type: 'ready' });
 }
 
-export const isElectron = !!window.skyForkAPI;
+export const isElectron = !!window.gitBorAPI;
 
 /** Safe clipboard write — silently catches permission/security errors. */
 export function copyToClipboard(text: string): void {

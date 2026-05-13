@@ -25,15 +25,15 @@ export interface GitNotFoundLocale {
 }
 
 const en: GitNotFoundLocale = {
-  title: 'SkyFork',
+  title: 'GitBor',
   message:
-    'Git not found. SkyFork requires Git to operate. After installing Git, restart the application.',
+    'Git not found. GitBor requires Git to operate. After installing Git, restart the application.',
   buttons: ['Download Git', 'Quit'],
   downloadUrl: 'https://git-scm.com/downloads',
 };
 
 const ru: GitNotFoundLocale = {
-  title: 'SkyFork',
+  title: 'GitBor',
   message:
     'Git не обнаружен. Для работы приложения необходим Git. После установки Git перезапустите приложение.',
   buttons: ['Скачать Git', 'Закрыть'],

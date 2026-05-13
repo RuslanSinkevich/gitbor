@@ -1,8 +1,8 @@
 > Русская версия: [docs/ru/getting-started.md](ru/getting-started.md)
 
-# Getting Started (SkyFork)
+# Getting Started (GitBor)
 
-Developer guide for SkyFork — an Electron-based desktop Git client (similar to Fork or GitKraken).
+Developer guide for GitBor — an Electron-based desktop Git client (similar to Fork or GitKraken).
 
 ## Prerequisites
 
@@ -13,7 +13,7 @@ Developer guide for SkyFork — an Electron-based desktop Git client (similar to
 ## Quick Start
 
 ```bash
-cd skyfork
+cd gitbor
 npm install
 npm run dev
 ```

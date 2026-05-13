@@ -74,7 +74,7 @@ describe('isDangerousRepoRoot', () => {
 
   it('allows arbitrary project paths', () => {
     if (isWin) {
-      expect(isDangerousRepoRoot('D:\\Work\\skyfork').dangerous).toBe(false);
+      expect(isDangerousRepoRoot('D:\\Work\\gitbor').dangerous).toBe(false);
       expect(isDangerousRepoRoot('C:\\repos\\my-app').dangerous).toBe(false);
     } else {
       expect(isDangerousRepoRoot('/home/alice/projects/x').dangerous).toBe(false);
@@ -95,9 +95,9 @@ describe('isDangerousRepoRoot — /Applications + case-insensitive FS', () => {
     expect(r.reason).toBe('systemDirectory');
   });
 
-  it('darwin: blocks /Applications/SkyFork.app/Contents as systemDirectory', () => {
+  it('darwin: blocks /Applications/GitBor.app/Contents as systemDirectory', () => {
     setPlatform('darwin');
-    const r = isDangerousRepoRoot('/Applications/SkyFork.app/Contents');
+    const r = isDangerousRepoRoot('/Applications/GitBor.app/Contents');
     expect(r.dangerous).toBe(true);
     expect(r.reason).toBe('systemDirectory');
   });

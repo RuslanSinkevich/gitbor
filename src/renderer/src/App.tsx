@@ -141,7 +141,7 @@ export function App() {
   const restoreLastRepoAttempted = useRef(false);
 
   // Восстанавливаем last active repo ТОЛЬКО если main ничего не подцепил
-  // авто. Иначе мы убивали текущее открытие (например, dev cwd=skyfork) и
+  // авто. Иначе мы убивали текущее открытие (например, dev cwd=gitbor) и
   // насильно загружали тяжёлый last (бывало `C:\Users\Admin` с 440k файлов).
   useEffect(() => {
     if (restoreLastRepoAttempted.current) return;

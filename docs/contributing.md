@@ -1,8 +1,8 @@
 > Русская версия: [docs/ru/contributing.md](ru/contributing.md)
 
-## Contributing to SkyFork
+## Contributing to GitBor
 
-SkyFork is an Electron desktop Git client.
+GitBor is an Electron desktop Git client.
 
 ### How to Add a New Git Command
 

@@ -2,7 +2,7 @@ import type { LocaleMap } from './index';
 
 export const ru: LocaleMap = {
   app: {
-    title: 'SkyFork',
+    title: 'GitBor',
     openRepo: 'Открыть репозиторий',
     noRepo: 'Нет репозитория',
     welcomeText: 'Откройте репозиторий, чтобы начать работу.',
@@ -58,7 +58,7 @@ export const ru: LocaleMap = {
     statistics: 'Статистика...',
     aiSettings: 'Настройки AI...',
     docs: 'Документация',
-    about: 'О программе SkyFork',
+    about: 'О программе GitBor',
   },
   toolbar: {
     fetch: 'Получить',
@@ -358,8 +358,8 @@ export const ru: LocaleMap = {
   aboutDialog: {
     product: 'Open-source Git-клиент на базе Electron и React.',
     aboutMeTitle: 'Обо мне',
-    authorName: 'Сенкевич Руслан Николаевич',
-    authorRole: 'Full-stack разработчик и автор проекта Skycode.',
+    authorName: 'Синкевич Руслан Николаевич',
+    authorRole: 'Full-stack разработчик и автор GitBor.',
     authorBio: 'Создаю open-source инструменты для разработчиков: AI-редактор кода, Git-клиент и инфраструктуру для продуктивной локальной разработки с контролем над данными.',
     more: 'Подробнее об авторе',
   },
@@ -388,7 +388,7 @@ export const ru: LocaleMap = {
     open: 'Открыть',
     openRepo: 'Открыть репозиторий',
     remove: 'Убрать из списка',
-    emptyTitle: 'Добро пожаловать в SkyFork',
+    emptyTitle: 'Добро пожаловать в GitBor',
     emptyText: 'Откройте репозиторий или выберите из списка.',
     noRecent: 'Нет недавних репозиториев',
     branches: 'Ветки',
@@ -630,7 +630,7 @@ export const ru: LocaleMap = {
     qwenWebToken: 'Токен сессии',
     qwenWebTokenPlaceholder: 'Вставьте token из localStorage chat.qwen.ai',
     qwenWebTokenHint: 'DevTools → Application → Local Storage → https://chat.qwen.ai → ключ token. Живёт, пока жива сессия браузера.',
-    qwenWebHowto: 'Как провайдер Qwen Web в Skycode: бесплатный неофициальный доступ; возможны лимиты.',
+    qwenWebHowto: 'Бесплатный неофициальный доступ через сессионный токен chat.qwen.ai; возможны лимиты.',
     qwenWebOpenChat: 'Открыть chat.qwen.ai',
     qwenWebModelHint: 'Модели, как в веб-чате.',
     commitLanguage: 'Язык commit-сообщений',

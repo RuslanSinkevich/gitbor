@@ -90,7 +90,7 @@ export function TitleBar({ loc, page, setPage, lang, toggleLang, theme, toggleTh
       label: loc.menu.help,
       items: [
         { label: loc.menu.about, action: () => onMenuAction('about') },
-        { label: loc.menu.docs, action: () => window.open('https://skycode-ai.ru', '_blank') },
+        { label: loc.menu.docs, action: () => window.open('https://gitbor.ru/docs', '_blank') },
       ],
     },
   ];

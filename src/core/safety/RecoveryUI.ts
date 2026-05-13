@@ -108,7 +108,7 @@ export async function showRecoveryDialog(report: RecoveryReport, recovery: Recov
     const buttons = getButtonsForIssue(issue);
     const options = {
       type: 'warning' as const,
-      title: 'SkyFork',
+      title: 'GitBor',
       message: issue.description,
       buttons: buttons.map(b => b.label),
       defaultId: 0,
@@ -123,7 +123,7 @@ export async function showRecoveryDialog(report: RecoveryReport, recovery: Recov
         const errMsg = err instanceof Error ? err.message : String(err);
         const errOpts = {
           type: 'error' as const,
-          title: 'SkyFork — Recovery Failed',
+          title: 'GitBor — Recovery Failed',
           message: errMsg,
           buttons: ['OK'],
         };

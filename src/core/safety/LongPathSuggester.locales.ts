@@ -31,7 +31,7 @@ export interface LongPathLocale {
 }
 
 const en: LongPathLocale = {
-  title: 'SkyFork — long paths',
+  title: 'GitBor — long paths',
   message: 'Git cannot handle long paths',
   detail:
     'On Windows the default maximum path length is ~260 characters. ' +
@@ -45,7 +45,7 @@ const en: LongPathLocale = {
 };
 
 const ru: LongPathLocale = {
-  title: 'SkyFork — длинные пути',
+  title: 'GitBor — длинные пути',
   message: 'Git не справляется с длинными путями',
   detail:
     'На Windows по умолчанию максимальная длина пути ~260 символов. ' +

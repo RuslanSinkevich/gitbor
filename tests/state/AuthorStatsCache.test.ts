@@ -38,7 +38,7 @@ function makeStats(overrides: Partial<AuthorCodeStats> = {}): AuthorCodeStats {
 }
 
 beforeEach(() => {
-  tmpRoot = fsSync.mkdtempSync(path.join(os.tmpdir(), 'skyfork-statscache-'));
+  tmpRoot = fsSync.mkdtempSync(path.join(os.tmpdir(), 'gitbor-statscache-'));
 });
 
 afterEach(async () => {

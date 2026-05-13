@@ -1,4 +1,4 @@
-// Идемпотентный генератор placeholder-иконок для SkyFork.
+// Идемпотентный генератор placeholder-иконок для GitBor.
 // Создаёт resources/icon.png (1024x1024), resources/icon.ico, resources/icon.icns.
 // Зависимости: pngjs (pure-JS PNG writer) + png2icons (ICO/ICNS из PNG-буфера).
 

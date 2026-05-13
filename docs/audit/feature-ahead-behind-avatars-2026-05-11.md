@@ -1,4 +1,4 @@
-# SkyFork — Ahead/Behind + Author Avatars (2026-05-11)
+# GitBor — Ahead/Behind + Author Avatars (2026-05-11)
 
 > **Status: DONE.**
 

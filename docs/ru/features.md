@@ -1,6 +1,6 @@
 > English version: [docs/features.md](../features.md)
 
-# Возможности SkyFork
+# Возможности GitBor
 
 ## Граф коммитов
 

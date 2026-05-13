@@ -91,7 +91,7 @@ async function showResultDialog(message: string, isError: boolean): Promise<void
   const win = getWindow();
   const options = {
     type: isError ? ('error' as const) : ('info' as const),
-    title: 'SkyFork',
+    title: 'GitBor',
     message,
     buttons: ['OK'],
   };

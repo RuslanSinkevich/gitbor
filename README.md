@@ -1,4 +1,4 @@
-# SkyFork
+# GitBor
 
 > Русская версия: [docs/ru/](docs/ru/)
 
@@ -10,14 +10,14 @@ Part of the Sky Platform ecosystem.
 
 Visual overview: commit graph, branch sidebar (Russian UI), and diff viewer.
 
-![SkyFork — main window](docs/images/skyfork-screenshot.png)
+![GitBor — main window](docs/images/gitbor-screenshot.png)
 
 ---
 
 ## Quick Start
 
 ```bash
-cd skyfork
+cd gitbor
 npm install
 npm run dev
 ```
@@ -97,7 +97,7 @@ App.tsx → api.invoke() → preload (ipcRenderer) → MessageBridge (ipcMain)
 ## Project Structure
 
 ```
-skyfork/
+gitbor/
 ├── src/
 │   ├── core/                      # Backend (Main Process)
 │   │   ├── bridge/                # IPC bridge
@@ -177,13 +177,13 @@ skyfork/
 │   │   └── main.ts                # Window creation, service init, no native menu
 │   │
 │   ├── preload/
-│   │   └── index.ts               # contextBridge.exposeInMainWorld('skyForkAPI')
+│   │   └── index.ts               # contextBridge.exposeInMainWorld('gitBorAPI')
 │   │
 │   └── renderer/                  # Frontend (React)
 │       ├── src/
 │       │   ├── App.tsx            # Root component (composition only)
 │       │   ├── AppDialogs.tsx     # All modal dialogs in one place
-│       │   ├── api.ts             # skyForkAPI wrapper (invoke, onEvent)
+│       │   ├── api.ts             # gitBorAPI wrapper (invoke, onEvent)
 │       │   ├── features/          # Feature modules
 │       │   │   ├── graph/         # Commit graph (virtualized)
 │       │   │   ├── sidebar/       # Sidebar (branches, tags, stash, remotes)
@@ -342,7 +342,7 @@ Each open repository is a fully independent set of services — a long `git pull
 1. **Git reflog** — built-in, 90 days
 2. **Auto-stash** — saves uncommitted changes before destructive operations
 3. **HEAD hash** — saved for rollback
-4. **WAL journal** — `.git/SkyFork-journal.json`, begin/complete/fail
+4. **WAL journal** — `.git/GitBor-journal.json`, begin/complete/fail
 5. **RecoveryManager** — startup checks: lock files (stale `.git/index.lock` is ignored on startup), incomplete operations, rebase, merge
 
 ### Input Safety
@@ -368,9 +368,9 @@ Each open repository is a fully independent set of services — a long `git pull
 
 Two-sided system: both main and renderer log only in dev mode; production console stays silent.
 
-- **Main** — singleton `mainLogger` with levels `silent`/`error`/`warn`/`info`/`debug`. `configureMainLogger({ isProduction })` in `main.ts` sets default by `app.isPackaged`. `SKYFORK_LOG_LEVEL=debug` env var overrides without rebuild.
-- **Renderer** — `[SkyFork]` prefix; methods are no-ops in Vite production build (`import.meta.env.DEV === false`).
-- **`perf.ts`** — separate diagnostic tool with its own opt-in (`SKYFORK_PERF=1` / `window.__SKYFORK_PERF__ = true`).
+- **Main** — singleton `mainLogger` with levels `silent`/`error`/`warn`/`info`/`debug`. `configureMainLogger({ isProduction })` in `main.ts` sets default by `app.isPackaged`. `GITBOR_LOG_LEVEL=debug` env var overrides without rebuild.
+- **Renderer** — `[GitBor]` prefix; methods are no-ops in Vite production build (`import.meta.env.DEV === false`).
+- **`perf.ts`** — separate diagnostic tool with its own opt-in (`GITBOR_PERF=1` / `window.__GITBOR_PERF__ = true`).
 
 ---
 
@@ -380,7 +380,7 @@ Two-sided system: both main and renderer log only in dev mode; production consol
 |----------|-------------|
 | [Getting Started](docs/getting-started.md) | Prerequisites, setup, dev workflow, adding features |
 | [Architecture](docs/architecture.md) | 4-layer design, data flow, core & renderer modules |
-| [Features](docs/features.md) | What SkyFork can do: graph, diff, merge, blame, etc. |
+| [Features](docs/features.md) | What GitBor can do: graph, diff, merge, blame, etc. |
 | [Contributing](docs/contributing.md) | Code style, conventions, PR checklist |
 | [Testing](docs/testing.md) | Vitest setup, test structure, manual feature testing |
 

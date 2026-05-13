@@ -1,4 +1,4 @@
-/** Идентификаторы моделей chat.qwen.ai (как в Skycode qwen-web). */
+/** Идентификаторы моделей chat.qwen.ai (Qwen Web). */
 export const QWEN_WEB_MODEL_IDS = [
   'qwen3-max',
   'qwen3-coder-plus',

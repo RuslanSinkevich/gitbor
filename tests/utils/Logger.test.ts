@@ -4,14 +4,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
  * Logger контракт: уровни фильтруют сообщения, ERROR/WARN идут в stderr,
  * DEBUG/INFO — в stdout. `silent` глушит всё. `configureMainLogger`
  * выбирает уровень от `isProduction` (prod = silent, dev = debug)
- * с возможностью перебить через `SKYFORK_LOG_LEVEL`.
+ * с возможностью перебить через `GITBOR_LOG_LEVEL`.
  *
  * Эти тесты прямо отражают запрос «логи только для dev режима»: prod
  * по умолчанию должен молчать.
  */
 
 vi.mock('electron', () => ({
-  app: { getPath: () => '/tmp/skyfork-logger-test' },
+  app: { getPath: () => '/tmp/gitbor-logger-test' },
 }));
 
 describe('Logger', () => {
@@ -22,7 +22,7 @@ describe('Logger', () => {
     vi.resetModules();
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    delete process.env.SKYFORK_LOG_LEVEL;
+    delete process.env.GITBOR_LOG_LEVEL;
   });
 
   afterEach(() => {
@@ -119,8 +119,8 @@ describe('Logger', () => {
       expect(logSpy).toHaveBeenCalled();
     });
 
-    it('SKYFORK_LOG_LEVEL=warn перебивает дефолт даже в dev', async () => {
-      process.env.SKYFORK_LOG_LEVEL = 'warn';
+    it('GITBOR_LOG_LEVEL=warn перебивает дефолт даже в dev', async () => {
+      process.env.GITBOR_LOG_LEVEL = 'warn';
       const mod = await import('../../src/core/utils/Logger');
       mod.configureMainLogger({ isProduction: false });
       expect(mod.mainLogger.getLevel()).toBe('warn');
@@ -130,15 +130,15 @@ describe('Logger', () => {
       expect(errSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('SKYFORK_LOG_LEVEL=debug включает логи в prod (для дебага у юзера)', async () => {
-      process.env.SKYFORK_LOG_LEVEL = 'debug';
+    it('GITBOR_LOG_LEVEL=debug включает логи в prod (для дебага у юзера)', async () => {
+      process.env.GITBOR_LOG_LEVEL = 'debug';
       const mod = await import('../../src/core/utils/Logger');
       mod.configureMainLogger({ isProduction: true });
       expect(mod.mainLogger.getLevel()).toBe('debug');
     });
 
-    it('невалидный SKYFORK_LOG_LEVEL — игнор, дефолт по isProduction', async () => {
-      process.env.SKYFORK_LOG_LEVEL = 'verbose';
+    it('невалидный GITBOR_LOG_LEVEL — игнор, дефолт по isProduction', async () => {
+      process.env.GITBOR_LOG_LEVEL = 'verbose';
       const mod = await import('../../src/core/utils/Logger');
       mod.configureMainLogger({ isProduction: true });
       expect(mod.mainLogger.getLevel()).toBe('silent');

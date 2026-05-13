@@ -12,7 +12,7 @@ import type { AiProviderConfig } from '../../src/core/ai/types';
  */
 
 vi.mock('electron', () => ({
-  app: { getPath: () => '/tmp/skyfork-csp-test' },
+  app: { getPath: () => '/tmp/gitbor-csp-test' },
 }));
 
 describe('computeAiOrigins', () => {

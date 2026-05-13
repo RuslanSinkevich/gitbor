@@ -7,7 +7,7 @@ import { SafetyNet } from './SafetyNet';
 import { cleanupTmpFiles } from './AtomicWrite';
 import { mainLogger } from '../utils/Logger';
 
-const AUTO_STASH_PREFIX = '[SkyFork auto-stash]';
+const AUTO_STASH_PREFIX = '[GitBor auto-stash]';
 
 /**
  * Если index.lock старше этого возраста — он точно не от текущей git-операции.

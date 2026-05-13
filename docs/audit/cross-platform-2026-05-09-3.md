@@ -1,4 +1,4 @@
-# SkyFork — Cross-platform readiness (2026-05-09, стрим 3)
+# GitBor — Cross-platform readiness (2026-05-09, стрим 3)
 
 > **Status: DONE.** Все блоки A–F закрыты, метрики не ухудшились,
 > новые тесты добавлены. Документация обновлена.
@@ -21,7 +21,7 @@ runtime-поведение корректное на всех трёх», в п�
 - `src/core/ai/providers/*` — не трогали.
 - `src/core/bridge/messages.ts` — не трогали.
 - `src/core/bridge/ipc/handlersShell.ts` — не трогали.
-- Бренд: «SkyFork» — не путали со «Skycode».
+- Бренд: «GitBor» — не путали со «Skycode».
 
 ## Бейзлайн → Факт
 

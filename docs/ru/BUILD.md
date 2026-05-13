@@ -1,4 +1,4 @@
-# Сборка SkyFork
+# Сборка GitBor
 
 Кроссплатформенный десктопный Git-клиент. Этот документ описывает, как
 собирать дистрибутивные артефакты на каждой платформе.
@@ -47,7 +47,7 @@ npm run build:icons
 npm run dist:win
 ```
 
-Вывод: `release/SkyFork Setup X.Y.Z.exe`, `release/SkyFork X.Y.Z.exe`
+Вывод: `release/GitBor Setup X.Y.Z.exe`, `release/GitBor X.Y.Z.exe`
 (portable). NSIS-инсталлятор опционально включает реестровый ключ
 Win10 LongPathsEnabled (требует прав администратора во время установки)
 — см. `build/installer.nsh`.
@@ -61,7 +61,7 @@ Win10 LongPathsEnabled (требует прав администратора в�
 npm run dist:mac
 ```
 
-Вывод: `release/SkyFork-X.Y.Z.dmg`.
+Вывод: `release/GitBor-X.Y.Z.dmg`.
 
 Подпись кода: ad-hoc (`mac.identity: null`). Для подписи Developer ID
 сними `CSC_IDENTITY_AUTO_DISCOVERY: false` в CI и предоставь:
@@ -80,7 +80,7 @@ Hardened runtime включён. Entitlements в `build/entitlements.mac.plist`.
 npm run dist:linux
 ```
 
-Вывод: `release/SkyFork-X.Y.Z.AppImage`, `release/skyfork_X.Y.Z_amd64.deb`.
+Вывод: `release/GitBor-X.Y.Z.AppImage`, `release/gitbor_X.Y.Z_amd64.deb`.
 
 `.deb` включает maintainer/synopsis/desktop entry. AppImage запускается
 на большинстве glibc-based дистрибутивов (Ubuntu 22.04+, Fedora 38+,
@@ -115,13 +115,13 @@ request — workflow сам подхватит её и запакует с HEAD'
 **Где смотреть артефакты:** GitHub Actions → страница run'а → раздел
 **Artifacts**. Retention — 7 дней. Имена:
 
-- `skyfork-Windows-unpacked` — `win-unpacked/` от `electron-builder --win --dir`.
-- `skyfork-macOS-unpacked` — `mac-arm64/SkyFork.app` (или `mac/` на x64).
-- `skyfork-Linux-unpacked` — `linux-unpacked/`.
+- `gitbor-Windows-unpacked` — `win-unpacked/` от `electron-builder --win --dir`.
+- `gitbor-macOS-unpacked` — `mac-arm64/GitBor.app` (или `mac/` на x64).
+- `gitbor-Linux-unpacked` — `linux-unpacked/`.
 
 **Что проверять после скачивания:** каждый архив распаковывается без
-ошибок и содержит бинарь SkyFork (`skyfork.exe` /
-`SkyFork.app/Contents/MacOS/SkyFork` / `skyfork`). Запуск UI в smoke не
+ошибок и содержит бинарь GitBor (`gitbor.exe` /
+`GitBor.app/Contents/MacOS/GitBor` / `gitbor`). Запуск UI в smoke не
 входит (в CI-runner'ах нет дисплея) — валидируется только pipeline
 пакетинга.
 
@@ -141,7 +141,7 @@ request — workflow сам подхватит её и запакует с HEAD'
 используемые `build:icons`.
 
 **macOS DMG не открывается ("damaged")** — сборка подписана ad-hoc.
-Правый клик → Open или `xattr -d com.apple.quarantine SkyFork.app`,
+Правый клик → Open или `xattr -d com.apple.quarantine GitBor.app`,
 чтобы обойти Gatekeeper для разработки.
 
 **Linux AppImage не запускается** — убедись, что у файла AppImage есть

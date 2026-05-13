@@ -43,7 +43,7 @@ export class RebaseManager {
       .map(e => `${e.action} ${e.hash} ${e.subject}`)
       .join('\n') + '\n';
 
-    const todoPath = join(tmpdir(), `skyfork-rebase-todo-${Date.now()}.txt`);
+    const todoPath = join(tmpdir(), `gitbor-rebase-todo-${Date.now()}.txt`);
     await writeFile(todoPath, todoContent, 'utf-8');
 
     // Git invokes $GIT_SEQUENCE_EDITOR <file> through a POSIX shell

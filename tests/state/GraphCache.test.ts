@@ -51,7 +51,7 @@ function makeLayout(nodeCount: number): GraphLayoutData {
 }
 
 beforeEach(() => {
-  tmpRoot = fsSync.mkdtempSync(path.join(os.tmpdir(), 'skyfork-graphcache-'));
+  tmpRoot = fsSync.mkdtempSync(path.join(os.tmpdir(), 'gitbor-graphcache-'));
 });
 
 afterEach(async () => {

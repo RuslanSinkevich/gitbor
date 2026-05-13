@@ -11,8 +11,8 @@ const CHAT_COMPLETIONS_URL = `${QWEN_BASE}/api/v2/chat/completions`;
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 /**
- * Неофициальный мост к chat.qwen.ai по сессионному токену из localStorage
- * (как провайдер qwen-web в Skycode). Без официального API-ключа DashScope.
+ * Неофициальный мост к chat.qwen.ai по сессионному токену из localStorage.
+ * Без официального API-ключа DashScope.
  */
 export class QwenWebProvider implements AiProvider {
   constructor(private readonly config: AiProviderConfig) {
@@ -71,7 +71,7 @@ export class QwenWebProvider implements AiProvider {
     const t = (token ?? (this.config.qwenWebToken || '')).trim();
     const m = modelId ?? this.modelId();
     const payload = {
-      title: 'SkyFork',
+      title: 'GitBor',
       models: [m],
       chat_mode: 'normal',
       chat_type: 't2t',

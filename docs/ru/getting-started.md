@@ -1,8 +1,8 @@
 > English version: [docs/getting-started.md](../getting-started.md)
 
-# Начало работы (SkyFork)
+# Начало работы (GitBor)
 
-Руководство для разработчиков SkyFork — настольного Git-клиента на Electron (в духе Fork или GitKraken).
+Руководство для разработчиков GitBor — настольного Git-клиента на Electron (в духе Fork или GitKraken).
 
 ## Требования
 
@@ -13,7 +13,7 @@
 ## Быстрый старт
 
 ```bash
-cd skyfork
+cd gitbor
 npm install
 npm run dev
 ```

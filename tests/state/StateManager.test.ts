@@ -13,7 +13,7 @@ import { makeFakeRegistry, type MockGit } from '../_mocks';
  */
 
 vi.mock('electron', () => ({
-  app: { getPath: () => '/tmp/skyfork-test-user' },
+  app: { getPath: () => '/tmp/gitbor-test-user' },
 }));
 
 vi.mock('@core/state/GraphCache', () => ({

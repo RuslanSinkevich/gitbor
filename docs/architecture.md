@@ -2,7 +2,7 @@
 
 ## Overview
 
-SkyFork is a 4-layer Electron application. Dependencies flow downward only.
+GitBor is a 4-layer Electron application. Dependencies flow downward only.
 
 ## Layers
 
@@ -12,7 +12,7 @@ Renderer (React) → Preload (contextBridge) → Main (Node.js) → Git binary
 
 - **Renderer** — React 18, Vite, CSS Modules. Feature folders: graph, sidebar, changes (with extracted `fileTreeModel.ts`), diff, merge, blame, file-history, rebase, repo-manager, repo-tabs, toolbar, titlebar, layout, ssh, settings, ai. State is driven by `useAppState` (a facade over `useRepoSlices` + `useRunningOps` + `useStateSubscription`) plus `useMenuActions`, `useKeyboardShortcuts`, `useOperationToasts`, `useDiffState`, `useTheme`, `useToasts`, `useContextMenu`, `useDialogs`, `useAutoFetch`.
 
-- **Preload** — `contextBridge.exposeInMainWorld('skyForkAPI', …)` exposes `invoke`, `onEvent`, and `platform` to the isolated renderer.
+- **Preload** — `contextBridge.exposeInMainWorld('gitBorAPI', …)` exposes `invoke`, `onEvent`, and `platform` to the isolated renderer.
 
 - **Main process** — Services are initialized in `main.ts`: `RepoServicesRegistry` (per-repo `GitExecutor` / `OperationQueue` / `SafetyNet`), `StateManager` (facade over `RepoSlicesStore` + `RepoStateRefresher` + `RepoEventBus`), `CommandHandler`, `MessageBridge` (with handlers split into `bridge/ipc/`), `FileWatcher`, `WorkerPool` for parser offload, `AiConfigStore` + `AiService` + `AiHandlers` for AI commit messages. IPC is routed through `MessageBridge`. No native menu — `Menu.setApplicationMenu(null)`. All menus and keyboard shortcuts live in the renderer.
 
@@ -23,14 +23,14 @@ Renderer (React) → Preload (contextBridge) → Main (Node.js) → Git binary
 ```
 User clicks button in React
   → postCommand({ type: 'stageFile', file: 'src/app.ts' })
-  → api.ts → window.skyForkAPI.invoke(command)
-  → preload/index.ts → ipcRenderer.invoke('skyfork:command', command)
+  → api.ts → window.gitBorAPI.invoke(command)
+  → preload/index.ts → ipcRenderer.invoke('gitbor:command', command)
   → MessageBridge.handleCommand(command)
   → CommandHandler.stageFile('src/app.ts')
   → writeCommands.stageFile() → git.exec(['add', '--', 'src/app.ts'])
   → StateManager.refreshStatusAndNotify()
   → MessageBridge.send({ type: 'stateUpdate', data: newState })
-  → preload → ipcRenderer.on('skyfork:event')
+  → preload → ipcRenderer.on('gitbor:event')
   → api.ts eventListeners → useAppState setState
   → React re-renders with new stagedFiles
 ```
@@ -63,7 +63,7 @@ Modules under `src/core/`:
 | **repoPathGuard** | `isDangerousRepoRoot(path)` — checks whether a path is "dangerous" (drive root / home / Windows / `Program Files` / `node_modules` / etc.). Used by `FileWatcher` to skip the worktree watcher. Opening such folders is no longer hard-blocked — the user is allowed to look at any directory on purpose. |
 | **AppError** | Structured error with a localization code (`code`) and template params (`data`) plus a technical fallback. `MessageBridge` turns it into an `error`-event with `code`/`data`; the renderer translates via `locale.repoErrors[code]` and interpolates `data`. Replaces "English-only strings that nobody translates". |
 | **gitActivityStore** | Journal of git operations (start/append/finish) with `repoPath` per entry. `activityContext.ts` uses `AsyncLocalStorage` so `GitExecutor.exec` can attribute every command to its active operation without explicit id propagation. The renderer filters by the active tab's `repoPath`; cap = 100 entries; stdout/stderr truncated to `OUTPUT_CAP_BYTES = 16 KiB` with a `[truncated...]` marker. |
-| **Logger** | Levelled logging (`silent`/`error`/`warn`/`info`/`debug`) with stdout/stderr split and an optional `WriteStream` to `<userData>/logs/YYYY-MM-DD.log`. Singleton `mainLogger` is the single source of level for all modules. `configureMainLogger({ isProduction })` is called from `main.ts` after `app.whenReady`: prod → `silent` (silent in both console and file), dev → `debug`. ENV `SKYFORK_LOG_LEVEL` overrides the default — convenient for debugging on a packaged build at the user side. All ad-hoc `console.warn/error` in core (FileWatcher, WorkerPool, AiService, etc.) were migrated to `mainLogger`. Direct `console.error` remains only inside `process.on('unhandledRejection'/'uncaughtException')` — that is the last-resort handler that must run BEFORE `configureMainLogger`. |
+| **Logger** | Levelled logging (`silent`/`error`/`warn`/`info`/`debug`) with stdout/stderr split and an optional `WriteStream` to `<userData>/logs/YYYY-MM-DD.log`. Singleton `mainLogger` is the single source of level for all modules. `configureMainLogger({ isProduction })` is called from `main.ts` after `app.whenReady`: prod → `silent` (silent in both console and file), dev → `debug`. ENV `GITBOR_LOG_LEVEL` overrides the default — convenient for debugging on a packaged build at the user side. All ad-hoc `console.warn/error` in core (FileWatcher, WorkerPool, AiService, etc.) were migrated to `mainLogger`. Direct `console.error` remains only inside `process.on('unhandledRejection'/'uncaughtException')` — that is the last-resort handler that must run BEFORE `configureMainLogger`. |
 | **SshKeyManager** | Lists, generates, deletes SSH keys in `~/.ssh/`. Two-step passphrase generation (no passphrase in argv). |
 | **ReflogParser** | Parses `git reflog` output into structured entries. |
 | **BisectManager** | Manages `git bisect` sessions: start, good, bad, skip, reset. |
@@ -173,13 +173,13 @@ A two-sided system: both main and renderer log only in dev mode. In production t
 **Main** — `src/core/utils/Logger.ts`:
 
 - Singleton `mainLogger` with levels `silent` < `error` < `warn` < `info` < `debug`. ERROR/WARN go to `console.error` (stderr), DEBUG/INFO to `console.log` (stdout).
-- `configureMainLogger({ isProduction })` is called from `main.ts` after `app.whenReady`. Defaults: `app.isPackaged` → `silent`, dev → `debug`. ENV `SKYFORK_LOG_LEVEL=warn|info|debug|...` overrides the default — useful for debugging a packaged build on the user side without rebuilding.
+- `configureMainLogger({ isProduction })` is called from `main.ts` after `app.whenReady`. Defaults: `app.isPackaged` → `silent`, dev → `debug`. ENV `GITBOR_LOG_LEVEL=warn|info|debug|...` overrides the default — useful for debugging a packaged build on the user side without rebuilding.
 - The file log `<userData>/logs/YYYY-MM-DD.log` is opened only at non-silent level (in prod nothing is written).
 - All ad-hoc `console.warn/error` in core (FileWatcher, WorkerPool, handlersState, AiService, OpenAiCompatibleProvider, GitExecutor) were migrated to `mainLogger`. Direct `console.error` remains **only** in `process.on('unhandledRejection'/'uncaughtException')` — that is the last-resort handler that must work before `configureMainLogger`, so it can't be tied to the logger.
 
 **Renderer** — `src/renderer/src/shared/logger.ts`:
 
-- Prefix `[SkyFork]`. All methods (`debug`/`log`/`info`/`warn`/`error`) are no-ops in a Vite production build (`import.meta.env.DEV === false`). In dev — plain `console.*`.
+- Prefix `[GitBor]`. All methods (`debug`/`log`/`info`/`warn`/`error`) are no-ops in a Vite production build (`import.meta.env.DEV === false`). In dev — plain `console.*`.
 - Used in `api.ts` (IPC error/warn) and `ErrorBoundary.tsx` (UI crash). Real UI errors flow through ErrorBoundary + the IPC `error` channel into main, where they end up in `mainLogger.error`.
 
-**`perf.ts`** (both main and renderer) is a separate diagnostic tool with its own opt-in (`SKYFORK_PERF=1` / `window.__SKYFORK_PERF__ = true`). Not to be confused with the logging system: perf is enabled manually for measurements.
+**`perf.ts`** (both main and renderer) is a separate diagnostic tool with its own opt-in (`GITBOR_PERF=1` / `window.__GITBOR_PERF__ = true`). Not to be confused with the logging system: perf is enabled manually for measurements.

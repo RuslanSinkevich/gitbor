@@ -1,4 +1,4 @@
-# Building SkyFork
+# Building GitBor
 
 Cross-platform desktop Git client. This document describes how to build
 distributable artifacts on each platform.
@@ -47,7 +47,7 @@ gitignored — regenerate locally as needed.
 npm run dist:win
 ```
 
-Output: `release/SkyFork Setup X.Y.Z.exe`, `release/SkyFork X.Y.Z.exe`
+Output: `release/GitBor Setup X.Y.Z.exe`, `release/GitBor X.Y.Z.exe`
 (portable). NSIS installer optionally enables Win10 LongPathsEnabled
 registry (requires admin during install) — see `build/installer.nsh`.
 
@@ -60,7 +60,7 @@ Code signing: not configured. Add `CSC_LINK` (path to .pfx) and
 npm run dist:mac
 ```
 
-Output: `release/SkyFork-X.Y.Z.dmg`.
+Output: `release/GitBor-X.Y.Z.dmg`.
 
 Code signing: ad-hoc (`mac.identity: null`). For Developer ID signing,
 unset `CSC_IDENTITY_AUTO_DISCOVERY: false` in CI and provide:
@@ -79,7 +79,7 @@ Hardened runtime is on. Entitlements at `build/entitlements.mac.plist`.
 npm run dist:linux
 ```
 
-Output: `release/SkyFork-X.Y.Z.AppImage`, `release/skyfork_X.Y.Z_amd64.deb`.
+Output: `release/GitBor-X.Y.Z.AppImage`, `release/gitbor_X.Y.Z_amd64.deb`.
 
 `.deb` includes maintainer/synopsis/desktop entry. AppImage runs on most
 glibc-based distros (Ubuntu 22.04+, Fedora 38+, Debian 12+).
@@ -113,13 +113,13 @@ The workflow will pick it up automatically and pack from the PR head.
 **Where to look at artifacts:** GitHub Actions → the workflow run page →
 **Artifacts** section. Retention is 7 days. Names:
 
-- `skyfork-Windows-unpacked` — `win-unpacked/` from `electron-builder --win --dir`.
-- `skyfork-macOS-unpacked` — `mac-arm64/SkyFork.app` (or `mac/` on x64).
-- `skyfork-Linux-unpacked` — `linux-unpacked/`.
+- `gitbor-Windows-unpacked` — `win-unpacked/` from `electron-builder --win --dir`.
+- `gitbor-macOS-unpacked` — `mac-arm64/GitBor.app` (or `mac/` on x64).
+- `gitbor-Linux-unpacked` — `linux-unpacked/`.
 
 **What to verify after download:** each archive unpacks without errors
-and contains the SkyFork binary (`skyfork.exe` / `SkyFork.app/Contents/MacOS/SkyFork`
-/ `skyfork`). Launch is **not** part of the smoke (no UI runtime in CI
+and contains the GitBor binary (`gitbor.exe` / `GitBor.app/Contents/MacOS/GitBor`
+/ `gitbor`). Launch is **not** part of the smoke (no UI runtime in CI
 runners), only the packaging pipeline is validated.
 
 ## Known limitations
@@ -137,7 +137,7 @@ run `npm install` first; `png2icons` and `pngjs` are dev-deps used by
 `build:icons`.
 
 **macOS DMG won't open ("damaged")** — the build is ad-hoc signed.
-Right-click → Open or `xattr -d com.apple.quarantine SkyFork.app` to
+Right-click → Open or `xattr -d com.apple.quarantine GitBor.app` to
 override Gatekeeper for development.
 
 **Linux AppImage fails to launch** — ensure `chmod +x` on the AppImage

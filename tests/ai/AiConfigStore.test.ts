@@ -20,7 +20,7 @@ function makeCrypto(available: boolean): CryptoProvider {
 let dir: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'skyfork-ai-'));
+  dir = mkdtempSync(join(tmpdir(), 'gitbor-ai-'));
 });
 
 afterEach(() => {

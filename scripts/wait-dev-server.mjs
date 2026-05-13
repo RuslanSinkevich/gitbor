@@ -27,13 +27,13 @@ async function main() {
   for (;;) {
     if (Date.now() > deadline) {
       console.error(
-        `[skyfork] Timeout waiting for dev server at ${host}:${port} (${timeoutMs}ms). Is Vite running?`
+        `[gitbor] Timeout waiting for dev server at ${host}:${port} (${timeoutMs}ms). Is Vite running?`
       );
       process.exit(1);
     }
     try {
       await tryOnce();
-      console.error(`[skyfork] dev server OK ${host}:${port} → starting Electron`);
+      console.error(`[gitbor] dev server OK ${host}:${port} → starting Electron`);
       process.exit(0);
     } catch {
       await new Promise((r) => setTimeout(r, pollMs));

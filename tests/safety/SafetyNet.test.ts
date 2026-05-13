@@ -23,7 +23,7 @@ let repoDir: string;
 let gitDir: string;
 
 beforeEach(() => {
-  repoDir = mkdtempSync(join(tmpdir(), 'skyfork-safetynet-'));
+  repoDir = mkdtempSync(join(tmpdir(), 'gitbor-safetynet-'));
   gitDir = join(repoDir, '.git');
   mkdirSync(gitDir, { recursive: true });
 });
@@ -108,7 +108,7 @@ describe('SafetyNet.wrapDestructive', () => {
     expect(stashCalls).toHaveLength(0);
   });
 
-  it('with uncommitted: creates auto-stash with SkyFork prefix and op name', async () => {
+  it('with uncommitted: creates auto-stash with GitBor prefix and op name', async () => {
     const { SafetyNet } = await import('../../src/core/safety/SafetyNet');
     const git = makeMockGit({ uncommitted: ' M src/index.ts\n' });
     const sn = new SafetyNet(git as never);
@@ -119,7 +119,7 @@ describe('SafetyNet.wrapDestructive', () => {
     expect(stashCall).toBeDefined();
     const msgIdx = stashCall![0].indexOf('-m');
     const stashMsg = stashCall![0][msgIdx + 1] as string;
-    expect(stashMsg).toContain('[SkyFork auto-stash]');
+    expect(stashMsg).toContain('[GitBor auto-stash]');
     expect(stashMsg).toContain('rebase');
     expect(stashMsg).toContain('main');
   });

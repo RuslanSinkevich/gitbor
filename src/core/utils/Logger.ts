@@ -145,7 +145,7 @@ export class Logger {
  * инстансы (раньше каждый модуль писал в `console.*` напрямую → невозможно
  * было выключить).
  */
-export const mainLogger = new Logger('SkyFork');
+export const mainLogger = new Logger('GitBor');
 
 /**
  * Конфигурация logger'а из `main.ts`. Должно вызываться один раз
@@ -155,11 +155,11 @@ export const mainLogger = new Logger('SkyFork');
  * и file-лог не пишется (тоже отключаем). В dev — `level = 'debug'`
  * с файлом.
  *
- * `SKYFORK_LOG_LEVEL` env (опционально) перебивает дефолт — удобно для
+ * `GITBOR_LOG_LEVEL` env (опционально) перебивает дефолт — удобно для
  * включения логов в собранном билде при дебаге у пользователя.
  */
 export function configureMainLogger(opts: { isProduction: boolean }): void {
-  const envLevel = parseLevel(process.env.SKYFORK_LOG_LEVEL);
+  const envLevel = parseLevel(process.env.GITBOR_LOG_LEVEL);
   const level: LogLevel = envLevel ?? (opts.isProduction ? 'silent' : 'debug');
   mainLogger.setLevel(level);
   if (level !== 'silent') {

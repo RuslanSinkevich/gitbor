@@ -5,7 +5,7 @@ import { tmpdir } from 'os';
 import * as path from 'path';
 
 /**
- * Запускает SkyFork как Electron-приложение, опционально с cwd=fixtureRepo
+ * Запускает GitBor как Electron-приложение, опционально с cwd=fixtureRepo
  * (тогда autoOpenRepo сам подхватит репо при старте).
  *
  * Перед запуском должен отработать `npm run build` (dist/main/main.js +
@@ -19,7 +19,7 @@ export async function launchApp(opts?: { cwd?: string }): Promise<{ app: Electro
     env: {
       ...process.env,
       // Гарантированно prod-режим: не ждём dev-server на 5188.
-      SKYFORK_VITE: '0',
+      GITBOR_VITE: '0',
     },
   });
   const page = await app.firstWindow();
@@ -31,7 +31,7 @@ export async function launchApp(opts?: { cwd?: string }): Promise<{ app: Electro
  * Создаёт пустой git-репо в новом temp-каталоге, делает первый commit,
  * чтобы у репо был HEAD и ветка main. Возвращает путь к репо и cleanup-функцию.
  */
-export function makeFixtureRepo(prefix = 'skyfork-e2e-'): { repoPath: string; cleanup: () => void } {
+export function makeFixtureRepo(prefix = 'gitbor-e2e-'): { repoPath: string; cleanup: () => void } {
   const repoPath = mkdtempSync(path.join(tmpdir(), prefix));
   const env = { ...process.env, GIT_AUTHOR_NAME: 'E2E', GIT_AUTHOR_EMAIL: 'e2e@local', GIT_COMMITTER_NAME: 'E2E', GIT_COMMITTER_EMAIL: 'e2e@local' };
   execFileSync('git', ['init', '-b', 'main'], { cwd: repoPath, env });

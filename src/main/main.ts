@@ -40,10 +40,10 @@ let aiService: AiService | null = null;
  */
 process.on('unhandledRejection', (reason) => {
   const msg = reason instanceof Error ? reason.message : String(reason);
-  console.error('[SkyFork] unhandledRejection:', msg);
+  console.error('[GitBor] unhandledRejection:', msg);
 });
 process.on('uncaughtException', (err) => {
-  console.error('[SkyFork] uncaughtException:', err instanceof Error ? err.stack ?? err.message : err);
+  console.error('[GitBor] uncaughtException:', err instanceof Error ? err.stack ?? err.message : err);
 });
 
 // На Linux под Wayland Electron по дефолту работает через XWayland — это
@@ -86,7 +86,7 @@ async function createWindow(): Promise<void> {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    title: 'SkyFork',
+    title: 'GitBor',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
@@ -150,7 +150,7 @@ function rendererIndexPath(): string {
 
 /**
  * Упакованный билд — всегда file://.
- * Распакованный `electron .`: Vite только если явно SKYFORK_VITE=1 (npm run dev),
+ * Распакованный `electron .`: Vite только если явно GITBOR_VITE=1 (npm run dev),
  * иначе — собранный UI из dist (npm start после build), без ожидания 5188.
  */
 async function loadWindow(): Promise<void> {
@@ -163,7 +163,7 @@ async function loadWindow(): Promise<void> {
     return;
   }
 
-  if (process.env.SKYFORK_VITE === '1') {
+  if (process.env.GITBOR_VITE === '1') {
     await waitForDevTcp(devPort);
     await mainWindow.loadURL(`http://127.0.0.1:${devPort}`);
     mainWindow.webContents.openDevTools({ mode: 'detach' });
@@ -182,7 +182,7 @@ async function loadWindow(): Promise<void> {
  * Возвращает `aborted: true` только в одном кейсе: git не найден И пользователь
  * выбрал «Закрыть» в `showGitNotFoundMessage`. В этом случае вызывающий код
  * (whenReady-callback) обязан сделать ранний `return` ДО создания окна — иначе
- * SkyFork покажет мёртвый welcome-экран после `app.quit()` (quit асинхронный,
+ * GitBor покажет мёртвый welcome-экран после `app.quit()` (quit асинхронный,
  * пара тиков остаётся на выполнение остального колбэка).
  */
 async function initServices(): Promise<{ aborted: boolean }> {
@@ -358,7 +358,7 @@ function registerCspHook(): void {
 
 app.whenReady().then(async () => {
   // Настраиваем логирование ДО initServices: prod = silent, dev = debug
-  // (или явный SKYFORK_LOG_LEVEL). Это нужно сделать после whenReady,
+  // (или явный GITBOR_LOG_LEVEL). Это нужно сделать после whenReady,
   // потому что file-лог читает `app.getPath('userData')`.
   configureMainLogger({ isProduction: app.isPackaged });
   mainLogger.debug(`startup: pid=${process.pid} platform=${process.platform} packaged=${app.isPackaged}`);
@@ -379,7 +379,7 @@ app.whenReady().then(async () => {
     await createWindow();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    dialog.showErrorBox('SkyFork', msg);
+    dialog.showErrorBox('GitBor', msg);
     app.quit();
     return;
   }
@@ -392,7 +392,7 @@ app.whenReady().then(async () => {
     await loadWindow();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    dialog.showErrorBox('SkyFork', msg);
+    dialog.showErrorBox('GitBor', msg);
     app.quit();
     return;
   }
@@ -410,7 +410,7 @@ app.whenReady().then(async () => {
           await loadWindow();
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
-          dialog.showErrorBox('SkyFork', msg);
+          dialog.showErrorBox('GitBor', msg);
         }
       })();
     }

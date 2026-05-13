@@ -1,4 +1,4 @@
-# SkyFork
+# GitBor
 
 > English version: [README.md](../../README.md)
 
@@ -10,14 +10,14 @@
 
 Скриншот интерфейса: граф коммитов, боковая панель (ветки), панель деталей коммита и просмотр diff (локализация на русском).
 
-![SkyFork — внешний вид](../images/skyfork-screenshot.png)
+![GitBor — внешний вид](../images/gitbor-screenshot.png)
 
 ---
 
 ## Быстрый старт
 
 ```bash
-cd skyfork
+cd gitbor
 npm install
 npm run dev
 ```
@@ -100,7 +100,7 @@ App.tsx → api.invoke() → preload (ipcRenderer) → MessageBridge (ipcMain)
 ## Структура проекта
 
 ```
-skyfork/
+gitbor/
 ├── src/
 │   ├── core/                      # Бэкенд (Main Process)
 │   │   ├── bridge/                # IPC-мост
@@ -180,13 +180,13 @@ skyfork/
 │   │   └── main.ts                # Создание окна, инициализация сервисов, без нативного меню
 │   │
 │   ├── preload/
-│   │   └── index.ts               # contextBridge.exposeInMainWorld('skyForkAPI')
+│   │   └── index.ts               # contextBridge.exposeInMainWorld('gitBorAPI')
 │   │
 │   └── renderer/                  # Фронтенд (React)
 │       ├── src/
 │       │   ├── App.tsx            # Корневой компонент (композиция)
 │       │   ├── AppDialogs.tsx     # Все модальные диалоги в одном месте
-│       │   ├── api.ts             # Обёртка над skyForkAPI (invoke, onEvent)
+│       │   ├── api.ts             # Обёртка над gitBorAPI (invoke, onEvent)
 │       │   ├── features/          # Функциональные модули
 │       │   │   ├── graph/         # Граф коммитов (виртуализированный)
 │       │   │   ├── sidebar/       # Боковая панель (ветки, теги, stash, remotes)
@@ -349,7 +349,7 @@ skyfork/
 1. **Git reflog** — встроенный, 90 дней
 2. **Auto-stash** — автоматическое сохранение незакоммиченных изменений перед деструктивными операциями
 3. **HEAD hash** — сохранение для rollback
-4. **WAL-журнал** — `.git/SkyFork-journal.json`, begin/complete/fail
+4. **WAL-журнал** — `.git/GitBor-journal.json`, begin/complete/fail
 5. **RecoveryManager** — проверки при старте: lock-файлы (stale `.git/index.lock` игнорируется при запуске), незавершённые операции, rebase, merge
 
 ### Безопасность ввода
@@ -375,9 +375,9 @@ skyfork/
 
 Двухсторонняя система: main и renderer пишут логи только в dev-режиме; в production console молчит.
 
-- **Main** — singleton `mainLogger` с уровнями `silent`/`error`/`warn`/`info`/`debug`. `configureMainLogger({ isProduction })` в `main.ts` ставит дефолт по `app.isPackaged`. ENV `SKYFORK_LOG_LEVEL=debug` перебивает без пересборки.
-- **Renderer** — префикс `[SkyFork]`; методы — no-op в production-сборке Vite (`import.meta.env.DEV === false`).
-- **`perf.ts`** — отдельный диагностический инструмент со своим opt-in (`SKYFORK_PERF=1` / `window.__SKYFORK_PERF__ = true`).
+- **Main** — singleton `mainLogger` с уровнями `silent`/`error`/`warn`/`info`/`debug`. `configureMainLogger({ isProduction })` в `main.ts` ставит дефолт по `app.isPackaged`. ENV `GITBOR_LOG_LEVEL=debug` перебивает без пересборки.
+- **Renderer** — префикс `[GitBor]`; методы — no-op в production-сборке Vite (`import.meta.env.DEV === false`).
+- **`perf.ts`** — отдельный диагностический инструмент со своим opt-in (`GITBOR_PERF=1` / `window.__GITBOR_PERF__ = true`).
 
 ---
 
@@ -387,7 +387,7 @@ skyfork/
 |----------|----------|
 | [Начало работы](getting-started.md) | Установка, настройка, рабочий процесс, добавление фич |
 | [Архитектура](architecture.md) | 4-слойный дизайн, поток данных, модули |
-| [Возможности](features.md) | Что умеет SkyFork: граф, diff, merge, blame и др. |
+| [Возможности](features.md) | Что умеет GitBor: граф, diff, merge, blame и др. |
 | [Участие в разработке](contributing.md) | Стиль кода, конвенции, чеклист PR |
 | [Тестирование](testing.md) | Vitest, структура тестов, ручное тестирование фич |
 

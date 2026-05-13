@@ -119,10 +119,10 @@ locally` (en) / `### Локальный запуск release-pack smoke` (ru). �
 1. Запуск через `gh workflow run "Release Pack Smoke" --ref main`.
 2. Альтернатива — добавить label `release-smoke` к открытому PR.
 3. Где смотреть артефакты: Actions → run → раздел Artifacts (retention
-   7 дней). Имена: `skyfork-Windows-unpacked`, `skyfork-macOS-unpacked`,
-   `skyfork-Linux-unpacked`.
+   7 дней). Имена: `gitbor-Windows-unpacked`, `gitbor-macOS-unpacked`,
+   `gitbor-Linux-unpacked`.
 4. Что проверять: архив распаковывается, бинарь на месте
-   (`skyfork.exe` / `SkyFork.app/Contents/MacOS/SkyFork` / `skyfork`).
+   (`gitbor.exe` / `GitBor.app/Contents/MacOS/GitBor` / `gitbor`).
    Запуск UI в smoke не входит — валидируется только pipeline.
 
 ## Задача 7 — Версии пакетов

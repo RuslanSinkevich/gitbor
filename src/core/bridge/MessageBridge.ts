@@ -80,7 +80,7 @@ export class MessageBridge {
       this.send(payload);
     });
 
-    ipcMain.handle('skyfork:command', (_event, command: unknown) => {
+    ipcMain.handle('gitbor:command', (_event, command: unknown) => {
       return this.handleCommand(command);
     });
 
@@ -101,7 +101,7 @@ export class MessageBridge {
 
   send(event: MainEvent): void {
     if (this.window && !this.window.isDestroyed()) {
-      this.window.webContents.send('skyfork:event', event);
+      this.window.webContents.send('gitbor:event', event);
     }
   }
 
@@ -134,7 +134,7 @@ export class MessageBridge {
       this.unsubscribeActivity = null;
     }
     this.aiHandlers?.cancelAll();
-    ipcMain.removeHandler('skyfork:command');
+    ipcMain.removeHandler('gitbor:command');
     this.sentGraphByRepo.clear();
     this.window = null;
   }

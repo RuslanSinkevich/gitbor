@@ -8,7 +8,7 @@ interface WrapOptions {
   autoRollback?: boolean;
 }
 
-const AUTO_STASH_PREFIX = '[SkyFork auto-stash]';
+const AUTO_STASH_PREFIX = '[GitBor auto-stash]';
 
 export class SafetyNet {
   constructor(

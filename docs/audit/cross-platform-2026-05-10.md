@@ -1,4 +1,4 @@
-# SkyFork — Cross-platform readiness (2026-05-10, стрим 4 — параллельный)
+# GitBor — Cross-platform readiness (2026-05-10, стрим 4 — параллельный)
 
 > **Status: DONE.** Четыре независимых блока (A, B, C, D) выполнены параллельно
 > в отдельных табах Cursor. Все verify-метрики не ухудшились, добавлено 10
@@ -92,7 +92,7 @@
   `LongPathSuggester.test.ts`).
 - Новый describe-блок с 5 тестами:
   - `darwin: блокирует /Applications точно`
-  - `darwin: блокирует /Applications/SkyFork.app/Contents`
+  - `darwin: блокирует /Applications/GitBor.app/Contents`
   - `darwin: блокирует /applications/foo` (lowercase)
   - `darwin: блокирует /LIBRARY/Preferences` (uppercase)
   - `linux: НЕ блокирует /applications/foo` (case-sensitive)
@@ -130,9 +130,9 @@ mac.identity для CI.
 - `build.linux.synopsis` = `Cross-platform desktop Git client`.
 - `build.linux.description` = подробное описание.
 - `build.linux.desktop.entry`:
-  - `Name = SkyFork`
+  - `Name = GitBor`
   - `Categories = Development;RevisionControl;`
-  - `StartupWMClass = SkyFork`
+  - `StartupWMClass = GitBor`
   - `MimeType = inode/directory;`
 - `build.nsis.include` = `build/installer.nsh`.
 

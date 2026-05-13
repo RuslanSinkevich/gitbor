@@ -53,7 +53,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: skyfork-${{ runner.os }}-unpacked
+          name: gitbor-${{ runner.os }}-unpacked
           path: |
             release/win-unpacked/**
             release/mac/**

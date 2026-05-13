@@ -1,22 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 /**
- * perf.ts читает SKYFORK_PERF в момент `import`. Чтобы протестировать обе
+ * perf.ts читает GITBOR_PERF в момент `import`. Чтобы протестировать обе
  * ветки (enabled / disabled), приходится переимпортировать модуль с
  * перетёртой переменной окружения через `vi.resetModules`.
  */
 
-describe('perf (disabled — SKYFORK_PERF !== "1")', () => {
-  const originalEnv = process.env.SKYFORK_PERF;
+describe('perf (disabled — GITBOR_PERF !== "1")', () => {
+  const originalEnv = process.env.GITBOR_PERF;
 
   beforeEach(() => {
-    process.env.SKYFORK_PERF = '0';
+    process.env.GITBOR_PERF = '0';
     vi.resetModules();
   });
 
   afterEach(() => {
-    if (originalEnv === undefined) delete process.env.SKYFORK_PERF;
-    else process.env.SKYFORK_PERF = originalEnv;
+    if (originalEnv === undefined) delete process.env.GITBOR_PERF;
+    else process.env.GITBOR_PERF = originalEnv;
     vi.restoreAllMocks();
   });
 
@@ -38,17 +38,17 @@ describe('perf (disabled — SKYFORK_PERF !== "1")', () => {
   });
 });
 
-describe('perf (enabled — SKYFORK_PERF === "1")', () => {
-  const originalEnv = process.env.SKYFORK_PERF;
+describe('perf (enabled — GITBOR_PERF === "1")', () => {
+  const originalEnv = process.env.GITBOR_PERF;
 
   beforeEach(() => {
-    process.env.SKYFORK_PERF = '1';
+    process.env.GITBOR_PERF = '1';
     vi.resetModules();
   });
 
   afterEach(() => {
-    if (originalEnv === undefined) delete process.env.SKYFORK_PERF;
-    else process.env.SKYFORK_PERF = originalEnv;
+    if (originalEnv === undefined) delete process.env.GITBOR_PERF;
+    else process.env.GITBOR_PERF = originalEnv;
     vi.restoreAllMocks();
   });
 

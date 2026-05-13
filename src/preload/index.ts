@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-export interface SkyForkAPI {
+export interface GitBorAPI {
   invoke(command: unknown): Promise<unknown>;
   onEvent(callback: (event: unknown) => void): void;
   offEvent(): void;
@@ -10,19 +10,19 @@ export interface SkyForkAPI {
 type EventHandler = (_e: Electron.IpcRendererEvent, data: unknown) => void;
 let currentHandler: EventHandler | null = null;
 
-const api: SkyForkAPI = {
+const api: GitBorAPI = {
   invoke: (command: unknown) =>
-    ipcRenderer.invoke('skyfork:command', command),
+    ipcRenderer.invoke('gitbor:command', command),
 
   onEvent: (callback: (event: unknown) => void) => {
     const handler: EventHandler = (_e, data) => callback(data);
-    ipcRenderer.on('skyfork:event', handler);
+    ipcRenderer.on('gitbor:event', handler);
     currentHandler = handler;
   },
 
   offEvent: () => {
     if (currentHandler) {
-      ipcRenderer.removeListener('skyfork:event', currentHandler);
+      ipcRenderer.removeListener('gitbor:event', currentHandler);
       currentHandler = null;
     }
   },
@@ -30,4 +30,4 @@ const api: SkyForkAPI = {
   platform: process.platform,
 };
 
-contextBridge.exposeInMainWorld('skyForkAPI', api);
+contextBridge.exposeInMainWorld('gitBorAPI', api);

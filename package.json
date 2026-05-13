@@ -1,15 +1,15 @@
 {
-  "name": "skyfork",
-  "productName": "SkyFork",
+  "name": "gitbor",
+  "productName": "GitBor",
   "version": "0.1.0",
   "description": "Cross-platform desktop Git client",
-  "author": "Skycode",
+  "author": "Ruslan Sinkevich <ruslan-sink@mail.ru>",
   "license": "MIT",
   "main": "dist/main/main.js",
   "scripts": {
     "dev": "cross-env VITE_DEV_PORT=5188 concurrently --kill-others-on-fail \"npm run dev:renderer\" \"npm run dev:main\"",
     "dev:renderer": "npm run dev --prefix src/renderer",
-    "dev:main": "cross-env SKYFORK_VITE=1 npx tsc -p tsconfig.main.json && node scripts/wait-dev-server.mjs && cross-env SKYFORK_VITE=1 npx electron .",
+    "dev:main": "cross-env GITBOR_VITE=1 npx tsc -p tsconfig.main.json && node scripts/wait-dev-server.mjs && cross-env GITBOR_VITE=1 npx electron .",
     "build": "npm run build:renderer && npm run build:main",
     "build:main": "npx tsc -p tsconfig.main.json",
     "build:renderer": "npm run build --prefix src/renderer",
@@ -26,7 +26,7 @@
     "dist:win": "npm run build && npm test && electron-builder --win",
     "dist:mac": "npm run build && npm test && electron-builder --mac",
     "dist:linux": "npm run build && npm test && electron-builder --linux",
-    "analyze": "cross-env SKYFORK_ANALYZE=1 npm run build:renderer",
+    "analyze": "cross-env GITBOR_ANALYZE=1 npm run build:renderer",
     "e2e": "playwright test",
     "e2e:install": "playwright install chromium",
     "prepare": "husky"
@@ -35,8 +35,8 @@
     "*.{ts,tsx}": "eslint --fix"
   },
   "build": {
-    "appId": "com.skycode.skyfork",
-    "productName": "SkyFork",
+    "appId": "ru.gitbor.app",
+    "productName": "GitBor",
     "directories": {
       "output": "release"
     },
@@ -73,14 +73,14 @@
       ],
       "category": "Development",
       "icon": "resources/icon.png",
-      "maintainer": "Skycode <noreply@skycode.local>",
+      "maintainer": "Ruslan Sinkevich <ruslan-sink@mail.ru>",
       "synopsis": "Cross-platform desktop Git client",
-      "description": "SkyFork is a cross-platform desktop Git client built on Electron, providing a fast and intuitive interface for Git repository management.",
+      "description": "GitBor is a cross-platform desktop Git client built on Electron, providing a fast and intuitive interface for Git repository management.",
       "desktop": {
         "entry": {
-          "Name": "SkyFork",
+          "Name": "GitBor",
           "Categories": "Development;RevisionControl;",
-          "StartupWMClass": "SkyFork",
+          "StartupWMClass": "GitBor",
           "MimeType": "inode/directory;"
         }
       }

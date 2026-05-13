@@ -6,7 +6,7 @@ import fs from 'fs';
 import zlib from 'zlib';
 
 /** Dev URL port; keep in sync with `VITE_DEV_PORT` in root `package.json` and `main.ts` default. */
-const SKYFORK_DEV_PORT = Number(process.env.VITE_DEV_PORT) || 5188;
+const GITBOR_DEV_PORT = Number(process.env.VITE_DEV_PORT) || 5188;
 
 const DEV_CSP = `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws://127.0.0.1:* ws://localhost:* http://127.0.0.1:* http://localhost:*;`;
 // PROD CSP: deny unsafe-eval/unsafe-inline для script (XSS-defence-in-depth);
@@ -19,7 +19,7 @@ const PROD_CSP = `default-src 'self'; script-src 'self'; style-src 'self' 'unsaf
 
 function cspPlugin(): Plugin {
   return {
-    name: 'skyfork-csp',
+    name: 'gitbor-csp',
     transformIndexHtml: {
       order: 'post',
       handler(html, ctx) {
@@ -32,26 +32,26 @@ function cspPlugin(): Plugin {
   };
 }
 
-// SKYFORK_ANALYZE=1 — добавляем rollup-plugin-visualizer и кладём отчёт
+// GITBOR_ANALYZE=1 — добавляем rollup-plugin-visualizer и кладём отчёт
 // в docs/audit/bundle-<today>.html. Используется через `npm run analyze`.
-const ANALYZE = process.env.SKYFORK_ANALYZE === '1';
+const ANALYZE = process.env.GITBOR_ANALYZE === '1';
 const today = new Date().toISOString().slice(0, 10);
 const analyzeOut = path.resolve(__dirname, '../../docs/audit', `bundle-${today}.html`);
 
 // Bundle size regression gate. baseline 2026-05-11: главный chunk ~340 KB raw,
-// ~104 KB gzip. Threshold с запасом ~17% для зелёных мерчей. При SKYFORK_BUNDLE_GATE_OFF=1
+// ~104 KB gzip. Threshold с запасом ~17% для зелёных мерчей. При GITBOR_BUNDLE_GATE_OFF=1
 // чек отключается (для локальных экспериментов).
 const BUNDLE_MAX_RAW_BYTES = 400 * 1024;
 const BUNDLE_MAX_GZIP_BYTES = 120 * 1024;
-const BUNDLE_GATE_DISABLED = process.env.SKYFORK_BUNDLE_GATE_OFF === '1';
+const BUNDLE_GATE_DISABLED = process.env.GITBOR_BUNDLE_GATE_OFF === '1';
 
 function bundleSizeGatePlugin(): Plugin {
   return {
-    name: 'skyfork-bundle-size-gate',
+    name: 'gitbor-bundle-size-gate',
     apply: 'build',
     closeBundle() {
       if (BUNDLE_GATE_DISABLED) {
-        console.log('[bundle-gate] skipped (SKYFORK_BUNDLE_GATE_OFF=1)');
+        console.log('[bundle-gate] skipped (GITBOR_BUNDLE_GATE_OFF=1)');
         return;
       }
       const assetsDir = path.resolve(__dirname, '../../dist/renderer/assets');
@@ -116,11 +116,11 @@ export default defineConfig(({ command }) => ({
   base: command === 'serve' ? '/' : './',
   server: {
     host: '127.0.0.1',
-    port: SKYFORK_DEV_PORT,
+    port: GITBOR_DEV_PORT,
     strictPort: true,
     hmr: {
       host: '127.0.0.1',
-      port: SKYFORK_DEV_PORT,
+      port: GITBOR_DEV_PORT,
     },
   },
   build: {

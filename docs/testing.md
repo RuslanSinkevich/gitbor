@@ -1,6 +1,6 @@
 > Русская версия: [docs/ru/testing.md](ru/testing.md)
 
-# Testing SkyFork
+# Testing GitBor
 
 ## Stack
 
@@ -341,8 +341,8 @@ Module: `src/core/utils/Logger.ts`
 - Prefix + time + tag (`[T] HH:MM:SS WARN: msg`)
 - `configureMainLogger({ isProduction: true })` → `silent` (silent in prod)
 - `configureMainLogger({ isProduction: false })` → `debug` (everything visible in dev)
-- ENV `SKYFORK_LOG_LEVEL=warn` overrides the default
-- Invalid `SKYFORK_LOG_LEVEL` is ignored (falls back to `isProduction`)
+- ENV `GITBOR_LOG_LEVEL=warn` overrides the default
+- Invalid `GITBOR_LOG_LEVEL` is ignored (falls back to `isProduction`)
 
 ### 19. repoPathGuard (`tests/utils/repoPathGuard.test.ts`)
 
@@ -445,7 +445,7 @@ Features that require a real Git repository need manual testing:
 
 ### Reflog
 
-1. Open SkyFork → Repository → Reflog
+1. Open GitBor → Repository → Reflog
 2. Verify the table shows HEAD history (checkout, commit, merge, etc.)
 3. Click SHA — copies to clipboard
 4. Click "Restore" — confirmation dialog, then `git reset --hard` to selected commit
@@ -559,7 +559,7 @@ e2e:
 |------|----------|------|
 | `app-launch.spec.ts` | Application launch, `[data-testid=titlebar]` visible. | ~7.5s |
 | `open-repo.spec.ts` | Launch with `cwd=fixture` → autoOpenRepo picks it up → TitleBar + Sidebar + "main" text visible. | ~4.2s |
-| `switch-tab.spec.ts` | Launch with fixture A → open fixture B via `window.skyForkAPI.invoke({ type: 'openRepo', path: B })` → click `[data-testid=repo-tab-0]` and `[data-testid=repo-tab-1]`. | ~12.9s |
+| `switch-tab.spec.ts` | Launch with fixture A → open fixture B via `window.gitBorAPI.invoke({ type: 'openRepo', path: B })` → click `[data-testid=repo-tab-0]` and `[data-testid=repo-tab-1]`. | ~12.9s |
 
 Helpers in `tests-e2e/helpers.ts`: `launchApp({ cwd? })` and `makeFixtureRepo(prefix)` (creates a temp git repo with an initial commit, cleanup in `finally`).
 
@@ -591,4 +591,4 @@ Configuration in `vitest.config.ts` under `test.coverage`.
 npm run analyze          # Builds with rollup-plugin-visualizer → docs/audit/bundle-<today>.html
 ```
 
-Sets `SKYFORK_ANALYZE=1` so `vite.config.ts` enables the visualizer treemap (gzip + brotli sizes, `open: false`).
+Sets `GITBOR_ANALYZE=1` so `vite.config.ts` enables the visualizer treemap (gzip + brotli sizes, `open: false`).

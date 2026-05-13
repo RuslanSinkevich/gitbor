@@ -68,7 +68,7 @@ async function importFresh() {
 }
 
 beforeEach(() => {
-  tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'skyfork-ssh-test-'));
+  tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'gitbor-ssh-test-'));
   execFileCalls.length = 0;
   spawnCalls.length = 0;
   execFileImpl = null;

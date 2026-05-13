@@ -5,7 +5,7 @@ import { randomBytes } from 'crypto';
 import { JournalEntry, JournalFile, SavedState } from '../git/types';
 import { atomicWriteJSON } from './AtomicWrite';
 
-const JOURNAL_FILENAME = 'skyfork-journal.json';
+const JOURNAL_FILENAME = 'gitbor-journal.json';
 const DEFAULT_MAX_AGE_DAYS = 7;
 
 export class OperationJournal {

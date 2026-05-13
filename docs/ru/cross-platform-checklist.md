@@ -1,4 +1,4 @@
-# Cross-platform чек-лист (SkyFork)
+# Cross-platform чек-лист (GitBor)
 
 > English version: [docs/cross-platform-checklist.md](../cross-platform-checklist.md)
 
@@ -22,7 +22,7 @@
 ## Что вне scope
 
 - **Apple Developer ID** — реальная подпись + нотаризация требует платной учётки, не настраиваем. `mac.identity: null` + `mac.notarize: false` явно. Подробнее: `docs/audit/cross-platform-2026-05-09-3.md`.
-- **Bundled git** — SkyFork использует системный git (`PATH`-lookup в `GitExecutor`). На Windows нужен Git for Windows, на macOS — Xcode CLT или brew, на Linux — пакет менеджера. `checkGitAvailable` + `showGitNotFoundMessage` ловят отсутствие git на старте.
+- **Bundled git** — GitBor использует системный git (`PATH`-lookup в `GitExecutor`). На Windows нужен Git for Windows, на macOS — Xcode CLT или brew, на Linux — пакет менеджера. `checkGitAvailable` + `showGitNotFoundMessage` ловят отсутствие git на старте.
 - **Cross-build из CI** — релизы macOS / Linux собираются на соответствующих runner'ах. Подписанный macOS-билд с Windows-runner невозможен (нужен `codesign` из Xcode).
 
 ## Что проверить вручную (Mac / Linux runtime — следующий стрим)

@@ -9,7 +9,7 @@
  * нужно — от этого только шум в DevTools у пользователей.
  *
  * Если когда-то потребуется временно включить логи в собранном билде —
- * проще всего добавить ручку через `localStorage.setItem('skyfork.log', '1')`
+ * проще всего добавить ручку через `localStorage.setItem('gitbor.log', '1')`
  * и читать её в условии isDev ниже. Сейчас умышленно не делаю — YAGNI.
  */
 
@@ -25,7 +25,7 @@ interface Logger {
   error: (...args: unknown[]) => void;
 }
 
-const PREFIX = '[SkyFork]';
+const PREFIX = '[GitBor]';
 
 export const logger: Logger = isDev
   ? {

@@ -1,6 +1,6 @@
 export const en = {
   app: {
-    title: 'SkyFork',
+    title: 'GitBor',
     openRepo: 'Open Repository',
     noRepo: 'No repository',
     welcomeText: 'Open a repository to get started.',
@@ -56,7 +56,7 @@ export const en = {
     statistics: 'Statistics...',
     aiSettings: 'AI Settings...',
     docs: 'Documentation',
-    about: 'About SkyFork',
+    about: 'About GitBor',
   },
   toolbar: {
     fetch: 'Fetch',
@@ -356,8 +356,8 @@ export const en = {
   aboutDialog: {
     product: 'Open-source Git client built with Electron and React.',
     aboutMeTitle: 'About Me',
-    authorName: 'Ruslan Nikolaevich Senkevich',
-    authorRole: 'Full-stack developer and creator of Skycode.',
+    authorName: 'Ruslan Sinkevich',
+    authorRole: 'Full-stack developer and creator of GitBor.',
     authorBio: 'I build open-source tools for developers: an AI code editor, a Git client, and infrastructure for productive local development with full control over data.',
     more: 'More about the author',
   },
@@ -386,7 +386,7 @@ export const en = {
     open: 'Open',
     openRepo: 'Open Repository',
     remove: 'Remove from list',
-    emptyTitle: 'Welcome to SkyFork',
+    emptyTitle: 'Welcome to GitBor',
     emptyText: 'Open a repository to get started, or select one from the list.',
     noRecent: 'No recent repositories',
     branches: 'Branches',
@@ -628,7 +628,7 @@ export const en = {
     qwenWebToken: 'Session token',
     qwenWebTokenPlaceholder: 'Paste token from chat.qwen.ai localStorage',
     qwenWebTokenHint: 'DevTools → Application → Local Storage → https://chat.qwen.ai → key token. Expires with the browser session.',
-    qwenWebHowto: 'Same setup as Skycode «Qwen Web»: free tier, unofficial API; rate limits apply.',
+    qwenWebHowto: 'Free tier via chat.qwen.ai session token, unofficial API; rate limits apply.',
     qwenWebOpenChat: 'Open chat.qwen.ai',
     qwenWebModelHint: 'Models offered on the web chat.',
     commitLanguage: 'Commit message language',

@@ -1,6 +1,6 @@
 /**
  * AI-модуль: OpenAI-compatible `/v1/chat/completions` и режим Qwen Web
- * (токен сессии https://chat.qwen.ai, как в Skycode).
+ * (токен сессии https://chat.qwen.ai).
  */
 
 /**

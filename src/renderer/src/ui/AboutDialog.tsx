@@ -17,7 +17,7 @@ export function AboutDialog({ onClose, loc }: Props) {
   return (
     <div className={s.overlay} onClick={onClose}>
       <div className={s.dialog} onClick={(e) => e.stopPropagation()}>
-        <h2>SkyFork</h2>
+        <h2>GitBor</h2>
         <p className={s.version}>v0.1.0</p>
         <p className={s.desc}>{loc.aboutDialog.product}</p>
         <div className={s.section}>
@@ -27,14 +27,14 @@ export function AboutDialog({ onClose, loc }: Props) {
           <p className={s.sectionText}>{loc.aboutDialog.authorBio}</p>
           <a
             className={s.link}
-            href="https://skycode-ai.ru/about"
+            href="https://gitbor.ru/about"
             target="_blank"
             rel="noreferrer"
           >
             {loc.aboutDialog.more}
           </a>
         </div>
-        <p className={s.copy}>&copy; 2026 Skycode</p>
+        <p className={s.copy}>&copy; 2026 Ruslan Sinkevich</p>
         <button className="sg-button sg-button--primary sg-button--sm" onClick={onClose}>
           {loc.dialog.close}
         </button>

@@ -1,6 +1,6 @@
 > English version: [docs/testing.md](../testing.md)
 
-# Тестирование SkyFork
+# Тестирование GitBor
 
 ## Стек
 
@@ -340,8 +340,8 @@ tests/
 - Префикс + время + тэг (`[T] HH:MM:SS WARN: msg`)
 - `configureMainLogger({ isProduction: true })` → `silent` (тишина в prod)
 - `configureMainLogger({ isProduction: false })` → `debug` (всё видно в dev)
-- ENV `SKYFORK_LOG_LEVEL=warn` перебивает дефолт
-- Невалидный `SKYFORK_LOG_LEVEL` игнорируется (фолбэк на `isProduction`)
+- ENV `GITBOR_LOG_LEVEL=warn` перебивает дефолт
+- Невалидный `GITBOR_LOG_LEVEL` игнорируется (фолбэк на `isProduction`)
 
 ### 19. repoPathGuard (`tests/utils/repoPathGuard.test.ts`)
 
@@ -526,7 +526,7 @@ npx vitest run tests/git/MyNewParser.test.ts
 
 ### Reflog
 
-1. Откройте SkyFork → Репозиторий → Reflog
+1. Откройте GitBor → Репозиторий → Reflog
 2. Убедитесь, что таблица показывает историю HEAD (checkout, commit, merge и т.д.)
 3. Нажмите SHA — он скопируется в буфер обмена
 4. Нажмите "Восстановить" — появится подтверждение, после чего `git reset --hard` до выбранного коммита
@@ -616,7 +616,7 @@ e2e:
 |------|----------|-------|
 | `app-launch.spec.ts` | Запуск приложения, видимость `[data-testid=titlebar]`. | ~7.5с |
 | `open-repo.spec.ts` | Запуск с `cwd=fixture` → autoOpenRepo подхватывает → TitleBar + Sidebar + текст «main» в Sidebar. | ~4.2с |
-| `switch-tab.spec.ts` | Запуск с фикстурой A → открытие фикстуры B через `window.skyForkAPI.invoke({ type: 'openRepo', path: B })` → клик по `[data-testid=repo-tab-0]` и `[data-testid=repo-tab-1]`. | ~12.9с |
+| `switch-tab.spec.ts` | Запуск с фикстурой A → открытие фикстуры B через `window.gitBorAPI.invoke({ type: 'openRepo', path: B })` → клик по `[data-testid=repo-tab-0]` и `[data-testid=repo-tab-1]`. | ~12.9с |
 
 Хелперы в `tests-e2e/helpers.ts`: `launchApp({ cwd? })` и `makeFixtureRepo(prefix)` (создаёт пустой git-репо в temp-каталоге с initial commit, cleanup в `finally`).
 
@@ -648,4 +648,4 @@ npm run test:coverage    # Vitest с v8 coverage
 npm run analyze          # Сборка с rollup-plugin-visualizer → docs/audit/bundle-<today>.html
 ```
 
-Выставляет `SKYFORK_ANALYZE=1`, после чего `vite.config.ts` подключает treemap визуализатора (gzip + brotli размеры, `open: false`).
+Выставляет `GITBOR_ANALYZE=1`, после чего `vite.config.ts` подключает treemap визуализатора (gzip + brotli размеры, `open: false`).
