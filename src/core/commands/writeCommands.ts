@@ -195,7 +195,7 @@ export async function cloneRepo(queue: OperationQueue, git: GitExecutor, state: 
   return gitWrite(queue, state, 'clone', async () => {
     const { dirname } = await import('path');
     const parentDir = dirname(targetPath);
-    const r = await git.exec(['clone', url, targetPath], { cwd: parentDir, timeout: 120_000 });
+    const r = await git.exec(['clone', url, targetPath], { cwd: parentDir });
     if (r.exitCode !== 0) return simpleResult(r.exitCode, r.stderr);
     state.setRepoPath(targetPath);
     await state.switchRepo(targetPath);

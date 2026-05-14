@@ -55,7 +55,6 @@ export class RebaseManager {
       const result = await this.git.exec(
         ['rebase', '-i', onto],
         {
-          timeout: 60_000,
           env: { GIT_SEQUENCE_EDITOR: editorCmd },
         },
       );

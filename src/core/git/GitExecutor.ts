@@ -16,9 +16,43 @@ export class GitError extends Error {
   }
 }
 
+/**
+ * Mutating / интерактивные / сетевые git-команды, которые легитимно
+ * могут идти долго: pre-commit / post-merge / post-checkout хуки на
+ * больших монорепо (eslint+prettier по сотням файлов), сетевые
+ * операции на медленном канале, большие чекауты. Им мы даём 15 минут
+ * вместо общего 30s read-only таймаута.
+ *
+ * Read-only команды (status, log, diff, rev-parse, for-each-ref ...)
+ * не должны висеть на здоровом репо; для них общий 30s таймаут — это
+ * ровно та safety net, которая нужна на случай зависшего lock-файла
+ * или больной ФС.
+ */
+const LONG_RUNNING_COMMANDS = new Set<string>([
+  'commit',
+  'merge',
+  'rebase',
+  'cherry-pick',
+  'revert',
+  'pull',
+  'push',
+  'fetch',
+  'clone',
+  'checkout',
+]);
+const LONG_RUNNING_TIMEOUT_MS = 15 * 60_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 export class GitExecutor {
   private readonly activeProcesses = new Set<ChildProcess>();
   private static stderrInspector: ((stderr: string) => void) | null = null;
+
+  private static resolveTimeout(args: string[], explicit: number | undefined): number {
+    if (typeof explicit === 'number') return explicit;
+    const head = args[0];
+    if (head && LONG_RUNNING_COMMANDS.has(head)) return LONG_RUNNING_TIMEOUT_MS;
+    return DEFAULT_TIMEOUT_MS;
+  }
 
   /**
    * Регистрирует глобальный инспектор stderr. Используется
@@ -49,7 +83,7 @@ export class GitExecutor {
 
   async exec(args: string[], options?: GitExecOptions): Promise<GitExecResult> {
     const cwd = options?.cwd ?? this.defaultCwd;
-    const timeout = options?.timeout ?? 30_000;
+    const timeout = GitExecutor.resolveTimeout(args, options?.timeout);
     const maxBuffer = options?.maxBuffer ?? 50 * 1024 * 1024;
     const startTime = Date.now();
 
