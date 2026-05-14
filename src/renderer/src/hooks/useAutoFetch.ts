@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { postCommand, onMainEvent } from '../api';
 import { t, tpl } from '../i18n';
+import { useWindowVisible } from './useWindowVisible';
 
 const AUTO_FETCH_INTERVAL = 5 * 60 * 1000;
 
@@ -10,9 +11,13 @@ export function useAutoFetch(
   onNewCommits?: (msg: string) => void,
 ) {
   const prevBehindRef = useRef<number | null>(null);
+  // Пока окно свёрнуто/скрыто авто-fetch'ить нет смысла: пользователь
+  // ничего не видит, а 5-минутный interval даёт сотни git-команд за
+  // ночь + наполняет renderer-heap графиком и status'ом.
+  const visible = useWindowVisible();
 
   useEffect(() => {
-    if (!repoPath || !enabled) return;
+    if (!repoPath || !enabled || !visible) return;
 
     const unsub = onMainEvent((msg) => {
       if (msg.type === 'stateUpdate' && msg.data.behind !== undefined) {
@@ -36,5 +41,5 @@ export function useAutoFetch(
       clearInterval(timer);
       unsub();
     };
-  }, [repoPath, enabled, onNewCommits]);
+  }, [repoPath, enabled, onNewCommits, visible]);
 }

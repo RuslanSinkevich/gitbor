@@ -49,6 +49,18 @@ export class FileWatcher {
   private activeRepoPath: string | null = null;
   private gitDebounce: NodeJS.Timeout | null = null;
   private worktreeDebounce: NodeJS.Timeout | null = null;
+  /**
+   * Когда окно свёрнуто/скрыто (см. main.ts → 'minimize'/'hide'), главный
+   * процесс ставит watcher на паузу: события chokidar по-прежнему приходят,
+   * но debounced refresh'и не запускаются. Сами FSWatcher не закрываем —
+   * close()/watch() для большого worktree блокирует main thread на сотни
+   * мс, и каждое сворачивание окна давало бы видимый рывок при restore.
+   * Pending-события chokidar держит сам, но без нашего refreshAll они не
+   * порождают git-команды и не растят renderer-heap.
+   */
+  private paused = false;
+  private pendingGitRefresh = false;
+  private pendingWorktreeRefresh = false;
 
   constructor(private readonly stateManager: StateManager) {}
 
@@ -239,6 +251,11 @@ export class FileWatcher {
   }
 
   private scheduleGitRefresh(): void {
+    if (this.paused) {
+      // Запомним, что были события, чтобы на resume однократно догнать состояние.
+      this.pendingGitRefresh = true;
+      return;
+    }
     if (this.gitDebounce) clearTimeout(this.gitDebounce);
     this.gitDebounce = setTimeout(() => {
       this.gitDebounce = null;
@@ -250,6 +267,10 @@ export class FileWatcher {
   }
 
   private scheduleStatusRefresh(): void {
+    if (this.paused) {
+      this.pendingWorktreeRefresh = true;
+      return;
+    }
     if (this.worktreeDebounce) clearTimeout(this.worktreeDebounce);
     this.worktreeDebounce = setTimeout(() => {
       this.worktreeDebounce = null;
@@ -257,5 +278,40 @@ export class FileWatcher {
         mainLogger.error(`FileWatcher: refreshStatus failed: ${err instanceof Error ? err.message : String(err)}`);
       });
     }, WORKTREE_DEBOUNCE_MS);
+  }
+
+  /**
+   * Поставить watcher на паузу. Активные debounce-таймеры дочищаем, чтобы
+   * не выстрелили после minimize. Сами chokidar-watchers НЕ закрываем —
+   * на больших worktree их пересоздание стоит сотни мс и видится как
+   * рывок при restore. События продолжают приходить, но только взводят
+   * флаги `pendingGitRefresh`/`pendingWorktreeRefresh`.
+   */
+  pause(): void {
+    if (this.paused) return;
+    this.paused = true;
+    if (this.gitDebounce) { clearTimeout(this.gitDebounce); this.gitDebounce = null; }
+    if (this.worktreeDebounce) { clearTimeout(this.worktreeDebounce); this.worktreeDebounce = null; }
+    mainLogger.debug('FileWatcher: paused');
+  }
+
+  /**
+   * Снять с паузы. Если пока окно было скрыто были fs-события — делаем
+   * один догоняющий refreshAll по активному репо. Без этого вкладка
+   * показала бы устаревший status/log сразу после восстановления.
+   */
+  resume(): void {
+    if (!this.paused) return;
+    this.paused = false;
+    mainLogger.debug('FileWatcher: resumed');
+    const needRefresh = this.pendingGitRefresh || this.pendingWorktreeRefresh;
+    this.pendingGitRefresh = false;
+    this.pendingWorktreeRefresh = false;
+    if (needRefresh && this.activeRepoPath) {
+      this.stateManager.invalidateGraphCache();
+      this.stateManager.refreshAll().catch((err) => {
+        mainLogger.error(`FileWatcher: resume refreshAll failed: ${err instanceof Error ? err.message : String(err)}`);
+      });
+    }
   }
 }

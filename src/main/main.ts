@@ -137,6 +137,27 @@ async function createWindow(): Promise<void> {
     mainWindow?.show();
   });
 
+  // Останавливаем фоновую активность пока окно скрыто/свёрнуто. Без этого
+  // за многочасовые сессии накапливалось: рендер-heap (React fibers,
+  // graph layout), очередь fs-событий chokidar и срабатывания auto-fetch
+  // каждые 5 минут × N репо. Заметно тормозило при restore.
+  //
+  // `blur`/`focus` НЕ ловим: потеря фокуса при переключении на другой
+  // app — это не «скрыто», окно по-прежнему видно. Пауза только когда
+  // действительно не на экране.
+  const onWindowHidden = (): void => {
+    fileWatcher?.pause();
+    messageBridge?.send({ type: 'windowVisibility', visible: false });
+  };
+  const onWindowVisible = (): void => {
+    fileWatcher?.resume();
+    messageBridge?.send({ type: 'windowVisibility', visible: true });
+  };
+  mainWindow.on('minimize', onWindowHidden);
+  mainWindow.on('hide', onWindowHidden);
+  mainWindow.on('restore', onWindowVisible);
+  mainWindow.on('show', onWindowVisible);
+
   mainWindow.on('closed', () => {
     fileWatcher?.dispose();
     repoRegistry?.disposeAll();

@@ -235,6 +235,14 @@ export type MainEvent =
   | { type: 'gitActivityUpdated'; entry: GitActivityEntry }
   | { type: 'gitActivityCleared' }
   | { type: 'repoClosed'; path: string }
+  /**
+   * Сменилась видимость окна. Renderer использует это, чтобы остановить
+   * фоновую активность (авто-fetch, опросные таймеры) пока окно скрыто
+   * или свёрнуто: за многочасовые свёрнутые сессии в монорепо
+   * накапливался measurable backlog в renderer-heap.
+   * Шлётся main'ом по событиям `minimize`/`restore`/`hide`/`show`.
+   */
+  | { type: 'windowVisibility'; visible: boolean }
 
 
   // AI events
