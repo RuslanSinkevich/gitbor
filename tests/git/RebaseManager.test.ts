@@ -70,7 +70,9 @@ describe('RebaseManager', () => {
       const opts = rebaseCall![1] as GitExecOptions | undefined;
       expect(opts?.env?.GIT_SEQUENCE_EDITOR).toMatch(/^cp "/);
       expect(opts?.env?.GIT_SEQUENCE_EDITOR).not.toContain('\\');
-      expect(opts?.timeout).toBe(60_000);
+      // Таймаут задаётся централизованно в GitExecutor.resolveTimeout по
+      // имени команды (rebase → long-running, 15 мин), здесь явно не передаётся.
+      expect(opts?.timeout).toBeUndefined();
     });
 
     it('filters out dropped entries from todo content', async () => {

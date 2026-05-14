@@ -169,7 +169,7 @@ describe('writeCommands', () => {
   });
 
   describe('cloneRepo', () => {
-    it('uses parent dir as cwd and sets timeout', async () => {
+    it('uses parent dir as cwd; timeout resolved centrally in GitExecutor', async () => {
       const git = makeMockGit();
       const queue = makeMockQueue();
       const state = makeMockState();
@@ -177,7 +177,9 @@ describe('writeCommands', () => {
       const callArgs = git.exec.mock.calls[0];
       expect(callArgs[0]).toEqual(['clone', 'https://github.com/user/repo.git', '/home/user/repo']);
       expect(callArgs[1]?.cwd).toBe('/home/user');
-      expect(callArgs[1]?.timeout).toBe(120_000);
+      // Таймаут не задаётся на уровне writeCommands — GitExecutor.resolveTimeout
+      // распознаёт `clone` как long-running и применяет 15-минутный дефолт.
+      expect(callArgs[1]?.timeout).toBeUndefined();
     });
   });
 
