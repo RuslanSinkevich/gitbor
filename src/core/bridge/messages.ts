@@ -70,8 +70,8 @@ export type RendererCommand =
   | { type: 'saveAsPatch'; hash: string }
 
   // Commit operations
-  | { type: 'cherryPick'; hash: string }
-  | { type: 'revert'; hash: string }
+  | { type: 'cherryPick'; hash: string; mainline?: number }
+  | { type: 'revert'; hash: string; mainline?: number }
   | { type: 'resetTo'; hash: string; mode: 'soft' | 'mixed' | 'hard' }
 
   // Stash operations

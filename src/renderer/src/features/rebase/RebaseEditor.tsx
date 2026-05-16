@@ -60,8 +60,24 @@ export function RebaseEditor({ onto, onClose }: Props) {
     postCommand({ type: 'executeRebase', onto, entries });
   };
 
-  if (loading) return <div className={s.empty}>{loc.rebaseEditor.loading}</div>;
-  if (entries.length === 0) return <div className={s.empty}>{loc.rebaseEditor.noCommits}</div>;
+  if (loading || entries.length === 0) {
+    return (
+      <div className={s.root}>
+        <div className={s.header}>
+          <span className={s.title}>{loc.rebaseEditor.title}</span>
+          <span className={s.ontoLabel}>{loc.rebaseEditor.onto}: {onto}</span>
+        </div>
+        <div className={s.empty}>
+          {loading ? loc.rebaseEditor.loading : loc.rebaseEditor.noCommits}
+        </div>
+        <div className={s.footer}>
+          <button className="sg-button sg-button--ghost sg-button--sm" onClick={onClose}>
+            {loc.rebaseEditor.cancel}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={s.root}>

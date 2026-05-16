@@ -16,7 +16,7 @@ import { MergeBanner } from './features/merge';
 import { Toolbar } from './features/toolbar';
 import { Sidebar, BranchStatus } from './features/sidebar';
 import { RepoTabs } from './features/repo-tabs';
-import { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo, clearLastActiveRepo, removeRecentRepo, findRepoIndexByPath } from './features/repo-manager';
+import { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo, clearLastActiveRepo, removeRecentRepo, findRepoIndexByPath, loadOpenRepos, saveOpenRepos } from './features/repo-manager';
 import { SgSplitPane } from './ui/SgSplitPane';
 import { usePromptDialog } from './ui/SgPromptDialog';
 import { AppDialogs } from './AppDialogs';
@@ -140,29 +140,34 @@ export function App() {
 
   const restoreLastRepoAttempted = useRef(false);
 
-  // Восстанавливаем last active repo ТОЛЬКО если main ничего не подцепил
-  // авто. Иначе мы убивали текущее открытие (например, dev cwd=gitbor) и
-  // насильно загружали тяжёлый last (бывало `C:\Users\Admin` с 440k файлов).
+  // Восстанавливаем СПИСОК открытых табов. Запускаем один раз — открываем
+  // каждый сохранённый путь через `openRepo`, main сам сложит их в openRepos.
+  // Last active восстанавливаем как fallback (если openRepos пуст, для старых
+  // юзеров без OPEN_REPOS_KEY в localStorage).
   useEffect(() => {
     if (restoreLastRepoAttempted.current) return;
+    restoreLastRepoAttempted.current = true;
+
+    const openPaths = loadOpenRepos();
     const last = loadLastActiveRepo();
-    if (!last) {
-      restoreLastRepoAttempted.current = true;
+
+    if (openPaths.length > 0) {
+      for (const p of openPaths) {
+        void invokeCommand({ type: 'openRepo', path: p }).catch(() => {
+          // tихо игнорим: репо удалили/переименовали — следующий saveOpenRepos
+          // перепишет список без него (после рендера на актуальном state.openRepos).
+        });
+      }
       return;
     }
-    if (!state.repoPath) {
-      restoreLastRepoAttempted.current = true;
-      // invokeCommand → можно поймать reject от main (path удалён, нет .git
-      // и т.п.) и почистить last/recents, чтобы не зацикливаться при старте.
+
+    if (last && !state.repoPath) {
       void invokeCommand({ type: 'openRepo', path: last }).catch(() => {
         clearLastActiveRepo();
         removeRecentRepo(last);
       });
-    } else {
-      // Уже что-то открыто (auto cwd / явный openRepo): не подменяем.
-      restoreLastRepoAttempted.current = true;
     }
-  }, [state.repoPath]);
+  }, []);
 
   useEffect(() => {
     if (state.repoPath && state.repoName) {
@@ -170,6 +175,13 @@ export function App() {
       addRecentRepo(state.repoName, state.repoPath);
     }
   }, [state.repoPath, state.repoName]);
+
+  // Пишем актуальный openRepos в localStorage на каждое изменение.
+  // Дешёво (массив строк, <50 элементов), синхронно при close/open табов.
+  useEffect(() => {
+    if (!restoreLastRepoAttempted.current) return;
+    saveOpenRepos(state.openRepos.map(r => r.path));
+  }, [state.openRepos]);
 
   // Restore активного таба по сохранённому path. Запускается один раз
   // когда openRepos впервые становится непустым (либо сразу после старта

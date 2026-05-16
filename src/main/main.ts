@@ -264,8 +264,14 @@ async function initServices(): Promise<{ aborted: boolean }> {
 async function autoOpenRepo(): Promise<void> {
   if (!stateManager || !commandHandler || !fileWatcher) return;
 
-  // Бутстрапный GitExecutor с cwd = process.cwd() для определения,
-  // есть ли git-репо рядом со стартовым каталогом (dev-кейс).
+  // Auto-open из `process.cwd()` — это dev-удобство (`npm start` из корня
+  // репо). В упакованном prod-билде cwd = папка ярлыка / `%USERPROFILE%`,
+  // что регулярно открывало случайный «домашний» git (dotfiles в `~`,
+  // система контроля версий у инструментов и т.п.). Сессия восстанавливается
+  // из localStorage в renderer'е через `loadOpenRepos`, никакого auto-open
+  // в проде не нужно.
+  if (app.isPackaged) return;
+
   const probeGit = new GitExecutor(process.cwd());
   let repoRoot: string | null = null;
   try {
@@ -378,32 +384,36 @@ function registerCspHook(): void {
 }
 
 app.whenReady().then(async () => {
-  // Настраиваем логирование ДО initServices: prod = silent, dev = debug
-  // (или явный GITBOR_LOG_LEVEL). Это нужно сделать после whenReady,
-  // потому что file-лог читает `app.getPath('userData')`.
   configureMainLogger({ isProduction: app.isPackaged });
   mainLogger.debug(`startup: pid=${process.pid} platform=${process.platform} packaged=${app.isPackaged}`);
 
+  Menu.setApplicationMenu(null);
+
+  // Параллелим тяжёлые шаги стартапа:
+  //   createWindow (GPU init, BrowserWindow alloc) ║ initServices (git --version, StateManager, AI)
+  // Раньше последовательно → 3-5 с белого экрана. Теперь оба процесса идут
+  // одновременно. `attach(messageBridge)` дёргаем ПОСЛЕ createWindow, но
+  // ДО loadWindow — чтобы ipcMain.handle был зарегистрирован к моменту,
+  // когда renderer запустит первый postCommand из React-useEffect.
+  const windowCreated = (async () => {
+    try {
+      await createWindow();
+      return true;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      dialog.showErrorBox('GitBor', msg);
+      app.quit();
+      return false;
+    }
+  })();
+
   const { aborted } = await initServices();
-  if (aborted) {
-    // initServices уже вызвал app.quit(); просто не создаём окно. Дальнейшие
-    // process-level хэндлеры (window-all-closed, before-quit) сами всё
-    // дочистят.
-    return;
-  }
+  if (aborted) return;
 
   registerCspHook();
 
-  Menu.setApplicationMenu(null);
-
-  try {
-    await createWindow();
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    dialog.showErrorBox('GitBor', msg);
-    app.quit();
-    return;
-  }
+  const winOk = await windowCreated;
+  if (!winOk) return;
 
   if (messageBridge && mainWindow) {
     messageBridge.attach(mainWindow);
@@ -418,7 +428,10 @@ app.whenReady().then(async () => {
     return;
   }
 
-  await autoOpenRepo();
+  // Не блокирует первое отображение: окно уже видно (ready-to-show
+  // отрабатывает на загруженном DOM), autoOpenRepo дальше работает в фоне
+  // и шлёт `stateUpdate` через уже подключённый messageBridge.
+  void autoOpenRepo();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

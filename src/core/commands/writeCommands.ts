@@ -140,12 +140,22 @@ export async function deleteTag(queue: OperationQueue, git: GitExecutor, state: 
   });
 }
 
-export async function cherryPick(queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager, hash: string): Promise<OperationResult> {
-  return safeWrite(queue, git, safety, state, 'cherry-pick', { hash }, ['cherry-pick', hash], 'Cherry-pick failed');
+export async function cherryPick(queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager, hash: string, mainline?: number): Promise<OperationResult> {
+  const args = ['cherry-pick'];
+  if (mainline && mainline > 0) args.push('-m', String(mainline));
+  args.push(hash);
+  const meta: Record<string, string> = { hash };
+  if (mainline) meta.mainline = String(mainline);
+  return safeWrite(queue, git, safety, state, 'cherry-pick', meta, args, 'Cherry-pick failed');
 }
 
-export async function revert(queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager, hash: string): Promise<OperationResult> {
-  return safeWrite(queue, git, safety, state, 'revert', { hash }, ['revert', '--no-edit', hash], 'Revert failed');
+export async function revert(queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager, hash: string, mainline?: number): Promise<OperationResult> {
+  const args = ['revert', '--no-edit'];
+  if (mainline && mainline > 0) args.push('-m', String(mainline));
+  args.push(hash);
+  const meta: Record<string, string> = { hash };
+  if (mainline) meta.mainline = String(mainline);
+  return safeWrite(queue, git, safety, state, 'revert', meta, args, 'Revert failed');
 }
 
 export async function resetTo(queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager, hash: string, mode: 'soft' | 'mixed' | 'hard'): Promise<OperationResult> {

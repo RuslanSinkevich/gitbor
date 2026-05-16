@@ -168,6 +168,25 @@ User clicks button in React
 - `translateError(code, data, fallback)` — переводит `error`-events с локализационным кодом (`repoErrors.notARepo`, ...) через `t()` + `tpl()`. Если кода нет в локали — fallback на `message` от main.
 - `GitActivityIndicator` / `GitActivityDialog` принимают `repoPath` как props и фильтруют snapshot по нему: на вкладке репо A не видно операций B, и наоборот.
 
+## Сохранение сессии
+
+Открытые табы переживают перезапуск. Состояние хранится в renderer'ском `localStorage` (`sg-open-repos` — массив путей, ограничение 50; `sg-last-active-repo` — строка). Хелперы в `features/repo-manager/recentRepos.ts`: `loadOpenRepos` / `saveOpenRepos` / `clearOpenRepos`.
+
+- На каждое изменение `state.openRepos` `App.tsx` пишет актуальный список путей в `sg-open-repos`.
+- На старте `App.tsx` читает `sg-open-repos` и переоткрывает каждый репо через `invokeCommand({type:'openRepo'})` (последовательно, ошибки тихо игнорим — следующий save перепишет список без отсутствующего пути). Активный таб восстанавливается отдельным эффектом по `sg-last-active-repo`, сравнение пути нечувствительно к регистру и нормализует слэши через `sameRepoPath`.
+- `sg-last-active-repo` остаётся как single-tab fallback для юзеров с пустым `sg-open-repos` (старые сессии до этой фичи).
+
+`autoOpenRepo()` в `main.ts` (probe `process.cwd()` на git-репо) теперь **только в dev** (`return` если `app.isPackaged`). Без этого guard'а упакованный билд из ярлыка Start Menu резолвил бы `cwd` в `%USERPROFILE%` (или «start in» ярлыка) и тихо открывал любой git-репо, оказавшийся там, маскируя реальную сохранённую сессию.
+
+## Стартап
+
+`app.whenReady` параллелит два самых тяжёлых шага старта:
+
+- `createWindow()` — Electron GPU-init + аллокация `BrowserWindow`.
+- `initServices()` — probe `git --version`, `RepoServicesRegistry`, `StateManager`, `MessageBridge`, `FileWatcher`, AI-сервисы.
+
+Оба идут одновременно. `messageBridge.attach(mainWindow)` дёргается после resolve `createWindow`, но ДО `loadWindow()` — так `ipcMain.handle('gitbor:command')` уже зарегистрирован к моменту, когда React монтируется и шлёт первый `postCommand`. `autoOpenRepo()` не awaited — стартует в фоне и пушит события через уже подключённый bridge. На холодном старте Windows — экономия ~0.5–1.5 с.
+
 ## Логирование
 
 Двухсторонняя система: main и renderer пишут логи только в dev-режиме. В production console молчит — пользователь не видит шума в DevTools, а собранный билд не сорит в системный stdout.

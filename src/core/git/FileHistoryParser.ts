@@ -1,12 +1,13 @@
 import type { FileHistoryEntry } from './types';
 
 const SEPARATOR = '\x00';
-const FORMAT = ['%H', '%h', '%s', '%an', '%at'].join(SEPARATOR);
+const FORMAT = ['%H', '%h', '%s', '%an', '%at'].join('%x00');
 
 export { FORMAT as FILE_HISTORY_FORMAT };
 
 /**
  * Parse output of `git log --follow --format=<FORMAT> --name-status -- <file>`.
+ * FORMAT uses `%x00` field separators (NUL in stdout only; avoids NUL in process argv).
  * Each entry is: hash\0shortHash\0subject\0author\0timestamp\n\nSTATUS\tPATH
  */
 export function parseFileHistory(stdout: string): FileHistoryEntry[] {

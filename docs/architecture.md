@@ -166,6 +166,25 @@ Switching tabs immediately renders the new repo's slice (or empty if not populat
 - `translateError(code, data, fallback)` — translates `error`-events with a localization code (`repoErrors.notARepo`, ...) via `t()` + `tpl()`. If the code is not in the locale, falls back to the `message` from main.
 - `GitActivityIndicator` / `GitActivityDialog` accept `repoPath` as a prop and filter the snapshot by it: the activity log on tab A doesn't show operations from B, and vice versa.
 
+## Session Persistence
+
+Open tabs survive restart. State lives in renderer's `localStorage` (`sg-open-repos` — array of paths, capped at 50; `sg-last-active-repo` — string). Helpers in `features/repo-manager/recentRepos.ts`: `loadOpenRepos` / `saveOpenRepos` / `clearOpenRepos`.
+
+- On every change of `state.openRepos`, `App.tsx` flushes the path list to `sg-open-repos`.
+- On startup, `App.tsx` reads `sg-open-repos` and re-opens each repo via `invokeCommand({type:'openRepo'})` (sequential, failures are silently dropped — the next save rewrites the list without the missing path). The active tab is restored separately by matching `sg-last-active-repo` against the populated `state.openRepos` (path comparison is case-insensitive and slash-normalized via `sameRepoPath`).
+- `sg-last-active-repo` is kept as a single-tab fallback for users whose `sg-open-repos` is empty (older sessions before this feature).
+
+`autoOpenRepo()` in `main.ts` (which probes `process.cwd()` for a git repo) is now **dev-only** (`return` if `app.isPackaged`). Without this guard, a packaged build launched from a Start Menu shortcut would resolve `cwd` to `%USERPROFILE%` (or the shortcut's "start in" dir) and silently auto-open whatever git repo happened to live there — masking the real persisted session.
+
+## Startup
+
+`app.whenReady` parallelizes the two heaviest startup steps:
+
+- `createWindow()` — Electron GPU init + `BrowserWindow` allocation.
+- `initServices()` — `git --version` probe, `RepoServicesRegistry`, `StateManager`, `MessageBridge`, `FileWatcher`, AI services.
+
+Both run concurrently. `messageBridge.attach(mainWindow)` is called after `createWindow` resolves but before `loadWindow()`, so `ipcMain.handle('gitbor:command')` is registered by the time React mounts and fires the first `postCommand`. `autoOpenRepo()` is not awaited — it kicks off in the background and pushes events through the already-attached bridge. Cuts ~0.5–1.5 s off cold-start on Windows.
+
 ## Logging
 
 A two-sided system: both main and renderer log only in dev mode. In production the console stays silent — the user sees no noise in DevTools, and a packaged build does not pollute system stdout.

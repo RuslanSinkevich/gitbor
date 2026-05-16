@@ -95,8 +95,22 @@ export function getCommitMenuItems(commit: Commit, currentBranch: string, showPr
     { divider: true },
 
     { label: loc.contextMenu.checkoutCommit, action: () => postCommand({ type: 'checkout', branch: commit.hash }) },
-    { label: loc.contextMenu.cherryPick, action: () => postCommand({ type: 'cherryPick', hash: commit.hash }) },
-    { label: loc.contextMenu.revert, action: () => postCommand({ type: 'revert', hash: commit.hash }) },
+    {
+      label: loc.contextMenu.cherryPick,
+      action: () => postCommand({
+        type: 'cherryPick',
+        hash: commit.hash,
+        ...(commit.parents.length > 1 ? { mainline: 1 } : {}),
+      }),
+    },
+    {
+      label: loc.contextMenu.revert,
+      action: () => postCommand({
+        type: 'revert',
+        hash: commit.hash,
+        ...(commit.parents.length > 1 ? { mainline: 1 } : {}),
+      }),
+    },
     { divider: true },
 
     { label: loc.contextMenu.saveAsPatch, action: () => postCommand({ type: 'saveAsPatch', hash: commit.hash }) },

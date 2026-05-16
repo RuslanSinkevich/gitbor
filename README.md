@@ -284,7 +284,7 @@ gitbor/
 - **Merge conflict resolution** — two-column editor, auto-advance, conflict prediction
 - **File history & Git blame** — per-file commit history, line-by-line annotations
 - **Interactive rebase** — pick/reword/edit/squash/fixup/drop, progress banner
-- **Multi-repo tabs** — independent per-repo engines, the `+` tab opens RepoManager
+- **Multi-repo tabs** — independent per-repo engines, the `+` tab opens RepoManager; open tabs and the active one are restored on next launch
 - **Repository Manager** — recent list, open/clone/init; reachable via the `+` tab or by clicking the active tab again
 - **AI commit messages** — one-click generation from staged diff; OpenAI-compatible (OpenAI/Ollama/LM Studio/DeepSeek/Groq) and Qwen Web (chat.qwen.ai session token); commit language `auto`/`en`/`ru`
 - **Custom menu bar** — HTML/CSS menu with Edit actions, keyboard shortcuts (no native menu)

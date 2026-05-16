@@ -76,8 +76,8 @@ export class CommandHandler {
   deleteBranch(branch: string, force?: boolean): Promise<OperationResult> { return Write.deleteBranch(this.queue, this.git, this.state, branch, force); }
   createTag(name: string, ref: string, message?: string): Promise<OperationResult> { return Write.createTag(this.queue, this.git, this.state, name, ref, message); }
   deleteTag(name: string, remote?: boolean): Promise<OperationResult> { return Write.deleteTag(this.queue, this.git, this.state, name, remote); }
-  cherryPick(hash: string): Promise<OperationResult> { return Write.cherryPick(this.queue, this.git, this.safety, this.state, hash); }
-  revert(hash: string): Promise<OperationResult> { return Write.revert(this.queue, this.git, this.safety, this.state, hash); }
+  cherryPick(hash: string, mainline?: number): Promise<OperationResult> { return Write.cherryPick(this.queue, this.git, this.safety, this.state, hash, mainline); }
+  revert(hash: string, mainline?: number): Promise<OperationResult> { return Write.revert(this.queue, this.git, this.safety, this.state, hash, mainline); }
   resetTo(hash: string, mode: 'soft' | 'mixed' | 'hard'): Promise<OperationResult> { return Write.resetTo(this.queue, this.git, this.safety, this.state, hash, mode); }
   async stashShow(index: string): Promise<FileDiff[]> {
     return this.queue.enqueueRead('stashShow', async () => {

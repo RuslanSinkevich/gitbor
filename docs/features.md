@@ -90,6 +90,7 @@
 - Clicking the active tab again also opens RepoManager
 - Independent per-repo engines: a long `git pull` on repo A never blocks operations on repo B
 - Per-repo running ops: `state.isOperationRunning` is derived from the active tab only; fetch on A doesn't disable buttons on B
+- **Session persistence** — the full list of open tabs is restored on startup, with focus on the last active tab. Stored in `localStorage` (`sg-open-repos` + `sg-last-active-repo`); deleted/missing repos are silently dropped from the list on the next save
 
 ### AI Commit Messages
 
@@ -111,6 +112,13 @@
 - Rebase editor with pick/reword/edit/squash/fixup/drop actions
 - Rebase progress banner with step counter and Continue/Skip/Abort buttons
 - Accessible from commit context menu
+- Empty / loading states render the full editor frame with a Cancel button — the modal is always closeable
+
+### Cherry-pick / Revert on Merge Commits
+
+- For non-merge commits the context menu runs `git cherry-pick <hash>` / `git revert --no-edit <hash>` as usual
+- For merge commits (`commit.parents.length > 1`) the menu auto-passes `-m 1` (mainline = first parent) — no more `commit is a merge but no -m option was given` failure
+- IPC payload: `{ type: 'cherryPick' | 'revert', hash, mainline?: 1 }`
 
 ### Toolbar
 
