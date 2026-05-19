@@ -1,6 +1,6 @@
 # GitBor
 
-> Русская версия: [docs/ru/](docs/ru/)
+> Русская версия: [docs/ru/README.md](docs/ru/README.md)
 
 Free cross-platform desktop Git client built on Electron. A Fork/GitKraken/SourceTree alternative. Source is MIT-licensed but the repository is not publicly hosted.
 
@@ -251,15 +251,7 @@ gitbor/
 │   ├── open-repo.spec.ts          # autoOpenRepo via cwd=fixture
 │   └── switch-tab.spec.ts         # Multi-repo tab switching
 │
-├── docs/                          # Documentation
-│   ├── getting-started.md         # Setup and dev workflow
-│   ├── architecture.md            # Architecture overview
-│   ├── features.md                # Feature list
-│   ├── contributing.md            # Contributing guide
-│   ├── testing.md                 # Testing (Vitest + Playwright)
-│   ├── cross-platform-checklist.md # Cross-platform audit
-│   ├── audit/                     # Per-stream audit reports + bundle analyzer output
-│   └── ru/                        # Russian translations
+├── docs/                          # Documentation (screenshots, Russian README)
 │
 ├── .github/workflows/             # ci.yml (push, 3 OS, Node 20) + pr.yml (PR, Win, Node 22, +e2e)
 ├── .husky/pre-commit              # husky 9 + lint-staged 17 + project-wide tsc
@@ -371,20 +363,6 @@ Two-sided system: both main and renderer log only in dev mode; production consol
 - **Main** — singleton `mainLogger` with levels `silent`/`error`/`warn`/`info`/`debug`. `configureMainLogger({ isProduction })` in `main.ts` sets default by `app.isPackaged`. `GITBOR_LOG_LEVEL=debug` env var overrides without rebuild.
 - **Renderer** — `[GitBor]` prefix; methods are no-ops in Vite production build (`import.meta.env.DEV === false`).
 - **`perf.ts`** — separate diagnostic tool with its own opt-in (`GITBOR_PERF=1` / `window.__GITBOR_PERF__ = true`).
-
----
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Getting Started](docs/getting-started.md) | Prerequisites, setup, dev workflow, adding features |
-| [Architecture](docs/architecture.md) | 4-layer design, data flow, core & renderer modules |
-| [Features](docs/features.md) | What GitBor can do: graph, diff, merge, blame, etc. |
-| [Contributing](docs/contributing.md) | Code style, conventions, PR checklist |
-| [Testing](docs/testing.md) | Vitest setup, test structure, manual feature testing |
-
-Russian translations: [`docs/ru/`](docs/ru/)
 
 ---
 
