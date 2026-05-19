@@ -122,9 +122,107 @@ and contains the GitBor binary (`gitbor.exe` / `GitBor.app/Contents/MacOS/GitBor
 / `gitbor`). Launch is **not** part of the smoke (no UI runtime in CI
 runners), only the packaging pipeline is validated.
 
+## User data locations
+
+Where the installed app reads/writes data on the user's machine. Useful
+for support, backups, and uninstall cleanup.
+
+`<userData>` resolves to (Electron `app.getPath('userData')`):
+
+- **Windows**: `%APPDATA%\GitBor\` (e.g. `C:\Users\<name>\AppData\Roaming\GitBor\`)
+- **macOS**: `~/Library/Application Support/GitBor/`
+- **Linux**: `~/.config/GitBor/`
+
+Files written by the main process:
+
+| Path | Owner | Content |
+|------|-------|---------|
+| `<userData>/ai-config.json` | `AiConfigStore` | AI provider config; API keys / Qwen token encrypted via Electron `safeStorage` (`enc:` prefix), fallback `plain:` if key store unavailable. |
+| `<userData>/logs/YYYY-MM-DD.log` | `Logger` | File log — opened only at non-`silent` level. In a packaged build the level defaults to `silent` (no file written) unless `GITBOR_LOG_LEVEL=info|debug|...` is set. |
+| `<userData>/graphCache/` | `GraphCache` | Cached commit graph layouts per repo. |
+| `<userData>/stats-cache/` | `AuthorStatsCache` | Cached per-author code stats. |
+
+In-repo state:
+
+| Path | Owner | Content |
+|------|-------|---------|
+| `<repo>/.git/GitBor-journal.json` | `OperationJournal` | WAL journal of in-progress destructive operations (begin/complete/fail). |
+
+Renderer-side state lives in Chromium `localStorage` (per Electron
+session, under `<userData>/Local Storage/`). Key prefixes:
+
+- `sg-theme`, `sg-lang` — current theme / UI language.
+- `sg-layout:*` — split-pane sizes (e.g. `sg-layout:changes-file-list-width:<repo>`,
+  `sg-layout:commits-graph-height:<repo>`, `sg-layout:commits-detail-width:<repo>`).
+- `sg-sidebar-sections`, `sg-branch-folders:<repo>[:<remote>]` — sidebar
+  section open state and branch-tree expand state.
+- `sg-recent-repos`, `sg-open-repos`, `sg-last-active-repo` — recent /
+  open / active repository lists (restored on next launch).
+- `gitbor.log` — opt-in debug flag for the renderer logger.
+
+**Clean uninstall** (the NSIS uninstaller does NOT remove these): delete
+the `GitBor` folder under the path above. On Windows, also clear
+`HKCU\Software\GitBor` if you set up anything via NSIS scripts (not
+currently used).
+
+## Distribution & auto-updates
+
+### Where to publish releases
+
+`electron-builder` produces `release/` with installers, blockmaps, and
+`latest.yml` / `latest-mac.yml` / `latest-linux.yml`. These metadata
+files are what an auto-updater would consume.
+
+Recommended targets:
+
+- **GitHub Releases** — simplest. Set `build.publish` in `package.json`
+  to `{"provider": "github", "owner": "...", "repo": "..."}` and run
+  `electron-builder --publish always` (needs `GH_TOKEN` env). `latest.yml`
+  is uploaded automatically alongside the binaries.
+- **Generic HTTP / S3 / CDN** — use `{"provider": "generic", "url":
+  "https://your-cdn/gitbor/"}`. Upload the contents of `release/`
+  (installers + `latest*.yml` + `*.blockmap`) to that URL prefix
+  manually or via CI.
+
+Until `build.publish` is configured, the `latest.yml` files in
+`release/` are unused — they only become meaningful when the same URL
+is reachable from the running app's auto-updater.
+
+### Auto-updates (NOT enabled by default)
+
+GitBor ships **without** `electron-updater` wired into `main.ts`.
+Generated `latest.yml` is ignored at runtime; users have to download
+new installers manually.
+
+To enable:
+
+1. `npm install electron-updater`.
+2. Add `build.publish` in `package.json` (see above).
+3. In `src/main/main.ts`, after `app.whenReady`:
+
+   ```ts
+   import { autoUpdater } from 'electron-updater';
+   autoUpdater.logger = mainLogger; // already exists
+   autoUpdater.checkForUpdatesAndNotify();
+   ```
+
+4. Rebuild and publish via `electron-builder --publish always` so
+   `latest.yml` reflects the new version.
+
+Platform notes:
+
+- **Windows**: NSIS target supports auto-updates (delta updates via
+  `.blockmap`); portable target does NOT.
+- **macOS**: requires Developer ID signing AND notarization — both are
+  currently off (`mac.identity: null`, `mac.notarize: false`).
+- **Linux**: AppImage supports updates; `.deb` does not — distribute
+  `.deb` via your apt repo.
+
 ## Known limitations
 
 - macOS notarization requires Apple Developer ID — not configured.
+- Auto-updates not wired (`electron-updater` not installed, no
+  `build.publish`). See "Distribution & auto-updates" above to enable.
 - Real product icons not yet designed; placeholder icons are
   geometric/auto-generated. See `scripts/build-icons.mjs`.
 - Bundled Git for Windows: not included; users need to install Git separately.

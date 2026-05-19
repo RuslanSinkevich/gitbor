@@ -30,40 +30,52 @@
   flex-direction: column;
 }
 
-/* Commits view: graph top, details+diff bottom */
+/* Commits view: graph top, details+diff bottom (sizes via SgSplitPane) */
 .commitsLayout {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+
+.commitsLayout :global(.sg-split) {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
 }
 
 .graphPane {
-  flex: 6;
+  width: 100%;
+  height: 100%;
   min-height: 0;
   overflow: hidden;
 }
 
 .commitBottomPane {
-  flex: 4;
-  min-height: 160px;
+  width: 100%;
+  height: 100%;
   display: flex;
-  border-top: 1px solid var(--sg-border);
+  min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 
 .detailPane {
-  width: 360px;
-  min-width: 260px;
-  max-width: 500px;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  flex-shrink: 0;
   border-right: 1px solid var(--sg-border);
 }
 
 .commitDiffPane {
-  flex: 1;
+  width: 100%;
+  height: 100%;
   min-width: 0;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: auto;
 }

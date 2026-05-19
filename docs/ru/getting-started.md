@@ -72,6 +72,10 @@ npm run build   # Renderer + main
 npm start       # Run the packaged output
 ```
 
+Для дистрибутивных инсталляторов, пакетинга по платформам, путей
+пользовательских данных (`<userData>` на Win/Mac/Linux) и настройки
+авто-обновлений — см. [BUILD.md](BUILD.md).
+
 ## Устранение неполадок
 
 | Проблема | Что сделать |

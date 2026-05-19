@@ -72,6 +72,10 @@ npm run build   # Renderer + main
 npm start       # Run the packaged output
 ```
 
+For distributable installers, packaging targets per OS, user data
+locations (`<userData>` on Win/Mac/Linux), and the auto-update setup,
+see [BUILD.md](../BUILD.md).
+
 ## Troubleshooting
 
 | Issue | What to do |

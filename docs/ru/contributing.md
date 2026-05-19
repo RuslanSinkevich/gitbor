@@ -67,7 +67,7 @@ GitBor — настольный Git-клиент на Electron.
 - [ ] Форматирование корректно (`npm run format`)
 - [ ] Типы IPC синхронизированы между core и renderer
 - [ ] Новые возможности имеют соответствующие IPC-команды от начала до конца
-- [ ] Юнит-тесты проходят (`npm test` — Vitest, <!-- TESTS_COUNT -->631<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> файлах; авто-запуск в `.husky/pre-push`, bypass через `SKIP_TESTS=1`)
+- [ ] Юнит-тесты проходят (`npm test` — Vitest, <!-- TESTS_COUNT -->635<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> файлах; авто-запуск в `.husky/pre-push`, bypass через `SKIP_TESTS=1`)
 - [ ] E2E-тесты проходят на Windows (`npm run e2e` — Playwright, 3 спека, ~27 сек)
 - [ ] Пользовательские пути валидируются через `safePath()` / `isSafeFilename()`
 - [ ] Новые ключи i18n добавлены в оба языка (en + ru)

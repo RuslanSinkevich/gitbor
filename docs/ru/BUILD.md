@@ -125,9 +125,108 @@ request — workflow сам подхватит её и запакует с HEAD'
 входит (в CI-runner'ах нет дисплея) — валидируется только pipeline
 пакетинга.
 
+## Где хранятся данные пользователя
+
+Где установленное приложение читает/пишет данные на машине юзера —
+пригодится для саппорта, бэкапов и чистого удаления.
+
+`<userData>` (Electron `app.getPath('userData')`) разворачивается в:
+
+- **Windows**: `%APPDATA%\GitBor\` (напр. `C:\Users\<имя>\AppData\Roaming\GitBor\`)
+- **macOS**: `~/Library/Application Support/GitBor/`
+- **Linux**: `~/.config/GitBor/`
+
+Файлы, которые пишет main-процесс:
+
+| Путь | Кто пишет | Что внутри |
+|------|-----------|------------|
+| `<userData>/ai-config.json` | `AiConfigStore` | Конфиг AI-провайдеров; API-ключи / Qwen-токен шифруются через Electron `safeStorage` (префикс `enc:`), fallback `plain:` если key store недоступен. |
+| `<userData>/logs/YYYY-MM-DD.log` | `Logger` | Файловый лог — открывается только при не-`silent` уровне. В собранной версии по умолчанию `silent` (файл не пишется), включается через `GITBOR_LOG_LEVEL=info|debug|...`. |
+| `<userData>/graphCache/` | `GraphCache` | Кэш layout'ов графа коммитов по репо. |
+| `<userData>/stats-cache/` | `AuthorStatsCache` | Кэш статистики по авторам. |
+
+Состояние внутри репозитория:
+
+| Путь | Кто пишет | Что внутри |
+|------|-----------|------------|
+| `<repo>/.git/GitBor-journal.json` | `OperationJournal` | WAL-журнал текущих деструктивных операций (begin/complete/fail). |
+
+Состояние renderer'а лежит в Chromium `localStorage` (per Electron
+session, физически в `<userData>/Local Storage/`). Префиксы ключей:
+
+- `sg-theme`, `sg-lang` — текущая тема / язык UI.
+- `sg-layout:*` — размеры split-pane'ов (напр. `sg-layout:changes-file-list-width:<repo>`,
+  `sg-layout:commits-graph-height:<repo>`, `sg-layout:commits-detail-width:<repo>`).
+- `sg-sidebar-sections`, `sg-branch-folders:<repo>[:<remote>]` —
+  состояние раскрытия секций сайдбара и дерева веток.
+- `sg-recent-repos`, `sg-open-repos`, `sg-last-active-repo` — списки
+  недавних / открытых / активного репо (восстанавливаются при следующем
+  запуске).
+- `gitbor.log` — opt-in флаг debug-логов в renderer.
+
+**Чистое удаление** (NSIS-uninstaller это НЕ чистит): удалить папку
+`GitBor` по пути выше. На Windows — также `HKCU\Software\GitBor`,
+если что-то писалось туда через NSIS-скрипты (сейчас не используется).
+
+## Дистрибуция и авто-обновления
+
+### Куда выкладывать релизы
+
+`electron-builder` создаёт `release/` с инсталляторами, блокмапами и
+`latest.yml` / `latest-mac.yml` / `latest-linux.yml`. Эти metadata-файлы
+читает авто-апдейтер.
+
+Рекомендованные таргеты:
+
+- **GitHub Releases** — самый простой. Прописать `build.publish` в
+  `package.json`: `{"provider": "github", "owner": "...", "repo":
+  "..."}` и запустить `electron-builder --publish always` (нужен
+  `GH_TOKEN` в env). `latest.yml` загрузится автоматически вместе с
+  бинарями.
+- **Generic HTTP / S3 / CDN** — `{"provider": "generic", "url":
+  "https://your-cdn/gitbor/"}`. Содержимое `release/` (инсталляторы +
+  `latest*.yml` + `*.blockmap`) залить по этому префиксу вручную или
+  через CI.
+
+Пока `build.publish` не настроен, файлы `latest.yml` в `release/` ни на
+что не влияют — они становятся осмысленными только когда тот же URL
+доступен из работающего приложения с авто-апдейтером.
+
+### Авто-обновления (по умолчанию ВЫКЛЮЧЕНЫ)
+
+GitBor собирается **без** подключённого `electron-updater` в `main.ts`.
+Сгенерированный `latest.yml` в рантайме игнорируется — пользователю
+надо качать новые инсталляторы руками.
+
+Чтобы включить:
+
+1. `npm install electron-updater`.
+2. Добавить `build.publish` в `package.json` (см. выше).
+3. В `src/main/main.ts` после `app.whenReady`:
+
+   ```ts
+   import { autoUpdater } from 'electron-updater';
+   autoUpdater.logger = mainLogger;
+   autoUpdater.checkForUpdatesAndNotify();
+   ```
+
+4. Пересобрать и опубликовать через `electron-builder --publish always`,
+   чтобы `latest.yml` отражал новую версию.
+
+Платформо-зависимое:
+
+- **Windows**: NSIS-таргет поддерживает авто-апдейты (delta-обновления
+  через `.blockmap`); portable — НЕ поддерживает.
+- **macOS**: требует подпись Developer ID И нотаризацию — оба сейчас
+  отключены (`mac.identity: null`, `mac.notarize: false`).
+- **Linux**: AppImage поддерживает обновления; `.deb` — нет (раздавать
+  через свой apt-репозиторий).
+
 ## Известные ограничения
 
 - Нотаризация macOS требует Apple Developer ID — не настроена.
+- Авто-обновления не подключены (`electron-updater` не установлен, нет
+  `build.publish`). См. "Дистрибуция и авто-обновления" выше.
 - Реальные продуктовые иконки ещё не нарисованы; placeholder-иконки
   геометрические/авто-сгенерированные. См. `scripts/build-icons.mjs`.
 - Bundled Git для Windows: не включён; пользователям нужно установить
