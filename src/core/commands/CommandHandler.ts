@@ -254,7 +254,27 @@ export class CommandHandler {
         async () => this.conflicts.merge(source, options),
         { allowedErrorClasses: ['conflict'] },
       );
-      await this.state.refreshAll();
+
+      // wrapDestructive возвращает success:true даже при merge с конфликтами —
+      // нормализуем, чтобы журнал/тосты не показывали «успех».
+      if (result.success && result.data && !result.data.success && result.data.conflicts.length > 0) {
+        await this.state.refreshAll();
+        return {
+          success: false,
+          rollbackAvailable: result.rollbackAvailable,
+          errorClass: 'conflict',
+          error: `Merge produced ${result.data.conflicts.length} conflict(s)`,
+          data: result.data,
+          journalEntryId: result.journalEntryId,
+          savedState: result.savedState,
+        };
+      }
+
+      if (result.success) {
+        await this.state.refreshAll();
+      } else {
+        await this.state.refreshStatusAndNotify();
+      }
       return result;
     });
   }
@@ -268,7 +288,14 @@ export class CommandHandler {
   }
 
   async completeMerge(message?: string): Promise<OperationResult> {
-    return this.queue.enqueueWrite('completeMerge', async () => { const r = await this.conflicts.completeMerge(message); await this.state.refreshAll(); return r; });
+    return this.queue.enqueueWrite('completeMerge', async () => {
+      const blocked = await Write.runPreflight(this.git, 'completeMerge');
+      if (blocked) return blocked;
+      const r = await this.conflicts.completeMerge(message);
+      if (r.success) await this.state.refreshAll();
+      else await this.state.refreshStatusAndNotify();
+      return r;
+    });
   }
 
   async abortMerge(): Promise<void> {

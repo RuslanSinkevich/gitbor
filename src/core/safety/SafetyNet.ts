@@ -1,4 +1,6 @@
+import { existsSync } from 'fs';
 import { join } from 'path';
+import type { MergeResult } from '../git/types';
 import { GitExecutor, GitError } from '../git/GitExecutor';
 import {
   GitErrorClass,
@@ -124,7 +126,10 @@ export class SafetyNet {
 
       await journal.complete(journalId);
 
-      if (autoStashHash) {
+      // Не возвращаем auto-stash пока merge/cherry-pick/rebase/UU ещё активны:
+      // stash apply во время MERGE_HEAD — типичный источник index.lock и
+      // «потерянного» состояния после merge с конфликтами.
+      if (autoStashHash && !(await this.shouldDeferAutoStashRestore(operationName, result))) {
         await this.tryRestoreAutoStash(autoStashHash);
       }
 
@@ -293,6 +298,29 @@ export class SafetyNet {
     if (dropResult.exitCode !== 0) {
       mainLogger.warn(`safety: auto-stash drop failed (${stashHash.slice(0, 7)}). stderr: ${dropResult.stderr.split('\n')[0]}`);
     }
+  }
+
+  /**
+   * Отложить restore auto-stash после «успешного» wrapDestructive, если
+   * операция оставила репо в конфликтной сессии (merge с UU и т.п.).
+   */
+  private async shouldDeferAutoStashRestore(operationName: string, result: unknown): Promise<boolean> {
+    if (operationName === 'merge' && result && typeof result === 'object' && 'success' in result) {
+      const mr = result as MergeResult;
+      if (!mr.success && (mr.conflicts?.length ?? 0) > 0) return true;
+    }
+    if (this.isConflictSessionActive()) return true;
+    const uu = await this.detectUnmergedPaths();
+    return uu.length > 0;
+  }
+
+  private isConflictSessionActive(): boolean {
+    const gitDir = join(this.git.getCwd(), '.git');
+    if (existsSync(join(gitDir, 'MERGE_HEAD'))) return true;
+    if (existsSync(join(gitDir, 'CHERRY_PICK_HEAD'))) return true;
+    if (existsSync(join(gitDir, 'REVERT_HEAD'))) return true;
+    if (existsSync(join(gitDir, 'rebase-apply')) || existsSync(join(gitDir, 'rebase-merge'))) return true;
+    return false;
   }
 
   private async detectUnmergedPaths(): Promise<string[]> {

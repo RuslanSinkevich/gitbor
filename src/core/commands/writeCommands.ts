@@ -32,7 +32,7 @@ function allowedClassesFor(opName: string): GitErrorClass[] {
   return [];
 }
 
-async function runPreflight(
+export async function runPreflight(
   git: GitExecutor,
   opName: string,
 ): Promise<OperationResult | null> {
@@ -99,6 +99,14 @@ async function gitWrite(
   const targetRepo = state.getState().repoPath || undefined;
   return queue.enqueueWrite(opName, async () => {
     const result = await fn();
+    // После failed commit/merge не гоняем полный refreshAll — лишние
+    // параллельные git-команды и гонки с index.lock; UI обновим лёгким status.
+    if (!result.success) {
+      if (HEAD_DELTA_OPS.has(opName)) {
+        await state.refreshStatusAndNotify(targetRepo);
+      }
+      return result;
+    }
     if (refresh === 'refreshAll' && HEAD_DELTA_OPS.has(opName)) {
       await state.refreshAll(targetRepo, { deferHeavy: true });
     } else {
@@ -113,6 +121,19 @@ async function gitExecSimple(
   opName: string, args: string[], refresh: RefreshFn = 'refreshAll',
 ): Promise<OperationResult> {
   return gitWrite(queue, state, opName, async () => {
+    const r = await git.exec(args);
+    return simpleResult(r.exitCode, r.stderr);
+  }, refresh);
+}
+
+/** gitExecSimple + pre-flight (lock, state-files, UU). */
+async function gitExecWithPreflight(
+  queue: OperationQueue, git: GitExecutor, state: StateManager,
+  opName: string, args: string[], refresh: RefreshFn = 'refreshAll',
+): Promise<OperationResult> {
+  return gitWrite(queue, state, opName, async () => {
+    const blocked = await runPreflight(git, opName);
+    if (blocked) return blocked;
     const r = await git.exec(args);
     return simpleResult(r.exitCode, r.stderr);
   }, refresh);
@@ -265,7 +286,7 @@ export async function stashDrop(queue: OperationQueue, git: GitExecutor, state: 
 export async function commit(queue: OperationQueue, git: GitExecutor, state: StateManager, message: string, amend?: boolean): Promise<OperationResult> {
   const args = ['commit', '-m', message];
   if (amend) args.push('--amend');
-  return gitExecSimple(queue, git, state, 'commit', args);
+  return gitExecWithPreflight(queue, git, state, 'commit', args);
 }
 
 export async function stageFile(queue: OperationQueue, git: GitExecutor, state: StateManager, file: string): Promise<OperationResult> {

@@ -137,6 +137,25 @@ describe('SafetyNet.wrapDestructive (new contract)', () => {
     expect(stashMsg).toContain('main');
   });
 
+  it('merge with conflicts: does not restore auto-stash while merge session active', async () => {
+    const { SafetyNet } = await import('../../src/core/safety/SafetyNet');
+    const { writeFileSync } = await import('fs');
+    const git = makeMockGit({ uncommitted: ' M file\n' });
+    writeFileSync(join(gitDir, 'MERGE_HEAD'), 'deadbeef\n');
+    const sn = new SafetyNet(git as never);
+
+    await sn.wrapDestructive(
+      'merge',
+      { source: 'feature/x' },
+      async () => ({ success: false, conflicts: ['src/a.ts'] }),
+    );
+
+    const applyCall = git.exec.mock.calls.find(([args]: [string[]]) =>
+      args[0] === 'stash' && args[1] === 'apply',
+    );
+    expect(applyCall).toBeUndefined();
+  });
+
   it('with uncommitted: after success calls stash apply then drop (NOT pop)', async () => {
     const { SafetyNet } = await import('../../src/core/safety/SafetyNet');
     const git = makeMockGit({ uncommitted: ' M file\n' });
