@@ -245,6 +245,7 @@ export const en = {
     fixConflicts: 'Fix {count} conflict(s) and then continue.',
     allResolved: 'All conflicts resolved — ready to commit.',
     abort: 'Abort',
+    abortConfirm: 'The current operation will be aborted and the working tree will return to the state before it started. Conflict resolutions and uncommitted changes made during the operation will be lost.',
   },
   conflictDialog: {
     title: 'Merge Conflict',

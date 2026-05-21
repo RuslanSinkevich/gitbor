@@ -194,8 +194,36 @@ export class ConflictManager {
     return { success: true, rollbackAvailable: true };
   }
 
+  /**
+   * Универсальный «отменить текущую конфликтную операцию». Команда зависит
+   * от типа активного состояния (MERGE_HEAD / CHERRY_PICK_HEAD / REVERT_HEAD /
+   * rebase-apply|rebase-merge). Имя метода историческое — оставлено для
+   * совместимости с IPC и SafetyNet.
+   *
+   * Для редкого случая «UU без state-файлов» (повреждённое состояние) делаем
+   * `reset --merge` — он совместим с index.lock-аналогами и не трогает
+   * untracked файлы.
+   */
   async abortMerge(): Promise<void> {
-    await this.git.exec(['merge', '--abort']);
+    const detected = await this.detectConflictResolution();
+    if (!detected.inProgress) return;
+    switch (detected.kind) {
+      case 'merge':
+        await this.git.exec(['merge', '--abort']);
+        return;
+      case 'cherry-pick':
+        await this.git.exec(['cherry-pick', '--abort']);
+        return;
+      case 'revert':
+        await this.git.exec(['revert', '--abort']);
+        return;
+      case 'rebase':
+        await this.git.exec(['rebase', '--abort']);
+        return;
+      case 'unmerged-paths':
+        await this.git.exec(['reset', '--merge']);
+        return;
+    }
   }
 
   /**

@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { t } from '../../i18n';
 import { postCommand } from '../../api';
 import { GitActivityIndicator } from '../git-activity';
+import type { MergeState } from '../../types';
+import type { ShowPrompt } from '../graph/commitMenuItems';
 import s from './Toolbar.module.css';
 
 interface Props {
@@ -21,6 +23,14 @@ interface Props {
   onOpenActivity?: () => void;
   /** Путь активного репо — для фильтрации индикатора git-активности. */
   repoPath?: string | null;
+  /**
+   * Активное merge/cherry-pick/revert состояние. Если задано и
+   * `inProgress === true`, в правой части тулбара показывается красная
+   * кнопка «Прервать» (как в Fork). Rebase скрыт, у него свой баннер
+   * с continue/skip/abort.
+   */
+  mergeState?: MergeState | null;
+  showPrompt?: ShowPrompt;
 }
 
 function formatBadgeCount(n: number): string {
@@ -112,10 +122,39 @@ function DropdownButton({ label, icon, disabled, mainAction, items, badge, toolt
 }
 
 export function Toolbar(props: Props) {
-  const { isOperationRunning, hasUpstream, onPull, onPush, onStash, onOpenActivity } = props;
+  const { isOperationRunning, hasUpstream, onPull, onPush, onStash, onOpenActivity, mergeState, showPrompt } = props;
   const ahead = props.ahead ?? 0;
   const behind = props.behind ?? 0;
   const loc = t();
+
+  const showAbort = !!mergeState?.inProgress && mergeState.kind !== 'rebase' && mergeState.kind !== 'none';
+
+  const abortKindLabel = mergeState?.kind === 'cherry-pick' ? loc.mergeBanner.cherryPicking
+    : mergeState?.kind === 'revert' ? loc.mergeBanner.reverting
+    : mergeState?.kind === 'unmerged-paths' ? loc.mergeBanner.unmergedPaths
+    : loc.mergeBanner.merging;
+
+  const abortTooltip = mergeState?.sourceBranch
+    ? `${loc.mergeBanner.abort}: ${abortKindLabel} ${mergeState.sourceBranch} ${loc.mergeBanner.into} ${mergeState.targetBranch}`
+    : `${loc.mergeBanner.abort}: ${abortKindLabel}`;
+
+  const handleAbort = () => {
+    const detail = mergeState?.sourceBranch
+      ? `${abortKindLabel} ${mergeState.sourceBranch} ${loc.mergeBanner.into} ${mergeState.targetBranch}. `
+      : '';
+    if (showPrompt) {
+      showPrompt({
+        title: loc.mergeBanner.abort,
+        message: `${detail}${loc.mergeBanner.abortConfirm}`,
+        confirmLabel: loc.mergeBanner.abort,
+        danger: true,
+        onConfirm: () => postCommand({ type: 'abortMerge' }),
+      });
+    } else {
+      postCommand({ type: 'abortMerge' });
+    }
+  };
+
   const runPull = (rebase?: boolean) => {
     if (onPull) onPull(rebase);
     else postCommand({ type: 'pull', rebase });
@@ -183,9 +222,21 @@ export function Toolbar(props: Props) {
         </button>
       </div>
 
-      {onOpenActivity && (
+      {(showAbort || onOpenActivity) && (
         <div className={s.right}>
-          <GitActivityIndicator onOpen={onOpenActivity} repoPath={props.repoPath} />
+          {showAbort && (
+            <button
+              type="button"
+              className={s.abort}
+              onClick={handleAbort}
+              title={abortTooltip}
+            >
+              {loc.mergeBanner.abort}
+            </button>
+          )}
+          {onOpenActivity && (
+            <GitActivityIndicator onOpen={onOpenActivity} repoPath={props.repoPath} />
+          )}
         </div>
       )}
     </div>

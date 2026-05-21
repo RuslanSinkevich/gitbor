@@ -506,6 +506,8 @@ export function App() {
               onStash={promptStash}
               onOpenActivity={() => dlg.setShowGitActivity(true)}
               repoPath={state.repoPath}
+              mergeState={mergeState}
+              showPrompt={showPrompt}
             />
           )}
 
