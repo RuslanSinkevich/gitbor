@@ -23,7 +23,51 @@ export interface PostCommandHooks {
   onInvokeRejected?: () => void;
 }
 
+/**
+ * Команды, которые НЕ имеет смысла "повторять" из retry-toast — это
+ * вьюшные read-операции и подписки. Не запоминаем их, чтобы при ошибке
+ * предыдущего write-op'а юзер случайно не запустил getRebaseTodo вместо
+ * настоящего pull.
+ */
+const NON_RETRYABLE_TYPES = new Set<string>([
+  'ready', 'getState', 'refreshAll',
+  'getCommitDetails', 'getGraphData', 'getFileDiff', 'getFileBlame', 'getFileHistory',
+  'getSubmodules', 'submoduleUpdate', 'submoduleInit',
+  'getRebaseTodo', 'getMergeState', 'getConflictContent',
+  'getRepoSummary', 'getRepoStats', 'getDayCommits', 'getAuthorCodeStats',
+  'getGitActivity', 'clearGitActivity',
+  'openDiff', 'openMergeEditor', 'openFile', 'switchView',
+  'openInExplorer', 'openInTerminal',
+  'getRepoSettings', 'listSshKeys', 'getPublicKey', 'getLfsStatus',
+  'getWorktrees', 'getHooks', 'getReflog',
+  'getBisectStatus', 'getGitignore',
+  'getCommitDiff',
+  'aiGetConfig', 'aiSetConfig', 'aiTestConnection', 'aiGenerateCommitMessage', 'aiCancelGenerate',
+  'safetyResolve', 'killGitProcess', 'removeIndexLock', 'rollbackOperation',
+]);
+
+let _lastRetryable: RendererCommand | null = null;
+type RetryListener = (cmd: RendererCommand) => void;
+const retryListeners = new Set<RetryListener>();
+
+/** Подписка на запоминание ретраябельных команд (для App-state). */
+export function onRetryableCommand(listener: RetryListener): () => void {
+  retryListeners.add(listener);
+  return () => { retryListeners.delete(listener); };
+}
+
+export function getLastRetryableCommand(): RendererCommand | null {
+  return _lastRetryable;
+}
+
 export function postCommand(command: RendererCommand, hooks?: PostCommandHooks): void {
+  if (!NON_RETRYABLE_TYPES.has(command.type)) {
+    _lastRetryable = command;
+    for (const l of retryListeners) {
+      try { l(command); } catch (err) { logger.error('retry listener error:', err); }
+    }
+  }
+
   const api = getAPI();
   if (api) {
     void api.invoke(command).catch((err) => {

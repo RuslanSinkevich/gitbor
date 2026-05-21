@@ -1,0 +1,73 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 13px;
+  color: var(--sg-foreground);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--sg-foreground);
+}
+
+.muted {
+  color: var(--sg-foreground-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.preflight {
+  background: var(--sg-bg-muted);
+  border-left: 3px solid var(--sg-warning);
+  border-radius: 3px;
+  padding: 8px 10px;
+}
+
+.error {
+  background: var(--sg-bg-muted);
+  border-left: 3px solid var(--sg-danger);
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-family: var(--sg-mono, monospace);
+  font-size: 12px;
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.list {
+  margin: 4px 0 0;
+  padding-left: 16px;
+}
+
+.list li {
+  margin: 2px 0;
+}
+
+.procRow {
+  font-family: var(--sg-mono, monospace);
+  font-size: 11px;
+  color: var(--sg-foreground-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.actionDanger {
+  --sg-button-bg: var(--sg-danger, #c64a3a);
+  --sg-button-fg: #fff;
+}

@@ -7,6 +7,7 @@ import type { useDialogs } from './hooks/useDialogs';
 import type { useContextMenu } from './hooks/useContextMenu';
 import type { usePromptDialog } from './ui/SgPromptDialog';
 import type { useToasts } from './hooks/useToasts';
+import type { UseSafetyDialog } from './hooks/useSafetyDialog';
 import s from './App.module.css';
 
 // Тяжёлые модалки/редакторы — отложенная загрузка. Пока пользователь не
@@ -29,6 +30,7 @@ const GitignoreDialog = lazy(() => import('./features/gitignore').then(m => ({ d
 const StatisticsDialog = lazy(() => import('./features/statistics').then(m => ({ default: m.StatisticsDialog })));
 const GitActivityDialog = lazy(() => import('./features/git-activity').then(m => ({ default: m.GitActivityDialog })));
 const AiSettingsDialog = lazy(() => import('./features/ai').then(m => ({ default: m.AiSettingsDialog })));
+const SafetyDialog = lazy(() => import('./features/safety').then(m => ({ default: m.SafetyDialog })));
 
 interface AppDialogsProps {
   contextMenu: ReturnType<typeof useContextMenu>['contextMenu'];
@@ -51,6 +53,8 @@ interface AppDialogsProps {
   loc: ReturnType<typeof import('./i18n').t>;
   /** Путь активного репо — используется журналом git-активности. */
   repoPath?: string | null;
+  /** Safety-диалог: current/onAction/close. */
+  safety?: UseSafetyDialog;
 }
 
 export function AppDialogs(props: AppDialogsProps) {
@@ -64,6 +68,7 @@ export function AppDialogs(props: AppDialogsProps) {
     toasts, dismissToast,
     dlg, showPrompt, loc,
     repoPath,
+    safety,
   } = props;
 
   return (
@@ -106,6 +111,14 @@ export function AppDialogs(props: AppDialogsProps) {
         {dlg.showRepoStats && <StatisticsDialog onClose={() => dlg.setShowRepoStats(false)} />}
         {dlg.showGitActivity && <GitActivityDialog onClose={() => dlg.setShowGitActivity(false)} repoPath={repoPath} />}
         {dlg.showAiSettings && <AiSettingsDialog onClose={() => dlg.setShowAiSettings(false)} />}
+
+        {safety?.current && (
+          <SafetyDialog
+            payload={safety.current}
+            onAction={safety.onAction}
+            onClose={safety.close}
+          />
+        )}
       </Suspense>
 
       <SgPromptDialog prompt={prompt} onClose={closePrompt} />

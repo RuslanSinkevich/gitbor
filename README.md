@@ -342,8 +342,19 @@ Each open repository is a fully independent set of services — a long `git pull
 1. **Git reflog** — built-in, 90 days
 2. **Auto-stash** — saves uncommitted changes before destructive operations
 3. **HEAD hash** — saved for rollback
-4. **WAL journal** — `.git/GitBor-journal.json`, begin/complete/fail
+4. **WAL journal** — `.git/GitBor-journal.json`, begin/complete/fail (with `errorClass`)
 5. **RecoveryManager** — startup checks: lock files (stale `.git/index.lock` is ignored on startup), incomplete operations, rebase, merge
+
+### Classified Error Handling
+
+`SafetyNet` no longer auto-rolls back on any failure. Stderr is
+classified into `GitErrorClass` (`lock_held` / `conflict` / `dirty_tree` /
+`network` / `auth` / ...). The UI opens a `SafetyDialog` with
+context-aware actions (retry, abort merge, restore stash, kill git
+process, remove lock, rollback). `PreflightChecks` runs before
+destructive operations to detect `index.lock`, intermediate state
+files (`MERGE_HEAD`, `rebase-apply`, etc.), and unmerged paths. See
+[docs/safety-error-handling.md](docs/safety-error-handling.md).
 
 ### Input Safety
 
@@ -383,6 +394,8 @@ Two-sided system: both main and renderer log only in dev mode; production consol
 | [Features](docs/features.md) | What GitBor can do: graph, diff, merge, blame, etc. |
 | [Contributing](docs/contributing.md) | Code style, conventions, PR checklist |
 | [Testing](docs/testing.md) | Vitest setup, test structure, manual feature testing |
+| [Safety & Error Handling](docs/safety-error-handling.md) | `GitErrorClass`, `SafetyDialog`, preflight, journal |
+| [Refresh Performance](docs/performance/refresh-investigation.md) | Why `git commit` was slow on monorepos; `deferHeavy` opt |
 
 Russian translations: [`docs/ru/`](docs/ru/)
 

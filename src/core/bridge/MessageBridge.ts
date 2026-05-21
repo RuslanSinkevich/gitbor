@@ -16,6 +16,12 @@ export class MessageBridge {
   private focusStatusDebounce: NodeJS.Timeout | null = null;
   private boundOnWindowFocus: (() => void) | null = null;
   /**
+   * Последний активный путь, на котором мы посылали `mergeState`.
+   * Используется чтобы не дёргать `getMergeState()` на каждое
+   * `stateUpdate` — только при смене репо.
+   */
+  private lastMergeStateRepo: string | null = null;
+  /**
    * Per-repo дедуп отправленного графа. Без него switchRepo A→B→A шлёт
    * весь graphData для каждого репо на каждое переключение (в MainProcess
    * applyRepoSnapshot создаёт «новую» ссылку, хотя данные идентичны).
@@ -54,7 +60,21 @@ export class MessageBridge {
       this.send({ type: 'stateUpdate', data: lightState });
 
       const repoPath = state.repoPath;
-      if (!repoPath) return;
+      if (!repoPath) {
+        this.lastMergeStateRepo = null;
+        return;
+      }
+
+      // Шлём mergeState на смену активного репо: иначе при открытии
+      // репо с уже идущим merge/UU юзер не видит баннера, пока сам
+      // не запустит pull/merge. Один запрос на смену, не на каждое
+      // обновление.
+      if (this.lastMergeStateRepo !== repoPath) {
+        this.lastMergeStateRepo = repoPath;
+        this.commandHandler.getMergeState().then(ms => {
+          this.send({ type: 'mergeState', data: ms });
+        }).catch(() => { /* best-effort, отдельный getMergeState() ниже от renderer всё равно сработает */ });
+      }
 
       // Дедуп по repoPath: если для этого репо мы уже слали ровно эти
       // ссылки на commits/layout — не гоним 3-10 MB снова через IPC.

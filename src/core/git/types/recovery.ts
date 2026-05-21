@@ -1,3 +1,5 @@
+import type { GitErrorClass } from './errors';
+
 export interface JournalEntry {
   id: string;
   operation: string;
@@ -7,6 +9,8 @@ export interface JournalEntry {
   params: Record<string, string>;
   completedAt?: number;
   error?: string;
+  /** Класс ошибки, если status === 'failed'. Заполняется SafetyNet после classify(). */
+  errorClass?: GitErrorClass;
 }
 
 export interface SavedState {
@@ -41,6 +45,11 @@ export type RecoveryAction =
   | { type: 'abort_rebase' }
   | { type: 'remove_lock' }
   | { type: 'restore_stash'; stashHash: string }
+  | { type: 'apply_stash_only'; stashHash: string }
+  | { type: 'drop_stash'; stashHash: string }
+  | { type: 'kill_git_process'; pid: number }
+  | { type: 'retry'; journalEntryId: string }
+  | { type: 'manual_continue' }
   | { type: 'ignore' };
 
 export interface JournalFile {

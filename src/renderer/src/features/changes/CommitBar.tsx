@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useState, useRef } from 'react
 import { t } from '../../i18n';
 import { postCommand } from '../../api';
 import { AiGenerateButton, localizeAiError } from '../ai';
+import type { MergeState } from '../../types';
 import s from './CommitBar.module.css';
 
 const DESC_MIN_PX = 29;
@@ -12,15 +13,35 @@ interface Props {
   stagedCount: number;
   isOperationRunning: boolean;
   onOpenAiSettings: () => void;
+  mergeState?: MergeState | null;
 }
 
-export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings }: Props) {
+export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings, mergeState }: Props) {
   const loc = t();
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [amend, setAmend] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
+  const prefilledRef = useRef(false);
+
+  // Предзаполнение subject для merge-commit'а в стиле git/Fork:
+  // `Merge branch 'source' into target`. Делаем только если поля пустые
+  // и юзер ничего не вводил (prefilledRef защищает от перезаписи после
+  // того как юзер начал печатать). После завершения merge (mergeState=null)
+  // флаг сбрасывается — следующий merge снова предзаполнится.
+  useEffect(() => {
+    if (!mergeState?.inProgress) {
+      prefilledRef.current = false;
+      return;
+    }
+    if (prefilledRef.current) return;
+    if (subject || description || amend) return;
+    if (mergeState.kind !== 'merge') return;
+    if (!mergeState.sourceBranch || !mergeState.targetBranch) return;
+    setSubject(`Merge branch '${mergeState.sourceBranch}' into ${mergeState.targetBranch}`);
+    prefilledRef.current = true;
+  }, [mergeState, subject, description, amend]);
 
   const canCommit = (subject.trim().length > 0 || amend) && stagedCount > 0 && !isOperationRunning;
 

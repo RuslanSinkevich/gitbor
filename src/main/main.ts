@@ -387,6 +387,13 @@ app.whenReady().then(async () => {
   configureMainLogger({ isProduction: app.isPackaged });
   mainLogger.debug(`startup: pid=${process.pid} platform=${process.platform} packaged=${app.isPackaged}`);
 
+  try {
+    const { initSafetyStats } = await import('../core/safety/SafetyStats');
+    initSafetyStats(app.getPath('userData'));
+  } catch (err) {
+    mainLogger.warn(`safetyStats init failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
   Menu.setApplicationMenu(null);
 
   // Параллелим тяжёлые шаги стартапа:

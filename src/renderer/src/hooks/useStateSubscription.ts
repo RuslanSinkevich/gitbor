@@ -1,10 +1,14 @@
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import type {
   CommitDetail,
+  GitErrorClass,
   MergeState,
   MainEvent,
+  PreflightIssue,
   RebaseProgress,
   RecoveryIssue,
+  SavedOperationState,
+  SuggestedAction,
 } from '../types';
 import { sendReady, onMainEvent } from '../api';
 import { setLang, t, tpl } from '../i18n';
@@ -53,6 +57,13 @@ export interface StateSubscriptionDeps {
     operation: string,
     success: boolean,
     error?: string,
+    extras?: {
+      errorClass?: GitErrorClass;
+      savedState?: SavedOperationState;
+      suggestedActions?: SuggestedAction[];
+      preflightIssues?: PreflightIssue[];
+      journalEntryId?: string;
+    },
   ): void;
   removeRunningOpsByRepo(repoPath: string): void;
   // transient
@@ -158,7 +169,13 @@ export function useStateSubscription(deps: StateSubscriptionDeps): void {
           break;
         }
         case 'operationEnd': {
-          d.endOperation(msg.repoPath, msg.operation, msg.success, msg.error);
+          d.endOperation(msg.repoPath, msg.operation, msg.success, msg.error, {
+            errorClass: msg.errorClass,
+            savedState: msg.savedState,
+            suggestedActions: msg.suggestedActions,
+            preflightIssues: msg.preflightIssues,
+            journalEntryId: msg.journalEntryId,
+          });
           break;
         }
         case 'config':

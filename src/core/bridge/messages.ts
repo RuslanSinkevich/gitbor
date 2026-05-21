@@ -11,8 +11,13 @@ import {
   Submodule,
   MergeOptions,
   MergeState,
+  RecoveryAction,
   RecoveryIssue,
   ReflogEntry,
+  GitErrorClass,
+  SavedOperationState,
+  SuggestedAction,
+  PreflightIssue,
 } from '../git/types';
 import type { ConflictContent } from '../git/types';
 import type { GitActivityEntry } from '../activity/GitActivityStore';
@@ -182,7 +187,13 @@ export type RendererCommand =
   | { type: 'aiSetConfig'; config: AiProviderConfig | null }
   | { type: 'aiTestConnection'; config: AiProviderConfig }
   | { type: 'aiGenerateCommitMessage'; requestId: string }
-  | { type: 'aiCancelGenerate'; requestId: string };
+  | { type: 'aiCancelGenerate'; requestId: string }
+
+  // Safety: явный выбор юзера в SafetyDialog
+  | { type: 'safetyResolve'; requestId: string; action: RecoveryAction }
+  | { type: 'killGitProcess'; pid: number }
+  | { type: 'removeIndexLock' }
+  | { type: 'rollbackOperation'; journalEntryId: string };
 
 // ─── Main → Renderer (events via IPC) ───
 
@@ -204,7 +215,31 @@ export type MainEvent =
    * `repoPath` fetch на репо A блокировал бы кнопки на репо B.
    */
   | { type: 'operationStart'; operation: string; repoPath?: string | null }
-  | { type: 'operationEnd'; operation: string; success: boolean; error?: string; repoPath?: string | null }
+  | {
+      type: 'operationEnd';
+      operation: string;
+      success: boolean;
+      error?: string;
+      repoPath?: string | null;
+      errorClass?: GitErrorClass;
+      savedState?: SavedOperationState;
+      suggestedActions?: SuggestedAction[];
+      preflightIssues?: PreflightIssue[];
+      journalEntryId?: string;
+    }
+  /**
+   * Pre-flight блок: pre-flight нашёл блокер ДО старта операции (lock/UU/...).
+   * Renderer открывает SafetyDialog и ждёт ответ через `safetyResolve`.
+   * `requestId` склеивает request с ответом.
+   */
+  | {
+      type: 'safetyIssue';
+      requestId: string;
+      operation: string;
+      repoPath?: string | null;
+      issues: PreflightIssue[];
+      suggestedActions: SuggestedAction[];
+    }
   | { type: 'config'; lang: string }
   | { type: 'recoveryRequired'; issues: readonly RecoveryIssue[] }
   | { type: 'mergeState'; data: MergeState }

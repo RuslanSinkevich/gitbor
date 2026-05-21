@@ -1,9 +1,24 @@
+import { existsSync, statSync } from 'fs';
+import { join } from 'path';
+import { mainLogger } from '../utils/Logger';
+
 type StatusListener = (running: boolean, operation: string | null) => void;
 
 interface QueueItem {
   type: 'read' | 'write';
   label: string;
   execute: () => Promise<void>;
+}
+
+export interface EnqueueWriteOptions {
+  /**
+   * Если задан — перед стартом операции проверим `.git/index.lock` в этом
+   * репо. Это лёгкая страховка на случай если safety не сделал свой
+   * preflight (например, для прямых enqueueWrite в CommandHandler).
+   * Информация попадёт в логи через debug, операцию НЕ блокируем —
+   * preflight в SafetyNet/writeCommands отвечает за это однозначнее.
+   */
+  repoPath?: string;
 }
 
 export class OperationQueue {
@@ -19,10 +34,13 @@ export class OperationQueue {
         type: 'read',
         label,
         execute: async () => {
+          const started = Date.now();
           try {
             resolve(await op());
           } catch (e) {
             reject(e);
+          } finally {
+            mainLogger.debug(`queue.read ${label}: ${Date.now() - started}ms`);
           }
         },
       });
@@ -30,21 +48,36 @@ export class OperationQueue {
     });
   }
 
-  async enqueueWrite<T>(label: string, op: () => Promise<T>): Promise<T> {
+  async enqueueWrite<T>(label: string, op: () => Promise<T>, opts?: EnqueueWriteOptions): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       this.queue.push({
         type: 'write',
         label,
         execute: async () => {
+          const started = Date.now();
+          if (opts?.repoPath) this.checkLockMeta(opts.repoPath, label);
           try {
             resolve(await op());
           } catch (e) {
             reject(e);
+          } finally {
+            mainLogger.debug(`queue.write ${label}: ${Date.now() - started}ms`);
           }
         },
       });
       this.processQueue();
     });
+  }
+
+  private checkLockMeta(repoPath: string, label: string): void {
+    try {
+      const lockPath = join(repoPath, '.git', 'index.lock');
+      if (!existsSync(lockPath)) return;
+      const age = Date.now() - statSync(lockPath).mtimeMs;
+      mainLogger.debug(`queue.write ${label}: pre-existing index.lock (age=${Math.round(age / 1000)}s)`);
+    } catch {
+      // best-effort meta — не блокируем
+    }
   }
 
   isWriteRunning(): boolean {

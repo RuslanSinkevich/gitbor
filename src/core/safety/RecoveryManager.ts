@@ -1,9 +1,10 @@
 import { existsSync, statSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { GitExecutor } from '../git/GitExecutor';
-import { RecoveryAction, RecoveryIssue, RecoveryReport } from '../git/types';
+import { OperationResult, RecoveryAction, RecoveryIssue, RecoveryReport } from '../git/types';
 import { OperationJournal } from './OperationJournal';
 import { SafetyNet } from './SafetyNet';
+import { findGitProcesses } from './GitProcessDetector';
 import { cleanupTmpFiles } from './AtomicWrite';
 import { mainLogger } from '../utils/Logger';
 
@@ -73,9 +74,86 @@ export class RecoveryManager {
       case 'restore_stash':
         await this.safetyNet.restoreAutoStash(action.stashHash);
         break;
+      case 'apply_stash_only':
+        await this.applyStashOnly(action.stashHash);
+        break;
+      case 'drop_stash':
+        await this.dropStashByHash(action.stashHash);
+        break;
+      case 'kill_git_process':
+        await this.killGitProcess(action.pid);
+        break;
+      case 'retry':
+        // Реальный re-run делает UI через postCommand. Здесь — no-op,
+        // мы только подтверждаем, что юзер выбрал retry; запись в журнале
+        // остаётся как 'failed' до новой попытки.
+        break;
+      case 'manual_continue':
+        // No-op: юзер сам зашёл в терминал / VS Code; backend не делает ничего.
+        break;
       case 'ignore':
         break;
     }
+  }
+
+  async applyStash(hash: string): Promise<OperationResult> {
+    const r = await this.git.exec(['stash', 'apply', hash]);
+    if (r.exitCode === 0) return { success: true, rollbackAvailable: false };
+    return { success: false, error: r.stderr, rollbackAvailable: false };
+  }
+
+  async dropStash(hash: string): Promise<OperationResult> {
+    const r = await this.git.exec(['stash', 'drop', hash]);
+    if (r.exitCode === 0) return { success: true, rollbackAvailable: false };
+    return { success: false, error: r.stderr, rollbackAvailable: false };
+  }
+
+  /**
+   * SIGTERM по pid + защита: процесс должен быть в актуальном
+   * `findGitProcesses` для активного репо. Иначе отказ — нельзя дать
+   * юзеру через UI убить произвольный pid.
+   */
+  async killGitProcess(pid: number): Promise<void> {
+    const procs = await findGitProcesses().catch(() => []);
+    const isGit = procs.some(p => p.pid === pid);
+    if (!isGit) {
+      throw new Error(`Process ${pid} is not a git process or has already exited`);
+    }
+    try {
+      process.kill(pid, 'SIGTERM');
+      mainLogger.info(`recovery: SIGTERM sent to git pid=${pid}`);
+    } catch (err) {
+      mainLogger.warn(`recovery: kill ${pid} failed: ${err instanceof Error ? err.message : String(err)}`);
+      throw err;
+    }
+  }
+
+  /**
+   * Реиграть операцию по journal entry. Используется UI через `retry`
+   * action: журнал хранит operation+params, тут восстанавливаем команду.
+   * НЕ универсально (не все операции восстановимы из params), для
+   * нынешнего скоупа — лишь идемпотентный re-exec через safetyNet.
+   */
+  async retryOperation(journalEntryId: string): Promise<OperationResult> {
+    const entries = await this.journal.getAll();
+    const entry = entries.find(e => e.id === journalEntryId);
+    if (!entry) {
+      return { success: false, error: `Journal entry ${journalEntryId} not found`, rollbackAvailable: false };
+    }
+    // Сам re-run происходит через postCommand из renderer — этот метод
+    // существует только как симметрия API, чтобы main мог дать ответ
+    // на безусловный retry без сложной логики.
+    return { success: true, rollbackAvailable: false };
+  }
+
+  private async applyStashOnly(hash: string): Promise<void> {
+    const r = await this.git.exec(['stash', 'apply', hash]);
+    if (r.exitCode !== 0) throw new Error(`stash apply failed: ${r.stderr}`);
+  }
+
+  private async dropStashByHash(hash: string): Promise<void> {
+    const r = await this.git.exec(['stash', 'drop', hash]);
+    if (r.exitCode !== 0) throw new Error(`stash drop failed: ${r.stderr}`);
   }
 
   private async checkLockFiles(gitDir: string, issues: RecoveryIssue[]): Promise<void> {

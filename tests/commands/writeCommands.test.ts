@@ -127,13 +127,18 @@ describe('writeCommands', () => {
   });
 
   describe('checkout', () => {
-    it('delegates to safety.wrapDestructive', async () => {
+    it('delegates to safety.wrapDestructive with options', async () => {
       const git = makeMockGit();
       const queue = makeMockQueue();
       const state = makeMockState();
       const safety = makeMockSafety();
       await Write.checkout(asQueue(queue), asGit(git), asSafety(safety), asState(state), 'develop');
-      expect(safety.wrapDestructive).toHaveBeenCalledWith('checkout', { branch: 'develop' }, expect.any(Function));
+      expect(safety.wrapDestructive).toHaveBeenCalledWith(
+        'checkout',
+        { branch: 'develop' },
+        expect.any(Function),
+        expect.objectContaining({ allowedErrorClasses: expect.any(Array) }),
+      );
       expect(git.exec).toHaveBeenCalledWith(['checkout', 'develop']);
     });
   });

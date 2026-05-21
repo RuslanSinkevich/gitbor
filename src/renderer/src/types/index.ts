@@ -1,12 +1,14 @@
 export type {
   Commit, Branch, Tag, Stash, Remote, FileStatus, FileChange, CommitDetail, RepoInfo, ReflogEntry,
   GraphNode, MergeLink,
-  MergeOptions, MergeState, ConflictBlock, ConflictContent,
+  MergeOptions, MergeState, ConflictBlock, ConflictContent, ConflictResolutionKind,
   AppState,
-  RecoveryIssue,
+  RecoveryAction, RecoveryIssue,
   DiffLine, DiffHunk, FileDiff, BlameResult, FileHistoryEntry, FileHistoryResult,
   RebaseAction, RebaseTodoEntry, RebaseProgress,
   Submodule,
+  GitErrorClass, ClassifiedError, GitProcessInfo, SuggestedAction,
+  SavedOperationState, OperationFailure, PreflightIssueKind, PreflightIssue, PreflightReport,
 } from '@core/git/types';
 
 export type { RendererCommand, MainEvent, RepoStats, AuthorStats, MonthlyCount, DayCommitEntry, AuthorCodeStatsResult, RepoSummaryDto, RepoSummaryBranchDto, RepoSummaryTagDto, RepoSummaryCommitDto } from '@core/bridge/messages';

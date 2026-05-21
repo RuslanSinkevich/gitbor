@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { SgToastData } from '../ui/SgToast';
+import type { SgToastAction, SgToastData } from '../ui/SgToast';
 
 export function useToasts(error: string | null, clearError: () => void) {
   const [toasts, setToasts] = useState<SgToastData[]>([]);
@@ -14,8 +14,12 @@ export function useToasts(error: string | null, clearError: () => void) {
     clearError();
   }, [error, clearError]);
 
-  const addToast = useCallback((message: string, type: SgToastData['type'] = 'info') => {
-    setToasts(prev => [...prev, { id: Date.now().toString(), message, type }]);
+  const addToast = useCallback((
+    message: string,
+    type: SgToastData['type'] = 'info',
+    action?: SgToastAction,
+  ) => {
+    setToasts(prev => [...prev, { id: Date.now().toString(), message, type, action }]);
   }, []);
 
   const dismissToast = useCallback((id: string) => {

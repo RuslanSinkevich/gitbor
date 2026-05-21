@@ -1,10 +1,20 @@
 import { useEffect } from 'react';
 
+export interface SgToastAction {
+  label: string;
+  onClick(): void;
+}
+
 export interface SgToastData {
   id: string;
   message: string;
   type?: 'info' | 'success' | 'warning' | 'error';
   duration?: number;
+  /**
+   * Опциональная кнопка-действие в тосте (например, Retry для network).
+   * Если задана — таймер не запускается, тост висит пока юзер не нажмёт.
+   */
+  action?: SgToastAction;
 }
 
 interface SgToastProps {
@@ -21,6 +31,9 @@ function decodeHtmlEntities(input: string): string {
 
 function SgToast({ toast, onDismiss }: SgToastProps) {
   useEffect(() => {
+    // Action-toast висит, пока юзер не дёрнет — иначе кнопка пропадает
+    // во время чтения.
+    if (toast.action) return;
     const timer = setTimeout(() => onDismiss(toast.id), toast.duration || 4000);
     return () => clearTimeout(timer);
   }, [toast, onDismiss]);
@@ -30,6 +43,14 @@ function SgToast({ toast, onDismiss }: SgToastProps) {
   return (
     <div className={`sg-toast sg-toast--${toast.type || 'info'}`}>
       <span className="sg-toast-message">{message}</span>
+      {toast.action && (
+        <button
+          className="sg-toast-action sg-button sg-button--xs sg-button--ghost"
+          onClick={() => { toast.action!.onClick(); onDismiss(toast.id); }}
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button className="sg-toast-close" onClick={() => onDismiss(toast.id)}>&times;</button>
     </div>
   );

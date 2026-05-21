@@ -117,6 +117,7 @@ export function ChangesView({
               stagedCount={state.stagedFiles.length}
               isOperationRunning={state.isOperationRunning}
               onOpenAiSettings={onOpenAiSettings}
+              mergeState={mergeState}
             />
           </div>
         }

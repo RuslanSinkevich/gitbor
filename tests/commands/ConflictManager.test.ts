@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { ConflictManager } from '@core/commands/ConflictManager';
 import type { GitExecutor } from '@core/git/GitExecutor';
 import { makeScriptedGit, makeMockGit, type GitExecResponse, type MockGit } from '../_mocks';
+import type { GitExecResult } from '@core/git/types';
 
 const asGit = (m: MockGit) => m as unknown as GitExecutor;
 
@@ -119,6 +123,143 @@ describe('ConflictManager', () => {
       const cm = new ConflictManager(asGit(git));
       const result = await cm.predictConflicts('feature', 'main');
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('detectConflictResolution', () => {
+    let repoDir: string;
+    let gitDir: string;
+
+    beforeEach(() => {
+      repoDir = mkdtempSync(join(tmpdir(), 'gitbor-cm-detect-'));
+      gitDir = join(repoDir, '.git');
+      mkdirSync(gitDir, { recursive: true });
+    });
+    afterEach(() => {
+      try { rmSync(repoDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    });
+
+    function makeGit(uuFiles: string[] = []): MockGit {
+      return {
+        exec: vi.fn(async (args: string[]): Promise<GitExecResult> => {
+          if (args.join(' ') === 'diff --name-only --diff-filter=U') {
+            return { stdout: uuFiles.join('\n'), stderr: '', exitCode: 0, duration: 1 };
+          }
+          return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+        }),
+        getCwd: vi.fn(() => repoDir),
+      };
+    }
+
+    it('returns inProgress=false on clean state', async () => {
+      const cm = new ConflictManager(asGit(makeGit()));
+      const r = await cm.detectConflictResolution();
+      expect(r.inProgress).toBe(false);
+    });
+
+    it('MERGE_HEAD → kind=merge', async () => {
+      writeFileSync(join(gitDir, 'MERGE_HEAD'), '');
+      const cm = new ConflictManager(asGit(makeGit()));
+      const r = await cm.detectConflictResolution();
+      expect(r.inProgress).toBe(true);
+      if (r.inProgress) expect(r.kind).toBe('merge');
+    });
+
+    it('CHERRY_PICK_HEAD → kind=cherry-pick', async () => {
+      writeFileSync(join(gitDir, 'CHERRY_PICK_HEAD'), '');
+      const cm = new ConflictManager(asGit(makeGit()));
+      const r = await cm.detectConflictResolution();
+      expect(r.inProgress).toBe(true);
+      if (r.inProgress) expect(r.kind).toBe('cherry-pick');
+    });
+
+    it('REVERT_HEAD → kind=revert', async () => {
+      writeFileSync(join(gitDir, 'REVERT_HEAD'), '');
+      const cm = new ConflictManager(asGit(makeGit()));
+      const r = await cm.detectConflictResolution();
+      expect(r.inProgress).toBe(true);
+      if (r.inProgress) expect(r.kind).toBe('revert');
+    });
+
+    it('rebase-apply dir → kind=rebase', async () => {
+      mkdirSync(join(gitDir, 'rebase-apply'));
+      const cm = new ConflictManager(asGit(makeGit()));
+      const r = await cm.detectConflictResolution();
+      expect(r.inProgress).toBe(true);
+      if (r.inProgress) expect(r.kind).toBe('rebase');
+    });
+
+    it('rebase-merge dir → kind=rebase', async () => {
+      mkdirSync(join(gitDir, 'rebase-merge'));
+      const cm = new ConflictManager(asGit(makeGit()));
+      const r = await cm.detectConflictResolution();
+      expect(r.inProgress).toBe(true);
+      if (r.inProgress) expect(r.kind).toBe('rebase');
+    });
+
+    it('only UU files without any HEAD-files → kind=unmerged-paths', async () => {
+      const cm = new ConflictManager(asGit(makeGit(['src/a.ts', 'src/b.ts'])));
+      const r = await cm.detectConflictResolution();
+      expect(r.inProgress).toBe(true);
+      if (r.inProgress) expect(r.kind).toBe('unmerged-paths');
+    });
+
+    it('MERGE_HEAD wins over UU (precedence)', async () => {
+      writeFileSync(join(gitDir, 'MERGE_HEAD'), '');
+      const cm = new ConflictManager(asGit(makeGit(['src/a.ts'])));
+      const r = await cm.detectConflictResolution();
+      expect(r.inProgress).toBe(true);
+      if (r.inProgress) expect(r.kind).toBe('merge');
+    });
+  });
+
+  describe('getMergeState includes kind', () => {
+    let repoDir: string;
+    let gitDir: string;
+
+    beforeEach(() => {
+      repoDir = mkdtempSync(join(tmpdir(), 'gitbor-cm-ms-'));
+      gitDir = join(repoDir, '.git');
+      mkdirSync(gitDir, { recursive: true });
+    });
+    afterEach(() => {
+      try { rmSync(repoDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    });
+
+    it('clean state → kind=none, inProgress=false', async () => {
+      const exec = vi.fn(async (args: string[]): Promise<GitExecResult> => {
+        if (args.join(' ') === 'diff --name-only --diff-filter=U') {
+          return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+        }
+        return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+      });
+      const git = { exec, getCwd: vi.fn(() => repoDir) } as MockGit;
+      const cm = new ConflictManager(asGit(git));
+      const ms = await cm.getMergeState();
+      expect(ms.inProgress).toBe(false);
+      expect(ms.kind).toBe('none');
+    });
+
+    it('unmerged-paths kind without MERGE_HEAD', async () => {
+      const exec = vi.fn(async (args: string[]): Promise<GitExecResult> => {
+        const key = args.join(' ');
+        if (key === 'diff --name-only --diff-filter=U') {
+          return { stdout: 'src/a.ts\n', stderr: '', exitCode: 0, duration: 1 };
+        }
+        if (key === 'rev-parse --abbrev-ref HEAD') {
+          return { stdout: 'main\n', stderr: '', exitCode: 0, duration: 1 };
+        }
+        if (key === 'status --porcelain=v1') {
+          return { stdout: 'UU src/a.ts\n', stderr: '', exitCode: 0, duration: 1 };
+        }
+        return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+      });
+      const git = { exec, getCwd: vi.fn(() => repoDir) } as MockGit;
+      const cm = new ConflictManager(asGit(git));
+      const ms = await cm.getMergeState();
+      expect(ms.inProgress).toBe(true);
+      expect(ms.kind).toBe('unmerged-paths');
+      expect(ms.sourceBranch).toBe(''); // unmerged-paths не имеет source
     });
   });
 });

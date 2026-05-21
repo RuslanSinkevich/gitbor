@@ -1,16 +1,93 @@
 import { GitExecutor, GitError } from '../git/GitExecutor';
 import { parseDiff } from '../git/DiffParser';
 
-import { OperationResult, DiffHunk, DiffLine } from '../git/types';
+import { GitErrorClass, OperationResult, DiffHunk, DiffLine, SuggestedAction } from '../git/types';
 import { OperationQueue } from '../safety/OperationQueue';
 import { SafetyNet } from '../safety/SafetyNet';
+import { PreflightChecks } from '../safety/PreflightChecks';
 import { StateManager } from '../state/StateManager';
+import { GitErrorClassifier } from '../git/GitErrorClassifier';
 
 function simpleResult(exitCode: number, stderr: string): OperationResult {
-  return { success: exitCode === 0, error: exitCode !== 0 ? stderr : undefined, rollbackAvailable: false };
+  if (exitCode === 0) return { success: true, rollbackAvailable: false };
+  // Классифицируем даже у простых команд — UI получит errorClass для toast/dialog.
+  const classified = GitErrorClassifier.classify(stderr);
+  return {
+    success: false,
+    error: stderr,
+    rollbackAvailable: false,
+    errorClass: classified.class,
+  };
+}
+
+/**
+ * Операции, при которых конфликт от git — нормальный исход (не ошибка),
+ * UI открывает merge editor. Пробрасываем в SafetyNet через
+ * `allowedErrorClasses`, чтобы wrapDestructive не делал rollback.
+ */
+const CONFLICTABLE_OPS = new Set(['merge', 'pull', 'rebase', 'cherry-pick', 'revert']);
+
+function allowedClassesFor(opName: string): GitErrorClass[] {
+  if (CONFLICTABLE_OPS.has(opName)) return ['conflict'];
+  return [];
+}
+
+async function runPreflight(
+  git: GitExecutor,
+  opName: string,
+): Promise<OperationResult | null> {
+  const repoPath = git.getCwd();
+  const preflight = new PreflightChecks(git);
+  const report = await preflight.check(repoPath, opName);
+  if (report.ok) return null;
+
+  const actions: SuggestedAction[] = [];
+  for (const issue of report.issues) {
+    if (issue.kind === 'lock_held_fresh') actions.push({ kind: 'remove_lock' });
+    if (issue.kind === 'merge_in_progress') {
+      actions.push({ kind: 'continue_merge' });
+      actions.push({ kind: 'abort_merge' });
+    }
+    if (issue.kind === 'rebase_in_progress') {
+      actions.push({ kind: 'abort_rebase' });
+      actions.push({ kind: 'manual_continue' });
+    }
+    if (issue.kind === 'unmerged_paths') {
+      actions.push({ kind: 'continue_merge' });
+      actions.push({ kind: 'abort_merge' });
+    }
+  }
+  // Уникальный набор по kind, чтобы не дублировать кнопки.
+  const seen = new Set<string>();
+  const uniq = actions.filter(a => {
+    if (seen.has(a.kind)) return false;
+    seen.add(a.kind);
+    return true;
+  });
+  uniq.push({ kind: 'cancel' });
+
+  return {
+    success: false,
+    rollbackAvailable: false,
+    errorClass: 'preflight_blocked',
+    error: report.issues.map(i => i.description).join('; '),
+    preflightIssues: report.issues,
+    suggestedActions: uniq,
+  };
 }
 
 type RefreshFn = 'refreshAll' | 'refreshStatusAndNotify';
+
+/**
+ * Операции, которые обычно меняют HEAD на 1 коммит (+ ребейс — несколько,
+ * но всё равно немного). Полный refreshGraph (50k) ради дельты в N коммитов
+ * избыточен и блокирует UI на монорепо. После них `deferHeavy=true`:
+ * быстрая часть рефреша + первые 500 коммитов сразу, полный граф — фоном.
+ * См. `docs/performance/refresh-investigation.md`.
+ */
+const HEAD_DELTA_OPS = new Set([
+  'commit', 'merge', 'cherry-pick', 'revert', 'pull', 'rebase', 'reset', 'restoreReflog',
+]);
 
 async function gitWrite(
   queue: OperationQueue, state: StateManager, opName: string,
@@ -22,7 +99,11 @@ async function gitWrite(
   const targetRepo = state.getState().repoPath || undefined;
   return queue.enqueueWrite(opName, async () => {
     const result = await fn();
-    await state[refresh](targetRepo);
+    if (refresh === 'refreshAll' && HEAD_DELTA_OPS.has(opName)) {
+      await state.refreshAll(targetRepo, { deferHeavy: true });
+    } else {
+      await state[refresh](targetRepo);
+    }
     return result;
   });
 }
@@ -42,10 +123,21 @@ async function safeWrite(
   opName: string, meta: Record<string, string>, gitArgs: string[], errorPrefix: string,
 ): Promise<OperationResult> {
   return gitWrite(queue, state, opName, async () => {
-    return safety.wrapDestructive(opName, meta, async () => {
-      const r = await git.exec(gitArgs);
-      if (r.exitCode !== 0) throw new GitError(`${errorPrefix}: ${r.stderr}`, opName, r.exitCode, r.stderr);
-    });
+    // Pre-flight: lock, state-files, UU. Не пускаем операцию в SafetyNet
+    // если репо точно в нерабочем состоянии — иначе SafetyNet потащит
+    // stash на UU и всё развалится так же, как раньше.
+    const blocked = await runPreflight(git, opName);
+    if (blocked) return blocked;
+
+    return safety.wrapDestructive(
+      opName,
+      meta,
+      async () => {
+        const r = await git.exec(gitArgs);
+        if (r.exitCode !== 0) throw new GitError(`${errorPrefix}: ${r.stderr}`, opName, r.exitCode, r.stderr);
+      },
+      { allowedErrorClasses: allowedClassesFor(opName) },
+    );
   });
 }
 

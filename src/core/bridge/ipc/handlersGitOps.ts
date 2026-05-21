@@ -99,7 +99,18 @@ export const ipcHandlersGitOps: HandlerTable = {
     const repoPath = ctx.sm.getState().repoPath || null;
     ctx.send({ type: 'operationStart', operation: 'merge', repoPath });
     const result = await runTracked('merge', ctx, () => ctx.ch.startMerge(cmd.source, cmd.options));
-    ctx.send({ type: 'operationEnd', operation: 'merge', success: result.success, error: result.error, repoPath });
+    ctx.send({
+      type: 'operationEnd',
+      operation: 'merge',
+      success: result.success,
+      error: result.error,
+      repoPath,
+      errorClass: result.errorClass,
+      savedState: result.savedState,
+      suggestedActions: result.suggestedActions,
+      preflightIssues: result.preflightIssues,
+      journalEntryId: result.journalEntryId,
+    });
     const mergeState = await ctx.ch.getMergeState();
     if (mergeState.inProgress) ctx.send({ type: 'mergeState', data: mergeState });
   },

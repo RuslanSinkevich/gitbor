@@ -234,7 +234,26 @@ export class CommandHandler {
   // ─── Merge Conflict ───
   async startMerge(source: string, options: MergeOptions): Promise<OperationResult<MergeResult>> {
     return this.queue.enqueueWrite('merge', async () => {
-      const result = await this.safety.wrapDestructive('merge', { source }, async () => this.conflicts.merge(source, options));
+      // Pre-flight перед merge: UU / MERGE_HEAD / lock.
+      const { PreflightChecks } = await import('../safety/PreflightChecks');
+      const pre = new PreflightChecks(this.git);
+      const report = await pre.check(this.git.getCwd(), 'merge');
+      if (!report.ok) {
+        await this.state.refreshAll();
+        return {
+          success: false,
+          rollbackAvailable: false,
+          errorClass: 'preflight_blocked',
+          error: report.issues.map(i => i.description).join('; '),
+          preflightIssues: report.issues,
+        };
+      }
+
+      const result = await this.safety.wrapDestructive(
+        'merge', { source },
+        async () => this.conflicts.merge(source, options),
+        { allowedErrorClasses: ['conflict'] },
+      );
       await this.state.refreshAll();
       return result;
     });
@@ -387,13 +406,17 @@ export class CommandHandler {
   /** Restores HEAD to a reflog entry via `git reset --hard`. */
   async restoreReflog(hash: string): Promise<OperationResult> {
     return this.queue.enqueueWrite('restoreReflog', async () => {
-      const result = await this.safety.wrapDestructive('restoreReflog', { hash }, async () => {
-        const r = await this.git.exec(['reset', '--hard', hash]);
-        if (r.exitCode !== 0) {
-          const { GitError } = await import('../git/GitExecutor');
-          throw new GitError(`Restore failed: ${r.stderr}`, 'reset', r.exitCode, r.stderr);
-        }
-      });
+      const result = await this.safety.wrapDestructive(
+        'restoreReflog', { hash },
+        async () => {
+          const r = await this.git.exec(['reset', '--hard', hash]);
+          if (r.exitCode !== 0) {
+            const { GitError } = await import('../git/GitExecutor');
+            throw new GitError(`Restore failed: ${r.stderr}`, 'reset', r.exitCode, r.stderr);
+          }
+        },
+        { allowedErrorClasses: [] },
+      );
       await this.state.refreshAll();
       return result;
     });

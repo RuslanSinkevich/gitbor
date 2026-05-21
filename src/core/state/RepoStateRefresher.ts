@@ -50,8 +50,14 @@ export class RepoStateRefresher {
    *
    * На вызов из switchRepo/autoOpenRepo даёт первый фрейм UI
    * через ~100–300 мс вместо 2–5 сек на больших репо.
+   *
+   * @param opts.deferHeavy — Phase B (полный 50k log + remote-only +
+   *   layout) запустить в фоне БЕЗ await. Используется write-операциями,
+   *   которые добавляют 1 коммит сверху (commit/merge/cherry-pick/...):
+   *   операция «возвращается» уже после Phase A, а догрузка ~5-8s на
+   *   монорепо не блокирует UI. Подробности — `docs/performance/refresh-investigation.md`.
    */
-  async refreshAll(repoPath?: string): Promise<void> {
+  async refreshAll(repoPath?: string, opts?: { deferHeavy?: boolean }): Promise<void> {
     const target = repoPath ?? this.state.repoPath;
     if (!target) return;
     if (!this.store.isRepoTracked(target)) return;
@@ -65,6 +71,15 @@ export class RepoStateRefresher {
     if (target === this.state.repoPath) {
       this.store.mirrorSliceToState(slice);
       this.notify();
+    }
+    if (opts?.deferHeavy) {
+      perfLog('refreshAll.deferHeavy', { target });
+      // Fire-and-forget с собственным token-guard внутри refreshGraphProgressive.
+      void this.refreshGraphProgressive(target, startToken).catch(err => {
+        perfLog('refreshGraph.deferred.error', { msg: err instanceof Error ? err.message : String(err) });
+      });
+      endAll();
+      return;
     }
     await this.refreshGraphProgressive(target, startToken);
     endAll();

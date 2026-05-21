@@ -1,6 +1,29 @@
 import { useState, useCallback } from 'react';
+import type {
+  GitErrorClass,
+  PreflightIssue,
+  SavedOperationState,
+  SuggestedAction,
+} from '../types';
 
-export interface OperationResult { operation: string; success: boolean; error?: string }
+export interface OperationResult {
+  operation: string;
+  success: boolean;
+  error?: string;
+  errorClass?: GitErrorClass;
+  savedState?: SavedOperationState;
+  suggestedActions?: SuggestedAction[];
+  preflightIssues?: PreflightIssue[];
+  journalEntryId?: string;
+}
+
+export interface EndOperationExtras {
+  errorClass?: GitErrorClass;
+  savedState?: SavedOperationState;
+  suggestedActions?: SuggestedAction[];
+  preflightIssues?: PreflightIssue[];
+  journalEntryId?: string;
+}
 
 export interface RunningOpsApi {
   runningOpsByRepo: Map<string, string>;
@@ -11,6 +34,7 @@ export interface RunningOpsApi {
     operation: string,
     success: boolean,
     error?: string,
+    extras?: EndOperationExtras,
   ): void;
   /** Очистить running-флаг по репо (репо закрылось с зависшей операцией). */
   removeRepo(repoPath: string): void;
@@ -43,6 +67,7 @@ export function useRunningOps(): RunningOpsApi {
     operation: string,
     success: boolean,
     error?: string,
+    extras?: EndOperationExtras,
   ) => {
     const key = repoPath ?? '';
     setRunningOpsByRepo(prev => {
@@ -51,7 +76,16 @@ export function useRunningOps(): RunningOpsApi {
       next.delete(key);
       return next;
     });
-    setLastOpResult({ operation, success, error });
+    setLastOpResult({
+      operation,
+      success,
+      error,
+      errorClass: extras?.errorClass,
+      savedState: extras?.savedState,
+      suggestedActions: extras?.suggestedActions,
+      preflightIssues: extras?.preflightIssues,
+      journalEntryId: extras?.journalEntryId,
+    });
   }, []);
 
   const removeRepo = useCallback((repoPath: string) => {

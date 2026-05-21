@@ -64,8 +64,8 @@ export class StateManager {
     return this.registry;
   }
 
-  refreshAll(repoPath?: string): Promise<void> {
-    return this.refresher.refreshAll(repoPath);
+  refreshAll(repoPath?: string, opts?: { deferHeavy?: boolean }): Promise<void> {
+    return this.refresher.refreshAll(repoPath, opts);
   }
 
   refreshBranches(repoPath?: string): Promise<void> {

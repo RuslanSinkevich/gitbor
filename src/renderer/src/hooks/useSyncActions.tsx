@@ -72,6 +72,55 @@ export function useSyncActions(state: AppState, loc: ReturnType<typeof t>): UseS
     return options[0].value;
   }, [remoteBranchOptions, state.branches, state.currentBranch]);
 
+  /**
+   * Дефолтный remote для push/pull диалогов. Приоритет:
+   *  1) remote из upstream текущей ветки (`<remote>/<branch>`) — самый точный
+   *     сигнал, юзер хочет работать именно с ним;
+   *  2) `origin` если он есть в списке — конвенция git;
+   *  3) первый remote из списка.
+   * Без этого верхний селект (remote) при множественных remote'ах часто
+   * показывал не тот, к которому привязана ветка.
+   */
+  const pickDefaultRemote = useCallback(() => {
+    const remotes = state.remotes.map((r) => r.name);
+    if (remotes.length === 0) return 'origin';
+
+    const currentLocal = state.branches.find((b) => b.isCurrent && !b.isRemote);
+    const upstream = currentLocal?.upstream;
+    if (upstream) {
+      const slash = upstream.indexOf('/');
+      if (slash > 0) {
+        const remoteFromUpstream = upstream.slice(0, slash);
+        if (remotes.includes(remoteFromUpstream)) return remoteFromUpstream;
+      }
+    }
+
+    if (remotes.includes('origin')) return 'origin';
+    return remotes[0];
+  }, [state.remotes, state.branches]);
+
+  /**
+   * Для PUSH-диалога: если у локальной ветки нет upstream и на remote нет
+   * ветки с таким же именем — НИКОГДА не подставляем чужую remote-ветку
+   * (`develop`/`main`) как target. Иначе юзер по дефолту запушит свои
+   * коммиты в общую ветку. Возвращаем имя локальной ветки — push создаст
+   * новую remote-ветку с этим именем (через -u origin HEAD:<name>).
+   */
+  const pickDefaultBranchForPush = useCallback((remote: string) => {
+    const options = remoteBranchOptions(remote);
+    const currentLocal = state.branches.find((b) => b.isCurrent && !b.isRemote);
+    const currentName = state.currentBranch || '';
+
+    if (currentLocal?.upstream?.startsWith(`${remote}/`)) {
+      const upstreamShort = currentLocal.upstream.slice(remote.length + 1);
+      if (options.some((o) => o.value === upstreamShort)) return upstreamShort;
+    }
+
+    if (currentName && options.some((o) => o.value === currentName)) return currentName;
+
+    return currentName;
+  }, [remoteBranchOptions, state.branches, state.currentBranch]);
+
   const runPull = useCallback((rebase?: boolean) => {
     const hasUpstream = state.branches.some((b) => b.isCurrent && !!b.upstream);
     if (hasUpstream) {
@@ -79,10 +128,10 @@ export function useSyncActions(state: AppState, loc: ReturnType<typeof t>): UseS
       return;
     }
 
-    const defaultRemote = state.remotes[0]?.name || 'origin';
+    const defaultRemote = pickDefaultRemote();
     const defaultBranch = pickDefaultBranchForRemote(defaultRemote) || state.currentBranch || '';
     setPullDialog({ rebase: !!rebase, autostash: false, remote: defaultRemote, branch: defaultBranch });
-  }, [state.branches, state.remotes, state.currentBranch, pickDefaultBranchForRemote]);
+  }, [state.branches, state.currentBranch, pickDefaultRemote, pickDefaultBranchForRemote]);
 
   const runPush = useCallback((force?: boolean) => {
     const hasUpstream = state.branches.some((b) => b.isCurrent && !!b.upstream);
@@ -91,10 +140,10 @@ export function useSyncActions(state: AppState, loc: ReturnType<typeof t>): UseS
       return;
     }
 
-    const defaultRemote = state.remotes[0]?.name || 'origin';
-    const defaultBranch = pickDefaultBranchForRemote(defaultRemote) || state.currentBranch || '';
+    const defaultRemote = pickDefaultRemote();
+    const defaultBranch = pickDefaultBranchForPush(defaultRemote) || state.currentBranch || '';
     setPushDialog({ force: !!force, remote: defaultRemote, branch: defaultBranch });
-  }, [state.branches, state.remotes, state.currentBranch, pickDefaultBranchForRemote]);
+  }, [state.branches, state.currentBranch, pickDefaultRemote, pickDefaultBranchForPush]);
 
   const syncDialogs = (
     <>
@@ -193,7 +242,7 @@ export function useSyncActions(state: AppState, loc: ReturnType<typeof t>): UseS
             options={remoteOptions}
             onChange={(e) => {
               const remote = e.target.value;
-              setPushDialog((prev) => prev ? { ...prev, remote, branch: pickDefaultBranchForRemote(remote) || state.currentBranch || '' } : prev);
+              setPushDialog((prev) => prev ? { ...prev, remote, branch: pickDefaultBranchForPush(remote) || state.currentBranch || '' } : prev);
             }}
           />
           <SgSelect

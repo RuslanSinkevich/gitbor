@@ -6,13 +6,14 @@ import { useToasts } from './hooks/useToasts';
 import { useContextMenu } from './hooks/useContextMenu';
 import { useMenuActions } from './hooks/useMenuActions';
 import { useOperationToasts } from './hooks/useOperationToasts';
+import { useSafetyDialog } from './hooks/useSafetyDialog';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useDialogs } from './hooks/useDialogs';
 import { useAutoFetch } from './hooks/useAutoFetch';
 import { useSyncActions } from './hooks/useSyncActions';
 import { TitleBar } from './features/titlebar';
 import { CommitsView, ChangesView, type RightPanel } from './features/layout';
-import { MergeBanner } from './features/merge';
+import { MergeBanner, shouldShowMergeBanner } from './features/merge';
 import { Toolbar } from './features/toolbar';
 import { Sidebar, BranchStatus } from './features/sidebar';
 import { RepoTabs } from './features/repo-tabs';
@@ -20,7 +21,7 @@ import { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo, cle
 import { SgSplitPane } from './ui/SgSplitPane';
 import { usePromptDialog } from './ui/SgPromptDialog';
 import { AppDialogs } from './AppDialogs';
-import { postCommand, onMainEvent, invokeCommand } from './api';
+import { postCommand, onMainEvent, invokeCommand, onRetryableCommand } from './api';
 import { t, tpl, setLang, getLang } from './i18n';
 // UiShowcase — dev-only страница UI-Kit, рендерится только при page === 'ui-kit'.
 // Lazy-load экономит ~десятки кБ из основного бандла (showcase секции импортят
@@ -79,7 +80,31 @@ export function App() {
   const loc = t();
   const { runPull, runPush, syncDialogs } = useSyncActions(state, loc);
 
-  useOperationToasts(lastOpResult, clearLastOpResult, addToast);
+  // SafetyDialog: подписан на lastOpResult по errorClass; решает,
+  // открывать ли модал. useOperationToasts глушит дублирующие toast'ы.
+  const safety = useSafetyDialog();
+  const lastCommandRef = useRef<import('./types').RendererCommand | null>(null);
+
+  useEffect(() => {
+    const unsub = onRetryableCommand((cmd) => { lastCommandRef.current = cmd; });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!lastOpResult || lastOpResult.success || !lastOpResult.errorClass) return;
+    if (!safety.shouldSuppressToast(lastOpResult.errorClass)) return;
+    safety.enqueue({
+      operation: lastOpResult.operation,
+      errorClass: lastOpResult.errorClass,
+      error: lastOpResult.error || '',
+      savedState: lastOpResult.savedState,
+      preflightIssues: lastOpResult.preflightIssues,
+      suggestedActions: lastOpResult.suggestedActions,
+      retryCommand: lastCommandRef.current ?? undefined,
+    });
+  }, [lastOpResult, safety]);
+
+  useOperationToasts(lastOpResult, clearLastOpResult, addToast, lastCommandRef);
   useAutoFetch(state.repoPath, !!state.repoPath, (msg) => addToast(msg, 'info'));
 
   const handleOpenMergeDialog = useCallback((source: string) => {
@@ -219,6 +244,14 @@ export function App() {
     const prev = prevRepoPathRef.current;
     if (prev === state.repoPath) return;
     prevRepoPathRef.current = state.repoPath;
+
+    // Запрашиваем mergeState при переключении/открытии нового репо:
+    // если в репо уже есть активный merge/cherry-pick/rebase/UU — UI
+    // увидит баннер сразу, а не только после следующего write-op'а.
+    if (state.repoPath) {
+      postCommand({ type: 'getMergeState' });
+    }
+
     // Первое появление пути (prev был пуст) — это начальная загрузка, нечего сбрасывать.
     if (!prev) return;
     closeDiff();
@@ -476,7 +509,9 @@ export function App() {
             />
           )}
 
-          {!repoManagerVisible && mergeState?.inProgress && <MergeBanner mergeState={mergeState} showPrompt={showPrompt} />}
+          {!repoManagerVisible && shouldShowMergeBanner(mergeState) && (
+            <MergeBanner mergeState={mergeState!} showPrompt={showPrompt} />
+          )}
 
           {!repoManagerVisible && rebaseProgress?.inProgress && (
             <div className={s.rebaseBanner}>
@@ -585,6 +620,7 @@ export function App() {
         toasts={toasts} dismissToast={dismissToast}
         dlg={dlg} showPrompt={showPrompt} loc={loc}
         repoPath={state.repoPath}
+        safety={safety}
       />
 
       {syncDialogs}

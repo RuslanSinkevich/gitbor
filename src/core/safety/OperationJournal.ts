@@ -2,7 +2,7 @@ import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { randomBytes } from 'crypto';
-import { JournalEntry, JournalFile, SavedState } from '../git/types';
+import { GitErrorClass, JournalEntry, JournalFile, SavedState } from '../git/types';
 import { atomicWriteJSON } from './AtomicWrite';
 
 const JOURNAL_FILENAME = 'gitbor-journal.json';
@@ -66,7 +66,7 @@ export class OperationJournal {
     });
   }
 
-  async fail(id: string, error: string): Promise<void> {
+  async fail(id: string, error: string, errorClass?: GitErrorClass): Promise<void> {
     return this.withLock(async () => {
       const journal = await this.read();
       const entry = journal.entries.find(e => e.id === id);
@@ -74,6 +74,7 @@ export class OperationJournal {
         entry.status = 'failed';
         entry.completedAt = Date.now();
         entry.error = error;
+        if (errorClass) entry.errorClass = errorClass;
       }
       await atomicWriteJSON(this.journalPath, journal);
     });

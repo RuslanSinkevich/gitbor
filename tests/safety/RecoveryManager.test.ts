@@ -17,6 +17,10 @@ vi.mock('electron', () => ({
   app: { getPath: () => '/tmp/gitbor-recovery-test' },
 }));
 
+vi.mock('../../src/core/safety/GitProcessDetector', () => ({
+  findGitProcesses: vi.fn(async () => []),
+}));
+
 describe('RecoveryManager.checkLockFiles', () => {
   let repoDir: string;
   let gitDir: string;
@@ -96,5 +100,88 @@ describe('RecoveryManager.checkLockFiles', () => {
     const report = await rm.checkOnStartup();
     expect(report.issues.some(i => i.type === 'lock_file')).toBe(true);
     expect(existsSync(lockPath)).toBe(true);
+  });
+});
+
+describe('RecoveryManager extended actions', () => {
+  type RecoveryDeps = ConstructorParameters<typeof import('../../src/core/safety/RecoveryManager').RecoveryManager>;
+
+  function makeRm(execMock: ReturnType<typeof vi.fn>) {
+    const git = { getCwd: () => '/repo', exec: execMock } as unknown as RecoveryDeps[0];
+    const journal = {
+      getIncomplete: vi.fn(async () => []),
+      getAll: vi.fn(async () => []),
+      cleanup: vi.fn(async () => {}),
+    } as unknown as RecoveryDeps[1];
+    const safetyNet = {
+      rollback: vi.fn(async () => {}),
+      restoreAutoStash: vi.fn(async () => {}),
+    } as unknown as RecoveryDeps[2];
+    return { rm: null as unknown, deps: { git, journal, safetyNet } };
+  }
+
+  it('applyStash exec git stash apply <hash>', async () => {
+    const { RecoveryManager } = await import('../../src/core/safety/RecoveryManager');
+    const exec = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 }));
+    const { deps } = makeRm(exec);
+    const rm = new RecoveryManager(deps.git, deps.journal, deps.safetyNet);
+    const r = await rm.applyStash('abcdef');
+    expect(r.success).toBe(true);
+    expect(exec).toHaveBeenCalledWith(['stash', 'apply', 'abcdef']);
+  });
+
+  it('applyStash returns failure with stderr on exit !=0', async () => {
+    const { RecoveryManager } = await import('../../src/core/safety/RecoveryManager');
+    const exec = vi.fn(async () => ({ stdout: '', stderr: 'merge conflict', exitCode: 1, duration: 1 }));
+    const { deps } = makeRm(exec);
+    const rm = new RecoveryManager(deps.git, deps.journal, deps.safetyNet);
+    const r = await rm.applyStash('h');
+    expect(r.success).toBe(false);
+    expect(r.error).toContain('merge conflict');
+  });
+
+  it('dropStash exec git stash drop <hash>', async () => {
+    const { RecoveryManager } = await import('../../src/core/safety/RecoveryManager');
+    const exec = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 }));
+    const { deps } = makeRm(exec);
+    const rm = new RecoveryManager(deps.git, deps.journal, deps.safetyNet);
+    await rm.dropStash('h');
+    expect(exec).toHaveBeenCalledWith(['stash', 'drop', 'h']);
+  });
+
+  it('killGitProcess refuses pid that is NOT a git process', async () => {
+    const { RecoveryManager } = await import('../../src/core/safety/RecoveryManager');
+    const exec = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 }));
+    const { deps } = makeRm(exec);
+    const rm = new RecoveryManager(deps.git, deps.journal, deps.safetyNet);
+    await expect(rm.killGitProcess(99999)).rejects.toThrow(/not a git process/);
+  });
+
+  it('executeRecovery: apply_stash_only delegates to git stash apply', async () => {
+    const { RecoveryManager } = await import('../../src/core/safety/RecoveryManager');
+    const exec = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 }));
+    const { deps } = makeRm(exec);
+    const rm = new RecoveryManager(deps.git, deps.journal, deps.safetyNet);
+    await rm.executeRecovery({ type: 'apply_stash_only', stashHash: 'aaaa' });
+    expect(exec).toHaveBeenCalledWith(['stash', 'apply', 'aaaa']);
+  });
+
+  it('executeRecovery: drop_stash delegates to git stash drop', async () => {
+    const { RecoveryManager } = await import('../../src/core/safety/RecoveryManager');
+    const exec = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 }));
+    const { deps } = makeRm(exec);
+    const rm = new RecoveryManager(deps.git, deps.journal, deps.safetyNet);
+    await rm.executeRecovery({ type: 'drop_stash', stashHash: 'aaaa' });
+    expect(exec).toHaveBeenCalledWith(['stash', 'drop', 'aaaa']);
+  });
+
+  it('executeRecovery: retry / manual_continue are no-ops', async () => {
+    const { RecoveryManager } = await import('../../src/core/safety/RecoveryManager');
+    const exec = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 }));
+    const { deps } = makeRm(exec);
+    const rm = new RecoveryManager(deps.git, deps.journal, deps.safetyNet);
+    await rm.executeRecovery({ type: 'retry', journalEntryId: 'foo' });
+    await rm.executeRecovery({ type: 'manual_continue' });
+    expect(exec).not.toHaveBeenCalled();
   });
 });

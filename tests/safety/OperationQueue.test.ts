@@ -1,5 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { OperationQueue } from '../../src/core/safety/OperationQueue';
+
+vi.mock('../../src/core/utils/Logger', () => ({
+  mainLogger: { debug: vi.fn(), warn: vi.fn(), info: vi.fn(), error: vi.fn() },
+}));
 
 describe('OperationQueue', () => {
   it('starts with no write running', () => {
@@ -93,5 +100,59 @@ describe('OperationQueue', () => {
     } catch { /* expected error */ }
     const result = await q.enqueueWrite('ok', async () => 'recovered');
     expect(result).toBe('recovered');
+  });
+
+  it('serializes 5 parallel writes in the same cwd (no interleave)', async () => {
+    const q = new OperationQueue();
+    let running = 0;
+    let maxParallel = 0;
+    const exec = (n: number) => q.enqueueWrite(`w${n}`, async () => {
+      running++;
+      maxParallel = Math.max(maxParallel, running);
+      await new Promise(r => setTimeout(r, 5));
+      running--;
+      return n;
+    });
+    const results = await Promise.all([exec(1), exec(2), exec(3), exec(4), exec(5)]);
+    expect(results).toEqual([1, 2, 3, 4, 5]);
+    expect(maxParallel).toBe(1);
+  });
+
+  it('blocks reads while a write is running', async () => {
+    const q = new OperationQueue();
+    const order: string[] = [];
+    const w = q.enqueueWrite('w', async () => {
+      await new Promise(r => setTimeout(r, 40));
+      order.push('w-done');
+    });
+    // запускаем read с задержкой, чтобы он гарантированно встал в очередь после write.
+    await new Promise(r => setTimeout(r, 5));
+    const r = q.enqueueRead('r', async () => { order.push('r-done'); });
+    await Promise.all([w, r]);
+    expect(order).toEqual(['w-done', 'r-done']);
+  });
+});
+
+describe('OperationQueue lock-meta', () => {
+  let repoDir: string;
+  beforeEach(() => {
+    repoDir = mkdtempSync(join(tmpdir(), 'gitbor-queue-'));
+    mkdirSync(join(repoDir, '.git'), { recursive: true });
+  });
+  afterEach(() => {
+    try { rmSync(repoDir, { recursive: true, force: true }); } catch { /* ignore */ }
+  });
+
+  it('does NOT block when lock file exists (just logs meta)', async () => {
+    writeFileSync(join(repoDir, '.git', 'index.lock'), '');
+    const q = new OperationQueue();
+    const result = await q.enqueueWrite('op', async () => 'ok', { repoPath: repoDir });
+    expect(result).toBe('ok');
+  });
+
+  it('works without repoPath option (backward-compat)', async () => {
+    const q = new OperationQueue();
+    const result = await q.enqueueWrite('op', async () => 'ok');
+    expect(result).toBe('ok');
   });
 });

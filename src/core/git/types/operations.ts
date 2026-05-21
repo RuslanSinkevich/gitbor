@@ -1,3 +1,10 @@
+import type {
+  GitErrorClass,
+  SavedOperationState,
+  SuggestedAction,
+  PreflightIssue,
+} from './errors';
+
 export interface MergeResult {
   success: boolean;
   conflicts: string[];
@@ -8,6 +15,16 @@ export interface OperationResult<T = void> {
   data?: T;
   error?: string;
   rollbackAvailable: boolean;
+  /**
+   * Новые поля для дифференциированной обработки ошибок в UI.
+   * SafetyNet заполняет их когда операция упала; легаси-вызовы получают
+   * `undefined` — старое поведение сохраняется (toast по `error`).
+   */
+  errorClass?: GitErrorClass;
+  savedState?: SavedOperationState;
+  suggestedActions?: SuggestedAction[];
+  preflightIssues?: PreflightIssue[];
+  journalEntryId?: string;
 }
 
 export interface GitExecOptions {
@@ -39,6 +56,14 @@ export interface ConflictFile {
   theirsModified: boolean;
 }
 
+export type ConflictResolutionKind =
+  | 'merge'
+  | 'cherry-pick'
+  | 'revert'
+  | 'rebase'
+  | 'unmerged-paths'
+  | 'none';
+
 export interface MergeState {
   inProgress: boolean;
   sourceBranch: string;
@@ -46,6 +71,13 @@ export interface MergeState {
   totalConflicts: number;
   resolvedConflicts: number;
   conflictFiles: ConflictFile[];
+  /**
+   * Что именно происходит. `merge` — классический merge с MERGE_HEAD;
+   * `cherry-pick`/`revert`/`rebase` — соответствующие state-файлы;
+   * `unmerged-paths` — UU-файлы без любых state-файлов (повреждённое
+   * состояние, ручной reset). UI меняет заголовок баннера по kind.
+   */
+  kind: ConflictResolutionKind;
 }
 
 export type ConflictResolution = 'ours' | 'theirs' | 'both-ours-first' | 'both-theirs-first';

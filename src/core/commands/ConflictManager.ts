@@ -84,8 +84,8 @@ export class ConflictManager {
   }
 
   async getMergeState(): Promise<MergeState> {
-    const inProgress = await this.isMergeInProgress();
-    if (!inProgress) {
+    const detected = await this.detectConflictResolution();
+    if (!detected.inProgress) {
       return {
         inProgress: false,
         sourceBranch: '',
@@ -93,6 +93,7 @@ export class ConflictManager {
         totalConflicts: 0,
         resolvedConflicts: 0,
         conflictFiles: [],
+        kind: 'none',
       };
     }
 
@@ -102,14 +103,16 @@ export class ConflictManager {
 
     const targetBranch = (await this.git.exec(['rev-parse', '--abbrev-ref', 'HEAD'])).stdout.trim();
 
-    let sourceBranch: string;
-    try {
-      const mergeHeadHash = (await this.git.exec(['rev-parse', 'MERGE_HEAD'])).stdout.trim();
-      const branchResult = await this.git.exec(['branch', '--points-at', mergeHeadHash, '--format=%(refname:short)']);
-      const branches = branchResult.stdout.trim().split('\n').filter(Boolean);
-      sourceBranch = branches[0] || mergeHeadHash.substring(0, 7);
-    } catch {
-      sourceBranch = 'unknown';
+    let sourceBranch = '';
+    if (detected.kind === 'merge') {
+      try {
+        const mergeHeadHash = (await this.git.exec(['rev-parse', 'MERGE_HEAD'])).stdout.trim();
+        const branchResult = await this.git.exec(['branch', '--points-at', mergeHeadHash, '--format=%(refname:short)']);
+        const branches = branchResult.stdout.trim().split('\n').filter(Boolean);
+        sourceBranch = branches[0] || mergeHeadHash.substring(0, 7);
+      } catch {
+        sourceBranch = 'unknown';
+      }
     }
 
     return {
@@ -119,7 +122,32 @@ export class ConflictManager {
       totalConflicts: total,
       resolvedConflicts: total - conflicted,
       conflictFiles,
+      kind: detected.kind,
     };
+  }
+
+  /**
+   * Расширенный детектор «есть ли активный merge/conflict-flow». Учитывает:
+   *   - MERGE_HEAD (классический merge)
+   *   - CHERRY_PICK_HEAD (cherry-pick с конфликтом)
+   *   - REVERT_HEAD (revert с конфликтом)
+   *   - rebase-apply / rebase-merge (rebase в процессе)
+   *   - UU files в индексе без всех вышеперечисленных
+   *     (повреждённое состояние после ручного reset --keep / краш и т.п.)
+   */
+  async detectConflictResolution(): Promise<
+    { inProgress: false } | { inProgress: true; kind: 'merge' | 'cherry-pick' | 'revert' | 'rebase' | 'unmerged-paths' }
+  > {
+    const gitDir = join(this.git.getCwd(), '.git');
+    if (existsSync(join(gitDir, 'MERGE_HEAD'))) return { inProgress: true, kind: 'merge' };
+    if (existsSync(join(gitDir, 'CHERRY_PICK_HEAD'))) return { inProgress: true, kind: 'cherry-pick' };
+    if (existsSync(join(gitDir, 'REVERT_HEAD'))) return { inProgress: true, kind: 'revert' };
+    if (existsSync(join(gitDir, 'rebase-apply')) || existsSync(join(gitDir, 'rebase-merge'))) {
+      return { inProgress: true, kind: 'rebase' };
+    }
+    const uu = await this.getConflictFileNames();
+    if (uu.length > 0) return { inProgress: true, kind: 'unmerged-paths' };
+    return { inProgress: false };
   }
 
   async resolveWithOurs(file: string): Promise<void> {
@@ -170,6 +198,11 @@ export class ConflictManager {
     await this.git.exec(['merge', '--abort']);
   }
 
+  /**
+   * Legacy: только MERGE_HEAD. Используется по старому коду. Для полной
+   * проверки см. `detectConflictResolution()` — он покрывает все state-файлы
+   * и UU.
+   */
   async isMergeInProgress(): Promise<boolean> {
     const gitDir = join(this.git.getCwd(), '.git');
     return existsSync(join(gitDir, 'MERGE_HEAD'));

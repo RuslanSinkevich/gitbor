@@ -14,6 +14,7 @@ interface Props {
   repoPath: string;
   stagedFiles: FileStatus[];
   unstagedFiles: FileStatus[];
+  /** Раньше определял, показывать ли блок Conflicts. Теперь UU всегда видны (см. блок 18) — пропс оставлен для backward-compat и игнорируется. */
   mergeInProgress?: boolean;
   onContextMenu: (e: React.MouseEvent, items: SgContextMenuItem[]) => void;
   onOpenDiff?: (file: string, hash: string) => void;
@@ -28,7 +29,7 @@ interface Props {
 
 export function LocalChanges({
   repoPath,
-  stagedFiles, unstagedFiles, mergeInProgress, onContextMenu, onOpenDiff, onFileHistory, onFileBlame,
+  stagedFiles, unstagedFiles, onContextMenu, onOpenDiff, onFileHistory, onFileBlame,
   onOpenMergeEditor, onSelectFolder, showPrompt, activePath, activeSection,
 }: Props) {
   const loc = t();
@@ -227,7 +228,11 @@ export function LocalChanges({
     else postCommand({ type: 'openDiff', file: file.path, hash: 'STAGED' });
   }, [onOpenDiff]);
 
-  const hasConflicts = !!(mergeInProgress && conflictFiles.length > 0);
+  // Конфликтные файлы (UU) показываем ВСЕГДА, даже если backend не
+  // выставил mergeInProgress: бывают повреждённые состояния (ручной
+  // reset --keep / crash без MERGE_HEAD), где UU есть, а state-флаг
+  // не подхватился. Без этого баннера нет, и юзер не видит конфликтов.
+  const hasConflicts = conflictFiles.length > 0;
 
   const kbClickFile = useCallback((file: FileStatus, section: 'unstaged' | 'staged' | 'conflict') => {
     if (section === 'conflict') handleConflictClick(file);
@@ -258,7 +263,7 @@ export function LocalChanges({
           storageKey={stagedSplitStorageKey}
           left={
             <div className={s.splitTopStack}>
-              {mergeInProgress && conflictFiles.length > 0 && (
+              {conflictFiles.length > 0 && (
                 <div className={`${s.section} ${s.sectionConflictCompact}`}>
                   <div className={`${s.sectionHeader} ${s.sectionHeaderConflict}`}>
                     <span className={s.sectionTitle}>⚠ {loc.changes.conflicts} ({conflictFiles.length})</span>
