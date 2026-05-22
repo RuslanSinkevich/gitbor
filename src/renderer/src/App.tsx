@@ -8,6 +8,7 @@ import { useMenuActions } from './hooks/useMenuActions';
 import { useOperationToasts } from './hooks/useOperationToasts';
 import { useSafetyDialog } from './hooks/useSafetyDialog';
 import { countCheckoutDirty, useCheckout } from './features/checkout';
+import { useApplyStash } from './features/stash';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useDialogs } from './hooks/useDialogs';
 import { useAutoFetch } from './hooks/useAutoFetch';
@@ -390,6 +391,7 @@ export function App() {
     [state.stagedFiles, state.unstagedFiles],
   );
   const { requestCheckout, checkoutDialog } = useCheckout(checkoutDirtyCount > 0, checkoutDirtyCount);
+  const { requestApplyStash, applyStashDialog } = useApplyStash();
   // Показываем менеджер если юзер явно его открыл («+») ИЛИ если нет
   // открытых репо вовсе (RepoManager — единственный осмысленный экран).
   const repoManagerVisible = showRepoManager || !hasRepo;
@@ -578,6 +580,8 @@ export function App() {
                       onContextMenu={showContextMenu} onSwitchView={setViewMode}
                       onSelectRef={handleSelectRef} onMerge={handleOpenMergeDialog}
                       showPrompt={showPrompt} requestCheckout={requestCheckout}
+                      requestApplyStash={requestApplyStash}
+                      selectedRefHash={state.selectedCommitHash}
                     />
                   </aside>
                 }
@@ -648,6 +652,7 @@ export function App() {
 
       {syncDialogs}
       {checkoutDialog}
+      {applyStashDialog}
 
       {isDraggingFolder && (
         <div className={s.dropOverlay}>{loc.repoTabs.dnd.hint}</div>

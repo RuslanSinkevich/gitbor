@@ -208,6 +208,15 @@
   flex-shrink: 0;
 }
 
+.autoStashGroupHeader {
+  padding: 6px 12px 2px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sg-foreground-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 /* Tree folders */
 .treeFolder {
   display: flex;

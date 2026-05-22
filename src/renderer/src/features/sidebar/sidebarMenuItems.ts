@@ -4,6 +4,7 @@ import type { Branch, Tag, Stash, Remote } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import type { ShowPrompt } from '../graph/commitMenuItems';
 import type { RequestCheckout } from '../checkout';
+import type { RequestApplyStash } from '../stash';
 
 type Loc = ReturnType<typeof import('../../i18n').t>;
 
@@ -86,19 +87,26 @@ export function getTagMenuItems(tag: Tag, loc: Loc, showPrompt: ShowPrompt, requ
   ];
 }
 
-export function getStashMenuItems(stash: Stash, loc: Loc, showPrompt: ShowPrompt, onShowStash?: (index: string) => void): SgContextMenuItem[] {
+export function getStashMenuItems(
+  stash: Stash,
+  loc: Loc,
+  showPrompt: ShowPrompt,
+  requestApplyStash: RequestApplyStash,
+  onShowStash?: (index: string) => void,
+): SgContextMenuItem[] {
   return [
     { label: loc.contextMenu.stashShow, action: () => onShowStash?.(stash.index) ?? postCommand({ type: 'stashShow', index: stash.index }) },
     { divider: true },
-    { label: tpl(loc.contextMenu.stashApply, { stash: stash.message }), action: () => postCommand({ type: 'stashApply', index: stash.index }) },
-    { label: tpl(loc.contextMenu.stashPop, { stash: stash.message }), action: () => postCommand({ type: 'stashPopIndex', index: stash.index }) },
+    { label: loc.contextMenu.stashApply, action: () => requestApplyStash(stash) },
+    { label: loc.contextMenu.stashPop, action: () => postCommand({ type: 'stashPopIndex', index: stash.index }) },
     { divider: true },
     {
-      label: tpl(loc.contextMenu.stashDrop, { stash: stash.message }),
+      label: loc.contextMenu.stashDrop,
       danger: true,
       action: () => showPrompt({
         kind: 'confirm',
         title: tpl(loc.contextMenu.stashDrop, { stash: stash.message }),
+        message: stash.message,
         confirmLabel: loc.dialog.delete,
         danger: true,
         onConfirm: () => postCommand({ type: 'stashDrop', index: stash.index }),

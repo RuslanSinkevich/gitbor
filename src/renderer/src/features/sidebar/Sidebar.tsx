@@ -2,6 +2,8 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { t } from '../../i18n';
 import type { Branch, Tag, Stash, Remote } from '../../types';
 import type { RequestCheckout } from '../checkout';
+import type { RequestApplyStash } from '../stash';
+import { isAutoStash } from '../stash';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { getTagMenuItems, getStashMenuItems, getRemoteMenuItems } from './sidebarMenuItems';
 import {
@@ -30,6 +32,9 @@ interface Props {
   onMerge?: (source: string) => void;
   showPrompt: ShowPrompt;
   requestCheckout: RequestCheckout;
+  requestApplyStash: RequestApplyStash;
+  /** Хеш текущего выбранного ref (для подсветки активного stash). */
+  selectedRefHash?: string | null;
 }
 
 interface SectionState { branches: boolean; remotes: boolean; tags: boolean; stashes: boolean }
@@ -39,6 +44,7 @@ const ICONS = { branch: '⎇', remote: '☁', tag: '🏷', stash: '📦', change
 export function Sidebar({
   repoPath, currentBranch, branches, tags, stashes, remotes,
   localChangesCount, activeView, onContextMenu, onSwitchView, onSelectRef, onMerge, showPrompt, requestCheckout,
+  requestApplyStash, selectedRefHash,
 }: Props) {
   const loc = t();
   const [filter, setFilter] = useState('');
@@ -162,13 +168,34 @@ export function Sidebar({
 
       <SidebarSection title={loc.sidebar.stashes} icon={ICONS.stash} count={stashes.length} expanded={sections.stashes} onToggle={() => toggleSection('stashes')}>
         {stashes.length === 0 && <div className={s.emptySection}>{loc.sidebar.noStashes}</div>}
-        {stashes.map(stash => (
-          <div key={stash.index} className={s.item}
-            onClick={() => onSelectRef?.(stash.hash)}
-            onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getStashMenuItems(stash, loc, showPrompt)); }}>
-            <span className={s.itemName}>{stash.message || `stash@{${stash.index}}`}</span>
-          </div>
+        {stashes.filter(st => !isAutoStash(st)).map(stash => (
+          <StashItem
+            key={stash.index}
+            stash={stash}
+            loc={loc}
+            active={!!selectedRefHash && selectedRefHash === stash.hash}
+            onSelect={() => onSelectRef?.(stash.hash)}
+            onApply={() => requestApplyStash(stash)}
+            onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getStashMenuItems(stash, loc, showPrompt, requestApplyStash)); }}
+          />
         ))}
+        {stashes.some(isAutoStash) && (
+          <>
+            <div className={s.autoStashGroupHeader}>{loc.stashDialog.autoStashGroup}</div>
+            {stashes.filter(isAutoStash).map(stash => (
+              <StashItem
+                key={stash.index}
+                stash={stash}
+                loc={loc}
+                active={!!selectedRefHash && selectedRefHash === stash.hash}
+                autoBadge
+                onSelect={() => onSelectRef?.(stash.hash)}
+                onApply={() => requestApplyStash(stash)}
+                onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getStashMenuItems(stash, loc, showPrompt, requestApplyStash)); }}
+              />
+            ))}
+          </>
+        )}
       </SidebarSection>
 
       <SubmodulesList />
@@ -177,6 +204,36 @@ export function Sidebar({
 }
 
 /* ─── Sub-components ─── */
+
+interface StashItemProps {
+  stash: Stash;
+  loc: ReturnType<typeof t>;
+  active: boolean;
+  autoBadge?: boolean;
+  onSelect(): void;
+  onApply(): void;
+  onContextMenu(e: React.MouseEvent): void;
+}
+
+function StashItem({ stash, loc, active, autoBadge, onSelect, onApply, onContextMenu }: StashItemProps) {
+  return (
+    <div
+      className={`${s.item} ${active ? s.itemCurrent : ''}`}
+      onClick={onSelect}
+      onDoubleClick={onApply}
+      onContextMenu={onContextMenu}
+      title={stash.message || `stash@{${stash.index}}`}
+    >
+      <span className={s.itemName}>{stash.message || `stash@{${stash.index}}`}</span>
+      {autoBadge && (
+        <span className={s.itemUpstream} title={loc.stashDialog.autoStashBadge}>
+          {loc.stashDialog.autoStashBadge}
+        </span>
+      )}
+    </div>
+  );
+}
+
 
 function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout }: {
   repoPath: string;
