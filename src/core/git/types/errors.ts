@@ -1,3 +1,5 @@
+import type { ErrorSeverity } from '../../errors/severity';
+
 /**
  * Классы git-ошибок для дифференцированной обработки в SafetyNet/UI.
  *
@@ -31,6 +33,15 @@ export type GitErrorClass =
   | 'non_fast_forward'
   | 'untracked_overwrite'
   | 'preflight_blocked'
+  | 'hook_failed'
+  | 'gpg_failed'
+  | 'disk_full'
+  | 'repo_corrupt'
+  | 'branch_unmerged'
+  | 'tag_not_found'
+  | 'branch_not_found'
+  | 'stash_empty'
+  | 'proxy_tls'
   | 'unknown';
 
 export interface ClassifiedError {
@@ -39,6 +50,9 @@ export interface ClassifiedError {
   recoverable: boolean;
   hint?: string;
   rawStderr: string;
+  severity: ErrorSeverity;
+  /** Полный вывод хука (если class === hook_failed). */
+  hookOutput?: string;
 }
 
 export interface GitProcessInfo {

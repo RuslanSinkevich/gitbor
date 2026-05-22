@@ -93,11 +93,17 @@ export function App() {
 
   useEffect(() => {
     if (!lastOpResult || lastOpResult.success || !lastOpResult.errorClass) return;
-    if (!safety.shouldSuppressToast(lastOpResult.errorClass)) return;
+    if (!safety.shouldOpenModal({
+      errorClass: lastOpResult.errorClass,
+      severity: lastOpResult.severity,
+      source: lastOpResult.source,
+    })) return;
     safety.enqueue({
       operation: lastOpResult.operation,
       errorClass: lastOpResult.errorClass,
       error: lastOpResult.error || '',
+      severity: lastOpResult.severity,
+      source: lastOpResult.source,
       savedState: lastOpResult.savedState,
       preflightIssues: lastOpResult.preflightIssues,
       suggestedActions: lastOpResult.suggestedActions,
@@ -105,8 +111,16 @@ export function App() {
     });
   }, [lastOpResult, safety]);
 
-  useOperationToasts(lastOpResult, clearLastOpResult, addToast, lastCommandRef);
-  useAutoFetch(state.repoPath, !!state.repoPath, (msg) => addToast(msg, 'info'));
+  useOperationToasts(
+    lastOpResult, clearLastOpResult, addToast, lastCommandRef,
+    () => dlg.setShowGitActivity(true),
+  );
+  useAutoFetch(
+    state.repoPath,
+    !!state.repoPath,
+    (msg) => addToast(msg, 'info'),
+    (msg, retry) => addToast(msg, 'info', { label: t().autoFetch.retryNow, onClick: retry }),
+  );
 
   const handleOpenMergeDialog = useCallback((source: string) => {
     setMergeDialogSource(source);

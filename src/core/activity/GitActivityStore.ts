@@ -8,7 +8,10 @@ export interface GitActivityCommand {
   startedAt: number;
 }
 
-export type GitActivityStatus = 'running' | 'success' | 'error';
+import type { ErrorSeverity, OperationSource } from '../errors/severity';
+import type { GitErrorClass } from '../git/types';
+
+export type GitActivityStatus = 'running' | 'success' | 'completed_with_warning' | 'error';
 
 export interface GitActivityEntry {
   id: string;
@@ -19,6 +22,9 @@ export interface GitActivityEntry {
   status: GitActivityStatus;
   error: string | null;
   commands: GitActivityCommand[];
+  source: OperationSource;
+  severity?: ErrorSeverity;
+  errorClass?: GitErrorClass;
 }
 
 type Listener = (event: ActivityEvent) => void;
@@ -58,7 +64,7 @@ export class GitActivityStore {
     return this.entries.slice();
   }
 
-  start(operation: string, repoPath: string | null): string {
+  start(operation: string, repoPath: string | null, source: OperationSource = 'user'): string {
     const id = `act-${Date.now()}-${++this.seq}`;
     const entry: GitActivityEntry = {
       id,
@@ -69,6 +75,7 @@ export class GitActivityStore {
       status: 'running',
       error: null,
       commands: [],
+      source,
     };
     this.entries.unshift(entry);
     if (this.entries.length > MAX_ENTRIES) {
@@ -89,12 +96,33 @@ export class GitActivityStore {
     this.emit({ type: 'updated', entry });
   }
 
-  finish(id: string, success: boolean, error?: string): void {
+  finish(
+    id: string,
+    success: boolean,
+    error?: string,
+    meta?: { severity?: ErrorSeverity; source?: OperationSource; errorClass?: GitErrorClass },
+  ): void {
     const entry = this.entries.find(e => e.id === id);
     if (!entry) return;
     entry.finishedAt = Date.now();
-    entry.status = success ? 'success' : 'error';
     entry.error = error ?? null;
+    if (meta?.source) entry.source = meta.source;
+    if (meta?.severity) entry.severity = meta.severity;
+    if (meta?.errorClass) entry.errorClass = meta.errorClass;
+
+    if (success) {
+      entry.status = 'success';
+    } else if (
+      meta?.source === 'background'
+      && meta.severity
+      && (meta.severity === 'info' || meta.severity === 'warning')
+    ) {
+      entry.status = 'completed_with_warning';
+    } else if (meta?.severity === 'warning' && meta?.source !== 'user') {
+      entry.status = 'completed_with_warning';
+    } else {
+      entry.status = 'error';
+    }
     this.emit({ type: 'updated', entry });
   }
 

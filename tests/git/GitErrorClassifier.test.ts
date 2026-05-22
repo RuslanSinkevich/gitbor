@@ -154,7 +154,7 @@ const FIXTURES: Fixture[] = [
   {
     name: 'ssl error',
     stderr: 'fatal: unable to access \'https://corp.example.com/repo.git/\': SSL_ERROR_SYSCALL\n',
-    expected: 'network',
+    expected: 'proxy_tls',
   },
 
   // non_fast_forward

@@ -1,9 +1,11 @@
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import type {
   CommitDetail,
+  ErrorSeverity,
   GitErrorClass,
   MergeState,
   MainEvent,
+  OperationSource,
   PreflightIssue,
   RebaseProgress,
   RecoveryIssue,
@@ -63,6 +65,9 @@ export interface StateSubscriptionDeps {
       suggestedActions?: SuggestedAction[];
       preflightIssues?: PreflightIssue[];
       journalEntryId?: string;
+      severity?: ErrorSeverity;
+      source?: OperationSource;
+      hookOutput?: string;
     },
   ): void;
   removeRunningOpsByRepo(repoPath: string): void;
@@ -175,6 +180,9 @@ export function useStateSubscription(deps: StateSubscriptionDeps): void {
             suggestedActions: msg.suggestedActions,
             preflightIssues: msg.preflightIssues,
             journalEntryId: msg.journalEntryId,
+            severity: msg.severity,
+            source: msg.source,
+            hookOutput: msg.hookOutput,
           });
           break;
         }

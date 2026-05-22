@@ -1,3 +1,4 @@
+import { classToSeverity } from '../errors/severity';
 import type { ClassifiedError, GitErrorClass } from './types';
 
 /**
@@ -121,6 +122,60 @@ const PATTERNS: Pattern[] = [
     recoverable: true,
   },
   {
+    class: 'disk_full',
+    re: /no space left on device|disk quota exceeded|cannot write.*disk/i,
+    hint: 'Disk is full. Free space before continuing.',
+    recoverable: false,
+  },
+  {
+    class: 'repo_corrupt',
+    re: /bad object|object file .* is empty|loose object .* is corrupt|repository corrupt/i,
+    hint: 'The repository may be corrupt. Run git fsck.',
+    recoverable: false,
+  },
+  {
+    class: 'hook_failed',
+    re: /hook (?:declined|failed)|pre-commit hook failed|pre-push hook failed|commit-msg hook failed/i,
+    hint: 'A git hook rejected the operation. See hook output below.',
+    recoverable: true,
+  },
+  {
+    class: 'gpg_failed',
+    re: /gpg failed to sign|secret key not available|gpg: signing failed/i,
+    hint: 'GPG signing failed. Check your signing key.',
+    recoverable: true,
+  },
+  {
+    class: 'branch_unmerged',
+    re: /branch .+ is not fully merged/i,
+    hint: 'The branch is not fully merged. Use force delete if intended.',
+    recoverable: true,
+  },
+  {
+    class: 'tag_not_found',
+    re: /tag .+ not found/i,
+    hint: 'Tag does not exist.',
+    recoverable: false,
+  },
+  {
+    class: 'branch_not_found',
+    re: /branch .+ not found|not a valid object name/i,
+    hint: 'Branch or ref does not exist.',
+    recoverable: false,
+  },
+  {
+    class: 'stash_empty',
+    re: /No stash entries found|No stash found/i,
+    hint: 'There is nothing in the stash list.',
+    recoverable: false,
+  },
+  {
+    class: 'proxy_tls',
+    re: /SSL_ERROR|SSL connect error|certificate verify failed|self signed certificate/i,
+    hint: 'TLS/SSL error — check proxy or corporate MITM settings.',
+    recoverable: true,
+  },
+  {
     class: 'auth',
     re: /Authentication failed/i,
     hint: 'Authentication failed. Check your credentials or SSH key.',
@@ -194,20 +249,32 @@ const PATTERNS: Pattern[] = [
   },
 ];
 
+function buildClassified(p: Pattern, raw: string): ClassifiedError {
+  const hookOutput = p.class === 'hook_failed' ? raw : undefined;
+  return {
+    class: p.class,
+    recoverable: p.recoverable,
+    hint: p.hint,
+    rawStderr: raw,
+    severity: classToSeverity(p.class),
+    hookOutput,
+  };
+}
+
 export class GitErrorClassifier {
   static classify(stderr: string): ClassifiedError {
     const raw = stderr ?? '';
     if (!raw.trim()) {
-      return { class: 'unknown', recoverable: false, rawStderr: raw };
+      return { class: 'unknown', recoverable: false, rawStderr: raw, severity: 'critical' };
     }
 
     for (const p of PATTERNS) {
       if (p.re.test(raw)) {
-        return { class: p.class, recoverable: p.recoverable, hint: p.hint, rawStderr: raw };
+        return buildClassified(p, raw);
       }
     }
 
-    return { class: 'unknown', recoverable: false, rawStderr: raw };
+    return { class: 'unknown', recoverable: false, rawStderr: raw, severity: 'critical' };
   }
 }
 

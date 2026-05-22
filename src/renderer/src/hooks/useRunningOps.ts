@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import type { ErrorSeverity, OperationSource } from '../types';
 import type {
   GitErrorClass,
   PreflightIssue,
@@ -15,6 +16,9 @@ export interface OperationResult {
   suggestedActions?: SuggestedAction[];
   preflightIssues?: PreflightIssue[];
   journalEntryId?: string;
+  severity?: ErrorSeverity;
+  source?: OperationSource;
+  hookOutput?: string;
 }
 
 export interface EndOperationExtras {
@@ -23,6 +27,9 @@ export interface EndOperationExtras {
   suggestedActions?: SuggestedAction[];
   preflightIssues?: PreflightIssue[];
   journalEntryId?: string;
+  severity?: ErrorSeverity;
+  source?: OperationSource;
+  hookOutput?: string;
 }
 
 export interface RunningOpsApi {
@@ -85,6 +92,9 @@ export function useRunningOps(): RunningOpsApi {
       suggestedActions: extras?.suggestedActions,
       preflightIssues: extras?.preflightIssues,
       journalEntryId: extras?.journalEntryId,
+      severity: extras?.severity,
+      source: extras?.source,
+      hookOutput: extras?.hookOutput,
     });
   }, []);
 

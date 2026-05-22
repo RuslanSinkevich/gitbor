@@ -1,5 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
 import { postCommand } from '../api';
+import {
+  classToSeverity,
+  shouldShowSafetyModal,
+  type ErrorSeverity,
+  type OperationSource,
+} from '@core/errors/severity';
 import type {
   GitErrorClass,
   PreflightIssue,
@@ -9,16 +15,12 @@ import type {
 } from '../types';
 import type { SafetyDialogPayload } from '../features/safety';
 
-const SUPPRESS_TOAST_CLASSES = new Set<GitErrorClass>([
-  'lock_held', 'conflict', 'dirty_tree', 'merge_in_progress', 'rebase_in_progress',
-  'cherry_pick_in_progress', 'revert_in_progress', 'unmerged_paths',
-  'preflight_blocked', 'untracked_overwrite', 'non_fast_forward',
-]);
-
 interface EnqueueArgs {
   operation: string;
   errorClass: GitErrorClass;
   error: string;
+  severity?: ErrorSeverity;
+  source?: OperationSource;
   savedState?: SavedOperationState;
   preflightIssues?: PreflightIssue[];
   suggestedActions?: SuggestedAction[];
@@ -29,7 +31,11 @@ interface EnqueueArgs {
 export interface UseSafetyDialog {
   current: SafetyDialogPayload | null;
   enqueue(args: EnqueueArgs): void;
-  shouldSuppressToast(errorClass: GitErrorClass | undefined): boolean;
+  shouldOpenModal(args: {
+    errorClass?: GitErrorClass;
+    severity?: ErrorSeverity;
+    source?: OperationSource;
+  }): boolean;
   onAction(action: SuggestedAction): void;
   close(): void;
 }
@@ -83,12 +89,17 @@ export function useSafetyDialog(): UseSafetyDialog {
     close();
   }, [close]);
 
-  const shouldSuppressToast = useCallback((errorClass: GitErrorClass | undefined) => {
-    if (!errorClass) return false;
-    return SUPPRESS_TOAST_CLASSES.has(errorClass);
+  const shouldOpenModal = useCallback((args: {
+    errorClass?: GitErrorClass;
+    severity?: ErrorSeverity;
+    source?: OperationSource;
+  }) => {
+    if (!args.errorClass) return false;
+    const severity = args.severity ?? classToSeverity(args.errorClass);
+    return shouldShowSafetyModal(args.source, severity);
   }, []);
 
-  return { current, enqueue, shouldSuppressToast, onAction, close };
+  return { current, enqueue, shouldOpenModal, onAction, close };
 }
 
 /**

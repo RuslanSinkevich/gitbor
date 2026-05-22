@@ -27,7 +27,10 @@ export type { AiConnectionMode, AiProviderConfig, CommitLanguage } from '../ai/t
 
 // ─── Renderer → Main (commands via IPC) ───
 
-export type RendererCommand =
+import type { ErrorSeverity, OperationSource } from '../errors/severity';
+export type { ErrorSeverity, OperationSource } from '../errors/severity';
+
+type RendererCommandCore =
   | { type: 'ready' }
   | { type: 'getState' }
   | { type: 'refreshAll' }
@@ -196,6 +199,9 @@ export type RendererCommand =
   | { type: 'removeIndexLock' }
   | { type: 'rollbackOperation'; journalEntryId: string };
 
+/** Источник операции (user/background). Не путать с `source` в merge-командах (имя ветки). */
+export type RendererCommand = RendererCommandCore & { opSource?: OperationSource };
+
 // ─── Main → Renderer (events via IPC) ───
 
 export type MainEvent =
@@ -227,6 +233,9 @@ export type MainEvent =
       suggestedActions?: SuggestedAction[];
       preflightIssues?: PreflightIssue[];
       journalEntryId?: string;
+      severity?: ErrorSeverity;
+      source?: OperationSource;
+      hookOutput?: string;
     }
   /**
    * Pre-flight блок: pre-flight нашёл блокер ДО старта операции (lock/UU/...).

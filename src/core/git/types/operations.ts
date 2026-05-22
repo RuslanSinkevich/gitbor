@@ -4,6 +4,7 @@ import type {
   SuggestedAction,
   PreflightIssue,
 } from './errors';
+import type { ErrorSeverity, OperationSource } from '../../errors/severity';
 
 export interface MergeResult {
   success: boolean;
@@ -25,6 +26,9 @@ export interface OperationResult<T = void> {
   suggestedActions?: SuggestedAction[];
   preflightIssues?: PreflightIssue[];
   journalEntryId?: string;
+  severity?: ErrorSeverity;
+  source?: OperationSource;
+  hookOutput?: string;
 }
 
 export interface GitExecOptions {

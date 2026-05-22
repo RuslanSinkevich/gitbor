@@ -1,7 +1,9 @@
 import { gitActivityStore } from '../../activity/GitActivityStore';
 import { runWithActivity } from '../../activity/activityContext';
+import { classToSeverity, normalizeSource, type OperationSource } from '../../errors/severity';
 import type { RendererCommand } from '../messages';
 import type { HandlerContext, CmdOf } from './types';
+import type { ErrorSeverity } from '../../errors/severity';
 import type {
   GitErrorClass,
   PreflightIssue,
@@ -21,22 +23,43 @@ export interface ExtendedOpResult {
   suggestedActions?: SuggestedAction[];
   preflightIssues?: PreflightIssue[];
   journalEntryId?: string;
+  severity?: ErrorSeverity;
+  source?: OperationSource;
+  hookOutput?: string;
 }
 
-export async function runTracked<R extends { success: boolean; error?: string }>(
+function commandSource(cmd: RendererCommand): OperationSource {
+  return normalizeSource(cmd.opSource);
+}
+
+function attachOpMeta(result: ExtendedOpResult, source: OperationSource): ExtendedOpResult {
+  if (result.success || !result.errorClass) {
+    return { ...result, source };
+  }
+  const severity = result.severity ?? classToSeverity(result.errorClass);
+  return { ...result, source, severity };
+}
+
+export async function runTracked<R extends ExtendedOpResult>(
   operation: string,
   ctx: HandlerContext,
   work: () => Promise<R>,
+  source: OperationSource = 'user',
 ): Promise<R> {
   const repoPath = ctx.sm.getState().repoPath || null;
-  const activityId = gitActivityStore.start(operation, repoPath);
+  const activityId = gitActivityStore.start(operation, repoPath, source);
   try {
     const result = await runWithActivity(activityId, work);
-    gitActivityStore.finish(activityId, result.success, result.error);
-    return result;
+    const enriched = attachOpMeta(result, source);
+    gitActivityStore.finish(activityId, enriched.success, enriched.error, {
+      severity: enriched.severity,
+      source: enriched.source,
+      errorClass: enriched.errorClass,
+    });
+    return enriched as R;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    gitActivityStore.finish(activityId, false, msg);
+    gitActivityStore.finish(activityId, false, msg, { source });
     throw err;
   }
 }
@@ -51,7 +74,8 @@ export function op<K extends RendererCommand['type']>(
     // не очистит running-флаг на исходном.
     const repoPath = ctx.sm.getState().repoPath || null;
     ctx.send({ type: 'operationStart', operation, repoPath });
-    const result = await runTracked(operation, ctx, () => fn(cmd, ctx));
+    const source = commandSource(cmd);
+    const result = attachOpMeta(await runTracked(operation, ctx, () => fn(cmd, ctx), source), source);
     ctx.send({
       type: 'operationEnd',
       operation,
@@ -63,6 +87,9 @@ export function op<K extends RendererCommand['type']>(
       suggestedActions: result.suggestedActions,
       preflightIssues: result.preflightIssues,
       journalEntryId: result.journalEntryId,
+      severity: result.severity,
+      source: result.source,
+      hookOutput: result.hookOutput,
     });
   };
 }
@@ -74,7 +101,8 @@ export function opWithPostMerge<K extends RendererCommand['type']>(
   return async (cmd, ctx) => {
     const repoPath = ctx.sm.getState().repoPath || null;
     ctx.send({ type: 'operationStart', operation, repoPath });
-    const result = await runTracked(operation, ctx, () => fn(cmd, ctx));
+    const source = commandSource(cmd);
+    const result = attachOpMeta(await runTracked(operation, ctx, () => fn(cmd, ctx), source), source);
     ctx.send({
       type: 'operationEnd',
       operation,
@@ -86,6 +114,9 @@ export function opWithPostMerge<K extends RendererCommand['type']>(
       suggestedActions: result.suggestedActions,
       preflightIssues: result.preflightIssues,
       journalEntryId: result.journalEntryId,
+      severity: result.severity,
+      source: result.source,
+      hookOutput: result.hookOutput,
     });
     const ms = await ctx.ch.getMergeState();
     ctx.send({ type: 'mergeState', data: ms });

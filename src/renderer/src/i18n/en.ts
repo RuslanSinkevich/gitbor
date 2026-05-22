@@ -634,6 +634,13 @@ export const en = {
   },
   autoFetch: {
     newCommits: '{count} new commit(s) on remote',
+    paused: 'Autofetch paused: network unavailable (retry every {minutes} min)',
+    retryNow: 'Retry now',
+  },
+  errors: {
+    aggregatedFailures: '{count} repos: connection issue{host}',
+    showDetails: 'Show details',
+    networkInfo: 'Cannot reach the remote repository',
   },
   ai: {
     title: 'AI Settings',
@@ -773,6 +780,7 @@ export const en = {
     close: 'Close',
     statusRunning: 'Running…',
     statusSuccess: 'Success',
+    statusWarning: 'Completed with issues',
     statusError: 'Error',
     commands: 'Git commands',
     noCommandsYet: 'No commands recorded yet',

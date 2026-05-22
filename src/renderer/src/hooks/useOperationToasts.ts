@@ -1,7 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { t, tpl } from '../i18n';
 import { postCommand } from '../api';
-import type { GitErrorClass, RendererCommand } from '../types';
+import {
+  classToSeverity,
+  extractErrorHost,
+  normalizeSource,
+  resolveToastLevel,
+  type ErrorSeverity,
+  type OperationSource,
+} from '@core/errors/severity';
+import type { RendererCommand } from '../types';
 import type { OperationResult } from './useAppState';
 import type { SgToastAction } from '../ui/SgToast';
 
@@ -11,16 +19,21 @@ const SILENT_OPS = [
   'clone', 'init',
 ];
 
-/**
- * Классы, по которым SafetyDialog возьмёт показ на себя — toast НЕ
- * нужен (он будет дублировать модал). Совпадает с SUPPRESS_TOAST_CLASSES
- * в useSafetyDialog.
- */
-const HIDDEN_BY_DIALOG: GitErrorClass[] = [
-  'lock_held', 'conflict', 'dirty_tree', 'merge_in_progress', 'rebase_in_progress',
-  'cherry_pick_in_progress', 'revert_in_progress', 'unmerged_paths',
-  'preflight_blocked', 'untracked_overwrite',
-];
+const AGG_WINDOW_MS = 10_000;
+
+interface AggBucket {
+  count: number;
+  host: string | null;
+  maxSeverity: ErrorSeverity;
+  maxSource: OperationSource;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+function severityRank(s: ErrorSeverity): number {
+  if (s === 'critical') return 3;
+  if (s === 'warning') return 2;
+  return 1;
+}
 
 export function useOperationToasts(
   lastOpResult: OperationResult | null,
@@ -31,15 +44,18 @@ export function useOperationToasts(
     action?: SgToastAction,
   ) => void,
   lastCommandRef?: { current: RendererCommand | null },
+  onShowActivity?: () => void,
 ) {
+  const aggRef = useRef<Map<string, AggBucket>>(new Map());
+
   useEffect(() => {
     if (!lastOpResult) return;
     clearLastOpResult();
-    const { operation, success, error, errorClass } = lastOpResult;
-    if (SILENT_OPS.includes(operation)) return;
+    const { operation, success, error, errorClass, severity: sevIn, source: srcIn } = lastOpResult;
 
     const ops = t().operations;
     if (success) {
+      if (SILENT_OPS.includes(operation)) return;
       const msg: Record<string, string> = {
         fetch: ops.fetchSuccess, pull: ops.pullSuccess, push: ops.pushSuccess,
         stash: ops.stashSuccess, stashPop: ops.stashPopSuccess,
@@ -51,20 +67,73 @@ export function useOperationToasts(
       return;
     }
 
-    // SafetyDialog уже видит errorClass и сам откроется — не дублируем.
-    if (errorClass && HIDDEN_BY_DIALOG.includes(errorClass)) return;
+    const errorClassResolved = errorClass ?? 'unknown';
+    const severity = sevIn ?? classToSeverity(errorClassResolved);
+    const source = normalizeSource(srcIn);
+    const toastLevel = resolveToastLevel(source, severity);
+    if (toastLevel === null) return;
 
-    // network/auth — лёгкий путь: action-toast с Retry, не модал.
-    if ((errorClass === 'network' || errorClass === 'auth') && lastCommandRef?.current) {
+    const silentError = SILENT_OPS.includes(operation);
+    if (silentError && severity === 'info') return;
+
+    const host = (errorClassResolved === 'network' || errorClassResolved === 'auth')
+      ? extractErrorHost(error ?? '')
+      : null;
+    const aggKey = host ? `${errorClassResolved}|${host}` : null;
+
+    const showToast = (msg: string, level: typeof toastLevel, action?: SgToastAction) => {
+      addToast(msg, level, action);
+    };
+
+    const buildRetryAction = (): SgToastAction | undefined => {
+      if (!lastCommandRef?.current) return undefined;
       const cmd = lastCommandRef.current;
-      addToast(
-        error || tpl(ops.genericError, { operation }),
-        'error',
-        { label: t().safety.toastRetry, onClick: () => postCommand(cmd) },
-      );
+      return { label: t().safety.toastRetry, onClick: () => postCommand(cmd) };
+    };
+
+    const flushAgg = (key: string, bucket: AggBucket) => {
+      aggRef.current.delete(key);
+      const loc = t().errors;
+      const hostPart = bucket.host ? ` (${bucket.host})` : '';
+      const msg = bucket.count > 1
+        ? tpl(loc.aggregatedFailures, { count: String(bucket.count), host: hostPart })
+        : (error || tpl(ops.genericError, { operation }));
+      const level = resolveToastLevel(bucket.maxSource, bucket.maxSeverity);
+      if (level === null) return;
+      const action: SgToastAction | undefined = onShowActivity
+        ? { label: loc.showDetails, onClick: onShowActivity }
+        : buildRetryAction();
+      showToast(msg.slice(0, 80), level, action);
+    };
+
+    if (aggKey) {
+      const existing = aggRef.current.get(aggKey);
+      if (existing) {
+        existing.count += 1;
+        if (severityRank(severity) > severityRank(existing.maxSeverity)) {
+          existing.maxSeverity = severity;
+        }
+        if (source === 'user') existing.maxSource = 'user';
+        clearTimeout(existing.timer);
+        existing.timer = setTimeout(() => flushAgg(aggKey, existing), AGG_WINDOW_MS);
+        return;
+      }
+      const bucket: AggBucket = {
+        count: 1,
+        host,
+        maxSeverity: severity,
+        maxSource: source,
+        timer: setTimeout(() => {
+          const b = aggRef.current.get(aggKey);
+          if (b) flushAgg(aggKey, b);
+        }, AGG_WINDOW_MS),
+      };
+      aggRef.current.set(aggKey, bucket);
       return;
     }
 
-    addToast(error || tpl(ops.genericError, { operation }), 'error');
-  }, [lastOpResult, clearLastOpResult, addToast, lastCommandRef]);
+    const msg = error || tpl(ops.genericError, { operation });
+    const action = (severity !== 'info' && source === 'user') ? buildRetryAction() : undefined;
+    showToast(msg.slice(0, 200), toastLevel, action);
+  }, [lastOpResult, clearLastOpResult, addToast, lastCommandRef, onShowActivity]);
 }

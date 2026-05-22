@@ -636,6 +636,13 @@ export const ru: LocaleMap = {
   },
   autoFetch: {
     newCommits: '{count} новых коммит(ов) на remote',
+    paused: 'Авто-fetch приостановлен: нет сети (повтор каждые {minutes} мин)',
+    retryNow: 'Повторить сейчас',
+  },
+  errors: {
+    aggregatedFailures: '{count} репо: проблема соединения{host}',
+    showDetails: 'Подробности',
+    networkInfo: 'Не удаётся достучаться до удалённого репозитория',
   },
   ai: {
     title: 'Настройки AI',
@@ -775,6 +782,7 @@ export const ru: LocaleMap = {
     close: 'Закрыть',
     statusRunning: 'Выполняется…',
     statusSuccess: 'Успех',
+    statusWarning: 'Завершено с предупреждением',
     statusError: 'Ошибка',
     commands: 'Git команды',
     noCommandsYet: 'Нет зафиксированных команд',

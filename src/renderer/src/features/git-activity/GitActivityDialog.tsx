@@ -57,16 +57,19 @@ export function GitActivityDialog({ onClose, repoPath }: Props) {
   const statusClass = (status: GitActivityEntry['status']): string => {
     if (status === 'running') return s.statusRunning;
     if (status === 'success') return s.statusSuccess;
+    if (status === 'completed_with_warning') return s.statusSuccess;
     return s.statusError;
   };
   const statusLabel = (status: GitActivityEntry['status']): string => {
     if (status === 'running') return loc.gitActivity.statusRunning;
     if (status === 'success') return loc.gitActivity.statusSuccess;
+    if (status === 'completed_with_warning') return loc.gitActivity.statusWarning;
     return loc.gitActivity.statusError;
   };
   const dotClass = (status: GitActivityEntry['status']): string => {
     if (status === 'running') return `${s.dot} ${s.dotRunning}`;
     if (status === 'success') return `${s.dot} ${s.dotSuccess}`;
+    if (status === 'completed_with_warning') return `${s.dot} ${s.dotRunning}`;
     return `${s.dot} ${s.dotError}`;
   };
 

@@ -140,6 +140,8 @@ export class SafetyNet {
 
       const classified = GitErrorClassifier.classify(stderr || errorMsg);
       const errorClass = classified.class;
+      const severity = classified.severity;
+      const hookOutput = classified.hookOutput;
 
       mainLogger.warn(
         `safety: classified ${errorClass}, first line: ${(stderr || errorMsg).split('\n')[0].slice(0, 200)}`,
@@ -155,6 +157,8 @@ export class SafetyNet {
           error: errorMsg,
           rollbackAvailable: true,
           errorClass,
+          severity,
+          hookOutput,
           savedState: { headHash, branchName, autoStashHash },
           suggestedActions: this.buildActions(errorClass, autoStashHash, journalId),
           journalEntryId: journalId,
@@ -179,6 +183,8 @@ export class SafetyNet {
           error: errorMsg,
           rollbackAvailable: true,
           errorClass,
+          severity,
+          hookOutput,
           savedState: { headHash, branchName, autoStashHash },
           journalEntryId: journalId,
         };
@@ -191,6 +197,8 @@ export class SafetyNet {
         error: errorMsg,
         rollbackAvailable: true,
         errorClass,
+        severity,
+        hookOutput,
         savedState: { headHash, branchName, autoStashHash },
         suggestedActions: this.buildActions(errorClass, autoStashHash, journalId),
         journalEntryId: journalId,
