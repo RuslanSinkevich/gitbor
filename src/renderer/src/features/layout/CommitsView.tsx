@@ -6,6 +6,7 @@ import { buildStorageKey } from '../../shared/uiPersist';
 import type { AppState, CommitDetail } from '../../types';
 import type { ShowContextMenuFn } from '../../hooks/useContextMenu';
 import type { ShowPromptFn } from '../../ui/SgPromptDialog';
+import type { RequestCheckout } from '../checkout';
 import s from '../../App.module.css';
 
 interface Props {
@@ -20,6 +21,7 @@ interface Props {
   openFileBlame: (file: string, hash?: string) => void;
   showContextMenu: ShowContextMenuFn;
   showPrompt: ShowPromptFn;
+  requestCheckout: RequestCheckout;
   setRebaseOnto: (onto: string | null) => void;
   compareFrom?: string | null;
   onCompareFrom?: (hash: string) => void;
@@ -29,7 +31,7 @@ interface Props {
 export function CommitsView({
   state, commitDetail, diffTarget, rightPanel, setRightPanel,
   selectCommit, openDiff, openFileHistory, openFileBlame,
-  showContextMenu, showPrompt, setRebaseOnto,
+  showContextMenu, showPrompt, requestCheckout, setRebaseOnto,
   compareFrom, onCompareFrom, onCompareTo,
 }: Props) {
   const graphHeightKey = buildStorageKey('sg-layout:commits-graph-height', state.repoPath);
@@ -48,6 +50,7 @@ export function CommitsView({
         repoPath={state.repoPath}
         onContextMenu={showContextMenu}
         showPrompt={showPrompt}
+        requestCheckout={requestCheckout}
         onRebase={setRebaseOnto}
         onLoadMore={() => postCommand({ type: 'getGraphData', maxCount: state.commits.length + 50000 })}
         compareFrom={compareFrom}

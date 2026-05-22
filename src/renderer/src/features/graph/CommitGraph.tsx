@@ -4,6 +4,7 @@ import type { Commit, GraphNode, MergeLink } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { ROW_HEIGHT, COL_WIDTH, LEFT_PAD, NODE_RADIUS, MERGE_RADIUS, DESC_PAD, colX, formatCommitDate } from './graphConstants';
 import { getCommitMenuItems, type ShowPrompt, type OnRebase } from './commitMenuItems';
+import type { RequestCheckout } from '../checkout';
 import { groupBranchPaths, getNodeCircles, getMergeLinkPaths, type BranchPathData, type NodeCircle } from './branchPaths';
 import { GpgBadge } from './GpgBadge';
 import { useVirtualScroll } from './useVirtualScroll';
@@ -70,6 +71,7 @@ interface Props {
   repoPath?: string;
   onContextMenu: (e: React.MouseEvent, items: SgContextMenuItem[]) => void;
   showPrompt: ShowPrompt;
+  requestCheckout: RequestCheckout;
   onRebase?: OnRebase;
   onLoadMore?: () => void;
   compareFrom?: string | null;
@@ -77,7 +79,7 @@ interface Props {
   onCompareTo?: (from: string, to: string) => void;
 }
 
-function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, currentBranch, repoPath, onContextMenu, showPrompt, onRebase, onLoadMore, compareFrom, onCompareFrom, onCompareTo }: Props) {
+function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, currentBranch, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, compareFrom, onCompareFrom, onCompareTo }: Props) {
   const loc = t();
   const graphWidth = LEFT_PAD * 2 + (maxColumns + 1) * COL_WIDTH + 12;
   const totalHeight = commits.length * ROW_HEIGHT;
@@ -205,7 +207,7 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
                 style={{ top: i * ROW_HEIGHT, height: ROW_HEIGHT }}
                 onClick={() => onSelect(commit.hash)}
                 title={isRemoteOnly ? loc.graph.remoteOnlyHint : undefined}
-                onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getCommitMenuItems(commit, currentBranch, showPrompt, onRebase, compareFrom, onCompareFrom, onCompareTo)); }}>
+                onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getCommitMenuItems(commit, currentBranch, showPrompt, requestCheckout, onRebase, compareFrom, onCompareFrom, onCompareTo)); }}>
                 <div className={s.rowDesc} style={{ paddingLeft: descLeft }}>
                   {commit.refs.map((ref) => (
                     <span key={ref.name} className={s.refBadge} style={{ background: nodeColor, color: '#fff', borderColor: nodeColor }}>{ref.name}</span>

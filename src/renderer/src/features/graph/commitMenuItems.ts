@@ -2,6 +2,7 @@ import { t, tpl } from '../../i18n';
 import { postCommand, copyToClipboard } from '../../api';
 import type { Commit } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
+import type { RequestCheckout } from '../checkout';
 
 export type ShowPrompt = (opts: {
   title: string;
@@ -23,7 +24,10 @@ function formatCommitInfo(commit: Commit): string {
 
 export type OnRebase = (onto: string) => void;
 
-export function getCommitMenuItems(commit: Commit, currentBranch: string, showPrompt: ShowPrompt, onRebase?: OnRebase, compareFrom?: string | null, onCompareFrom?: (hash: string) => void, onCompareTo?: (from: string, to: string) => void): SgContextMenuItem[] {
+export function getCommitMenuItems(
+  commit: Commit, currentBranch: string, showPrompt: ShowPrompt, requestCheckout: RequestCheckout,
+  onRebase?: OnRebase, compareFrom?: string | null, onCompareFrom?: (hash: string) => void, onCompareTo?: (from: string, to: string) => void,
+): SgContextMenuItem[] {
   const loc = t();
   const shortHash = commit.hash.substring(0, 7);
 
@@ -31,7 +35,7 @@ export function getCommitMenuItems(commit: Commit, currentBranch: string, showPr
 
   const branchRefs = commit.refs.filter(r => r.type === 'branch' || r.type === 'remote');
   for (const ref of branchRefs) {
-    items.push({ header: true, label: ref.name, action: () => postCommand({ type: 'checkout', branch: ref.name }) });
+    items.push({ header: true, label: ref.name, action: () => requestCheckout(ref.name) });
   }
   if (branchRefs.length > 0) items.push({ divider: true });
 
@@ -94,7 +98,7 @@ export function getCommitMenuItems(commit: Commit, currentBranch: string, showPr
     },
     { divider: true },
 
-    { label: loc.contextMenu.checkoutCommit, action: () => postCommand({ type: 'checkout', branch: commit.hash }) },
+    { label: loc.contextMenu.checkoutCommit, action: () => requestCheckout(commit.hash) },
     {
       label: loc.contextMenu.cherryPick,
       action: () => postCommand({

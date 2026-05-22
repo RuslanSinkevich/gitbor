@@ -58,7 +58,9 @@ export class CommandHandler {
   }
 
   // ─── Write ───
-  checkout(branch: string): Promise<OperationResult> { return Write.checkout(this.queue, this.git, this.safety, this.state, branch); }
+  checkout(branch: string, mode?: Write.CheckoutMode): Promise<OperationResult> {
+    return Write.checkout(this.queue, this.git, this.safety, this.state, branch, mode);
+  }
   fetch(remote?: string): Promise<OperationResult> { return Write.fetch(this.queue, this.git, this.state, remote); }
   pull(rebase?: boolean, autostash?: boolean): Promise<OperationResult> {
     return Write.pull(this.queue, this.git, this.safety, this.state, rebase, undefined, undefined, autostash);

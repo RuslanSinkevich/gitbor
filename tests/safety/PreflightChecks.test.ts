@@ -174,14 +174,11 @@ describe('PreflightChecks.check', () => {
     expect(report.issues.find(i => i.kind === 'unmerged_paths')).toBeUndefined();
   });
 
-  it('dirty tree + checkout → dirty_tree issue', async () => {
+  it('dirty tree + checkout → no dirty_tree (CheckoutDialog on renderer)', async () => {
     const { PreflightChecks } = await import('../../src/core/safety/PreflightChecks');
     const pre = new PreflightChecks(makeGit({ dirtyStatus: ' M src/a.ts\n M src/b.ts\n' }));
     const report = await pre.check(repoDir, 'checkout');
-    const dirty = report.issues.find(i => i.kind === 'dirty_tree');
-    expect(dirty).toBeDefined();
-    expect(dirty!.paths).toContain('src/a.ts');
-    expect(dirty!.paths).toContain('src/b.ts');
+    expect(report.issues.find(i => i.kind === 'dirty_tree')).toBeUndefined();
   });
 
   it('dirty tree + merge → NO dirty_tree issue (merge auto-stashes via SafetyNet)', async () => {

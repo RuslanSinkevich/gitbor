@@ -41,8 +41,14 @@ export interface PreflightOptions {
 
 /** Операции, для которых наличие MERGE_HEAD — критический блок. */
 const MERGE_BLOCKING_OPS = new Set(['merge', 'pull', 'rebase', 'cherry-pick', 'revert', 'checkout']);
-/** Операции, которые требуют чистого дерева. */
-const DIRTY_BLOCKING_OPS = new Set(['checkout', 'rebase']);
+/**
+ * Операции, которые в принципе несовместимы с dirty tree. `checkout`
+ * сюда не входит: UI открывает CheckoutDialog (keep/stash/discard) и
+ * сам решает, что делать с локальными изменениями. Если же checkout
+ * вызывает другую часть пайплайна без UI — git сам вернёт ошибку,
+ * классификатор её распознает и SafetyDialog отработает по обычной схеме.
+ */
+const DIRTY_BLOCKING_OPS = new Set(['rebase']);
 
 /**
  * Кэш per-repo на 500мс — гасит дубли preflight'а при быстрых

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { postCommand } from '../../api';
 import type { Branch } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { getBranchMenuItems } from './sidebarMenuItems';
 import type { ShowPrompt } from '../graph/commitMenuItems';
+import type { RequestCheckout } from '../checkout';
 import type { t } from '../../i18n';
 import s from './Sidebar.module.css';
 
@@ -81,11 +81,12 @@ interface BranchTreeItemProps {
   onSelectRef?: (hash: string) => void;
   onMerge?: (source: string) => void;
   showPrompt: ShowPrompt;
+  requestCheckout: RequestCheckout;
   /** Если задано — развёрнутость папок из родителя (persist в localStorage). */
   folderExpand?: BranchFolderExpand;
 }
 
-export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, folderExpand }: BranchTreeItemProps) {
+export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout, folderExpand }: BranchTreeItemProps) {
   const [expandedInternal, setExpandedInternal] = useState(() => node.branch?.isCurrent ? true : depth < 1);
   const expanded = folderExpand ? folderExpand.isExpanded(node.fullPath) : expandedInternal;
   const toggleExpanded = folderExpand
@@ -111,7 +112,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
             {node.children.map(child => (
               <BranchTreeItem key={child.fullPath} node={child} depth={depth + 1} nested
                 currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu}
-                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} folderExpand={folderExpand} />
+                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} />
             ))}
           </div>
         )}
@@ -124,8 +125,8 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
       <>
         <div className={`${s.item} ${rowItem} ${branch.isCurrent ? s.itemCurrent : ''}`}
           onClick={() => onSelectRef?.(branch.hash)}
-          onDoubleClick={() => !branch.isCurrent && postCommand({ type: 'checkout', branch: branch.name })}
-          onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getBranchMenuItems(branch, currentBranch, loc, showPrompt, onMerge)); }}>
+          onDoubleClick={() => !branch.isCurrent && requestCheckout(branch.name)}
+          onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getBranchMenuItems(branch, currentBranch, loc, showPrompt, requestCheckout, onMerge)); }}>
           <span className={s.itemName}>{node.segment}</span>
           {branch.isCurrent && <span className={s.itemBadge} title={loc.sidebar.current} aria-label={loc.sidebar.current} />}
           {branch.upstream && <span className={s.itemUpstream} title={branch.upstream}>↔</span>}
@@ -135,7 +136,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
             {node.children.map(child => (
               <BranchTreeItem key={child.fullPath} node={child} depth={depth + 1} nested
                 currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu}
-                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} folderExpand={folderExpand} />
+                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} />
             ))}
           </div>
         )}

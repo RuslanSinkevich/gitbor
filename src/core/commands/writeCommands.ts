@@ -186,7 +186,48 @@ async function safeWrite(
   });
 }
 
-export async function checkout(queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager, branch: string): Promise<OperationResult> {
+export type CheckoutMode = 'keep' | 'stash' | 'discard';
+
+/**
+ * Checkout с режимом локальных изменений (Fork-стиль):
+ *  - `keep`    — checkout без auto-stash. Если git не сможет перенести —
+ *                ошибка дойдёт до SafetyDialog как обычно.
+ *  - `stash`   — auto-stash через SafetyNet (текущее дефолтное поведение).
+ *  - `discard` — `git reset --hard HEAD` перед checkout. Необратимо;
+ *                UI должен явно подтвердить намерение.
+ */
+export async function checkout(
+  queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager,
+  branch: string, mode: CheckoutMode = 'stash',
+): Promise<OperationResult> {
+  if (mode === 'discard') {
+    return gitWrite(queue, state, 'checkout', async (timing) => {
+      const preStart = Date.now();
+      const blocked = await runPreflight(git, 'checkout');
+      timing.preflightMs = Date.now() - preStart;
+      if (blocked) return blocked;
+
+      const execStart = Date.now();
+      // reset --hard + checkout — две атомарные команды; rollback не делаем,
+      // discard сам по себе явный destructive выбор юзера.
+      const resetResult = await git.exec(['reset', '--hard', 'HEAD']);
+      if (resetResult.exitCode !== 0) {
+        timing.execMs = Date.now() - execStart;
+        return simpleResult(resetResult.exitCode, resetResult.stderr);
+      }
+      const r = await git.exec(['checkout', branch]);
+      timing.execMs = Date.now() - execStart;
+      return simpleResult(r.exitCode, r.stderr);
+    });
+  }
+
+  if (mode === 'keep') {
+    // Без auto-stash: SafetyNet не оборачиваем, ошибки от git идут напрямую
+    // через классификатор → SafetyDialog (`dirty_tree`, `untracked_overwrite`).
+    return gitExecSimple(queue, git, state, 'checkout', ['checkout', branch]);
+  }
+
+  // mode === 'stash' (default) — текущее поведение через SafetyNet с auto-stash.
   return safeWrite(queue, git, safety, state, 'checkout', { branch }, ['checkout', branch], 'Checkout failed');
 }
 

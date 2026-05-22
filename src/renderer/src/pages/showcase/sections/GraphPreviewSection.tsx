@@ -16,6 +16,7 @@ export function GraphPreviewSection() {
         currentBranch="main"
         onContextMenu={(e) => { e.preventDefault(); }}
         showPrompt={() => {}}
+        requestCheckout={() => {}}
       />
     </div>
   );

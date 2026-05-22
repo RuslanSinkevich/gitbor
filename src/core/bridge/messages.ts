@@ -53,7 +53,7 @@ export type RendererCommand =
   | { type: 'skipRebase' }
 
   // Git operations
-  | { type: 'checkout'; branch: string }
+  | { type: 'checkout'; branch: string; mode?: 'keep' | 'stash' | 'discard' }
   | { type: 'fetch'; remote?: string }
   | { type: 'pull'; rebase?: boolean; autostash?: boolean }
   | { type: 'pullFrom'; remote: string; branch: string; rebase?: boolean; autostash?: boolean }

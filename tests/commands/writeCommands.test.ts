@@ -127,12 +127,12 @@ describe('writeCommands', () => {
   });
 
   describe('checkout', () => {
-    it('delegates to safety.wrapDestructive with options', async () => {
+    it('mode stash delegates to safety.wrapDestructive', async () => {
       const git = makeMockGit();
       const queue = makeMockQueue();
       const state = makeMockState();
       const safety = makeMockSafety();
-      await Write.checkout(asQueue(queue), asGit(git), asSafety(safety), asState(state), 'develop');
+      await Write.checkout(asQueue(queue), asGit(git), asSafety(safety), asState(state), 'develop', 'stash');
       expect(safety.wrapDestructive).toHaveBeenCalledWith(
         'checkout',
         { branch: 'develop' },
@@ -140,6 +140,27 @@ describe('writeCommands', () => {
         expect.objectContaining({ allowedErrorClasses: expect.any(Array) }),
       );
       expect(git.exec).toHaveBeenCalledWith(['checkout', 'develop']);
+    });
+
+    it('mode keep runs plain git checkout', async () => {
+      const git = makeMockGit();
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const safety = makeMockSafety();
+      await Write.checkout(asQueue(queue), asGit(git), asSafety(safety), asState(state), 'feature', 'keep');
+      expect(safety.wrapDestructive).not.toHaveBeenCalled();
+      expect(git.exec).toHaveBeenCalledWith(['checkout', 'feature']);
+    });
+
+    it('mode discard resets hard then checkout', async () => {
+      const git = makeMockGit();
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const safety = makeMockSafety();
+      await Write.checkout(asQueue(queue), asGit(git), asSafety(safety), asState(state), 'main', 'discard');
+      expect(safety.wrapDestructive).not.toHaveBeenCalled();
+      expect(git.exec).toHaveBeenCalledWith(['reset', '--hard', 'HEAD']);
+      expect(git.exec).toHaveBeenCalledWith(['checkout', 'main']);
     });
   });
 

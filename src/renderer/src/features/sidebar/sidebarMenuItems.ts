@@ -3,13 +3,17 @@ import { postCommand, copyToClipboard } from '../../api';
 import type { Branch, Tag, Stash, Remote } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import type { ShowPrompt } from '../graph/commitMenuItems';
+import type { RequestCheckout } from '../checkout';
 
 type Loc = ReturnType<typeof import('../../i18n').t>;
 
-export function getBranchMenuItems(branch: Branch, currentBranch: string, loc: Loc, showPrompt: ShowPrompt, onMerge?: (source: string) => void): SgContextMenuItem[] {
+export function getBranchMenuItems(
+  branch: Branch, currentBranch: string, loc: Loc, showPrompt: ShowPrompt,
+  requestCheckout: RequestCheckout, onMerge?: (source: string) => void,
+): SgContextMenuItem[] {
   const items: SgContextMenuItem[] = [];
   if (!branch.isCurrent) {
-    items.push({ label: tpl(loc.contextMenu.checkout, { branch: branch.name }), action: () => postCommand({ type: 'checkout', branch: branch.name }) });
+    items.push({ label: tpl(loc.contextMenu.checkout, { branch: branch.name }), action: () => requestCheckout(branch.name) });
     items.push({ divider: true });
     items.push({
       label: tpl(loc.contextMenu.mergeInto, { source: branch.name, target: currentBranch }),
@@ -61,9 +65,9 @@ export function getBranchMenuItems(branch: Branch, currentBranch: string, loc: L
   return items;
 }
 
-export function getTagMenuItems(tag: Tag, loc: Loc, showPrompt: ShowPrompt): SgContextMenuItem[] {
+export function getTagMenuItems(tag: Tag, loc: Loc, showPrompt: ShowPrompt, requestCheckout: RequestCheckout): SgContextMenuItem[] {
   return [
-    { label: tpl(loc.contextMenu.checkout, { branch: tag.name }), action: () => postCommand({ type: 'checkout', branch: tag.name }) },
+    { label: tpl(loc.contextMenu.checkout, { branch: tag.name }), action: () => requestCheckout(tag.name) },
     { divider: true },
     {
       label: tpl(loc.contextMenu.delete, { name: tag.name }),

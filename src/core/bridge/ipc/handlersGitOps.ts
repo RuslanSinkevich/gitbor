@@ -9,7 +9,7 @@ import {
 
 /** Удалённые операции Git + индекс + merge/rebase-команды с телом. */
 export const ipcHandlersGitOps: HandlerTable = {
-  checkout: op('checkout', (cmd, ctx) => ctx.ch.checkout(cmd.branch)),
+  checkout: op('checkout', (cmd, ctx) => ctx.ch.checkout(cmd.branch, cmd.mode)),
   fetch: op('fetch', (cmd, ctx) => ctx.ch.fetch(cmd.remote)),
   pull: op('pull', (cmd, ctx) => ctx.ch.pull(cmd.rebase, cmd.autostash)),
   pullFrom: op('pull', (cmd, ctx) => ctx.ch.pullFrom(cmd.remote, cmd.branch, cmd.rebase, cmd.autostash)),

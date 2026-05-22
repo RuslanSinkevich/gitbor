@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { t } from '../../i18n';
-import { postCommand } from '../../api';
 import type { Branch, Tag, Stash, Remote } from '../../types';
+import type { RequestCheckout } from '../checkout';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { getTagMenuItems, getStashMenuItems, getRemoteMenuItems } from './sidebarMenuItems';
 import {
@@ -29,6 +29,7 @@ interface Props {
   onSelectRef?: (hash: string) => void;
   onMerge?: (source: string) => void;
   showPrompt: ShowPrompt;
+  requestCheckout: RequestCheckout;
 }
 
 interface SectionState { branches: boolean; remotes: boolean; tags: boolean; stashes: boolean }
@@ -37,7 +38,7 @@ const ICONS = { branch: '⎇', remote: '☁', tag: '🏷', stash: '📦', change
 
 export function Sidebar({
   repoPath, currentBranch, branches, tags, stashes, remotes,
-  localChangesCount, activeView, onContextMenu, onSwitchView, onSelectRef, onMerge, showPrompt,
+  localChangesCount, activeView, onContextMenu, onSwitchView, onSelectRef, onMerge, showPrompt, requestCheckout,
 }: Props) {
   const loc = t();
   const [filter, setFilter] = useState('');
@@ -134,7 +135,7 @@ export function Sidebar({
       <SidebarSection title={loc.sidebar.branches} icon={ICONS.branch} count={filteredLocal.length} expanded={sections.branches} onToggle={() => toggleSection('branches')}>
         {filteredLocal.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noBranches}</div>}
         {localTree.map(node => (
-          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} folderExpand={folderExpandLocal} />
+          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandLocal} />
         ))}
       </SidebarSection>
 
@@ -143,7 +144,7 @@ export function Sidebar({
         {remoteEntries.map(({ remote, remoteTree, remoteBranchSig }) => (
           <RemoteFolder key={remote.name} repoPath={repoPath} remote={remote} tree={remoteTree} remoteBranchSig={remoteBranchSig}
             currentBranch={currentBranch}
-            loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} />
+            loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} />
         ))}
       </SidebarSection>
 
@@ -152,8 +153,8 @@ export function Sidebar({
         {filteredTags.map(tag => (
           <div key={tag.name} className={s.item}
             onClick={() => onSelectRef?.(tag.hash)}
-            onDoubleClick={() => postCommand({ type: 'checkout', branch: tag.name })}
-            onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getTagMenuItems(tag, loc, showPrompt)); }}>
+            onDoubleClick={() => requestCheckout(tag.name)}
+            onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getTagMenuItems(tag, loc, showPrompt, requestCheckout)); }}>
             <span className={s.itemName}>{tag.name}</span>
           </div>
         ))}
@@ -177,10 +178,10 @@ export function Sidebar({
 
 /* ─── Sub-components ─── */
 
-function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt }: {
+function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout }: {
   repoPath: string;
   remote: Remote; tree: ReturnType<typeof buildBranchTree>; remoteBranchSig: string; currentBranch: string;
-  loc: ReturnType<typeof t>; onContextMenu: Props['onContextMenu']; onSelectRef?: (hash: string) => void; onMerge?: (source: string) => void; showPrompt: ShowPrompt;
+  loc: ReturnType<typeof t>; onContextMenu: Props['onContextMenu']; onSelectRef?: (hash: string) => void; onMerge?: (source: string) => void; showPrompt: ShowPrompt; requestCheckout: RequestCheckout;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [innerFolders, setInnerFolders] = useState<Set<string>>(() => {
@@ -221,7 +222,7 @@ function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, 
         <div className={s.treeChildren}>
           {tree.map(node => (
             <BranchTreeItem key={node.fullPath} node={node} depth={0} nested currentBranch={currentBranch} loc={loc}
-              onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} folderExpand={folderExpandRemote} />
+              onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandRemote} />
           ))}
         </div>
       )}

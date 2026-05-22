@@ -7,6 +7,7 @@ import { useContextMenu } from './hooks/useContextMenu';
 import { useMenuActions } from './hooks/useMenuActions';
 import { useOperationToasts } from './hooks/useOperationToasts';
 import { useSafetyDialog } from './hooks/useSafetyDialog';
+import { countCheckoutDirty, useCheckout } from './features/checkout';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useDialogs } from './hooks/useDialogs';
 import { useAutoFetch } from './hooks/useAutoFetch';
@@ -370,6 +371,11 @@ export function App() {
     for (const f of state.unstagedFiles) paths.add(f.path);
     return paths.size;
   }, [state.stagedFiles, state.unstagedFiles]);
+  const checkoutDirtyCount = useMemo(
+    () => countCheckoutDirty(state.stagedFiles, state.unstagedFiles),
+    [state.stagedFiles, state.unstagedFiles],
+  );
+  const { requestCheckout, checkoutDialog } = useCheckout(checkoutDirtyCount > 0, checkoutDirtyCount);
   // Показываем менеджер если юзер явно его открыл («+») ИЛИ если нет
   // открытых репо вовсе (RepoManager — единственный осмысленный экран).
   const repoManagerVisible = showRepoManager || !hasRepo;
@@ -557,7 +563,7 @@ export function App() {
                       activeView={viewMode}
                       onContextMenu={showContextMenu} onSwitchView={setViewMode}
                       onSelectRef={handleSelectRef} onMerge={handleOpenMergeDialog}
-                      showPrompt={showPrompt}
+                      showPrompt={showPrompt} requestCheckout={requestCheckout}
                     />
                   </aside>
                 }
@@ -570,6 +576,7 @@ export function App() {
                         selectCommit={selectCommit} openDiff={openDiff}
                         openFileHistory={openFileHistory} openFileBlame={openFileBlame}
                         showContextMenu={showContextMenu} showPrompt={showPrompt}
+                        requestCheckout={requestCheckout}
                         setRebaseOnto={setRebaseOnto}
                         compareFrom={compareFromHash}
                         onCompareFrom={setCompareFromHash}
@@ -626,6 +633,7 @@ export function App() {
       />
 
       {syncDialogs}
+      {checkoutDialog}
 
       {isDraggingFolder && (
         <div className={s.dropOverlay}>{loc.repoTabs.dnd.hint}</div>

@@ -256,6 +256,18 @@ export const en = {
     subtitle: 'Automatic merge failed. Fix conflicts and then commit the result.',
     conflict: 'CONFLICT',
   },
+  checkoutDialog: {
+    title: "Checkout '{branch}'",
+    intro: 'You have {count} uncommitted change(s). What should happen to them?',
+    keepTitle: 'Leave my changes',
+    keepHint: 'Try to switch branches without stashing. Git may refuse if files would be overwritten.',
+    stashTitle: 'Stash and restore',
+    stashHint: 'Save changes to stash, switch branch, then re-apply when you return.',
+    discardTitle: 'Discard local changes',
+    discardHint: 'Permanently reset tracked files to HEAD before checkout. This cannot be undone.',
+    confirm: 'Checkout',
+    cancel: 'Cancel',
+  },
   contextMenu: {
     checkout: "Checkout '{branch}'",
     push: 'Push',
