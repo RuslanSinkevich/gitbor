@@ -7,6 +7,7 @@ import { SafetyNet } from '../safety/SafetyNet';
 import { PreflightChecks } from '../safety/PreflightChecks';
 import { StateManager } from '../state/StateManager';
 import { GitErrorClassifier } from '../git/GitErrorClassifier';
+import { mainLogger } from '../utils/Logger';
 
 function simpleResult(exitCode: number, stderr: string): OperationResult {
   if (exitCode === 0) return { success: true, rollbackAvailable: false };
@@ -89,22 +90,50 @@ const HEAD_DELTA_OPS = new Set([
   'commit', 'merge', 'cherry-pick', 'revert', 'pull', 'rebase', 'reset', 'restoreReflog',
 ]);
 
+interface OpTiming {
+  enqueuedAt: number;
+  startedAt?: number;
+  preflightMs?: number;
+  execMs?: number;
+}
+
+/**
+ * Лог сводки таймингов операции: queue / preflight / exec / refresh / total.
+ * Без него регрессии перфа отслеживать невозможно — запросов десятки, а
+ * визуально все «быстрые».
+ */
+function logOpTiming(opName: string, t: OpTiming, refreshMs: number): void {
+  if (!t.startedAt) return;
+  const queueWaitMs = t.startedAt - t.enqueuedAt;
+  const totalMs = Date.now() - t.enqueuedAt;
+  mainLogger.info(
+    `op ${opName}: queue=${queueWaitMs}ms preflight=${t.preflightMs ?? 0}ms ` +
+    `exec=${t.execMs ?? 0}ms refresh=${refreshMs}ms total=${totalMs}ms`,
+  );
+}
+
 async function gitWrite(
   queue: OperationQueue, state: StateManager, opName: string,
-  fn: () => Promise<OperationResult>, refresh: RefreshFn = 'refreshAll',
+  fn: (timing: OpTiming) => Promise<OperationResult>, refresh: RefreshFn = 'refreshAll',
 ): Promise<OperationResult> {
   // Захватываем repoPath ДО enqueueWrite — операция должна refresh'ить
   // именно то репо, на котором её запустили, даже если пользователь успел
   // переключиться на другое до старта (или во время) операции.
   const targetRepo = state.getState().repoPath || undefined;
+  const timing: OpTiming = { enqueuedAt: Date.now() };
   return queue.enqueueWrite(opName, async () => {
-    const result = await fn();
-    // После failed commit/merge не гоняем полный refreshAll — лишние
-    // параллельные git-команды и гонки с index.lock; UI обновим лёгким status.
+    timing.startedAt = Date.now();
+    const result = await fn(timing);
+    // Каждая успешная write-операция инвалидирует preflight-кэш —
+    // следующая проверка должна увидеть актуальное состояние.
+    if (targetRepo) PreflightChecks.invalidateCache(targetRepo);
+
+    const refreshStart = Date.now();
     if (!result.success) {
       if (HEAD_DELTA_OPS.has(opName)) {
         await state.refreshStatusAndNotify(targetRepo);
       }
+      logOpTiming(opName, timing, Date.now() - refreshStart);
       return result;
     }
     if (refresh === 'refreshAll' && HEAD_DELTA_OPS.has(opName)) {
@@ -112,6 +141,7 @@ async function gitWrite(
     } else {
       await state[refresh](targetRepo);
     }
+    logOpTiming(opName, timing, Date.now() - refreshStart);
     return result;
   });
 }
@@ -120,21 +150,10 @@ async function gitExecSimple(
   queue: OperationQueue, git: GitExecutor, state: StateManager,
   opName: string, args: string[], refresh: RefreshFn = 'refreshAll',
 ): Promise<OperationResult> {
-  return gitWrite(queue, state, opName, async () => {
+  return gitWrite(queue, state, opName, async (timing) => {
+    const execStart = Date.now();
     const r = await git.exec(args);
-    return simpleResult(r.exitCode, r.stderr);
-  }, refresh);
-}
-
-/** gitExecSimple + pre-flight (lock, state-files, UU). */
-async function gitExecWithPreflight(
-  queue: OperationQueue, git: GitExecutor, state: StateManager,
-  opName: string, args: string[], refresh: RefreshFn = 'refreshAll',
-): Promise<OperationResult> {
-  return gitWrite(queue, state, opName, async () => {
-    const blocked = await runPreflight(git, opName);
-    if (blocked) return blocked;
-    const r = await git.exec(args);
+    timing.execMs = Date.now() - execStart;
     return simpleResult(r.exitCode, r.stderr);
   }, refresh);
 }
@@ -143,14 +162,17 @@ async function safeWrite(
   queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager,
   opName: string, meta: Record<string, string>, gitArgs: string[], errorPrefix: string,
 ): Promise<OperationResult> {
-  return gitWrite(queue, state, opName, async () => {
+  return gitWrite(queue, state, opName, async (timing) => {
     // Pre-flight: lock, state-files, UU. Не пускаем операцию в SafetyNet
     // если репо точно в нерабочем состоянии — иначе SafetyNet потащит
     // stash на UU и всё развалится так же, как раньше.
+    const preStart = Date.now();
     const blocked = await runPreflight(git, opName);
+    timing.preflightMs = Date.now() - preStart;
     if (blocked) return blocked;
 
-    return safety.wrapDestructive(
+    const execStart = Date.now();
+    const result = await safety.wrapDestructive(
       opName,
       meta,
       async () => {
@@ -159,6 +181,8 @@ async function safeWrite(
       },
       { allowedErrorClasses: allowedClassesFor(opName) },
     );
+    timing.execMs = Date.now() - execStart;
+    return result;
   });
 }
 
@@ -286,7 +310,10 @@ export async function stashDrop(queue: OperationQueue, git: GitExecutor, state: 
 export async function commit(queue: OperationQueue, git: GitExecutor, state: StateManager, message: string, amend?: boolean): Promise<OperationResult> {
   const args = ['commit', '-m', message];
   if (amend) args.push('--amend');
-  return gitExecWithPreflight(queue, git, state, 'commit', args);
+  // Без preflight по задаче safety-relaxation: commit терпит fresh lock
+  // (если он чужой — упадёт, классификатор пометит как lock_held и юзер
+  // увидит SafetyDialog; чаще же это наш только что отпустивший git).
+  return gitExecSimple(queue, git, state, 'commit', args);
 }
 
 export async function stageFile(queue: OperationQueue, git: GitExecutor, state: StateManager, file: string): Promise<OperationResult> {

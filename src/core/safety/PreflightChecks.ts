@@ -1,9 +1,14 @@
-import { existsSync, statSync, unlinkSync } from 'fs';
+import { existsSync, statSync } from 'fs';
 import { join } from 'path';
 import type { GitExecutor } from '../git/GitExecutor';
 import type { PreflightIssue, PreflightReport } from '../git/types';
 import { findGitProcesses } from './GitProcessDetector';
 import { mainLogger } from '../utils/Logger';
+import {
+  waitForLockRelease,
+  tryRemoveStaleLock,
+  type LockWaiterOptions,
+} from './LockWaiter';
 
 /**
  * Pre-flight проверки ПЕРЕД destructive операцией. Цель: не входить
@@ -14,8 +19,14 @@ import { mainLogger } from '../utils/Logger';
  *   - `ok=true` — все блокеры разрешены (stale-lock удалён молча,
  *     state-файлов нет, UU нет);
  *   - `ok=false` — есть `issues[]`, юзер должен решить через SafetyDialog;
- *   - проверки read-only, кроме автоудаления stale `index.lock` (см.
- *     STALE_LOCK_AGE_MS — это backport уже работающего RecoveryManager).
+ *   - проверки read-only, кроме автоудаления stale `index.lock`.
+ *
+ * Стратегия для lock:
+ *   1. `LockWaiter` ждёт освобождения exponential-backoff (≈3.1с) — это
+ *      Fork-стиль: типичный git-вызов укладывается, диалог не нужен.
+ *   2. Если waiter не дождался, но lock не двинулся и старше staleAgeMs —
+ *      удаляем молча (stale).
+ *   3. Иначе — issue 'lock_held_fresh' + git-процессы в payload.
  */
 export const STALE_LOCK_AGE_MS = 15_000;
 
@@ -24,6 +35,8 @@ export interface PreflightOptions {
   checkDirtyTree?: boolean;
   /** Не удалять stale lock автоматически (для тестов). */
   noAutoRemoveStaleLock?: boolean;
+  /** Подменить параметры lock-waiter (для тестов: `delays: []`). */
+  lockWaiter?: LockWaiterOptions;
 }
 
 /** Операции, для которых наличие MERGE_HEAD — критический блок. */
@@ -31,7 +44,21 @@ const MERGE_BLOCKING_OPS = new Set(['merge', 'pull', 'rebase', 'cherry-pick', 'r
 /** Операции, которые требуют чистого дерева. */
 const DIRTY_BLOCKING_OPS = new Set(['checkout', 'rebase']);
 
+/**
+ * Кэш per-repo на 500мс — гасит дубли preflight'а при быстрых
+ * повторных кликах (двойной checkout, repeat fetch). Кэшируем только
+ * ok=true: ok=false должен пересчитываться, иначе застрянем в
+ * "lock_held_fresh" даже после того как процесс завершился.
+ */
+interface CacheEntry {
+  time: number;
+  report: PreflightReport;
+}
+const PREFLIGHT_CACHE_MS = 500;
+
 export class PreflightChecks {
+  private static readonly okCache = new Map<string, CacheEntry>();
+
   constructor(private readonly git: GitExecutor) {}
 
   async check(
@@ -39,18 +66,41 @@ export class PreflightChecks {
     operation: string,
     opts: PreflightOptions = {},
   ): Promise<PreflightReport> {
+    const cacheKey = `${repoPath}|${operation}|${opts.checkDirtyTree ? 1 : 0}`;
+    const cached = PreflightChecks.okCache.get(cacheKey);
+    if (cached && Date.now() - cached.time < PREFLIGHT_CACHE_MS) {
+      return cached.report;
+    }
+
     const issues: PreflightIssue[] = [];
     const gitDir = join(repoPath, '.git');
 
     await this.checkLock(gitDir, repoPath, issues, opts);
     await this.checkStateFiles(gitDir, operation, issues);
-    await this.checkUnmergedPaths(operation, issues);
 
-    if (opts.checkDirtyTree || DIRTY_BLOCKING_OPS.has(operation)) {
-      await this.checkDirtyTree(issues);
+    const dirtyAlso = opts.checkDirtyTree || DIRTY_BLOCKING_OPS.has(operation);
+    const parallelChecks: Promise<void>[] = [this.checkUnmergedPaths(operation, issues)];
+    if (dirtyAlso) parallelChecks.push(this.checkDirtyTree(issues));
+    await Promise.all(parallelChecks);
+
+    const report: PreflightReport = { ok: issues.length === 0, issues };
+    if (report.ok) {
+      PreflightChecks.okCache.set(cacheKey, { time: Date.now(), report });
+    } else {
+      PreflightChecks.okCache.delete(cacheKey);
     }
+    return report;
+  }
 
-    return { ok: issues.length === 0, issues };
+  /** Инвалидировать кэш per-repo (после write-операций). */
+  static invalidateCache(repoPath?: string): void {
+    if (!repoPath) {
+      PreflightChecks.okCache.clear();
+      return;
+    }
+    for (const key of PreflightChecks.okCache.keys()) {
+      if (key.startsWith(`${repoPath}|`)) PreflightChecks.okCache.delete(key);
+    }
   }
 
   private async checkLock(
@@ -62,34 +112,40 @@ export class PreflightChecks {
     const lockPath = join(gitDir, 'index.lock');
     if (!existsSync(lockPath)) return;
 
-    let ageMs: number;
+    let initialAgeMs: number;
     try {
-      ageMs = Date.now() - statSync(lockPath).mtimeMs;
+      initialAgeMs = Date.now() - statSync(lockPath).mtimeMs;
     } catch {
-      return; // гонка: пропал между existsSync и statSync
+      return;
     }
 
-    if (ageMs >= STALE_LOCK_AGE_MS && !opts.noAutoRemoveStaleLock) {
-      try {
-        unlinkSync(lockPath);
-        mainLogger.info(`preflight: removed stale .git/index.lock (age=${Math.round(ageMs / 1000)}s)`);
-        return;
-      } catch (err) {
-        mainLogger.warn(`preflight: failed to remove stale lock: ${err instanceof Error ? err.message : String(err)}`);
-        issues.push({
-          kind: 'lock_stale',
-          description: `Stale .git/index.lock (age ${Math.round(ageMs / 1000)}s) — cannot remove.`,
-          autoFixable: true,
-        });
-        return;
-      }
+    if (initialAgeMs >= STALE_LOCK_AGE_MS && !opts.noAutoRemoveStaleLock) {
+      if (tryRemoveStaleLock(lockPath)) return;
+      issues.push({
+        kind: 'lock_stale',
+        description: `Stale .git/index.lock (age ${Math.round(initialAgeMs / 1000)}s) — cannot remove.`,
+        autoFixable: true,
+      });
+      return;
     }
 
-    // Свежий lock — пытаемся найти git-процессы для информативного диалога.
+    const waiter = await waitForLockRelease(lockPath, opts.lockWaiter);
+    if (waiter.released) {
+      mainLogger.debug(`preflight: lock released after ${waiter.waitedMs}ms wait`);
+      return;
+    }
+
+    if (waiter.staleSuspect && !opts.noAutoRemoveStaleLock) {
+      mainLogger.info(
+        `preflight: lock did not move during ${waiter.waitedMs}ms wait and age ${Math.round((waiter.finalAgeMs ?? 0) / 1000)}s — treating as stale`,
+      );
+      if (tryRemoveStaleLock(lockPath)) return;
+    }
+
     const procs = await findGitProcesses(repoPath).catch(() => []);
     issues.push({
       kind: 'lock_held_fresh',
-      description: `Another git process is holding .git/index.lock (age ${Math.round(ageMs / 1000)}s).`,
+      description: `Another git process is holding .git/index.lock (age ${Math.round((waiter.finalAgeMs ?? initialAgeMs) / 1000)}s, waited ${waiter.waitedMs}ms).`,
       autoFixable: false,
       gitProcesses: procs.length > 0 ? procs : undefined,
     });
@@ -111,7 +167,6 @@ export class PreflightChecks {
 
     for (const c of checks) {
       if (!existsSync(join(gitDir, c.file))) continue;
-      // Блокируем только операции, которые точно конфликтуют с этим состоянием.
       if (!this.shouldBlockOnState(operation, c.kind)) continue;
       issues.push({ kind: c.kind, description: c.desc, autoFixable: false });
     }
@@ -119,14 +174,12 @@ export class PreflightChecks {
 
   private shouldBlockOnState(operation: string, kind: PreflightIssue['kind']): boolean {
     if (kind === 'bisect_in_progress') {
-      // bisect блокирует только write-ops, не checkout (его сам bisect делает).
       return MERGE_BLOCKING_OPS.has(operation);
     }
     return MERGE_BLOCKING_OPS.has(operation);
   }
 
   private async checkUnmergedPaths(operation: string, issues: PreflightIssue[]): Promise<void> {
-    // UU блокирует любую destructive операцию, кроме самих merge-резолверов.
     if (operation === 'completeMerge' || operation === 'abortMerge' ||
         operation === 'resolveOurs' || operation === 'resolveTheirs') return;
 
@@ -134,7 +187,7 @@ export class PreflightChecks {
     try {
       result = await this.git.exec(['diff', '--name-only', '--diff-filter=U']);
     } catch {
-      return; // если git упал — лучше пропустить, чем заблокировать UI
+      return;
     }
     const paths = result.stdout.trim().split('\n').filter(Boolean);
     if (paths.length === 0) return;

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { SgDialog } from '../../ui/SgDialog';
 import { t, tpl } from '../../i18n';
 import type {
@@ -37,22 +37,36 @@ interface SafetyDialogProps {
  * Универсальный диалог для всех safety-кейсов. Не дублирует MergeBanner
  * (этот — модальный, явный выбор пути). Принимает payload и список
  * suggestedActions; кнопки маппит через i18n.
+ *
+ * UX: первая non-cancel/ignore-кнопка получает autoFocus и реагирует
+ * на Enter — чтобы юзер мог быстро принять «безопасный default»
+ * (continue/retry/remove_lock), как в Fork.
  */
 export function SafetyDialog({ payload, onAction, onClose }: SafetyDialogProps) {
   const loc = t();
+  const primaryBtnRef = useRef<HTMLButtonElement>(null);
 
   const title = useMemo(() => {
     if (!payload) return '';
     return safetyTitle(payload.errorClass, loc);
   }, [payload, loc]);
 
+  const primaryIndex = useMemo(() => {
+    if (!payload) return -1;
+    return payload.suggestedActions.findIndex(
+      (a) => !isDangerKind(a.kind) && a.kind !== 'cancel' && a.kind !== 'ignore',
+    );
+  }, [payload]);
+
+  useEffect(() => {
+    if (!payload || primaryIndex < 0) return;
+    const t = setTimeout(() => primaryBtnRef.current?.focus(), 0);
+    return () => clearTimeout(t);
+  }, [payload, primaryIndex]);
+
   if (!payload) return null;
 
   const description = safetyDescription(payload.errorClass, loc);
-
-  const dangerKinds = new Set<SuggestedAction['kind']>([
-    'kill_git_process', 'remove_lock', 'drop_stash', 'abort_merge', 'abort_rebase', 'rollback',
-  ]);
 
   return (
     <SgDialog
@@ -64,7 +78,8 @@ export function SafetyDialog({ payload, onAction, onClose }: SafetyDialogProps) 
         <div className={s.actions}>
           {payload.suggestedActions.map((act, i) => {
             const label = actionLabel(act, loc);
-            const isDanger = dangerKinds.has(act.kind);
+            const isDanger = isDangerKind(act.kind);
+            const isPrimary = i === primaryIndex;
             const variant =
               act.kind === 'cancel' || act.kind === 'ignore' ? 'ghost'
                 : isDanger ? 'danger'
@@ -72,6 +87,7 @@ export function SafetyDialog({ payload, onAction, onClose }: SafetyDialogProps) 
             return (
               <button
                 key={`${act.kind}-${i}`}
+                ref={isPrimary ? primaryBtnRef : undefined}
                 className={`sg-button sg-button--md sg-button--${variant}`}
                 onClick={() => onAction(act)}
                 disabled={payload.busy}
@@ -135,6 +151,14 @@ export function SafetyDialog({ payload, onAction, onClose }: SafetyDialogProps) 
 }
 
 type Loc = ReturnType<typeof t>;
+
+const DANGER_KINDS = new Set<SuggestedAction['kind']>([
+  'kill_git_process', 'remove_lock', 'drop_stash', 'abort_merge', 'abort_rebase', 'rollback',
+]);
+
+function isDangerKind(kind: SuggestedAction['kind']): boolean {
+  return DANGER_KINDS.has(kind);
+}
 
 function safetyTitle(cls: GitErrorClass, loc: Loc): string {
   const titles = loc.safety.titles;

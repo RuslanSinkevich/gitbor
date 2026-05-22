@@ -1,7 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { describe, it, expect, vi } from 'vitest';
 import { OperationQueue } from '../../src/core/safety/OperationQueue';
 
 vi.mock('../../src/core/utils/Logger', () => ({
@@ -118,41 +115,24 @@ describe('OperationQueue', () => {
     expect(maxParallel).toBe(1);
   });
 
-  it('blocks reads while a write is running', async () => {
+  it('runs reads in parallel with an in-flight write (no UI freeze)', async () => {
     const q = new OperationQueue();
     const order: string[] = [];
     const w = q.enqueueWrite('w', async () => {
       await new Promise(r => setTimeout(r, 40));
       order.push('w-done');
     });
-    // запускаем read с задержкой, чтобы он гарантированно встал в очередь после write.
+    // Read должен стартануть, не ожидая write — иначе фоновые обновления
+    // (status/log) залипают, когда юзер кликает commit/checkout.
     await new Promise(r => setTimeout(r, 5));
     const r = q.enqueueRead('r', async () => { order.push('r-done'); });
     await Promise.all([w, r]);
-    expect(order).toEqual(['w-done', 'r-done']);
-  });
-});
-
-describe('OperationQueue lock-meta', () => {
-  let repoDir: string;
-  beforeEach(() => {
-    repoDir = mkdtempSync(join(tmpdir(), 'gitbor-queue-'));
-    mkdirSync(join(repoDir, '.git'), { recursive: true });
-  });
-  afterEach(() => {
-    try { rmSync(repoDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    expect(order).toEqual(['r-done', 'w-done']);
   });
 
-  it('does NOT block when lock file exists (just logs meta)', async () => {
-    writeFileSync(join(repoDir, '.git', 'index.lock'), '');
+  it('accepts repoPath option for backward compatibility', async () => {
     const q = new OperationQueue();
-    const result = await q.enqueueWrite('op', async () => 'ok', { repoPath: repoDir });
-    expect(result).toBe('ok');
-  });
-
-  it('works without repoPath option (backward-compat)', async () => {
-    const q = new OperationQueue();
-    const result = await q.enqueueWrite('op', async () => 'ok');
+    const result = await q.enqueueWrite('op', async () => 'ok', { repoPath: '/tmp/x' });
     expect(result).toBe('ok');
   });
 });

@@ -16,10 +16,15 @@ vi.mock('../../src/core/safety/GitProcessDetector', () => ({
 let repoDir: string;
 let gitDir: string;
 
-beforeEach(() => {
+// В юнит-тестах не ждём реальные 3с lock-waiter'а — отключаем backoff.
+const FAST_LOCK = { lockWaiter: { delays: [], hardTimeoutMs: 1 } } as const;
+
+beforeEach(async () => {
   repoDir = mkdtempSync(join(tmpdir(), 'gitbor-preflight-'));
   gitDir = join(repoDir, '.git');
   mkdirSync(gitDir, { recursive: true });
+  const { PreflightChecks } = await import('../../src/core/safety/PreflightChecks');
+  PreflightChecks.invalidateCache();
 });
 
 afterEach(() => {
@@ -60,11 +65,24 @@ describe('PreflightChecks.check', () => {
     writeFileSync(join(gitDir, 'index.lock'), '');
     const { PreflightChecks } = await import('../../src/core/safety/PreflightChecks');
     const pre = new PreflightChecks(makeGit());
-    const report = await pre.check(repoDir, 'merge');
+    const report = await pre.check(repoDir, 'merge', FAST_LOCK);
     expect(report.ok).toBe(false);
     const lockIssue = report.issues.find(i => i.kind === 'lock_held_fresh');
     expect(lockIssue).toBeDefined();
     expect(existsSync(join(gitDir, 'index.lock'))).toBe(true);
+  });
+
+  it('fresh lock released during wait → no issue', async () => {
+    const lockPath = join(gitDir, 'index.lock');
+    writeFileSync(lockPath, '');
+    const { PreflightChecks } = await import('../../src/core/safety/PreflightChecks');
+    const pre = new PreflightChecks(makeGit());
+    // Удаляем lock через 5мс — waiter с задержкой 30мс должен это поймать.
+    setTimeout(() => { try { rmSync(lockPath); } catch { /* ignore */ } }, 5);
+    const report = await pre.check(repoDir, 'merge', {
+      lockWaiter: { delays: [30], hardTimeoutMs: 200 },
+    });
+    expect(report.issues.find(i => i.kind === 'lock_held_fresh')).toBeUndefined();
   });
 
   it('stale lock (>15s) → silently removed, no issue', async () => {
@@ -180,11 +198,23 @@ describe('PreflightChecks.check', () => {
 
     const { PreflightChecks } = await import('../../src/core/safety/PreflightChecks');
     const pre = new PreflightChecks(makeGit({ uuFiles: ['a.ts'] }));
-    const report = await pre.check(repoDir, 'merge');
+    const report = await pre.check(repoDir, 'merge', FAST_LOCK);
     expect(report.ok).toBe(false);
     expect(report.issues.length).toBeGreaterThanOrEqual(3);
     expect(report.issues.map(i => i.kind)).toContain('merge_in_progress');
     expect(report.issues.map(i => i.kind)).toContain('lock_held_fresh');
     expect(report.issues.map(i => i.kind)).toContain('unmerged_paths');
+  });
+
+  it('caches ok-reports per repo for 500ms', async () => {
+    const { PreflightChecks } = await import('../../src/core/safety/PreflightChecks');
+    const git = makeGit();
+    const pre = new PreflightChecks(git);
+    const first = await pre.check(repoDir, 'merge');
+    const second = await pre.check(repoDir, 'merge');
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    // Второй вызов должен вернуть закешированный экземпляр.
+    expect(second).toBe(first);
   });
 });

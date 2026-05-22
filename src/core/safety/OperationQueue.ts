@@ -1,5 +1,3 @@
-import { existsSync, statSync } from 'fs';
-import { join } from 'path';
 import { mainLogger } from '../utils/Logger';
 
 type StatusListener = (running: boolean, operation: string | null) => void;
@@ -12,15 +10,23 @@ interface QueueItem {
 
 export interface EnqueueWriteOptions {
   /**
-   * Если задан — перед стартом операции проверим `.git/index.lock` в этом
-   * репо. Это лёгкая страховка на случай если safety не сделал свой
-   * preflight (например, для прямых enqueueWrite в CommandHandler).
-   * Информация попадёт в логи через debug, операцию НЕ блокируем —
-   * preflight в SafetyNet/writeCommands отвечает за это однозначнее.
+   * Опция оставлена для совместимости — `OperationQueue` больше не
+   * делает синхронных меток про `index.lock` (это размывало роль
+   * `PreflightChecks`/`LockWaiter`). Передавать необязательно.
    */
   repoPath?: string;
 }
 
+/**
+ * Per-repo очередь git-операций. В пределах одной репы write-операции
+ * сериализуются (git не любит конкурентные индексные записи), но read'ы
+ * (status/log/diff) ходят параллельно — и параллельно с write'ом тоже:
+ * git это терпит, данные могут чуть отставать, но UI не залипает.
+ *
+ * Между репозиториями нет общего mutex'а — каждое репо имеет свой
+ * экземпляр `OperationQueue` через `RepoServicesRegistry`, так что
+ * длинный `pull` на A не блокирует `checkout` на B.
+ */
 export class OperationQueue {
   private writeRunning = false;
   private readCount = 0;
@@ -48,14 +54,13 @@ export class OperationQueue {
     });
   }
 
-  async enqueueWrite<T>(label: string, op: () => Promise<T>, opts?: EnqueueWriteOptions): Promise<T> {
+  async enqueueWrite<T>(label: string, op: () => Promise<T>, _opts?: EnqueueWriteOptions): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       this.queue.push({
         type: 'write',
         label,
         execute: async () => {
           const started = Date.now();
-          if (opts?.repoPath) this.checkLockMeta(opts.repoPath, label);
           try {
             resolve(await op());
           } catch (e) {
@@ -67,17 +72,6 @@ export class OperationQueue {
       });
       this.processQueue();
     });
-  }
-
-  private checkLockMeta(repoPath: string, label: string): void {
-    try {
-      const lockPath = join(repoPath, '.git', 'index.lock');
-      if (!existsSync(lockPath)) return;
-      const age = Date.now() - statSync(lockPath).mtimeMs;
-      mainLogger.debug(`queue.write ${label}: pre-existing index.lock (age=${Math.round(age / 1000)}s)`);
-    } catch {
-      // best-effort meta — не блокируем
-    }
   }
 
   isWriteRunning(): boolean {
@@ -99,19 +93,27 @@ export class OperationQueue {
     };
   }
 
-  private async processQueue(): Promise<void> {
+  private processQueue(): void {
     if (this.queue.length === 0) return;
 
-    const next = this.queue[0];
+    // 1) Все pending read'ы с головы — параллельно (и параллельно с
+    //    уже идущим write'ом, если он есть).
+    this.drainAndRunReads();
 
-    if (next.type === 'write') {
-      if (this.writeRunning || this.readCount > 0) return;
+    // 2) Если уже что-то пишется или голова не write — выходим.
+    if (this.writeRunning) return;
+    if (this.queue.length === 0 || this.queue[0].type !== 'write') return;
 
-      this.queue.shift();
-      this.writeRunning = true;
-      this.currentLabel = next.label;
-      this.notify(true, next.label);
+    const next = this.queue.shift()!;
+    this.writeRunning = true;
+    this.currentLabel = next.label;
+    this.notify(true, next.label);
 
+    // 3) После того как write ушёл с головы, в очереди могут оказаться
+    //    read'ы — их можно запустить параллельно с этим write'ом.
+    this.drainAndRunReads();
+
+    void (async () => {
       try {
         await next.execute();
       } finally {
@@ -120,29 +122,36 @@ export class OperationQueue {
         this.notify(false, null);
         this.processQueue();
       }
-    } else {
-      if (this.writeRunning) return;
+    })();
+  }
 
-      const reads: QueueItem[] = [];
-      while (this.queue.length > 0 && this.queue[0].type === 'read') {
-        reads.push(this.queue.shift()!);
-      }
+  private drainAndRunReads(): void {
+    const reads = this.drainHeadReads();
+    if (reads.length === 0) return;
+    this.readCount += reads.length;
+    void Promise.all(
+      reads.map(async (item) => {
+        try {
+          await item.execute();
+        } finally {
+          this.readCount--;
+        }
+      }),
+    ).then(() => {
+      if (this.readCount === 0 && !this.writeRunning) this.processQueue();
+    });
+  }
 
-      this.readCount += reads.length;
-
-      await Promise.all(
-        reads.map(async (item) => {
-          try {
-            await item.execute();
-          } finally {
-            this.readCount--;
-            if (this.readCount === 0) {
-              this.processQueue();
-            }
-          }
-        })
-      );
+  /**
+   * Снять с головы очереди подряд идущие read'ы — их можно стартовать
+   * параллельно (и параллельно с уже идущим write'ом тоже).
+   */
+  private drainHeadReads(): QueueItem[] {
+    const reads: QueueItem[] = [];
+    while (this.queue.length > 0 && this.queue[0].type === 'read') {
+      reads.push(this.queue.shift()!);
     }
+    return reads;
   }
 
   private notify(running: boolean, operation: string | null): void {
