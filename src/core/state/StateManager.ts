@@ -80,6 +80,10 @@ export class StateManager {
     return this.refresher.refreshStatus(repoPath);
   }
 
+  refreshStatIndex(repoPath?: string): Promise<void> {
+    return this.refresher.refreshStatIndex(repoPath);
+  }
+
   refreshGraph(maxCount = 0, repoPath?: string): Promise<void> {
     return this.refresher.refreshGraph(maxCount, repoPath);
   }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { FileStatus } from '../../types';
+import { t } from '../../i18n';
 import s from './LocalChanges.module.css';
 import { collectFiles, type FileTreeNode } from './fileTreeModel';
 
@@ -112,16 +113,24 @@ export function FileTreeItem({
     const file = node.file;
     const isFocused = focusedPath === file.path;
     const isFileActive = activePath === file.path && activeSection === section;
+    const isStatDirty = file.statDirty === true;
+    const loc = t();
     return (
-      <div className={`${s.fileItem} ${file.status === 'U' ? s.fileItemConflict : ''} ${isFileActive ? s.fileItemActive : ''} ${isFocused ? s.fileItemFocused : ''}`}
-        style={{ paddingLeft }} onClick={() => onClickFile(file)}
+      <div
+        className={`${s.fileItem} ${file.status === 'U' ? s.fileItemConflict : ''} ${isFileActive ? s.fileItemActive : ''} ${isFocused ? s.fileItemFocused : ''}`}
+        style={{ paddingLeft, ...(isStatDirty ? { opacity: 0.55 } : null) }}
+        title={isStatDirty ? loc.diff.statDirtyTooltip : undefined}
+        onClick={() => onClickFile(file)}
         onDoubleClick={() => onDoubleClickFile?.(file)}
-        onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, file); }}>
+        onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, file); }}
+      >
         {/* Spacer той же ширины, что arrow у папок: без него имена файлов и
             папок на одном уровне депта оказываются на разных x-координатах,
             и файлы визуально «торчат» влево от папок-сиблингов. */}
         <span className={s.treeArrowPlaceholder} aria-hidden="true" />
-        <span className={`${s.statusIcon} ${statusCls(file.status)}`}>{statusIcon(file.status)}</span>
+        <span className={`${s.statusIcon} ${statusCls(file.status)}`}>
+          {isStatDirty ? '·' : statusIcon(file.status)}
+        </span>
         <span className={s.fileName}>{node.name}</span>
       </div>
     );

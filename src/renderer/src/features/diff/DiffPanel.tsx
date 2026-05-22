@@ -81,6 +81,22 @@ export function DiffPanel({ file, hash }: Props) {
     return <div className={s.empty}>{loc.diff.noDiff}</div>;
   }
 
+  const firstDiff = diffs[0];
+  if (firstDiff?.statDirty) {
+    return (
+      <div className={s.empty} style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 24, textAlign: 'center', alignItems: 'center' }}>
+        <div style={{ fontWeight: 600 }}>{loc.diff.statDirtyTitle}</div>
+        <div style={{ opacity: 0.7, maxWidth: 420 }}>{loc.diff.statDirtyHint}</div>
+        <button
+          className="sg-button sg-button--md sg-button--primary"
+          onClick={() => postCommand({ type: 'refreshStatIndex' })}
+        >
+          {loc.diff.statDirtyRefresh}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <>
       {diffs.map((d, i) => (

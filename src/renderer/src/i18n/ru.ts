@@ -168,6 +168,10 @@ export const ru: LocaleMap = {
     statusRenamed: 'Переименован',
     statusCopied: 'Скопирован',
     ignoreWhitespace: 'Без пробелов',
+    statDirtyTitle: 'Нет реальных изменений',
+    statDirtyHint: 'Изменилась только метаинформация файла (mtime), содержимое идентично. Обычно это format-on-save или другие внешние инструменты потрогали файл.',
+    statDirtyRefresh: 'Обновить индекс',
+    statDirtyTooltip: 'Нет реальных изменений (stat-dirty)',
   },
   fileHistory: {
     loading: 'Загрузка истории...',

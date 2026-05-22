@@ -31,6 +31,7 @@ export type RendererCommand =
   | { type: 'ready' }
   | { type: 'getState' }
   | { type: 'refreshAll' }
+  | { type: 'refreshStatIndex' }
   | { type: 'getCommitDetails'; hash: string }
   | { type: 'getGraphData'; maxCount: number }
   | { type: 'getFileDiff'; file: string; hash: string; ignoreWhitespace?: boolean }

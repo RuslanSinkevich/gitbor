@@ -50,6 +50,13 @@ export interface FileStatus {
   path: string;
   status: 'M' | 'A' | 'D' | 'R' | 'U' | '?';
   staged: boolean;
+  /**
+   * Файл попал в status как `M` из-за stat-dirty (mtime изменилась,
+   * содержимое — нет). Backend выставляет когда успевает проверить
+   * `git diff --numstat` (≤20 M-файлов в статусе). UI рендерит
+   * такие строки тусклыми с подсказкой.
+   */
+  statDirty?: boolean;
 }
 
 export interface FileChange {

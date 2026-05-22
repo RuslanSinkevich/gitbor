@@ -15,6 +15,9 @@ export const ipcHandlersState: HandlerTable = {
     const state = ctx.sm.getState();
     ctx.send({ type: 'fullState', data: state });
   },
+  refreshStatIndex: async (_cmd, ctx) => {
+    await ctx.sm.refreshStatIndex();
+  },
 
   getCommitDetails: async (cmd, ctx) => {
     const detail = await ctx.ch.getCommitDetails(cmd.hash);

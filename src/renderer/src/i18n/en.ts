@@ -166,6 +166,10 @@ export const en = {
     statusRenamed: 'Renamed',
     statusCopied: 'Copied',
     ignoreWhitespace: 'Ignore Whitespace',
+    statDirtyTitle: 'No actual changes',
+    statDirtyHint: 'File metadata changed but content is identical. This usually happens after format-on-save or external tools touched the file.',
+    statDirtyRefresh: 'Refresh index',
+    statDirtyTooltip: 'No actual changes (stat-dirty)',
   },
   fileHistory: {
     loading: 'Loading history...',

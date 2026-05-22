@@ -20,6 +20,13 @@ export interface FileDiff {
   status: 'added' | 'modified' | 'deleted' | 'renamed' | 'copied';
   hunks: DiffHunk[];
   isBinary: boolean;
+  /**
+   * Stat-dirty: файл tracked, git status пометил как `M`, но реальных
+   * изменений нет (mtime потрогана внешним инструментом — format-on-save,
+   * Cursor и т.п.). Renderer показывает пустой стейт с подсказкой
+   * и кнопкой «Refresh index», а не «новый файл».
+   */
+  statDirty?: boolean;
 }
 
 export interface BlameLine {

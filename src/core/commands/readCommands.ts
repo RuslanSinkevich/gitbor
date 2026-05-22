@@ -83,6 +83,20 @@ export async function getFileDiff(
       const result = await git.exec(['diff', ...wsFlag, '--', file]);
       if (result.stdout.trim()) return parseDiff(result.stdout);
 
+      // Diff пустой. Если файл tracked — это stat-dirty (mtime тронута
+      // внешним инструментом, контент идентичен). Без этой ветки UI
+      // рендерил бы файл как «новый/добавленный» через --no-index.
+      const trackedCheck = await git.exec(['ls-files', '--error-unmatch', '--', file]);
+      if (trackedCheck.exitCode === 0) {
+        return [{
+          path: file,
+          status: 'modified',
+          hunks: [],
+          isBinary: false,
+          statDirty: true,
+        }];
+      }
+
       const nullDev = process.platform === 'win32' ? 'NUL' : '/dev/null';
       const untrackedResult = await git.exec(
         ['diff', '--no-index', ...wsFlag, '--', nullDev, file]

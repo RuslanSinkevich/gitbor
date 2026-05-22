@@ -2,6 +2,7 @@ import * as GitParser from '../git/GitParser';
 import { loadGraphCache, saveGraphCache } from './GraphCache';
 import { perfMark, perfLog } from '../utils/perf';
 import { RepoServicesRegistry } from '../services/RepoServicesRegistry';
+import type { GitExecutor } from '../git/GitExecutor';
 import { workerPool } from '../workers/WorkerPool';
 import { isDangerousRepoRoot } from '../utils/repoPathGuard';
 import {
@@ -201,6 +202,15 @@ export class RepoStateRefresher {
     const isActive = target === this.state.repoPath;
 
     try {
+      // Перед status — пробежать stat-кэш индекса. Без этого внешние
+      // touch'и (format-on-save, Cursor, lint-fix) оставляют файл в
+      // status как `M` хотя содержимое идентично. `--refresh` возвращает
+      // non-zero, если есть реальные модификации — это норма, поэтому
+      // exitCode игнорируем; никаких побочных эффектов кроме обновления
+      // stat-инфы в `.git/index` нет.
+      await git.exec(['update-index', '--refresh']).catch(() => undefined);
+      if (slice.token !== startToken) return;
+
       // Адаптивный режим untracked:
       // - `=all` для нормальных репо: показываем КАЖДЫЙ untracked-файл
       //   отдельной строкой. Без этого новая папка типа `docs/audit/` со
@@ -223,6 +233,27 @@ export class RepoStateRefresher {
       const parsed = workerPool.parseStatus(statusResult.stdout);
       const allFiles = parsed instanceof Promise ? await parsed : parsed;
       if (slice.token !== startToken) return;
+
+      // Backend-детекция stat-dirty: для каждого unstaged `M` проверяем
+      // `git diff --numstat`. Если (0,0) — фактических изменений нет,
+      // помечаем `statDirty`. Лимит 20 файлов: на больших M-чейнджсетах
+      // не разгоняем git-вызовы, надеемся на `update-index --refresh`
+      // выше. См. docs/tasks/stat-dirty-files.md.
+      const candidates = allFiles.filter(
+        (f) => !f.staged && f.status === 'M',
+      );
+      if (candidates.length > 0 && candidates.length <= 20) {
+        const dirtyPaths = await this.detectStatDirtyPaths(git, candidates.map((c) => c.path));
+        if (slice.token !== startToken) return;
+        if (dirtyPaths.size > 0) {
+          for (const f of allFiles) {
+            if (!f.staged && f.status === 'M' && dirtyPaths.has(f.path)) {
+              f.statDirty = true;
+            }
+          }
+        }
+      }
+
       slice.stagedFiles = allFiles.filter(f => f.staged);
       slice.unstagedFiles = allFiles.filter(f => !f.staged);
       slice.conflicts = allFiles.filter(f => f.status === 'U').map(f => f.path);
@@ -237,6 +268,58 @@ export class RepoStateRefresher {
       this.state.unstagedFiles = slice.unstagedFiles;
       this.state.conflicts = slice.conflicts;
     }
+  }
+
+  /**
+   * Возвращает Set путей, у которых `git diff --numstat` дал (0,0).
+   * Один git-вызов на батч путей (быстрее N вызовов).
+   */
+  private async detectStatDirtyPaths(
+    git: GitExecutor,
+    paths: string[],
+  ): Promise<Set<string>> {
+    const dirty = new Set<string>();
+    if (paths.length === 0) return dirty;
+    try {
+      const result = await git.exec(['diff', '--numstat', '--', ...paths]);
+      const reported = new Set<string>();
+      for (const line of result.stdout.split('\n')) {
+        if (!line) continue;
+        const parts = line.split('\t');
+        if (parts.length < 3) continue;
+        const [added, deleted, path] = parts;
+        reported.add(path);
+        // `-` означает бинарный файл — реально изменён, не stat-dirty.
+        if (added === '-' || deleted === '-') continue;
+        const addedNum = Number.parseInt(added, 10);
+        const deletedNum = Number.parseInt(deleted, 10);
+        if (addedNum === 0 && deletedNum === 0) dirty.add(path);
+      }
+      // numstat ничего не вывел для файла — diff пустой (0,0). Например
+      // file mode change без content change → numstat молчит, status
+      // показывает M. Считаем stat-dirty.
+      for (const p of paths) {
+        if (!reported.has(p)) dirty.add(p);
+      }
+    } catch {
+      // best-effort: не помечаем
+    }
+    return dirty;
+  }
+
+  /**
+   * Прогнать `git update-index --refresh` + refresh status + notify UI.
+   * Дёргается из renderer'а кнопкой "Refresh index" в DiffPanel для
+   * stat-dirty файла.
+   */
+  async refreshStatIndex(repoPath?: string): Promise<void> {
+    const target = repoPath ?? this.state.repoPath;
+    if (!target) return;
+    if (!this.store.isRepoTracked(target)) return;
+    const git = this.registry.acquire(target).git;
+    await git.exec(['update-index', '--refresh']).catch(() => undefined);
+    await this.refreshStatus(target);
+    if (target === this.state.repoPath) this.notify();
   }
 
   async refreshGraph(maxCount = 0, repoPath?: string): Promise<void> {
