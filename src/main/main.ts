@@ -15,6 +15,7 @@ import { checkGitAvailable, showGitNotFoundMessage, showRecoveryDialog } from '.
 import { attachLongPathSuggester } from '../core/safety/LongPathSuggester';
 import { AiService } from '../core/ai/AiService';
 import { AiConfigStore } from '../core/ai/AiConfigStore';
+import { AiDebugStore } from '../core/ai/AiDebugStore';
 import { AiHandlers } from '../core/ai/AiHandlers';
 import { configureMainLogger, mainLogger } from '../core/utils/Logger';
 import { setupGracefulShutdown } from './gracefulShutdown';
@@ -238,7 +239,8 @@ async function initServices(): Promise<{ aborted: boolean }> {
     decryptString: (buf) => safeStorage.decryptString(buf),
   });
   aiService = new AiService(aiStore.load());
-  const aiHandlers = new AiHandlers(aiService, aiStore);
+  const aiDebug = new AiDebugStore(app.getPath('userData'));
+  const aiHandlers = new AiHandlers(aiService, aiStore, aiDebug);
 
   messageBridge = new MessageBridge(commandHandler, stateManager, aiHandlers);
 

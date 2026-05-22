@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { postCommand, onMainEvent } from '../../api';
 import { t, tpl } from '../../i18n';
 import type { AiConnectionMode, AiProviderConfig, CommitLanguage, MainEvent } from '../../types';
+import type { AiDebugSnapshot } from '@core/ai/types';
 import { QWEN_WEB_DEFAULT_MODEL_ID, QWEN_WEB_MODEL_IDS, isQwenWebModelId } from '@core/ai/qwenWebModels';
 import { AI_PRESETS, detectPreset } from './presets';
 import s from './AiSettingsDialog.module.css';
@@ -16,6 +17,7 @@ const PRESET_GROUPS = {
   cloud: ['openai', 'deepseek', 'groq'],
   local: ['ollama', 'lmstudio'],
   web: ['qwen-web'],
+  corporate: ['qwen-corporate'],
 } as const;
 
 export function AiSettingsDialog({ onClose }: Props) {
@@ -31,7 +33,18 @@ export function AiSettingsDialog({ onClose }: Props) {
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  const presetId = useMemo(() => detectPreset(mode, baseUrl, model), [mode, baseUrl, model]);
+  const [systemInUser, setSystemInUser] = useState(false);
+  const [qwenDisableThinking, setQwenDisableThinking] = useState(false);
+  const [stripThinkTags, setStripThinkTags] = useState(false);
+  const [debugLogging, setDebugLogging] = useState(false);
+
+  const [debugSnapshot, setDebugSnapshot] = useState<AiDebugSnapshot | null>(null);
+  const [debugBusy, setDebugBusy] = useState(false);
+
+  const presetId = useMemo(
+    () => detectPreset(mode, baseUrl, model, { systemInUser, stripThinkTags }),
+    [mode, baseUrl, model, systemInUser, stripThinkTags],
+  );
 
   const buildPayload = useCallback((): AiProviderConfig => {
     if (mode === 'qwen-web') {
@@ -42,6 +55,7 @@ export function AiSettingsDialog({ onClose }: Props) {
         qwenWebToken,
         model: model.trim(),
         commitLanguage,
+        debugLogging,
       };
     }
     return {
@@ -50,8 +64,13 @@ export function AiSettingsDialog({ onClose }: Props) {
       apiKey,
       model: model.trim(),
       commitLanguage,
+      systemInUser: systemInUser || undefined,
+      qwenDisableThinking: qwenDisableThinking || undefined,
+      stripThinkTags: stripThinkTags || undefined,
+      debugLogging: debugLogging || undefined,
     };
-  }, [mode, baseUrl, apiKey, qwenWebToken, model, commitLanguage]);
+  }, [mode, baseUrl, apiKey, qwenWebToken, model, commitLanguage,
+      systemInUser, qwenDisableThinking, stripThinkTags, debugLogging]);
 
   useEffect(() => {
     postCommand({ type: 'aiGetConfig' });
@@ -65,8 +84,20 @@ export function AiSettingsDialog({ onClose }: Props) {
         setQwenWebToken(msg.config?.qwenWebToken ?? '');
         setModel(msg.config?.model ?? '');
         setCommitLanguage(msg.config?.commitLanguage ?? 'auto');
+        setSystemInUser(msg.config?.systemInUser === true);
+        setQwenDisableThinking(msg.config?.qwenDisableThinking === true);
+        setStripThinkTags(msg.config?.stripThinkTags === true);
+        setDebugLogging(msg.config?.debugLogging === true);
       } else if (msg.type === 'aiTestResult') {
         setTest(msg.success ? { status: 'ok' } : { status: 'fail', error: msg.error });
+      } else if (msg.type === 'aiTestPromptResult') {
+        setDebugBusy(false);
+        setDebugSnapshot(msg.snapshot);
+        if (!msg.success) {
+          setTest({ status: 'fail', error: msg.error });
+        }
+      } else if (msg.type === 'aiLastDebug') {
+        setDebugSnapshot(msg.snapshot);
       }
     });
     return unsub;
@@ -87,6 +118,9 @@ export function AiSettingsDialog({ onClose }: Props) {
       setModel('');
       setApiKey('');
       setQwenWebToken('');
+      setSystemInUser(false);
+      setQwenDisableThinking(false);
+      setStripThinkTags(false);
       setTest({ status: 'idle' });
       return;
     }
@@ -104,6 +138,9 @@ export function AiSettingsDialog({ onClose }: Props) {
       setQwenWebToken('');
       if (!preset.needsKey) setApiKey('');
     }
+    setSystemInUser(preset.defaults?.systemInUser === true);
+    setQwenDisableThinking(preset.defaults?.qwenDisableThinking === true);
+    setStripThinkTags(preset.defaults?.stripThinkTags === true);
     setTest({ status: 'idle' });
   }, []);
 
@@ -141,8 +178,24 @@ export function AiSettingsDialog({ onClose }: Props) {
     setQwenWebToken('');
     setModel('');
     setCommitLanguage('auto');
+    setSystemInUser(false);
+    setQwenDisableThinking(false);
+    setStripThinkTags(false);
+    setDebugLogging(false);
+    setDebugSnapshot(null);
     setInitial(null);
     setTest({ status: 'idle' });
+  }, []);
+
+  const handleTestPrompt = useCallback(() => {
+    if (!canSave) return;
+    setDebugBusy(true);
+    setDebugSnapshot(null);
+    postCommand({ type: 'aiTestPrompt', config: buildPayload() });
+  }, [canSave, buildPayload]);
+
+  const handleShowLast = useCallback(() => {
+    postCommand({ type: 'aiGetLastDebug' });
   }, []);
 
   return (
@@ -177,6 +230,12 @@ export function AiSettingsDialog({ onClose }: Props) {
               </optgroup>
               <optgroup label={loc.presetGroupWeb}>
                 {PRESET_GROUPS.web.map((id) => {
+                  const p = AI_PRESETS.find((x) => x.id === id);
+                  return p ? <option key={p.id} value={p.id}>{loc[p.labelKey]}</option> : null;
+                })}
+              </optgroup>
+              <optgroup label={loc.presetGroupCorporate}>
+                {PRESET_GROUPS.corporate.map((id) => {
                   const p = AI_PRESETS.find((x) => x.id === id);
                   return p ? <option key={p.id} value={p.id}>{loc[p.labelKey]}</option> : null;
                 })}
@@ -292,10 +351,72 @@ export function AiSettingsDialog({ onClose }: Props) {
             <span className={s.hint}>{loc.commitLanguageHint}</span>
           </label>
 
+          {mode === 'openai-compatible' && (
+            <div className={s.field}>
+              <span className={s.label}>{loc.advanced}</span>
+              <label className={s.checkLine}>
+                <input type="checkbox" checked={systemInUser}
+                  aria-label={loc.systemInUser}
+                  onChange={(e) => setSystemInUser(e.target.checked)} />
+                <span>
+                  <div>{loc.systemInUser}</div>
+                  <div className={s.hint}>{loc.systemInUserHint}</div>
+                </span>
+              </label>
+              <label className={s.checkLine}>
+                <input type="checkbox" checked={qwenDisableThinking}
+                  aria-label={loc.qwenDisableThinking}
+                  onChange={(e) => setQwenDisableThinking(e.target.checked)} />
+                <span>
+                  <div>{loc.qwenDisableThinking}</div>
+                </span>
+              </label>
+              <label className={s.checkLine}>
+                <input type="checkbox" checked={stripThinkTags}
+                  aria-label={loc.stripThinkTags}
+                  onChange={(e) => setStripThinkTags(e.target.checked)} />
+                <span>
+                  <div>{loc.stripThinkTags}</div>
+                </span>
+              </label>
+              <label className={s.checkLine}>
+                <input type="checkbox" checked={debugLogging}
+                  aria-label={loc.debugMode}
+                  onChange={(e) => setDebugLogging(e.target.checked)} />
+                <span>
+                  <div>{loc.debugMode}</div>
+                </span>
+              </label>
+            </div>
+          )}
+
           {test.status === 'testing' && <div className={s.statusInfo}>{loc.testing}</div>}
           {test.status === 'ok' && <div className={s.statusOk}>{loc.testOk}</div>}
           {test.status === 'fail' && (
             <div className={s.statusFail}>{tpl(loc.testFailed, { error: test.error ?? '' })}</div>
+          )}
+
+          {mode === 'openai-compatible' && (
+            <div className={s.field}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="sg-button sg-button--ghost sg-button--sm"
+                  onClick={handleTestPrompt} disabled={!canSave || debugBusy} type="button">
+                  {loc.testPrompt}
+                </button>
+                <button className="sg-button sg-button--ghost sg-button--sm"
+                  onClick={handleShowLast} type="button">
+                  {loc.showLastRequest}
+                </button>
+              </div>
+              {debugBusy && <div className={s.statusInfo}>{loc.testing}</div>}
+              {debugSnapshot && (
+                <pre className={s.hint} style={{
+                  whiteSpace: 'pre-wrap', maxHeight: 220, overflow: 'auto',
+                  border: '1px solid var(--sg-border, #ccc)', padding: 8, marginTop: 8,
+                  fontFamily: 'monospace', fontSize: 11,
+                }}>{JSON.stringify(debugSnapshot, null, 2)}</pre>
+              )}
+            </div>
           )}
         </div>
 

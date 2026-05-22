@@ -28,6 +28,11 @@ interface PersistedConfig {
   commitLanguage?: CommitLanguage;
   headers?: Record<string, string>;
   timeoutMs?: number;
+  systemInUser?: boolean;
+  qwenDisableThinking?: boolean;
+  stripThinkTags?: boolean;
+  extraBody?: Record<string, unknown>;
+  debugLogging?: boolean;
 }
 
 /**
@@ -83,6 +88,11 @@ export class AiConfigStore {
       commitLanguage: normalizeLanguage(p.commitLanguage),
       headers: p.headers,
       timeoutMs: p.timeoutMs,
+      systemInUser: p.systemInUser,
+      qwenDisableThinking: p.qwenDisableThinking,
+      stripThinkTags: p.stripThinkTags,
+      extraBody: p.extraBody,
+      debugLogging: p.debugLogging,
     };
   }
 
@@ -113,6 +123,11 @@ export class AiConfigStore {
       commitLanguage: normalizeLanguage(cfg.commitLanguage),
       headers: cfg.headers,
       timeoutMs: cfg.timeoutMs,
+      systemInUser: cfg.systemInUser,
+      qwenDisableThinking: cfg.qwenDisableThinking,
+      stripThinkTags: cfg.stripThinkTags,
+      extraBody: cfg.extraBody,
+      debugLogging: cfg.debugLogging,
     };
     await atomicWriteJSON(this.filePath, persisted);
   }

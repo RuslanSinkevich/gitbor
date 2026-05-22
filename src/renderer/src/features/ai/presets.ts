@@ -7,6 +7,7 @@ type AiPresetLabelKey =
   | 'presetDeepseek'
   | 'presetGroq'
   | 'presetQwenWeb'
+  | 'presetQwenCorporate'
   | 'presetCustom';
 
 export interface AiPreset {
@@ -16,6 +17,12 @@ export interface AiPreset {
   baseUrl: string;
   model: string;
   needsKey: boolean;
+  /** Опциональные дефолты для обхода типовых проблем gateway'ев. */
+  defaults?: {
+    systemInUser?: boolean;
+    qwenDisableThinking?: boolean;
+    stripThinkTags?: boolean;
+  };
 }
 
 /**
@@ -30,10 +37,18 @@ export const AI_PRESETS: AiPreset[] = [
   { id: 'groq',     labelKey: 'presetGroq',     mode: 'openai-compatible', baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.1-8b-instant', needsKey: true },
   /** Токен из localStorage https://chat.qwen.ai (неофициальный Qwen Web API). */
   { id: 'qwen-web', labelKey: 'presetQwenWeb',  mode: 'qwen-web',            baseUrl: '',                              model: 'qwen3-max',        needsKey: true },
+  /** Корпоративный gateway Qwen (vLLM/DashScope). Включает обходы для system-prompt и thinking. */
+  { id: 'qwen-corporate', labelKey: 'presetQwenCorporate', mode: 'openai-compatible', baseUrl: '', model: '', needsKey: true,
+    defaults: { systemInUser: true, stripThinkTags: true } },
 ];
 
 /** Угадать пресет (подсветка кнопки). */
-export function detectPreset(mode: AiConnectionMode, baseUrl: string, model: string): string {
+export function detectPreset(
+  mode: AiConnectionMode,
+  baseUrl: string,
+  model: string,
+  flags?: { systemInUser?: boolean; stripThinkTags?: boolean },
+): string {
   if (mode === 'qwen-web') {
     const p = AI_PRESETS.find((x) => x.mode === 'qwen-web');
     if (p && model.trim() === p.model) return p.id;
@@ -42,7 +57,9 @@ export function detectPreset(mode: AiConnectionMode, baseUrl: string, model: str
   const normalized = baseUrl.trim().replace(/\/+$/, '');
   for (const p of AI_PRESETS) {
     if (p.mode !== 'openai-compatible') continue;
+    if (p.id === 'qwen-corporate') continue;
     if (p.baseUrl.replace(/\/+$/, '') === normalized) return p.id;
   }
+  if (flags?.systemInUser && flags?.stripThinkTags) return 'qwen-corporate';
   return 'custom';
 }

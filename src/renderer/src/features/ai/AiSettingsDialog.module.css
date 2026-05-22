@@ -131,3 +131,12 @@
   gap: 8px;
   margin-left: auto;
 }
+
+.checkLine {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 4px 0;
+  font-size: 12px;
+}

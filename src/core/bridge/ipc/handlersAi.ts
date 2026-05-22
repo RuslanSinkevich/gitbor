@@ -30,6 +30,23 @@ export const ipcHandlersAi: HandlerTable = {
     ctx.send({ type: 'aiTestResult', success: res.success, error: res.error });
   },
 
+  aiTestPrompt: async (cmd, ctx) => {
+    if (!ctx.ai) {
+      ctx.send({ type: 'aiTestPromptResult', success: false, error: 'AI module unavailable', snapshot: null });
+      return;
+    }
+    const res = await ctx.ai.testPrompt(cmd.config);
+    ctx.send({ type: 'aiTestPromptResult', success: res.success, error: res.error, snapshot: res.snapshot });
+  },
+
+  aiGetLastDebug: async (_cmd, ctx) => {
+    if (!ctx.ai) {
+      ctx.send({ type: 'aiLastDebug', snapshot: null });
+      return;
+    }
+    ctx.send({ type: 'aiLastDebug', snapshot: ctx.ai.getLastDebug() });
+  },
+
   aiGenerateCommitMessage: async (cmd, ctx) => {
     const requestId = cmd.requestId;
     if (!ctx.ai) {

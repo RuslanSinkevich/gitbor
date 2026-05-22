@@ -1,11 +1,18 @@
 import type { AiService } from './AiService';
 import type { AiConfigStore } from './AiConfigStore';
-import { AiError, type AiConnectionMode, type AiProviderConfig } from './types';
+import type { AiDebugStore } from './AiDebugStore';
+import { AiError, type AiConnectionMode, type AiDebugSnapshot, type AiProviderConfig } from './types';
 
 interface AiTestResult {
   success: boolean;
   error?: string;
 }
+
+const TEST_PROMPT_DIFF = `diff --git a/sample.ts b/sample.ts
+@@ -1,2 +1,3 @@
+ export const greet = () => 'hi';
++export const farewell = () => 'bye';
+`;
 
 /**
  * Бизнес-логика AI-команд. Держится отдельно от MessageBridge, чтобы
@@ -22,6 +29,7 @@ export class AiHandlers {
   constructor(
     private readonly service: AiService,
     private readonly store: AiConfigStore,
+    private readonly debug?: AiDebugStore,
   ) {}
 
   /** Текущий конфиг, без секрета (apiKey / qwenWebToken маскируются). Для UI. */
@@ -77,11 +85,13 @@ export class AiHandlers {
     }
     const controller = new AbortController();
     this.pending.set(requestId, controller);
+    const debugEnabled = this.service.getConfig()?.debugLogging === true;
     try {
       const res = await this.service.generateCommitMessage({
         diff,
         signal: controller.signal,
         onChunk,
+        debugSink: debugEnabled ? (s) => this.debug?.capture(s) : undefined,
       });
       if (!res.text.trim()) {
         if (res.finishReason === 'length') {
@@ -108,6 +118,31 @@ export class AiHandlers {
   cancelAll(): void {
     for (const ctrl of this.pending.values()) ctrl.abort();
     this.pending.clear();
+  }
+
+  /**
+   * Прогон dummy-diff'а через текущий конфиг с debug-перехватом. UI
+   * получает снимок request/response для диагностики gateway'я.
+   */
+  async testPrompt(cfg: AiProviderConfig): Promise<{ success: boolean; error?: string; snapshot: AiDebugSnapshot | null }> {
+    try {
+      const merged = this.mergeSecrets(cfg);
+      const tempService = new (this.service.constructor as typeof AiService)(merged);
+      let snapshot: AiDebugSnapshot | null = null;
+      const res = await tempService.generateCommitMessage({
+        diff: TEST_PROMPT_DIFF,
+        debugSink: (s) => { snapshot = s; this.debug?.capture(s); },
+      });
+      if (snapshot) (snapshot as AiDebugSnapshot).responseText = res.text;
+      return { success: true, snapshot };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: msg, snapshot: this.debug?.getLast() ?? null };
+    }
+  }
+
+  getLastDebug(): AiDebugSnapshot | null {
+    return this.debug?.getLast() ?? null;
   }
 
   /**

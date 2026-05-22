@@ -1,4 +1,5 @@
 import { AiError, type AiCompletionOptions, type AiCompletionResult, type AiProviderConfig } from '../types';
+export type { AiDebugSnapshot } from '../types';
 import type { AiProvider } from './base';
 import { mainLogger } from '../../utils/Logger';
 
@@ -27,6 +28,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
     const stream = typeof options.onChunk === 'function';
     const body = this.buildRequestBody(options, stream);
     const url = this.buildUrl('/chat/completions');
+    const startedAt = Date.now();
 
     const controller = new AbortController();
     const externalAbort = options.signal;
@@ -46,20 +48,34 @@ export class OpenAiCompatibleProvider implements AiProvider {
     } catch (err) {
       clearTimeout(timeout);
       externalAbort?.removeEventListener('abort', onExternalAbort);
-      throw wrapFetchError(err);
+      const wrapped = wrapFetchError(err);
+      options.debugSink?.({
+        startedAt, url, request: body,
+        totalMs: Date.now() - startedAt,
+        error: wrapped.message,
+      });
+      throw wrapped;
     }
 
+    const ttfbMs = Date.now() - startedAt;
     try {
       if (!response.ok) {
         const text = await safeReadText(response);
+        options.debugSink?.({
+          startedAt, url, request: body, ttfbMs, totalMs: Date.now() - startedAt,
+          httpStatus: response.status, responseText: text,
+          error: `HTTP ${response.status}`,
+        });
         throw new AiError(
           `HTTP ${response.status}: ${truncate(text, 500) || response.statusText}`,
           'http',
           response.status,
         );
       }
-      if (stream) return await this.readStream(response, options);
-      return await this.readJson(response);
+      const result = stream
+        ? await this.readStream(response, options, { startedAt, ttfbMs, url, request: body })
+        : await this.readJson(response, options, { startedAt, ttfbMs, url, request: body });
+      return result;
     } finally {
       clearTimeout(timeout);
       externalAbort?.removeEventListener('abort', onExternalAbort);
@@ -102,9 +118,17 @@ export class OpenAiCompatibleProvider implements AiProvider {
   }
 
   private buildRequestBody(options: AiCompletionOptions, stream: boolean): Record<string, unknown> {
+    const systemInUser = options.forceSystemInUser ?? this.config.systemInUser ?? false;
     const messages: Array<{ role: 'system' | 'user'; content: string }> = [];
-    if (options.systemPrompt) messages.push({ role: 'system', content: options.systemPrompt });
-    messages.push({ role: 'user', content: options.userPrompt });
+    if (systemInUser && options.systemPrompt) {
+      messages.push({
+        role: 'user',
+        content: `${options.systemPrompt}\n\n${options.userPrompt}`,
+      });
+    } else {
+      if (options.systemPrompt) messages.push({ role: 'system', content: options.systemPrompt });
+      messages.push({ role: 'user', content: options.userPrompt });
+    }
     const body: Record<string, unknown> = {
       model: this.config.model,
       messages,
@@ -112,28 +136,65 @@ export class OpenAiCompatibleProvider implements AiProvider {
     };
     if (options.temperature !== undefined) body.temperature = options.temperature;
     if (options.maxTokens !== undefined) body.max_tokens = options.maxTokens;
+
+    if (this.config.qwenDisableThinking) {
+      const prev = (body.extra_body as Record<string, unknown> | undefined) ?? {};
+      body.extra_body = { ...prev, enable_thinking: false };
+    }
+    if (this.config.extraBody && typeof this.config.extraBody === 'object') {
+      for (const [k, v] of Object.entries(this.config.extraBody)) {
+        if (k === 'extra_body' && body.extra_body && typeof v === 'object' && v !== null) {
+          body.extra_body = { ...(body.extra_body as Record<string, unknown>), ...(v as Record<string, unknown>) };
+        } else {
+          body[k] = v;
+        }
+      }
+    }
     return body;
   }
 
-  private async readJson(response: Response): Promise<AiCompletionResult> {
+  private async readJson(
+    response: Response,
+    options: AiCompletionOptions,
+    debug: { startedAt: number; ttfbMs: number; url: string; request: Record<string, unknown> },
+  ): Promise<AiCompletionResult> {
     let data: unknown;
     try {
       data = await response.json();
     } catch {
+      options.debugSink?.({
+        ...debug,
+        totalMs: Date.now() - debug.startedAt,
+        httpStatus: response.status,
+        error: 'malformed JSON',
+      });
       throw new AiError('malformed JSON response', 'parse');
     }
     const root = data as OpenAiChatResponse | null | undefined;
     const choice = root?.choices?.[0];
     const text = choice?.message?.content ?? '';
     if (typeof text !== 'string') throw new AiError('missing choices[0].message.content', 'parse');
-    return {
+    const result: AiCompletionResult = {
       text,
       finishReason: mapFinishReason(choice?.finish_reason),
       usage: mapUsage(root?.usage),
     };
+    options.debugSink?.({
+      ...debug,
+      totalMs: Date.now() - debug.startedAt,
+      httpStatus: response.status,
+      responseJson: data,
+      finishReason: result.finishReason,
+      usage: result.usage,
+    });
+    return result;
   }
 
-  private async readStream(response: Response, options: AiCompletionOptions): Promise<AiCompletionResult> {
+  private async readStream(
+    response: Response,
+    options: AiCompletionOptions,
+    debug: { startedAt: number; ttfbMs: number; url: string; request: Record<string, unknown> },
+  ): Promise<AiCompletionResult> {
     if (!response.body) throw new AiError('streaming body is empty', 'parse');
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
@@ -207,8 +268,16 @@ export class OpenAiCompatibleProvider implements AiProvider {
       if (!text) {
         mainLogger.warn(`AI: empty result. Raw head (first 1500B):\n${rawSample}`);
       }
+      if (text.includes('<think>') && !this.config.stripThinkTags) {
+        mainLogger.warn('AI: response contains <think> tags but stripThinkTags is disabled.');
+      }
     } catch (err) {
       if (isAbortError(err)) {
+        options.debugSink?.({
+          ...debug, totalMs: Date.now() - debug.startedAt,
+          httpStatus: response.status, finishReason: 'aborted',
+          rawSseHead: rawSample,
+        });
         return { text, finishReason: 'aborted', usage };
       }
       throw wrapFetchError(err);
@@ -216,6 +285,11 @@ export class OpenAiCompatibleProvider implements AiProvider {
       reader.releaseLock();
     }
 
+    options.debugSink?.({
+      ...debug, totalMs: Date.now() - debug.startedAt,
+      httpStatus: response.status, finishReason, usage,
+      responseText: text, rawSseHead: rawSample,
+    });
     return { text, finishReason, usage };
   }
 }

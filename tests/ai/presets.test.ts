@@ -79,9 +79,9 @@ describe('AI_PRESETS sanity', () => {
     expect(qwen?.id).toBe('qwen-web');
   });
 
-  it('all openai-compatible presets have non-empty baseUrl', () => {
+  it('all openai-compatible presets have non-empty baseUrl, except qwen-corporate (user fills it)', () => {
     for (const p of AI_PRESETS) {
-      if (p.mode === 'openai-compatible') {
+      if (p.mode === 'openai-compatible' && p.id !== 'qwen-corporate') {
         expect(p.baseUrl.length).toBeGreaterThan(0);
       }
     }

@@ -190,6 +190,8 @@ type RendererCommandCore =
   | { type: 'aiGetConfig' }
   | { type: 'aiSetConfig'; config: AiProviderConfig | null }
   | { type: 'aiTestConnection'; config: AiProviderConfig }
+  | { type: 'aiTestPrompt'; config: AiProviderConfig }
+  | { type: 'aiGetLastDebug' }
   | { type: 'aiGenerateCommitMessage'; requestId: string }
   | { type: 'aiCancelGenerate'; requestId: string }
 
@@ -293,6 +295,8 @@ export type MainEvent =
   // AI events
   | { type: 'aiConfig'; config: AiProviderConfig | null }
   | { type: 'aiTestResult'; success: boolean; error?: string }
+  | { type: 'aiTestPromptResult'; success: boolean; error?: string; snapshot: import('../ai/types').AiDebugSnapshot | null }
+  | { type: 'aiLastDebug'; snapshot: import('../ai/types').AiDebugSnapshot | null }
   | { type: 'aiChunk'; requestId: string; delta: string }
   | { type: 'aiDone'; requestId: string; text: string; finishReason: string }
   | { type: 'aiError'; requestId: string; message: string; kind: string }

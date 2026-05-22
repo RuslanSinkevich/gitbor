@@ -2,7 +2,7 @@ import { buildCommitSystemPrompt, buildCommitUserPrompt } from './prompts';
 import type { AiProvider } from './providers/base';
 import { OpenAiCompatibleProvider } from './providers/OpenAiCompatibleProvider';
 import { QwenWebProvider } from './providers/QwenWebProvider';
-import { AiError, type AiCompletionResult, type AiProviderConfig } from './types';
+import { AiError, type AiCompletionResult, type AiDebugSnapshot, type AiProviderConfig } from './types';
 import { mainLogger } from '../utils/Logger';
 
 interface CommitMessageOptions {
@@ -12,6 +12,7 @@ interface CommitMessageOptions {
   maxTokens?: number;
   signal?: AbortSignal;
   onChunk?: (delta: string) => void;
+  debugSink?: (snapshot: AiDebugSnapshot) => void;
 }
 
 /**
@@ -53,16 +54,43 @@ export class AiService {
     }
     const lang = this.config?.commitLanguage ?? 'auto';
     const systemPrompt = options.systemPrompt ?? buildCommitSystemPrompt(lang);
+    const userPrompt = buildCommitUserPrompt(options.diff, lang);
+    const stripThink = this.config?.stripThinkTags ?? false;
     mainLogger.debug(`AI: generateCommitMessage lang=${lang} model=${this.config?.model ?? 'n/a'}`);
-    const result = await provider.complete({
+
+    let result = await provider.complete({
       systemPrompt,
-      userPrompt: buildCommitUserPrompt(options.diff, lang),
+      userPrompt,
       temperature: options.temperature ?? 0.3,
       maxTokens: options.maxTokens,
       signal: options.signal,
       onChunk: options.onChunk,
+      debugSink: options.debugSink,
     });
-    return { ...result, text: postProcessCommit(result.text) };
+
+    let cleaned = postProcessCommit(result.text, stripThink);
+    const canFallback = cleaned.length === 0 && !this.config?.systemInUser;
+    if (canFallback) {
+      mainLogger.warn('AI: empty response, retrying with systemInUser=true');
+      result = await provider.complete({
+        systemPrompt,
+        userPrompt,
+        temperature: options.temperature ?? 0.3,
+        maxTokens: options.maxTokens,
+        signal: options.signal,
+        onChunk: options.onChunk,
+        debugSink: options.debugSink ? (s) => options.debugSink!({ ...s, fallbackRetry: 'systemInUser' }) : undefined,
+        forceSystemInUser: true,
+      });
+      cleaned = postProcessCommit(result.text, stripThink);
+    }
+    if (this.config?.systemInUser && !cleaned.trim()) {
+      throw new AiError(
+        'Empty response from gateway even with system merged into user. Check gateway debug log.',
+        'parse',
+      );
+    }
+    return { ...result, text: cleaned };
   }
 
   private ensureProvider(): AiProvider {
@@ -79,8 +107,10 @@ export class AiService {
  * Чистим повторы, лишние кавычки, markdown-кодовые блоки — часто модели
  * оборачивают ответ в ```...``` или в кавычки, хотя просишь «только текст».
  */
-function postProcessCommit(raw: string): string {
-  let s = raw.trim();
+function postProcessCommit(raw: string, stripThink = false): string {
+  let s = raw;
+  if (stripThink) s = s.replace(/<think>[\s\S]*?<\/think>/g, '');
+  s = s.trim();
   s = s.replace(/^```[\w-]*\s*\n?/, '').replace(/\n?```\s*$/, '');
   s = s.replace(/^["'«]+/, '').replace(/["'»]+$/, '');
   return s.trim();

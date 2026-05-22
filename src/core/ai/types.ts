@@ -37,6 +37,43 @@ export interface AiProviderConfig {
   headers?: Record<string, string>;
   /** Таймаут запроса в миллисекундах. По умолчанию 60000. */
   timeoutMs?: number;
+
+  // ─── Обходы типовых проблем корпоративных gateway'ев ───
+
+  /**
+   * Слить system + user в одно user-сообщение. Для gateway'ев (FastGPT/OneAPI/Dify),
+   * которые роняют или перезаписывают role:system.
+   */
+  systemInUser?: boolean;
+  /**
+   * Отключить thinking-режим Qwen3 через `extra_body.enable_thinking: false`
+   * (vLLM-параметр). Незнакомые gateway'и просто проигнорируют поле.
+   */
+  qwenDisableThinking?: boolean;
+  /** Принудительно вырезать `<think>...</think>` из ответа. */
+  stripThinkTags?: boolean;
+  /** Произвольные поля для merge в request body (для Alibaba `parameters.*` и пр.). */
+  extraBody?: Record<string, unknown>;
+  /** Логировать последний request/response в `userData/ai-debug.log` и держать в памяти. */
+  debugLogging?: boolean;
+}
+
+/** Снимок последнего AI-запроса (для диагностической панели). */
+export interface AiDebugSnapshot {
+  startedAt: number;
+  url: string;
+  request: Record<string, unknown>;
+  responseText?: string;
+  responseJson?: unknown;
+  rawSseHead?: string;
+  finishReason?: string;
+  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+  ttfbMs?: number;
+  totalMs?: number;
+  httpStatus?: number;
+  error?: string;
+  /** Если выставлено: повторили запрос с systemInUser=true автоматически. */
+  fallbackRetry?: 'systemInUser';
 }
 
 /** Опции одного вызова AI. */
@@ -53,6 +90,10 @@ export interface AiCompletionOptions {
   signal?: AbortSignal;
   /** Колбек на каждый чанк при streaming. Если не задан — не стримим. */
   onChunk?: (delta: string) => void;
+  /** Если задан — провайдер заполнит снимок (request/response/тайминги). */
+  debugSink?: (snapshot: AiDebugSnapshot) => void;
+  /** Принудительно объединить system+user (overrides config.systemInUser). */
+  forceSystemInUser?: boolean;
 }
 
 /** Результат AI-запроса. */
