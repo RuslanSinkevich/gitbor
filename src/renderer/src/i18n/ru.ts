@@ -88,6 +88,8 @@ export const ru: LocaleMap = {
     stashes: 'Отложенные',
     submodules: 'Подмодули',
     current: 'текущая',
+    moveBranch: 'Переместить ветку',
+    moveBranchPrompt: 'Новое имя для {old}:',
     filter: 'Фильтр',
     localChanges: 'Локальные изменения',
     allCommits: 'Все коммиты',

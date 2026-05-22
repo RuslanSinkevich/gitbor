@@ -86,6 +86,8 @@ export const en = {
     stashes: 'Stashes',
     submodules: 'Submodules',
     current: 'current',
+    moveBranch: 'Move Branch',
+    moveBranchPrompt: 'New name for {old}:',
     filter: 'Filter',
     localChanges: 'Local Changes',
     allCommits: 'All Commits',

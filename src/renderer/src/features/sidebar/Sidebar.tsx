@@ -10,6 +10,7 @@ import {
   buildBranchTree, countLeaves, BranchTreeItem,
   type BranchFolderExpand,
 } from './BranchTree';
+import { postCommand } from '../../api';
 import { SubmodulesList } from './SubmodulesList';
 import type { ShowPrompt } from '../graph/commitMenuItems';
 import { loadSidebarSections, saveSidebarSections, loadBranchFolderExpanded, saveBranchFolderExpanded } from './sidebarPersist';
@@ -104,6 +105,20 @@ export function Sidebar({
 
   const localTree = useMemo(() => buildBranchTree(filteredLocal), [filteredLocal]);
 
+  const handleBranchMove = useCallback((oldName: string, newName: string) => {
+    if (oldName === newName) return;
+    showPrompt({
+      title: loc.sidebar.moveBranch ?? 'Move branch',
+      label: (loc.sidebar.moveBranchPrompt ?? 'New name for {old}:').replace('{old}', oldName),
+      defaultValue: newName,
+      onConfirm: (finalName) => {
+        if (finalName && finalName !== oldName) {
+          postCommand({ type: 'renameBranch', oldName, newName: finalName });
+        }
+      },
+    });
+  }, [showPrompt, loc.sidebar]);
+
   // На больших репо (сотни remote-branches за 5 лет) buildBranchTree +
   // sortBranchTreeNodes с localeCompare — десятки/сотни мс. Строим дерево
   // ТОЛЬКО когда секция remotes раскрыта; свёрнутая секция не платит
@@ -141,7 +156,7 @@ export function Sidebar({
       <SidebarSection title={loc.sidebar.branches} icon={ICONS.branch} count={filteredLocal.length} expanded={sections.branches} onToggle={() => toggleSection('branches')}>
         {filteredLocal.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noBranches}</div>}
         {localTree.map(node => (
-          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandLocal} />
+          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandLocal} onBranchMove={handleBranchMove} />
         ))}
       </SidebarSection>
 
