@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { postCommand, onMainEvent } from '../../api';
 import { t } from '../../i18n';
+import { SgDialog } from '../../ui/SgDialog';
 import { BisectStartForm } from './BisectStartForm';
 import { BisectActiveSession } from './BisectActiveSession';
-import s from './BisectDialog.module.css';
 
 interface BisectStatus {
   active: boolean;
@@ -39,33 +39,27 @@ export function BisectDialog({ onClose }: Props) {
   }, []);
 
   return (
-    <div className={s.overlay} onClick={onClose}>
-      <div className={s.dialog} onClick={(e) => e.stopPropagation()}>
-        <div className={s.header}>
-          <h3 className={s.title}>{bl.title}</h3>
-          <p className={s.subtitle}>{bl.subtitle}</p>
-        </div>
-
-        <div className={s.body}>
-          {status?.active ? (
-            <BisectActiveSession
-              status={status}
-              output={output}
-              labels={bl}
-              onGood={() => postCommand({ type: 'bisectGood' })}
-              onBad={() => postCommand({ type: 'bisectBad' })}
-              onSkip={() => postCommand({ type: 'bisectSkip' })}
-              onReset={() => { postCommand({ type: 'bisectReset' }); setOutput(''); }}
-            />
-          ) : status ? (
-            <BisectStartForm labels={bl} onStart={handleStart} />
-          ) : null}
-        </div>
-
-        <div className={s.footer}>
-          <button className={s.btnSecondary} onClick={onClose}>{bl.close}</button>
-        </div>
-      </div>
-    </div>
+    <SgDialog
+      open
+      title={bl.title}
+      onClose={onClose}
+      size="md"
+      footer={<button className="sg-button sg-button--ghost sg-button--md" onClick={onClose}>{bl.close}</button>}
+    >
+      <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--sg-foreground-muted)' }}>{bl.subtitle}</p>
+      {status?.active ? (
+        <BisectActiveSession
+          status={status}
+          output={output}
+          labels={bl}
+          onGood={() => postCommand({ type: 'bisectGood' })}
+          onBad={() => postCommand({ type: 'bisectBad' })}
+          onSkip={() => postCommand({ type: 'bisectSkip' })}
+          onReset={() => { postCommand({ type: 'bisectReset' }); setOutput(''); }}
+        />
+      ) : status ? (
+        <BisectStartForm labels={bl} onStart={handleStart} />
+      ) : null}
+    </SgDialog>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { t } from '../../i18n';
 import { postCommand, onMainEvent } from '../../api';
+import { SgDialog } from '../../ui/SgDialog';
 import { TEMPLATES } from './templates';
 import s from './GitignoreDialog.module.css';
 
@@ -59,39 +60,39 @@ export function GitignoreDialog({ onClose }: Props) {
   if (loading) return null;
 
   return (
-    <div className={s.overlay} onClick={onClose}>
-      <div className={s.dialog} onClick={e => e.stopPropagation()}>
-        <div className={s.title}>{loc.gitignore?.title ?? '.gitignore Editor'}</div>
-        <div className={s.subtitle}>{loc.gitignore?.subtitle ?? 'Select templates or edit manually'}</div>
+    <SgDialog
+      open
+      title={loc.gitignore?.title ?? '.gitignore Editor'}
+      onClose={onClose}
+      size="lg"
+      onConfirm={handleSave}
+      confirmLabel={loc.gitignore.save}
+      cancelLabel={loc.gitignore.cancel}
+    >
+      <div className={s.subtitle}>{loc.gitignore?.subtitle ?? 'Select templates or edit manually'}</div>
 
-        <div className={s.templates}>
-          {TEMPLATES.map(tpl => (
-            <button
-              key={tpl.name}
-              className={`${s.templateBtn} ${selected.has(tpl.name) ? s.templateBtnActive : ''}`}
-              onClick={() => toggleTemplate(tpl.name)}
-            >
-              {tpl.name}
-            </button>
-          ))}
-        </div>
-
-        {existingContent !== null && existingContent.trim() !== '' && (
-          <div className={s.warning}>{loc.gitignore?.existsWarning ?? 'Existing .gitignore will be overwritten'}</div>
-        )}
-
-        <textarea
-          className={s.editor}
-          value={content}
-          onChange={e => setContent(e.target.value)}
-          spellCheck={false}
-        />
-
-        <div className={s.footer}>
-          <button className={s.btn} onClick={onClose}>{loc.gitignore.cancel}</button>
-          <button className={`${s.btn} ${s.btnPrimary}`} onClick={handleSave}>{loc.gitignore.save}</button>
-        </div>
+      <div className={s.templates}>
+        {TEMPLATES.map(tpl => (
+          <button
+            key={tpl.name}
+            className={`${s.templateBtn} ${selected.has(tpl.name) ? s.templateBtnActive : ''}`}
+            onClick={() => toggleTemplate(tpl.name)}
+          >
+            {tpl.name}
+          </button>
+        ))}
       </div>
-    </div>
+
+      {existingContent !== null && existingContent.trim() !== '' && (
+        <div className={s.warning}>{loc.gitignore?.existsWarning ?? 'Existing .gitignore will be overwritten'}</div>
+      )}
+
+      <textarea
+        className={s.editor}
+        value={content}
+        onChange={e => setContent(e.target.value)}
+        spellCheck={false}
+      />
+    </SgDialog>
   );
 }

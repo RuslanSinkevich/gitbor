@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { postCommand, onMainEvent } from '../../api';
 import { t, tpl } from '../../i18n';
 import type { ShowPrompt } from '../graph/commitMenuItems';
+import { SgDialog } from '../../ui/SgDialog';
 import { WorktreeItem } from './WorktreeItem';
 import { AddWorktreeForm } from './AddWorktreeForm';
 import s from './WorktreesDialog.module.css';
@@ -39,6 +40,7 @@ export function WorktreesDialog({ onClose, showPrompt }: Props) {
 
   const handleRemove = useCallback((path: string) => {
     showPrompt({
+      kind: 'confirm',
       title: wl.remove,
       message: tpl(wl.removeConfirm, { path }),
       confirmLabel: wl.remove,
@@ -52,31 +54,26 @@ export function WorktreesDialog({ onClose, showPrompt }: Props) {
   }, []);
 
   return (
-    <div className={s.overlay} onClick={onClose}>
-      <div className={s.dialog} onClick={(e) => e.stopPropagation()}>
-        <div className={s.header}>
-          <h3 className={s.title}>{wl.title}</h3>
-          <p className={s.subtitle}>{wl.subtitle}</p>
-        </div>
-
-        <div className={s.body}>
-          {loading ? (
-            <div className={s.empty}>{t().app.loading}</div>
-          ) : items.length === 0 ? (
-            <div className={s.empty}>{wl.empty}</div>
-          ) : (
-            items.map((wt) => (
-              <WorktreeItem key={wt.path} wt={wt} labels={wl} onRemove={handleRemove} />
-            ))
-          )}
-        </div>
-
-        <AddWorktreeForm labels={wl} onAdd={handleAdd} />
-
-        <div className={s.footer}>
-          <button className={s.btnSecondary} onClick={onClose}>{wl.close}</button>
-        </div>
+    <SgDialog
+      open
+      title={wl.title}
+      onClose={onClose}
+      size="lg"
+      footer={<button className="sg-button sg-button--ghost sg-button--md" onClick={onClose}>{wl.close}</button>}
+    >
+      <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--sg-foreground-muted)' }}>{wl.subtitle}</p>
+      <div className={s.body}>
+        {loading ? (
+          <div className={s.empty}>{t().app.loading}</div>
+        ) : items.length === 0 ? (
+          <div className={s.empty}>{wl.empty}</div>
+        ) : (
+          items.map((wt) => (
+            <WorktreeItem key={wt.path} wt={wt} labels={wl} onRemove={handleRemove} />
+          ))
+        )}
       </div>
-    </div>
+      <AddWorktreeForm labels={wl} onAdd={handleAdd} />
+    </SgDialog>
   );
 }

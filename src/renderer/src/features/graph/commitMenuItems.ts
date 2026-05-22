@@ -3,17 +3,9 @@ import { postCommand, copyToClipboard } from '../../api';
 import type { Commit } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import type { RequestCheckout } from '../checkout';
+import type { ShowPromptFn } from '../../ui/SgPromptDialog';
 
-export type ShowPrompt = (opts: {
-  title: string;
-  label?: string;
-  defaultValue?: string;
-  placeholder?: string;
-  message?: string;
-  confirmLabel?: string;
-  danger?: boolean;
-  onConfirm: (value: string) => void;
-}) => void;
+export type ShowPrompt = ShowPromptFn;
 
 function formatCommitInfo(commit: Commit): string {
   const date = commit.authorDate
@@ -89,6 +81,7 @@ export function getCommitMenuItems(
       label: loc.contextMenu.resetHard,
       danger: true,
       action: () => showPrompt({
+        kind: 'confirm',
         title: loc.dialog.resetHardTitle,
         message: loc.dialog.resetHardMessage,
         confirmLabel: loc.contextMenu.resetHard,

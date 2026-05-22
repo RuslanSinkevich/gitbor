@@ -144,6 +144,7 @@ export function Toolbar(props: Props) {
       : '';
     if (showPrompt) {
       showPrompt({
+        kind: 'confirm',
         title: loc.mergeBanner.abort,
         message: `${detail}${loc.mergeBanner.abortConfirm}`,
         confirmLabel: loc.mergeBanner.abort,

@@ -3,6 +3,7 @@ import { postCommand, onMainEvent, copyToClipboard } from '../../api';
 import { t, tpl } from '../../i18n';
 import type { ReflogEntry } from '../../types';
 import type { ShowPrompt } from '../graph/commitMenuItems';
+import { SgDialog } from '../../ui/SgDialog';
 import { ReflogTable } from './ReflogTable';
 import s from './ReflogDialog.module.css';
 
@@ -35,6 +36,7 @@ export function ReflogDialog({ onClose, showPrompt }: Props) {
 
   const handleRestore = useCallback((entry: ReflogEntry) => {
     showPrompt({
+      kind: 'confirm',
       title: rl.restoreTitle,
       message: tpl(rl.restoreConfirm, { hash: entry.shortHash }),
       confirmLabel: rl.restore,
@@ -47,33 +49,27 @@ export function ReflogDialog({ onClose, showPrompt }: Props) {
   }, [rl, showPrompt, onClose]);
 
   return (
-    <div className={s.overlay} onClick={onClose}>
-      <div className={s.dialog} onClick={(e) => e.stopPropagation()}>
-        <div className={s.header}>
-          <h3 className={s.title}>{rl.title}</h3>
-          <p className={s.subtitle}>{rl.subtitle}</p>
-        </div>
-
-        <div className={s.body}>
-          {loading ? (
-            <div className={s.loading}>{loc.app.loading}</div>
-          ) : entries.length === 0 ? (
-            <div className={s.empty}>{rl.empty}</div>
-          ) : (
-            <ReflogTable
-              entries={entries}
-              headerLabels={{ hash: rl.hash, action: rl.action, message: rl.message, date: rl.date }}
-              restoreLabel={rl.restore}
-              onCopyHash={handleCopyHash}
-              onRestore={handleRestore}
-            />
-          )}
-        </div>
-
-        <div className={s.footer}>
-          <button className={s.btnSecondary} onClick={onClose}>{loc.dialog.close}</button>
-        </div>
-      </div>
-    </div>
+    <SgDialog
+      open
+      title={rl.title}
+      onClose={onClose}
+      size="xl"
+      footer={<button className="sg-button sg-button--ghost sg-button--md" onClick={onClose}>{loc.dialog.close}</button>}
+    >
+      <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--sg-foreground-muted)' }}>{rl.subtitle}</p>
+      {loading ? (
+        <div className={s.loading}>{loc.app.loading}</div>
+      ) : entries.length === 0 ? (
+        <div className={s.empty}>{rl.empty}</div>
+      ) : (
+        <ReflogTable
+          entries={entries}
+          headerLabels={{ hash: rl.hash, action: rl.action, message: rl.message, date: rl.date }}
+          restoreLabel={rl.restore}
+          onCopyHash={handleCopyHash}
+          onRestore={handleRestore}
+        />
+      )}
+    </SgDialog>
   );
 }

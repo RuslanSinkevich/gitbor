@@ -4,6 +4,7 @@ import { t, tpl } from '../../i18n';
 import type { AiConnectionMode, AiProviderConfig, CommitLanguage, MainEvent } from '../../types';
 import type { AiDebugSnapshot } from '@core/ai/types';
 import { QWEN_WEB_DEFAULT_MODEL_ID, QWEN_WEB_MODEL_IDS, isQwenWebModelId } from '@core/ai/qwenWebModels';
+import { SgDialog } from '../../ui/SgDialog';
 import { AI_PRESETS, detectPreset } from './presets';
 import s from './AiSettingsDialog.module.css';
 
@@ -199,17 +200,51 @@ export function AiSettingsDialog({ onClose }: Props) {
   }, []);
 
   return (
-    <div className={s.overlay} onClick={onClose}>
-      <div className={s.dialog} onClick={(e) => e.stopPropagation()}>
-        <div className={s.header}>
-          <h2>{loc.title}</h2>
-          <button className={s.closeBtn} onClick={onClose}>&times;</button>
+    <SgDialog
+      open
+      title={loc.title}
+      onClose={onClose}
+      size="lg"
+      footer={
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, width: '100%' }}>
+          <div>
+            {initial && (
+              <button
+                className="sg-button sg-button--ghost sg-button--sm"
+                onClick={handleClear}
+                type="button"
+              >
+                {loc.clear}
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="sg-button sg-button--ghost sg-button--sm"
+              onClick={handleTest}
+              disabled={!canSave || test.status === 'testing'}
+              type="button"
+            >
+              {loc.test}
+            </button>
+            <button
+              className="sg-button sg-button--primary sg-button--sm"
+              onClick={handleSave}
+              disabled={!canSave}
+              type="button"
+            >
+              {saved ? loc.saved : loc.save}
+            </button>
+            <button className="sg-button sg-button--ghost sg-button--sm" onClick={onClose} type="button">
+              {loc.close}
+            </button>
+          </div>
         </div>
+      }
+    >
+      <p className={s.subtitle}>{loc.subtitle}</p>
 
-        <div className={s.body}>
-          <p className={s.subtitle}>{loc.subtitle}</p>
-
-          <label className={s.field}>
+      <label className={s.field}>
             <span className={s.label}>{loc.presets}</span>
             <select
               className="sg-select"
@@ -418,41 +453,6 @@ export function AiSettingsDialog({ onClose }: Props) {
               )}
             </div>
           )}
-        </div>
-
-        <div className={s.footer}>
-          {initial && (
-            <button
-              className="sg-button sg-button--ghost sg-button--sm"
-              onClick={handleClear}
-              type="button"
-            >
-              {loc.clear}
-            </button>
-          )}
-          <div className={s.footerRight}>
-            <button
-              className="sg-button sg-button--ghost sg-button--sm"
-              onClick={handleTest}
-              disabled={!canSave || test.status === 'testing'}
-              type="button"
-            >
-              {loc.test}
-            </button>
-            <button
-              className="sg-button sg-button--primary sg-button--sm"
-              onClick={handleSave}
-              disabled={!canSave}
-              type="button"
-            >
-              {saved ? loc.saved : loc.save}
-            </button>
-            <button className="sg-button sg-button--ghost sg-button--sm" onClick={onClose} type="button">
-              {loc.close}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </SgDialog>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { postCommand, onMainEvent } from '../../api';
 import { t } from '../../i18n';
 import type { MergeOptions } from '../../types';
+import { SgDialog } from '../../ui/SgDialog';
 import s from './MergeDialog.module.css';
 
 type MergeMode = 'default' | 'no-ff' | 'squash' | 'no-commit';
@@ -62,45 +63,45 @@ export function MergeDialog({ source, target, onClose }: Props) {
   };
 
   return (
-    <div className={s.overlay} onClick={loading ? undefined : onClose}>
-      <div className={s.dialog} onClick={e => e.stopPropagation()}>
-        <div className={s.dialogHeader}>
-          <h3 className={s.dialogTitle}>{loc.mergeDialog.title}</h3>
-          <span className={s.dialogSubtitle}>{loc.mergeDialog.subtitle}</span>
-        </div>
-
-        <div className={s.dialogBody}>
-          <div className={s.field}>
-            <label className={s.label}>{loc.mergeDialog.mergeLabel}</label>
-            <span className={s.branchName}>{source}</span>
-          </div>
-          <div className={s.field}>
-            <label className={s.label}>{loc.mergeDialog.intoLabel}</label>
-            <span className={s.branchName}>{target}</span>
-          </div>
-          <div className={s.field}>
-            <label className={s.label}>{loc.mergeDialog.optionLabel}</label>
-            <select className={s.select} value={mode} onChange={e => setMode(e.target.value as MergeMode)} disabled={loading}>
-              {(Object.keys(modeLabels) as MergeMode[]).map(m => (
-                <option key={m} value={m}>{modeLabels[m]}</option>
-              ))}
-            </select>
-          </div>
-
-          {predictedConflicts.length > 0 && (
-            <div className={s.warning}>
-              ⚠ {loc.mergeDialog.warning} ({predictedConflicts.length} {loc.mergeDialog.files})
-            </div>
-          )}
-        </div>
-
-        <div className={s.dialogFooter}>
-          <button className={s.btnPrimary} onClick={handleMerge} disabled={loading}>
+    <SgDialog
+      open
+      title={loc.mergeDialog.title}
+      onClose={loading ? () => {} : onClose}
+      size="md"
+      footer={
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button className="sg-button sg-button--ghost sg-button--md" onClick={onClose} disabled={loading}>
+            {loc.mergeEditor.cancel}
+          </button>
+          <button className="sg-button sg-button--primary sg-button--md" onClick={handleMerge} disabled={loading}>
             {loading ? loc.mergeDialog.merging : loc.mergeEditor.merge}
           </button>
-          <button className={s.btnSecondary} onClick={onClose} disabled={loading}>{loc.mergeEditor.cancel}</button>
         </div>
+      }
+    >
+      <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--sg-foreground-muted)' }}>{loc.mergeDialog.subtitle}</p>
+      <div className={s.field}>
+        <label className={s.label}>{loc.mergeDialog.mergeLabel}</label>
+        <span className={s.branchName}>{source}</span>
       </div>
-    </div>
+      <div className={s.field}>
+        <label className={s.label}>{loc.mergeDialog.intoLabel}</label>
+        <span className={s.branchName}>{target}</span>
+      </div>
+      <div className={s.field}>
+        <label className={s.label}>{loc.mergeDialog.optionLabel}</label>
+        <select className={s.select} value={mode} onChange={e => setMode(e.target.value as MergeMode)} disabled={loading}>
+          {(Object.keys(modeLabels) as MergeMode[]).map(m => (
+            <option key={m} value={m}>{modeLabels[m]}</option>
+          ))}
+        </select>
+      </div>
+
+      {predictedConflicts.length > 0 && (
+        <div className={s.warning}>
+          ⚠ {loc.mergeDialog.warning} ({predictedConflicts.length} {loc.mergeDialog.files})
+        </div>
+      )}
+    </SgDialog>
   );
 }

@@ -34,6 +34,7 @@ export function getBranchMenuItems(
         label: tpl(loc.contextMenu.delete, { name: branch.name }),
         danger: true,
         action: () => showPrompt({
+          kind: 'confirm',
           title: tpl(loc.dialog.deleteBranchTitle, { branch: branch.name }),
           message: loc.dialog.deleteBranchMessage,
           confirmLabel: loc.dialog.delete,
@@ -73,6 +74,7 @@ export function getTagMenuItems(tag: Tag, loc: Loc, showPrompt: ShowPrompt, requ
       label: tpl(loc.contextMenu.delete, { name: tag.name }),
       danger: true,
       action: () => showPrompt({
+        kind: 'confirm',
         title: tpl(loc.dialog.deleteTagTitle, { tag: tag.name }),
         confirmLabel: loc.dialog.delete,
         danger: true,
@@ -95,6 +97,7 @@ export function getStashMenuItems(stash: Stash, loc: Loc, showPrompt: ShowPrompt
       label: tpl(loc.contextMenu.stashDrop, { stash: stash.message }),
       danger: true,
       action: () => showPrompt({
+        kind: 'confirm',
         title: tpl(loc.contextMenu.stashDrop, { stash: stash.message }),
         confirmLabel: loc.dialog.delete,
         danger: true,
@@ -120,6 +123,7 @@ export function getRemoteMenuItems(remote: Remote, loc: Loc, showPrompt: ShowPro
       label: tpl(loc.contextMenu.deleteRemote, { remote: remote.name }),
       danger: true,
       action: () => showPrompt({
+        kind: 'confirm',
         title: tpl(loc.contextMenu.deleteRemote, { remote: remote.name }),
         confirmLabel: loc.dialog.delete,
         danger: true,

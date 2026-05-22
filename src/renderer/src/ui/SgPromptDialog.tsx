@@ -2,20 +2,17 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { SgDialog } from './SgDialog';
 import { t } from '../i18n';
 
-interface PromptState {
-  title: string;
-  label: string;
-  defaultValue: string;
-  placeholder: string;
-  message: string;
-  confirmLabel: string;
-  danger: boolean;
-  /** Разрешить submit с пустой строкой. По умолчанию false — кнопка disabled пока поле пустое. */
-  allowEmpty: boolean;
-  onConfirm: (value: string) => void;
-}
-
-export interface ShowPromptOptions {
+/**
+ * Два различных режима диалога:
+ *  - `input`   — поле ввода + Cancel/Confirm; onConfirm получает строку.
+ *  - `confirm` — только сообщение + Cancel/Confirm; onConfirm получает ''.
+ *
+ * РАНЬШЕ режим вычислялся из наличия `confirmLabel`, и любая кастомная
+ * надпись на кнопке Confirm молча отбирала у диалога поле ввода. Это был
+ * баг: см. stash из тулбара. Теперь kind задаётся явно, дефолт — input.
+ */
+interface PromptInputOptions {
+  kind?: 'input';
   title: string;
   label?: string;
   defaultValue?: string;
@@ -27,13 +24,52 @@ export interface ShowPromptOptions {
   onConfirm: (value: string) => void;
 }
 
+interface PromptConfirmOptions {
+  kind: 'confirm';
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  onConfirm: () => void;
+}
+
+export type ShowPromptOptions = PromptInputOptions | PromptConfirmOptions;
 export type ShowPromptFn = (opts: ShowPromptOptions) => void;
+
+interface PromptState {
+  kind: 'input' | 'confirm';
+  title: string;
+  label: string;
+  defaultValue: string;
+  placeholder: string;
+  message: string;
+  confirmLabel: string;
+  danger: boolean;
+  allowEmpty: boolean;
+  onConfirm: (value: string) => void;
+}
 
 export function usePromptDialog() {
   const [prompt, setPrompt] = useState<PromptState | null>(null);
 
   const showPrompt = useCallback<ShowPromptFn>((opts) => {
+    if (opts.kind === 'confirm') {
+      setPrompt({
+        kind: 'confirm',
+        title: opts.title,
+        label: '',
+        defaultValue: '',
+        placeholder: '',
+        message: opts.message ?? '',
+        confirmLabel: opts.confirmLabel ?? '',
+        danger: opts.danger ?? false,
+        allowEmpty: true,
+        onConfirm: () => opts.onConfirm(),
+      });
+      return;
+    }
     setPrompt({
+      kind: 'input',
       title: opts.title,
       label: opts.label ?? '',
       defaultValue: opts.defaultValue ?? '',
@@ -60,22 +96,19 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const isConfirmOnly = !!prompt?.confirmLabel;
-
   useEffect(() => {
-    if (prompt) {
-      setValue(prompt.defaultValue);
-      if (!isConfirmOnly) {
-        const timer = setTimeout(() => inputRef.current?.focus(), 50);
-        return () => clearTimeout(timer);
-      }
+    if (!prompt) return;
+    setValue(prompt.defaultValue);
+    if (prompt.kind === 'input') {
+      const timer = setTimeout(() => inputRef.current?.focus(), 50);
+      return () => clearTimeout(timer);
     }
-  }, [prompt, isConfirmOnly]);
+  }, [prompt]);
 
   if (!prompt) return null;
 
   const handleSubmit = () => {
-    if (isConfirmOnly) {
+    if (prompt.kind === 'confirm') {
       prompt.onConfirm('');
       onClose();
       return;
@@ -86,39 +119,41 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
     onClose();
   };
 
-  const confirmBtnClass = prompt.danger
-    ? 'sg-button sg-button--md sg-button--danger'
-    : 'sg-button sg-button--md sg-button--primary';
+  const disabled = prompt.kind === 'input' && !prompt.allowEmpty && !value.trim();
 
   return (
-    <SgDialog open={true} title={prompt.title} onClose={onClose} width={400} footer={
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button className="sg-button sg-button--md sg-button--ghost" onClick={onClose}>{t().dialog.cancel}</button>
-        <button
-          className={confirmBtnClass}
-          onClick={handleSubmit}
-          disabled={!isConfirmOnly && !prompt.allowEmpty && !value.trim()}
-        >
-          {prompt.confirmLabel || t().dialog.confirm}
-        </button>
-      </div>
-    }>
-      {isConfirmOnly ? (
-        prompt.message && <p style={{ margin: 0, fontSize: 13, color: 'var(--sg-foreground-muted)' }}>{prompt.message}</p>
-      ) : (
-        <>
-          {prompt.label && <label style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>{prompt.label}</label>}
-          <input
-            ref={inputRef}
-            className="sg-input"
-            value={value}
-            onChange={e => setValue(e.target.value)}
-            placeholder={prompt.placeholder}
-            onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
-            style={{ width: '100%' }}
-          />
-        </>
-      )}
+    <SgDialog
+      open={true}
+      title={prompt.title}
+      onClose={onClose}
+      size="sm"
+      onConfirm={handleSubmit}
+      confirmLabel={prompt.confirmLabel || t().dialog.confirm}
+      confirmDanger={prompt.danger}
+      confirmDisabled={disabled}
+    >
+      {prompt.kind === 'confirm'
+        ? (prompt.message && (
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--sg-foreground-muted)' }}>{prompt.message}</p>
+          ))
+        : (
+          <>
+            {prompt.message && (
+              <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--sg-foreground-muted)' }}>{prompt.message}</p>
+            )}
+            {prompt.label && <label style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>{prompt.label}</label>}
+            <input
+              ref={inputRef}
+              className="sg-input"
+              value={value}
+              onChange={e => setValue(e.target.value)}
+              placeholder={prompt.placeholder}
+              onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
+              style={{ width: '100%' }}
+            />
+          </>
+        )
+      }
     </SgDialog>
   );
 }

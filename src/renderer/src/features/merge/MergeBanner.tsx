@@ -35,6 +35,7 @@ export function MergeBanner({ mergeState, showPrompt }: Props) {
   const handleAbort = () => {
     if (showPrompt) {
       showPrompt({
+        kind: 'confirm',
         title: loc.merge.abort,
         message: loc.mergeBanner.abortConfirm,
         confirmLabel: loc.mergeBanner.abort,

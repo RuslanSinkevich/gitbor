@@ -65,6 +65,7 @@ export function LocalChanges({
         danger: true,
         action: () => showPrompt
           ? showPrompt({
+              kind: 'confirm',
               title: loc.dialog.discardTitle,
               message: tpl(loc.dialog.discardMessage, { file: file.path }),
               confirmLabel: loc.contextMenu.discard,
@@ -80,6 +81,7 @@ export function LocalChanges({
         danger: true,
         action: () => showPrompt
           ? showPrompt({
+              kind: 'confirm',
               title: loc.dialog.discardTitle,
               message: tpl(loc.dialog.discardMessage, { file: file.path }),
               confirmLabel: loc.dialog.delete,
@@ -130,6 +132,7 @@ export function LocalChanges({
           };
           if (showPrompt) {
             showPrompt({
+              kind: 'confirm',
               title: loc.dialog.discardTitle,
               message: tpl(loc.dialog.discardFolderMessage, { folder: node.path, count: String(trackedFiles.length) }),
               confirmLabel: loc.contextMenu.folder.discardAll,
@@ -152,6 +155,7 @@ export function LocalChanges({
           };
           if (showPrompt) {
             showPrompt({
+              kind: 'confirm',
               title: loc.dialog.discardTitle,
               message: tpl(loc.dialog.deleteUntrackedFolderMessage, { folder: node.path, count: String(untrackedFiles.length) }),
               confirmLabel: loc.dialog.delete,
@@ -200,6 +204,7 @@ export function LocalChanges({
     };
     if (showPrompt) {
       showPrompt({
+        kind: 'confirm',
         title: loc.dialog.discardTitle,
         message: loc.dialog.resetHardMessage,
         confirmLabel: loc.changes.discardAll,

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { postCommand, onMainEvent } from '../../api';
 import { t } from '../../i18n';
+import { SgDialog } from '../../ui/SgDialog';
 import { HookItem } from './HookItem';
 import s from './HooksDialog.module.css';
 
@@ -37,29 +38,23 @@ export function HooksDialog({ onClose }: Props) {
   }, []);
 
   return (
-    <div className={s.overlay} onClick={onClose}>
-      <div className={s.dialog} onClick={(e) => e.stopPropagation()}>
-        <div className={s.header}>
-          <h3 className={s.title}>{hl.title}</h3>
-          <p className={s.subtitle}>{hl.subtitle}</p>
-        </div>
-
-        <div className={s.body}>
-          {loading ? (
-            <div className={s.empty}>{t().app.loading}</div>
-          ) : hooks.length === 0 ? (
-            <div className={s.empty}>{hl.empty}</div>
-          ) : (
-            hooks.map((hook) => (
-              <HookItem key={hook.name} hook={hook} labels={hl} onToggle={handleToggle} />
-            ))
-          )}
-        </div>
-
-        <div className={s.footer}>
-          <button className={s.btnSecondary} onClick={onClose}>{hl.close}</button>
-        </div>
-      </div>
-    </div>
+    <SgDialog
+      open
+      title={hl.title}
+      onClose={onClose}
+      size="md"
+      footer={<button className="sg-button sg-button--ghost sg-button--md" onClick={onClose}>{hl.close}</button>}
+    >
+      <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--sg-foreground-muted)' }}>{hl.subtitle}</p>
+      {loading ? (
+        <div className={s.empty}>{t().app.loading}</div>
+      ) : hooks.length === 0 ? (
+        <div className={s.empty}>{hl.empty}</div>
+      ) : (
+        hooks.map((hook) => (
+          <HookItem key={hook.name} hook={hook} labels={hl} onToggle={handleToggle} />
+        ))
+      )}
+    </SgDialog>
   );
 }

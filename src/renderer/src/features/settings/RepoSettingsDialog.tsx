@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { postCommand, onMainEvent } from '../../api';
 import { t } from '../../i18n';
 import type { MainEvent } from '../../types';
+import { SgDialog } from '../../ui/SgDialog';
 import s from './RepoSettingsDialog.module.css';
 
 interface RepoSettings {
@@ -39,12 +40,6 @@ export function RepoSettingsDialog({ onClose }: Props) {
   }, []);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  useEffect(() => {
     if (!settings) return;
     if (useGlobal) {
       setName(settings.globalName);
@@ -70,51 +65,16 @@ export function RepoSettingsDialog({ onClose }: Props) {
   const initials = (name || 'U')[0].toUpperCase();
 
   return (
-    <div className={s.overlay} onClick={onClose}>
-      <div className={s.dialog} onClick={e => e.stopPropagation()}>
-        <div className={s.header}>
-          <h2>{loc.title}</h2>
-          <button className={s.closeBtn} onClick={onClose}>&times;</button>
-        </div>
-
-        <div className={s.body}>
-          <h3 className={s.section}>{loc.userInfo}</h3>
-
-          <label className={s.checkboxRow}>
-            <input
-              type="checkbox"
-              checked={useGlobal}
-              onChange={e => setUseGlobal(e.target.checked)}
-            />
-            <span>{loc.useGlobal}</span>
-          </label>
-
-          <div className={s.userRow}>
-            <div className={s.avatar}>{initials}</div>
-            <div className={s.fields}>
-              <div className={s.fieldRow}>
-                <label>{loc.userName}</label>
-                <input
-                  className="sg-input"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  disabled={useGlobal}
-                />
-              </div>
-              <div className={s.fieldRow}>
-                <label>{loc.userEmail}</label>
-                <input
-                  className="sg-input"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  disabled={useGlobal}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className={s.footer}>
+    <SgDialog
+      open
+      title={loc.title}
+      onClose={onClose}
+      size="md"
+      footer={
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button className="sg-button sg-button--ghost sg-button--sm" onClick={onClose}>
+            {loc.close}
+          </button>
           {!useGlobal && (
             <button
               className="sg-button sg-button--primary sg-button--sm"
@@ -123,11 +83,44 @@ export function RepoSettingsDialog({ onClose }: Props) {
               {saved ? loc.saved : loc.save}
             </button>
           )}
-          <button className="sg-button sg-button--ghost sg-button--sm" onClick={onClose}>
-            {loc.close}
-          </button>
+        </div>
+      }
+    >
+      <h3 className={s.section}>{loc.userInfo}</h3>
+
+      <label className={s.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={useGlobal}
+          aria-label={loc.useGlobal}
+          onChange={e => setUseGlobal(e.target.checked)}
+        />
+        <span>{loc.useGlobal}</span>
+      </label>
+
+      <div className={s.userRow}>
+        <div className={s.avatar}>{initials}</div>
+        <div className={s.fields}>
+          <div className={s.fieldRow}>
+            <label>{loc.userName}</label>
+            <input
+              className="sg-input"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              disabled={useGlobal}
+            />
+          </div>
+          <div className={s.fieldRow}>
+            <label>{loc.userEmail}</label>
+            <input
+              className="sg-input"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              disabled={useGlobal}
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </SgDialog>
   );
 }

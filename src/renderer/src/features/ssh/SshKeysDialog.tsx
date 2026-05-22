@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { postCommand, onMainEvent, copyToClipboard } from '../../api';
 import { t, tpl } from '../../i18n';
 import type { MainEvent } from '../../types';
+import { SgDialog } from '../../ui/SgDialog';
 import s from './SshKeysDialog.module.css';
 
 interface SshKeyInfo {
@@ -38,12 +39,6 @@ export function SshKeysDialog({ onClose }: Props) {
     return unsub;
   }, []);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   const handleCopy = useCallback((name: string) => {
     postCommand({ type: 'getPublicKey', name });
   }, []);
@@ -55,81 +50,77 @@ export function SshKeysDialog({ onClose }: Props) {
   }, [loc]);
 
   return (
-    <div className={s.overlay} onClick={onClose}>
-      <div className={s.dialog} onClick={e => e.stopPropagation()}>
-        <div className={s.header}>
-          <div>
-            <h2>{loc.title}</h2>
-            <p className={s.subtitle}>{loc.subtitle}</p>
-          </div>
-          <button className={s.closeBtn} onClick={onClose}>&times;</button>
-        </div>
-
-        <div className={s.body}>
-          {keys.length === 0 ? (
-            <div className={s.empty}>{loc.noKeys}</div>
-          ) : (
-            <table className={s.table}>
-              <thead>
-                <tr>
-                  <th>{loc.name}</th>
-                  <th>{loc.type}</th>
-                  <th>{loc.fingerprint}</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {keys.map(k => (
-                  <tr key={k.name}>
-                    <td className={s.keyName}>
-                      {k.name}
-                      {k.comment && <span className={s.comment}>{k.comment}</span>}
-                    </td>
-                    <td className={s.keyType}>{k.type.replace('ssh-', '')}</td>
-                    <td className={s.fingerprint}>{k.fingerprint || '—'}</td>
-                    <td className={s.actions}>
-                      <button
-                        className="sg-button sg-button--ghost sg-button--sm"
-                        onClick={() => handleCopy(k.name)}
-                      >
-                        {copiedName === k.name ? loc.copied : loc.copyPublicKey}
-                      </button>
-                      <button
-                        className="sg-button sg-button--danger sg-button--sm"
-                        onClick={() => handleDelete(k.name)}
-                      >
-                        {loc.delete}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {showGenerate ? (
-          <GenerateForm
-            loc={loc}
-            onDone={() => setShowGenerate(false)}
-          />
-        ) : (
-          <div className={s.footer}>
+    <SgDialog
+      open
+      title={loc.title}
+      onClose={onClose}
+      size="lg"
+      footer={
+        showGenerate ? null : (
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', width: '100%' }}>
             <button
               className="sg-button sg-button--primary sg-button--sm"
               onClick={() => setShowGenerate(true)}
             >
               + {loc.newKey}
             </button>
-            <div className={s.footerRight}>
-              <button className="sg-button sg-button--ghost sg-button--sm" onClick={onClose}>
-                {loc.close}
-              </button>
-            </div>
+            <button className="sg-button sg-button--ghost sg-button--sm" onClick={onClose}>
+              {loc.close}
+            </button>
           </div>
-        )}
-      </div>
-    </div>
+        )
+      }
+    >
+      <p className={s.subtitle}>{loc.subtitle}</p>
+
+      {keys.length === 0 ? (
+        <div className={s.empty}>{loc.noKeys}</div>
+      ) : (
+        <table className={s.table}>
+          <thead>
+            <tr>
+              <th>{loc.name}</th>
+              <th>{loc.type}</th>
+              <th>{loc.fingerprint}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {keys.map(k => (
+              <tr key={k.name}>
+                <td className={s.keyName}>
+                  {k.name}
+                  {k.comment && <span className={s.comment}>{k.comment}</span>}
+                </td>
+                <td className={s.keyType}>{k.type.replace('ssh-', '')}</td>
+                <td className={s.fingerprint}>{k.fingerprint || '—'}</td>
+                <td className={s.actions}>
+                  <button
+                    className="sg-button sg-button--ghost sg-button--sm"
+                    onClick={() => handleCopy(k.name)}
+                  >
+                    {copiedName === k.name ? loc.copied : loc.copyPublicKey}
+                  </button>
+                  <button
+                    className="sg-button sg-button--danger sg-button--sm"
+                    onClick={() => handleDelete(k.name)}
+                  >
+                    {loc.delete}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {showGenerate && (
+        <GenerateForm
+          loc={loc}
+          onDone={() => setShowGenerate(false)}
+        />
+      )}
+    </SgDialog>
   );
 }
 

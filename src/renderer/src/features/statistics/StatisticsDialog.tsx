@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { postCommand, onMainEvent } from '../../api';
 import { t } from '../../i18n';
 import type { RepoStats, AuthorStats, AuthorCodeStatsResult } from '../../types';
+import { SgDialog } from '../../ui/SgDialog';
 import { OverviewView } from './OverviewView';
 import { AuthorDetailView } from './AuthorDetailView';
 import s from './Statistics.module.css';
@@ -86,42 +87,32 @@ export function StatisticsDialog({ onClose }: Props) {
   }, [selectedAuthor, authorKey]);
 
   return (
-    <div className={s.overlay} onClick={onClose}>
-      <div className={s.dialog} onClick={(e) => e.stopPropagation()}>
-        <div className={s.header}>
-          {selectedAuthor && (
-            <button className={s.backBtn} onClick={handleBack}>&larr; {sl.back}</button>
-          )}
-          <div className={s.headerText}>
-            <h2 className={s.title}>
-              {selectedAuthor ? selectedAuthor.name : sl.title}
-            </h2>
-            <p className={s.subtitle}>
-              {selectedAuthor ? selectedAuthor.email : sl.subtitle}
-            </p>
-          </div>
-        </div>
-
-        <div className={s.body}>
-          {loading && <div className={s.loading}>{loc.app.loading}</div>}
-          {!loading && !data && <div className={s.empty}>{sl.noData}</div>}
-          {!loading && data && !selectedAuthor && (
-            <OverviewView data={data} onSelectAuthor={setSelectedAuthor} />
-          )}
-          {!loading && data && selectedAuthor && (
-            <AuthorDetailView
-              author={selectedAuthor}
-              codeStats={authorCodeStats}
-              codeStatsLoading={authorCodeStatsLoading}
-              onCalculateCodeStats={handleCalculateCodeStats}
-            />
-          )}
-        </div>
-
-        <div className={s.footer}>
-          <button className={s.btnSecondary} onClick={onClose}>{sl.close}</button>
-        </div>
-      </div>
-    </div>
+    <SgDialog
+      open
+      title={selectedAuthor ? selectedAuthor.name : sl.title}
+      onClose={onClose}
+      size="xl"
+      headerExtra={selectedAuthor
+        ? <button className="sg-button sg-button--ghost sg-button--sm" onClick={handleBack}>&larr; {sl.back}</button>
+        : undefined}
+      footer={<button className="sg-button sg-button--ghost sg-button--md" onClick={onClose}>{sl.close}</button>}
+    >
+      <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--sg-foreground-muted)' }}>
+        {selectedAuthor ? selectedAuthor.email : sl.subtitle}
+      </p>
+      {loading && <div className={s.loading}>{loc.app.loading}</div>}
+      {!loading && !data && <div className={s.empty}>{sl.noData}</div>}
+      {!loading && data && !selectedAuthor && (
+        <OverviewView data={data} onSelectAuthor={setSelectedAuthor} />
+      )}
+      {!loading && data && selectedAuthor && (
+        <AuthorDetailView
+          author={selectedAuthor}
+          codeStats={authorCodeStats}
+          codeStatsLoading={authorCodeStatsLoading}
+          onCalculateCodeStats={handleCalculateCodeStats}
+        />
+      )}
+    </SgDialog>
   );
 }

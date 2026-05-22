@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { postCommand, onMainEvent } from '../../api';
 import { t } from '../../i18n';
+import { SgDialog } from '../../ui/SgDialog';
 import { LfsPatternList } from './LfsPatternList';
 import { LfsFileList } from './LfsFileList';
 import s from './LfsDialog.module.css';
@@ -38,30 +39,24 @@ export function LfsDialog({ onClose }: Props) {
   }, []);
 
   return (
-    <div className={s.overlay} onClick={onClose}>
-      <div className={s.dialog} onClick={(e) => e.stopPropagation()}>
-        <div className={s.header}>
-          <h3 className={s.title}>{ll.title}</h3>
-          <p className={s.subtitle}>{ll.subtitle}</p>
-        </div>
-
-        <div className={s.body}>
-          {!status ? (
-            <div className={s.empty}>{t().app.loading}</div>
-          ) : !status.installed ? (
-            <div className={s.warning}>{ll.notInstalled}</div>
-          ) : (
-            <>
-              <LfsPatternList patterns={status.patterns} labels={ll} onTrack={handleTrack} onUntrack={handleUntrack} />
-              <LfsFileList files={status.files} labels={ll} />
-            </>
-          )}
-        </div>
-
-        <div className={s.footer}>
-          <button className={s.btnSecondary} onClick={onClose}>{ll.close}</button>
-        </div>
-      </div>
-    </div>
+    <SgDialog
+      open
+      title={ll.title}
+      onClose={onClose}
+      size="lg"
+      footer={<button className="sg-button sg-button--ghost sg-button--md" onClick={onClose}>{ll.close}</button>}
+    >
+      <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--sg-foreground-muted)' }}>{ll.subtitle}</p>
+      {!status ? (
+        <div className={s.empty}>{t().app.loading}</div>
+      ) : !status.installed ? (
+        <div className={s.warning}>{ll.notInstalled}</div>
+      ) : (
+        <>
+          <LfsPatternList patterns={status.patterns} labels={ll} onTrack={handleTrack} onUntrack={handleUntrack} />
+          <LfsFileList files={status.files} labels={ll} />
+        </>
+      )}
+    </SgDialog>
   );
 }
