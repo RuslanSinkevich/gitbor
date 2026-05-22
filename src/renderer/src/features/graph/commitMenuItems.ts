@@ -74,20 +74,24 @@ export function getCommitMenuItems(
     },
     { divider: true },
 
-    { header: true, label: tpl(loc.contextMenu.resetToHere, { branch: currentBranch }) },
-    { label: loc.contextMenu.resetSoft, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'soft' }) },
-    { label: loc.contextMenu.resetMixed, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'mixed' }) },
     {
-      label: loc.contextMenu.resetHard,
-      danger: true,
-      action: () => showPrompt({
-        kind: 'confirm',
-        title: loc.dialog.resetHardTitle,
-        message: loc.dialog.resetHardMessage,
-        confirmLabel: loc.contextMenu.resetHard,
-        danger: true,
-        onConfirm: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'hard' }),
-      }),
+      label: tpl(loc.contextMenu.resetToHere, { branch: currentBranch }),
+      submenu: [
+        { label: loc.contextMenu.resetSoft, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'soft' }) },
+        { label: loc.contextMenu.resetMixed, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'mixed' }) },
+        {
+          label: loc.contextMenu.resetHard,
+          danger: true,
+          action: () => showPrompt({
+            kind: 'confirm',
+            title: loc.dialog.resetHardTitle,
+            message: loc.dialog.resetHardMessage,
+            confirmLabel: loc.contextMenu.resetHard,
+            danger: true,
+            onConfirm: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'hard' }),
+          }),
+        },
+      ],
     },
     { divider: true },
 
