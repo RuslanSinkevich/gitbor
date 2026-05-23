@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useState } from 'react';
 import { SgDialog } from '../../ui/SgDialog';
 import { t, tpl } from '../../i18n';
 
@@ -21,12 +21,6 @@ interface CheckoutDialogProps {
 export function CheckoutDialog({ branch, dirtyCount, onConfirm, onCancel }: CheckoutDialogProps) {
   const loc = t();
   const [mode, setMode] = useState<CheckoutMode>('keep');
-  const okRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const tid = setTimeout(() => okRef.current?.focus(), 0);
-    return () => clearTimeout(tid);
-  }, []);
 
   return (
     <SgDialog
@@ -39,8 +33,10 @@ export function CheckoutDialog({ branch, dirtyCount, onConfirm, onCancel }: Chec
           <button className="sg-button sg-button--md sg-button--ghost" onClick={onCancel}>
             {loc.checkoutDialog.cancel}
           </button>
+          {/* autoFocus + showModal() = браузер ставит фокус сам. Раньше был
+              setTimeout(0) + ref.focus() — лишний тик без выигрыша. */}
           <button
-            ref={okRef}
+            autoFocus
             className={`sg-button sg-button--md ${mode === 'discard' ? 'sg-button--danger' : 'sg-button--primary'}`}
             onClick={() => onConfirm(mode)}
           >

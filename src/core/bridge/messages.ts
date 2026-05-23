@@ -45,6 +45,7 @@ type RendererCommandCore =
   | { type: 'renameRemote'; oldName: string; newName: string }
   | { type: 'stageHunk'; file: string; hunkIndex: number; reverse?: boolean }
   | { type: 'stageLines'; file: string; hunkIndex: number; lineIndices: number[]; reverse?: boolean }
+  | { type: 'discardHunk'; file: string; hunkIndex: number }
   | { type: 'getSubmodules' }
   | { type: 'submoduleUpdate'; path: string }
   | { type: 'submoduleInit'; path: string }

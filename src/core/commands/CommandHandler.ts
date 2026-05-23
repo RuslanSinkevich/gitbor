@@ -177,6 +177,7 @@ export class CommandHandler {
   // ─── Stage Hunk/Lines ───
   stageHunk(file: string, hunkIndex: number, reverse: boolean): Promise<OperationResult> { return Write.stageHunk(this.queue, this.git, this.state, file, hunkIndex, reverse); }
   stageLines(file: string, hunkIndex: number, lineIndices: number[], reverse: boolean): Promise<OperationResult> { return Write.stageLines(this.queue, this.git, this.state, file, hunkIndex, lineIndices, reverse); }
+  discardHunk(file: string, hunkIndex: number): Promise<OperationResult> { return Write.discardHunk(this.queue, this.git, this.state, file, hunkIndex); }
 
   // ─── Submodules ───
   async submoduleUpdate(path: string): Promise<OperationResult> {

@@ -34,10 +34,16 @@ describe('resolveToastLevel', () => {
 });
 
 describe('shouldShowSafetyModal', () => {
-  it('only user + critical', () => {
+  it('user + critical or warning → modal; background → never; info → toast only', () => {
+    // Расширили модалку на user-warning, чтобы non_fast_forward / auth /
+    // hook_failed / dirty_tree и пр. не уходили только в toast (см.
+    // docs/tasks/error-no-duplicate-modal-toast.md).
     expect(shouldShowSafetyModal('user', 'critical')).toBe(true);
-    expect(shouldShowSafetyModal('user', 'warning')).toBe(false);
+    expect(shouldShowSafetyModal('user', 'warning')).toBe(true);
+    expect(shouldShowSafetyModal('user', 'info')).toBe(false);
     expect(shouldShowSafetyModal('background', 'critical')).toBe(false);
+    expect(shouldShowSafetyModal('background', 'warning')).toBe(false);
+    expect(shouldShowSafetyModal('auto-retry', 'critical')).toBe(false);
   });
 });
 

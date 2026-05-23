@@ -2,8 +2,8 @@
   --sg-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
   --sg-font-size: 13px;
   --sg-font-mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
-  --sg-radius: 6px;
-  --sg-radius-sm: 4px;
+  --sg-radius: 4px;
+  --sg-radius-sm: 3px;
   --sg-transition: 150ms ease;
 
   --sg-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);

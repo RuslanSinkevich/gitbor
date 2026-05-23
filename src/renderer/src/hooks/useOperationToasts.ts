@@ -9,7 +9,7 @@ import {
   type ErrorSeverity,
   type OperationSource,
 } from '@core/errors/severity';
-import type { RendererCommand } from '../types';
+import type { RendererCommand, GitErrorClass } from '../types';
 import type { OperationResult } from './useAppState';
 import type { SgToastAction } from '../ui/SgToast';
 
@@ -35,6 +35,19 @@ function severityRank(s: ErrorSeverity): number {
   return 1;
 }
 
+export interface UseOperationToastsOptions {
+  /**
+   * Если задан и вернёт `true` для текущей ошибки — toast НЕ показываем
+   * (за неё уже отвечает SafetyDialog). Без этого юзер видит модалку
+   * и параллельный toast с тем же stderr — ощущение «сломалось дважды».
+   */
+  willShowModal?: (args: {
+    errorClass?: GitErrorClass;
+    severity: ErrorSeverity;
+    source: OperationSource;
+  }) => boolean;
+}
+
 export function useOperationToasts(
   lastOpResult: OperationResult | null,
   clearLastOpResult: () => void,
@@ -45,6 +58,7 @@ export function useOperationToasts(
   ) => void,
   lastCommandRef?: { current: RendererCommand | null },
   onShowActivity?: () => void,
+  options?: UseOperationToastsOptions,
 ) {
   const aggRef = useRef<Map<string, AggBucket>>(new Map());
 
@@ -72,6 +86,10 @@ export function useOperationToasts(
     const source = normalizeSource(srcIn);
     const toastLevel = resolveToastLevel(source, severity);
     if (toastLevel === null) return;
+
+    // Если SafetyDialog (или другой источник) уже возьмёт эту ошибку —
+    // toast подавляем, иначе получится дубль модалка+toast.
+    if (options?.willShowModal?.({ errorClass, severity, source })) return;
 
     const silentError = SILENT_OPS.includes(operation);
     if (silentError && severity === 'info') return;

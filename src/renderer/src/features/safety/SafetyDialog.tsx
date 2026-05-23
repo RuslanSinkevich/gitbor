@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { SgDialog } from '../../ui/SgDialog';
 import { t, tpl } from '../../i18n';
 import type {
@@ -44,7 +44,6 @@ interface SafetyDialogProps {
  */
 export function SafetyDialog({ payload, onAction, onClose }: SafetyDialogProps) {
   const loc = t();
-  const primaryBtnRef = useRef<HTMLButtonElement>(null);
 
   const title = useMemo(() => {
     if (!payload) return '';
@@ -57,12 +56,6 @@ export function SafetyDialog({ payload, onAction, onClose }: SafetyDialogProps) 
       (a) => !isDangerKind(a.kind) && a.kind !== 'cancel' && a.kind !== 'ignore',
     );
   }, [payload]);
-
-  useEffect(() => {
-    if (!payload || primaryIndex < 0) return;
-    const t = setTimeout(() => primaryBtnRef.current?.focus(), 0);
-    return () => clearTimeout(t);
-  }, [payload, primaryIndex]);
 
   if (!payload) return null;
 
@@ -87,7 +80,9 @@ export function SafetyDialog({ payload, onAction, onClose }: SafetyDialogProps) 
             return (
               <button
                 key={`${act.kind}-${i}`}
-                ref={isPrimary ? primaryBtnRef : undefined}
+                // autoFocus на «безопасный default» (continue/retry/remove_lock),
+                // браузер сам ставит focus после showModal() — без setTimeout.
+                autoFocus={isPrimary}
                 className={`sg-button sg-button--md sg-button--${variant}`}
                 onClick={() => onAction(act)}
                 disabled={payload.busy}

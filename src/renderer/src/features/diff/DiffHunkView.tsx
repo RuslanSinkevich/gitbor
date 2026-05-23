@@ -21,14 +21,28 @@ export function DiffHunkView({ hunk, hunkIndex, file, isWorkingCopy, isStaged }:
     postCommand({ type: 'stageHunk', file, hunkIndex, reverse: true });
   };
 
+  const handleDiscardHunk = () => {
+    // Нативный confirm — без проброса showPrompt через 4 уровня
+    // (DiffHunkView вложен в DiffView → DiffPanel → RightPanelContent).
+    // Текст и заголовок берём из i18n, чтобы Discard на разных
+    // экранах звучал одинаково.
+    if (!window.confirm(`${loc.diff.discardHunkTitle}\n\n${loc.diff.discardHunkMessage}`)) return;
+    postCommand({ type: 'discardHunk', file, hunkIndex });
+  };
+
   return (
     <div>
       <div className={s.hunkHeader}>
         <span>{hunk.header}</span>
         {isWorkingCopy && (
-          <button className={s.hunkAction} onClick={handleStageHunk} title={loc.diff.stageHunk}>
-            {loc.diff.stageHunk}
-          </button>
+          <>
+            <button className={s.hunkAction} onClick={handleStageHunk} title={loc.diff.stageHunk}>
+              {loc.diff.stageHunk}
+            </button>
+            <button className={`${s.hunkAction} ${s.hunkActionDanger}`} onClick={handleDiscardHunk} title={loc.diff.discardHunk}>
+              {loc.diff.discardHunk}
+            </button>
+          </>
         )}
         {isStaged && (
           <button className={s.hunkAction} onClick={handleUnstageHunk} title={loc.diff.unstageHunk}>

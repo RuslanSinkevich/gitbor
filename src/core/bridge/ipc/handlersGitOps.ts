@@ -49,6 +49,7 @@ export const ipcHandlersGitOps: HandlerTable = {
     (cmd, ctx) => ctx.ch.stageLines(cmd.file, cmd.hunkIndex, cmd.lineIndices, !!cmd.reverse),
     'Stage lines failed',
   ),
+  discardHunk: errOnFail((cmd, ctx) => ctx.ch.discardHunk(cmd.file, cmd.hunkIndex), 'Discard hunk failed'),
 
   stashPopIndex: async (cmd, ctx) => {
     const applyResult = await ctx.ch.stashApply(cmd.index);

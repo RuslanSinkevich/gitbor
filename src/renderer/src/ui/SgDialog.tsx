@@ -58,9 +58,15 @@ export function SgDialog({
   useEffect(() => {
     const el = dialogRef.current;
     if (!el) return;
-    if (open && !el.open) el.showModal();
+    if (open && !el.open) {
+      el.showModal();
+      // showModal() сам ставит фокус по HTML-spec (autofocus или первый
+      // focusable). Если потребитель явно указал initialFocus —
+      // переставляем сразу после showModal, без setTimeout 0.
+      if (initialFocus?.current) initialFocus.current.focus();
+    }
     if (!open && el.open) el.close();
-  }, [open]);
+  }, [open, initialFocus]);
 
   useEffect(() => {
     const el = dialogRef.current;
@@ -72,12 +78,6 @@ export function SgDialog({
     el.addEventListener('cancel', handleCancel);
     return () => el.removeEventListener('cancel', handleCancel);
   }, [onClose]);
-
-  useEffect(() => {
-    if (!open || !initialFocus) return;
-    const tid = setTimeout(() => initialFocus.current?.focus(), 0);
-    return () => clearTimeout(tid);
-  }, [open, initialFocus]);
 
   const style: React.CSSProperties = size === 'fullscreen'
     ? { width: 'calc(100vw - 32px)', height: 'calc(100vh - 32px)', maxWidth: 'none' }

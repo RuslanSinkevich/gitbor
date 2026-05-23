@@ -41,9 +41,21 @@ export function normalizeSource(source?: OperationSource): OperationSource {
   return source ?? 'user';
 }
 
-/** SafetyDialog по центру — только user + critical. */
+/**
+ * SafetyDialog по центру.
+ *
+ * Раньше модалка показывалась только на `user + critical`, и весь
+ * пласт `warning` (non_fast_forward, auth, hook_failed, conflict,
+ * preflight_blocked, dirty_tree...) ехал ТОЛЬКО в toast. Это и
+ * порождало шум «commit упал — мелкий тост в углу». Fork показывает
+ * одну модалку с stderr на любую user-ошибку — переезжаем к тому же.
+ *
+ * Не показываем модалку только для `info` (network: транзиентные
+ * сбои сети, branch_not_found и пр.) — там достаточно toast'а.
+ */
 export function shouldShowSafetyModal(source: OperationSource | undefined, severity: ErrorSeverity): boolean {
-  return normalizeSource(source) === 'user' && severity === 'critical';
+  if (normalizeSource(source) !== 'user') return false;
+  return severity === 'critical' || severity === 'warning';
 }
 
 export type ToastLevel = 'success' | 'info' | 'warning' | 'error';

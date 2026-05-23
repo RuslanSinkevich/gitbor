@@ -139,9 +139,17 @@ export function useAppState() {
    * перерисуется на срез нового репо. Если среза нет (первое открытие) —
    * EMPTY_SLICE; данные подтянутся событиями от main. Никаких полей чужого
    * репо в state в момент клика быть не может.
+   *
+   * После смены активного — evict графа у всех остальных табов: 5-50 MB
+   * commits[]/graphLayout у каждого неактивного оставляли V8 heap
+   * растущим за сессию. Сам slice (branches/status/...) остаётся —
+   * UI на возврате показывает их сразу, граф подтянется быстрым
+   * refresh от main.
    */
   const switchRepoFast = useCallback((index: number) => {
     repoSlices.setActiveRepoIndex(index);
+    const target = repoSlices.meta.openRepos[index];
+    if (target) repoSlices.evictInactiveGraphData(target.path);
     resetTransientState();
     postCommand({ type: 'switchRepo', index });
   }, [repoSlices, resetTransientState]);

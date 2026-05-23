@@ -32,8 +32,18 @@ export class RepoStateRefresher {
   private static readonly INITIAL_COMMIT_LIMIT = 2000;
   /** Первая быстрая выборка графа — сразу виден топ истории. */
   private static readonly PROGRESSIVE_FIRST_LIMIT = 500;
-  /** Полная выборка — «весь граф», догружается в бэкграунде. */
-  private static readonly PROGRESSIVE_FULL_LIMIT = 50000;
+  /**
+   * Дефолтная глубина графа после первой фазы. Раньше было 50000 —
+   * для монорепо это десятки MB в RAM на каждый таб и
+   * `parseCommits`+`computeGraphLayout` на весь массив. Юзер «не
+   * просил всю историю» — данные оседают как side-effect open.
+   *
+   * 5000 покрывает >95% типовых браузингов; для конкретной задачи
+   * (что-то старее) есть git/CLI или явный «load more» — UI хук
+   * `refreshGraph(maxCount)` уже принимает кастомный лимит, поэтому
+   * расширение всегда возможно по требованию.
+   */
+  private static readonly PROGRESSIVE_FULL_LIMIT = 5000;
 
   constructor(
     private readonly store: RepoSlicesStore,

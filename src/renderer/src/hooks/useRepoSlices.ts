@@ -112,6 +112,12 @@ export interface RepoSlicesApi {
   removeSlice(repoPath: string): void;
   applyMetaPatch(patch: Partial<Meta>): void;
   setActiveRepoIndex(index: number): boolean;
+  /**
+   * Освободить тяжёлые поля графа (commits + graphLayout) у всех slice'ов
+   * КРОМЕ активного. Лёгкая meta остаётся (branches/status/...), чтобы
+   * возврат на таб был мгновенным до прихода свежего refresh от main.
+   */
+  evictInactiveGraphData(activeRepoPath: string): void;
 }
 
 /**
@@ -185,6 +191,24 @@ export function useRepoSlices(): RepoSlicesApi {
     return changed;
   }, []);
 
+  const evictInactiveGraphData = useCallback((activeRepoPath: string): void => {
+    setSlices(prev => {
+      let touched = false;
+      const out = new Map(prev);
+      for (const [path, slice] of prev) {
+        if (path === activeRepoPath) continue;
+        if (slice.commits.length === 0 && slice.graphLayout.nodes.length === 0) continue;
+        touched = true;
+        out.set(path, {
+          ...slice,
+          commits: [],
+          graphLayout: { nodes: [], maxColumns: 0, mergeLinks: [] },
+        });
+      }
+      return touched ? out : prev;
+    });
+  }, []);
+
   return {
     slices,
     meta,
@@ -195,5 +219,6 @@ export function useRepoSlices(): RepoSlicesApi {
     removeSlice,
     applyMetaPatch,
     setActiveRepoIndex,
+    evictInactiveGraphData,
   };
 }

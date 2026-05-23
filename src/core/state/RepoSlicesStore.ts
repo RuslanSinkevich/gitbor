@@ -49,6 +49,37 @@ export class RepoSlicesStore {
   }
 
   /**
+   * Освободить тяжёлые поля графа в slice неактивного репо
+   * (commits + graphLayout). Сам slice (branches/status/remotes/...)
+   * остаётся: они лёгкие и нужны для быстрого восстановления при
+   * возврате на таб. Token БАМПИМ — все inflight refreshGraph этого
+   * slice тихо выйдут, иначе только что освобождённые массивы
+   * перезапишутся старыми из inflight git log.
+   *
+   * На большом монорепо это и есть главный source утечек: 5-50 MB
+   * commits[] + 5-20 MB graphLayout.nodes[] на каждый неактивный таб.
+   * Fork отдаёт память при switch — у нас теперь тоже.
+   */
+  evictGraphData(repoPath: string): void {
+    const slice = this.slicesByRepo.get(repoPath);
+    if (!slice) return;
+    slice.token++;
+    slice.commits = [];
+    slice.graphLayout = { nodes: [], maxColumns: 0, mergeLinks: [] };
+    slice.cachedHeadHash = null;
+    slice.cachedLogHash = null;
+    slice.cachedLogLimit = 0;
+  }
+
+  /** Список путей всех трекаемых репо (active + openRepos). */
+  trackedRepoPaths(): string[] {
+    const paths = new Set<string>();
+    if (this.state.repoPath) paths.add(this.state.repoPath);
+    for (const r of this.state.openRepos) paths.add(r.path);
+    return [...paths];
+  }
+
+  /**
    * Репо «трекается» если оно либо активное, либо в openRepos.
    * После closeRepo путь вылетает из openRepos и активный сменяется —
    * этот гард не даёт фоновому refresh-у пересоздать slice/services

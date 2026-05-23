@@ -75,11 +75,15 @@ export function useSyncActions(state: AppState, loc: ReturnType<typeof t>): UseS
   /**
    * Дефолтный remote для push/pull диалогов. Приоритет:
    *  1) remote из upstream текущей ветки (`<remote>/<branch>`) — самый точный
-   *     сигнал, юзер хочет работать именно с ним;
-   *  2) `origin` если он есть в списке — конвенция git;
-   *  3) первый remote из списка.
-   * Без этого верхний селект (remote) при множественных remote'ах часто
-   * показывал не тот, к которому привязана ветка.
+   *     сигнал;
+   *  2) remote, где есть remote-tracking branch с ТЕМ ЖЕ именем, что
+   *     текущая локальная ветка — если такой remote ровно один, берём его
+   *     (юзер на ветке `stage`, она существует только на `tfs/stage` —
+   *     дефолт `tfs`, не `origin`);
+   *  3) `origin` если он есть — конвенция git;
+   *  4) первый remote из списка.
+   * Без шага 2 при 3 remote'ах модалка часто открывалась на `origin`,
+   * хотя ветка живёт на другом remote.
    */
   const pickDefaultRemote = useCallback(() => {
     const remotes = state.remotes.map((r) => r.name);
@@ -95,9 +99,25 @@ export function useSyncActions(state: AppState, loc: ReturnType<typeof t>): UseS
       }
     }
 
+    const currentName = state.currentBranch || '';
+    if (currentName) {
+      const remotesWithBranch = remotes.filter((r) =>
+        state.branches.some((b) => b.isRemote && b.name === `${r}/${currentName}`),
+      );
+      if (remotesWithBranch.length === 1) return remotesWithBranch[0];
+      // Если ветка есть на нескольких remote — это смешанный сетап,
+      // отдаём приоритет origin (или, если его нет в этом подмножестве,
+      // первому remote, где она найдена). Не возвращаем «случайный» origin
+      // из общего списка, на котором ветки может не быть вообще.
+      if (remotesWithBranch.length > 1) {
+        if (remotesWithBranch.includes('origin')) return 'origin';
+        return remotesWithBranch[0];
+      }
+    }
+
     if (remotes.includes('origin')) return 'origin';
     return remotes[0];
-  }, [state.remotes, state.branches]);
+  }, [state.remotes, state.branches, state.currentBranch]);
 
   /**
    * Для PUSH-диалога: если у локальной ветки нет upstream и на remote нет

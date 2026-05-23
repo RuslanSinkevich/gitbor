@@ -65,6 +65,17 @@ export class MessageBridge {
         return;
       }
 
+      // Чистим dedup-кэш graphData для НЕактивных репо: иначе main
+      // process держит ссылки на старые commits/layout закрытых
+      // или просто неактивных табов даже после того, как
+      // RepoSlicesStore их evict'нул. Активный repoPath не трогаем —
+      // его дедуп ниже всё ещё актуален.
+      if (this.sentGraphByRepo.size > 1) {
+        for (const cachedPath of this.sentGraphByRepo.keys()) {
+          if (cachedPath !== repoPath) this.sentGraphByRepo.delete(cachedPath);
+        }
+      }
+
       // Шлём mergeState на смену активного репо: иначе при открытии
       // репо с уже идущим merge/UU юзер не видит баннера, пока сам
       // не запустит pull/merge. Один запрос на смену, не на каждое

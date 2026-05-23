@@ -90,6 +90,21 @@ const HEAD_DELTA_OPS = new Set([
   'commit', 'merge', 'cherry-pick', 'revert', 'pull', 'rebase', 'reset', 'restoreReflog',
 ]);
 
+/**
+ * Push/fetch: git вернул — UI должен отпустить кнопки и индикатор сразу.
+ * Локальный HEAD от push/fetch не меняется (ну, fetch обновляет
+ * `refs/remotes/*` но не HEAD), пересчёт полного графа на 50k коммитов
+ * **после** sucessful upload — это и есть жалоба «залип после push».
+ * Лечим тем же приёмом, что для HEAD_DELTA_OPS: быстрый refresh
+ * (ветки/status/ahead-behind/stashes/remotes) — синхронно перед
+ * `operationEnd`, тяжёлый граф — fire-and-forget в фоне.
+ *
+ * Auto-fetch / background sync эту обвязку не используют: они идут
+ * через отдельные пути в renderer (`useAutoFetch`), здесь только
+ * toolbar/sidebar инициированные операции.
+ */
+const ASYNC_REFRESH_OPS = new Set(['push', 'fetch']);
+
 interface OpTiming {
   enqueuedAt: number;
   startedAt?: number;
@@ -136,7 +151,7 @@ async function gitWrite(
       logOpTiming(opName, timing, Date.now() - refreshStart);
       return result;
     }
-    if (refresh === 'refreshAll' && HEAD_DELTA_OPS.has(opName)) {
+    if (refresh === 'refreshAll' && (HEAD_DELTA_OPS.has(opName) || ASYNC_REFRESH_OPS.has(opName))) {
       await state.refreshAll(targetRepo, { deferHeavy: true });
     } else {
       await state[refresh](targetRepo);
@@ -452,6 +467,21 @@ async function applyPatch(git: GitExecutor, state: StateManager, patch: string, 
   return simpleResult(r.exitCode, r.stderr);
 }
 
+/**
+ * Применить reverse-patch к РАБОЧЕЙ КОПИИ (без `--cached`). Используется
+ * для discard конкретного hunk: соседние hunks файла не трогаем, в
+ * отличие от `checkout -- <file>`, который откатывает весь файл.
+ *
+ * `--unidiff-zero` НЕ нужен — мы строим патч с фактическим контекстом.
+ * Если апликация падает (context mismatch — другой эфемерный edit
+ * пользователя), просто возвращаем ошибку. SafetyDialog покажет.
+ */
+async function applyPatchWorktree(git: GitExecutor, state: StateManager, patch: string): Promise<OperationResult> {
+  const r = await git.exec(['apply', '--reverse'], { stdin: patch });
+  await state.refreshStatusAndNotify();
+  return simpleResult(r.exitCode, r.stderr);
+}
+
 export async function stageHunk(
   queue: OperationQueue, git: GitExecutor, state: StateManager,
   file: string, hunkIndex: number, reverse: boolean,
@@ -471,5 +501,22 @@ export async function stageLines(
     const hunk = await getDiffHunk(git, file, hunkIndex, reverse);
     if (!hunk) return { success: false, error: 'Hunk not found', rollbackAvailable: false };
     return applyPatch(git, state, buildLinesPatch(file, hunk, new Set(lineIndices)), reverse);
+  });
+}
+
+/**
+ * Discard отдельного hunk из unstaged diff'а. Берём патч исходного
+ * (рабочая копия) diff'а и применяем его reverse к worktree — этот hunk
+ * откатывается, остальные сохраняются. Discard на staged hunk
+ * НЕ поддерживается (вне scope: для staged логично сначала unstage).
+ */
+export async function discardHunk(
+  queue: OperationQueue, git: GitExecutor, state: StateManager,
+  file: string, hunkIndex: number,
+): Promise<OperationResult> {
+  return queue.enqueueWrite('discardHunk', async () => {
+    const hunk = await getDiffHunk(git, file, hunkIndex, false);
+    if (!hunk) return { success: false, error: 'Hunk not found', rollbackAvailable: false };
+    return applyPatchWorktree(git, state, buildHunkPatch(file, hunk));
   });
 }

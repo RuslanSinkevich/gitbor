@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { SgDialog } from '../../ui/SgDialog';
+import { SgCheckbox } from '../../ui/SgCheckbox';
 import { postCommand } from '../../api';
 import { t } from '../../i18n';
 
@@ -51,15 +52,11 @@ export function ApplyStashDialog({ stashIndex, stashMessage, onClose }: Props) {
           </div>
         </div>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-          <input
-            type="checkbox"
-            aria-label={loc.deleteAfter}
-            checked={drop}
-            onChange={(e) => setDrop(e.target.checked)}
-          />
-          {loc.deleteAfter}
-        </label>
+        <SgCheckbox
+          label={loc.deleteAfter}
+          checked={drop}
+          onChange={(e) => setDrop(e.target.checked)}
+        />
         <div style={{ fontSize: 11, color: 'var(--sg-foreground-muted)' }}>
           {loc.conflictNote}
         </div>

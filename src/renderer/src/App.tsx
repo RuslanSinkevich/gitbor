@@ -115,6 +115,12 @@ export function App() {
   useOperationToasts(
     lastOpResult, clearLastOpResult, addToast, lastCommandRef,
     () => dlg.setShowGitActivity(true),
+    {
+      // Подавляем toast если эту же ошибку покажет SafetyDialog —
+      // иначе модалка и toast дублируют один stderr.
+      willShowModal: ({ errorClass, severity, source }) =>
+        safety.shouldOpenModal({ errorClass, severity, source }),
+    },
   );
   useAutoFetch(
     state.repoPath,

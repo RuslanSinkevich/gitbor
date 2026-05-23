@@ -103,6 +103,20 @@
   border-color: var(--sg-primary);
 }
 
+/* Discard hunk — деструктивное действие, выделяем тоном.
+   Без явного hover-стиля наследует primary (синий) — это
+   опасный жест, юзер должен видеть, что кнопка «красная». */
+.hunkActionDanger {
+  color: var(--sg-danger);
+  border-color: color-mix(in srgb, var(--sg-danger) 50%, transparent);
+}
+
+.hunkActionDanger:hover {
+  background: var(--sg-danger);
+  color: #fff;
+  border-color: var(--sg-danger);
+}
+
 .diffTable {
   width: 100%;
   border-collapse: collapse;

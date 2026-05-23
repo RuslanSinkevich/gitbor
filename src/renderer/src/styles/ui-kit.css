@@ -59,6 +59,7 @@
 }
 .sg-input:focus, .sg-textarea:focus, .sg-select:focus {
   border-color: var(--sg-input-focus-border);
+  box-shadow: 0 0 0 1px var(--sg-input-focus-border);
 }
 .sg-textarea { min-height: 60px; resize: vertical; }
 .sg-input-wrapper--error .sg-input,

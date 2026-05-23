@@ -17,8 +17,8 @@ export function AddWorktreeForm({ labels, onAdd }: Props) {
   return (
     <div className={s.addForm}>
       <div className={s.formRow}>
-        <input className={s.input} value={path} onChange={(e) => setPath(e.target.value)} placeholder={labels.newPath} />
-        <input className={s.input} value={branch} onChange={(e) => setBranch(e.target.value)} placeholder={labels.branchName} />
+        <input className="sg-input" style={{ flex: 1 }} value={path} onChange={(e) => setPath(e.target.value)} placeholder={labels.newPath} />
+        <input className="sg-input" style={{ flex: 1 }} value={branch} onChange={(e) => setBranch(e.target.value)} placeholder={labels.branchName} />
       </div>
       <div className={s.formRow}>
         <label className={s.checkLabel}>

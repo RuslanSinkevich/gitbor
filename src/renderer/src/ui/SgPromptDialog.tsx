@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { SgDialog } from './SgDialog';
 import { t } from '../i18n';
 
@@ -94,15 +94,11 @@ interface SgPromptDialogProps {
 
 export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
   const [value, setValue] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!prompt) return;
     setValue(prompt.defaultValue);
-    if (prompt.kind === 'input') {
-      const timer = setTimeout(() => inputRef.current?.focus(), 50);
-      return () => clearTimeout(timer);
-    }
+    // Фокус на input ставит autoFocus + showModal() — без таймера.
   }, [prompt]);
 
   if (!prompt) return null;
@@ -143,7 +139,7 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
             )}
             {prompt.label && <label style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>{prompt.label}</label>}
             <input
-              ref={inputRef}
+              autoFocus
               className="sg-input"
               value={value}
               onChange={e => setValue(e.target.value)}

@@ -106,18 +106,44 @@ export class RepoServicesRegistry {
    * видит recovery-диалог «обнаружен .git/index.lock». Дав 1-2 секунды
    * на естественное завершение, мы избавляемся от 99% таких остатков.
    * Длинные операции (push/fetch) lock не пишут — для них ожидание не нужно.
+   *
+   * Раньше тут был busy-poll с `setTimeout(50)` в цикле — 30 итераций
+   * на пустое repo, race между чтениями состояния. Теперь event-driven:
+   * подписываемся на `onAnyOperationStatusChange` (его уже эмитит
+   * `OperationQueue` после каждого write'а), на каждый `running=false`
+   * проверяем что весь реестр idle — и резолвим. Один deadline-таймер
+   * как страховка от зависшего write (а не 30 polling-таймеров).
    */
   async disposeAllGracefully(timeoutMs = 1500): Promise<void> {
-    const deadline = Date.now() + timeoutMs;
     const hasInflightWrite = (): boolean => {
       for (const svc of this.map.values()) {
         if (svc.queue.isWriteRunning() || svc.queue.getQueueLength() > 0) return true;
       }
       return false;
     };
-    while (hasInflightWrite() && Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 50));
+
+    if (!hasInflightWrite()) {
+      this.disposeAll();
+      return;
     }
+
+    await new Promise<void>((resolve) => {
+      const deadlineTimer = setTimeout(() => {
+        unsub();
+        resolve();
+      }, timeoutMs);
+      const unsub = this.onAnyOperationStatusChange((running) => {
+        // Реагируем только на «write завершился». Каждое такое событие
+        // даёт нам шанс пересчитать общий idle. Параллельные репо
+        // могут продолжать работать — ждём пока ВСЕ освободятся.
+        if (running) return;
+        if (hasInflightWrite()) return;
+        clearTimeout(deadlineTimer);
+        unsub();
+        resolve();
+      });
+    });
+
     this.disposeAll();
   }
 

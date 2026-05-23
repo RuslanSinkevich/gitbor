@@ -55,29 +55,33 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
 }
 
-function waitForDevTcp(port: number, host = '127.0.0.1', timeoutMs = 45000): Promise<void> {
-  const started = Date.now();
+/**
+ * Sanity-check что Vite dev-server слушает порт. Вызывается один раз
+ * перед `loadURL`. Раньше тут был цикл с `setTimeout(250)` retry до
+ * 45 секунд — но `scripts/wait-dev-server.mjs` УЖЕ блокирует запуск
+ * Electron'а до того как Vite поднялся (см. `npm run dev:main`).
+ *
+ * К моменту, когда main.ts вызывает эту функцию, порт гарантированно
+ * жив — race возможен только если Vite успел упасть между exit'ом
+ * wait-script и запуском Electron'а (~100ms окно). В этом случае
+ * лучше упасть сразу с понятной ошибкой, чем 45 секунд молча
+ * пытаться. Никаких таймеров — один TCP connect.
+ */
+function checkDevTcp(port: number, host = '127.0.0.1'): Promise<void> {
   return new Promise((resolve, reject) => {
-    const tryConnect = (): void => {
-      if (Date.now() - started > timeoutMs) {
-        reject(
-          new Error(
-            `Dev server не отвечает на ${host}:${port}. Запустите «npm run dev» целиком или освободите порт ${port} (strictPort в Vite).`
-          )
-        );
-        return;
-      }
-      const socket = net.createConnection({ port, host });
-      socket.once('connect', () => {
-        socket.end();
-        resolve();
-      });
-      socket.once('error', () => {
-        socket.destroy();
-        setTimeout(tryConnect, 250);
-      });
-    };
-    tryConnect();
+    const socket = net.createConnection({ port, host });
+    socket.once('connect', () => {
+      socket.end();
+      resolve();
+    });
+    socket.once('error', () => {
+      socket.destroy();
+      reject(
+        new Error(
+          `Dev server не отвечает на ${host}:${port}. Запустите «npm run dev» целиком или освободите порт ${port} (strictPort в Vite).`,
+        ),
+      );
+    });
   });
 }
 
@@ -186,7 +190,7 @@ async function loadWindow(): Promise<void> {
   }
 
   if (process.env.GITBOR_VITE === '1') {
-    await waitForDevTcp(devPort);
+    await checkDevTcp(devPort);
     await mainWindow.loadURL(`http://127.0.0.1:${devPort}`);
     mainWindow.webContents.openDevTools({ mode: 'detach' });
     return;

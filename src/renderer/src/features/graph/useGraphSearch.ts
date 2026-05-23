@@ -31,12 +31,14 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
   }, [searchMatches, searchMatchIdx, commits, onSelect, scrollToRow]);
 
   useEffect(() => {
-    let focusTimer: ReturnType<typeof setTimeout>;
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault();
         setSearchVisible(true);
-        focusTimer = setTimeout(() => searchRef.current?.focus(), 50);
+        // Если input уже примонтирован (повторный Ctrl+F при открытой
+        // панели) — фокусим сразу. Иначе focus поставит effect ниже,
+        // когда searchRef.current появится после рендера.
+        searchRef.current?.focus();
       }
       if (e.key === 'Escape' && searchVisible) {
         setSearchVisible(false);
@@ -44,10 +46,13 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
       }
     };
     document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      clearTimeout(focusTimer);
-    };
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [searchVisible]);
+
+  // Автофокус search-input ровно один раз — на переход hidden→visible.
+  // Без таймера: эффект бежит после commit'а, ref уже привязан.
+  useEffect(() => {
+    if (searchVisible) searchRef.current?.focus();
   }, [searchVisible]);
 
   useEffect(() => { setSearchMatchIdx(0); }, [searchQuery]);

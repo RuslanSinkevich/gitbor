@@ -41,15 +41,31 @@ body {
   background: var(--sg-scrollbar-thumb-hover);
 }
 
+/* Глобальный focus-ring — только для не-form элементов
+   (ссылки, кнопки, кастомные интерактивы). У form-controls
+   обводка задаётся локально (см. ui-kit .sg-input/.sg-button),
+   иначе получаем «двойную обводку»: border-color меняется И
+   рисуется outline сверху. */
 :focus-visible {
   outline: 2px solid var(--sg-primary);
   outline-offset: -2px;
 }
 
-button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
+  outline: none;
+}
+
+/* Кнопки получают тонкий outline, не -2px, чтобы не «съедал» бордер. */
+button:focus-visible {
+  outline: 2px solid var(--sg-primary);
+  outline-offset: 1px;
+}
+
+/* .sg-button уже имеет border + bg-state, второй outline-ring визуально
+   ломает форму кнопки. Оставляем только цветовое смещение через primary. */
+.sg-button:focus-visible {
   outline: 2px solid var(--sg-primary);
   outline-offset: 1px;
 }
