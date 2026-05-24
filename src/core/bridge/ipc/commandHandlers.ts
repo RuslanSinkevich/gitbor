@@ -5,6 +5,7 @@ import { ipcHandlersRepoExtras } from './handlersRepoExtras';
 import { ipcHandlersAi } from './handlersAi';
 import { ipcHandlersShell } from './handlersShell';
 import { ipcHandlersSafety } from './handlersSafety';
+import { ipcHandlersAppUpdate } from './handlersAppUpdate';
 
 /** Полная таблица IPC-команд renderer → main. */
 export const ipcCommandHandlers: HandlerTable = {
@@ -13,6 +14,7 @@ export const ipcCommandHandlers: HandlerTable = {
   ...ipcHandlersRepoExtras,
   ...ipcHandlersAi,
   ...ipcHandlersSafety,
+  ...ipcHandlersAppUpdate,
   // openPathInExplorer и пр. команды НЕ описаны в `RendererCommand` union
   // (см. handlersShell.ts), поэтому таблица расширяется через cast — тип
   // не позволяет добавить новый ключ к строгой `HandlerTable`.

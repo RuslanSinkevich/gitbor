@@ -62,6 +62,11 @@ export function useOperationToasts(
 ) {
   const aggRef = useRef<Map<string, AggBucket>>(new Map());
 
+  useEffect(() => () => {
+    for (const bucket of aggRef.current.values()) clearTimeout(bucket.timer);
+    aggRef.current.clear();
+  }, []);
+
   useEffect(() => {
     if (!lastOpResult) return;
     clearLastOpResult();

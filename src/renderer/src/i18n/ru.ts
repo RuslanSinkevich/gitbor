@@ -389,6 +389,16 @@ export const ru: LocaleMap = {
     autoStashGroup: 'Безопасность',
     autoStashBadge: 'авто',
   },
+  appUpdater: {
+    title: 'GitBor',
+    restartMessage: 'Доступна версия {version}. Перезапустить GitBor и установить обновление?',
+    restartConfirm: 'Перезапустить',
+    nsisOnly: 'Автообновление доступно только в установленной (NSIS) версии GitBor.',
+    availableMessage: 'Доступна версия {version}.',
+    availableDetail: 'Загрузка началась. Когда обновление скачается, появится предложение перезапустить GitBor.',
+    upToDate: 'У вас установлена актуальная версия ({version}).',
+    checkFailed: 'Не удалось проверить обновления.',
+  },
   aboutDialog: {
     product: 'Open-source Git-клиент на базе Electron и React.',
     aboutMeTitle: 'Обо мне',
@@ -396,6 +406,7 @@ export const ru: LocaleMap = {
     authorRole: 'Full-stack разработчик и автор GitBor.',
     authorBio: 'Создаю open-source инструменты для разработчиков: AI-редактор кода, Git-клиент и инфраструктуру для продуктивной локальной разработки с контролем над данными.',
     more: 'Подробнее об авторе',
+    checkUpdates: 'Проверить обновления',
   },
   statusbar: {
     noRepo: 'Нет репозитория',

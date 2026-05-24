@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, safeStorage, session, shell } from 'electron';
+import { app, BrowserWindow, Menu, dialog, safeStorage, session, shell, ipcMain } from 'electron';
 import { existsSync } from 'fs';
 import * as path from 'path';
 import * as net from 'net';
@@ -20,6 +20,7 @@ import { AiHandlers } from '../core/ai/AiHandlers';
 import { configureMainLogger, mainLogger } from '../core/utils/Logger';
 import { setupGracefulShutdown } from './gracefulShutdown';
 import { computeAiOrigins } from './cspOrigins';
+import { setupAppUpdater } from './AppUpdater';
 
 let mainWindow: BrowserWindow | null = null;
 let messageBridge: MessageBridge | null = null;
@@ -92,6 +93,7 @@ async function createWindow(): Promise<void> {
     minWidth: 900,
     minHeight: 600,
     title: 'GitBor',
+    icon: path.join(app.getAppPath(), 'resources/icon.ico'),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
@@ -445,6 +447,10 @@ app.whenReady().then(async () => {
   // отрабатывает на загруженном DOM), autoOpenRepo дальше работает в фоне
   // и шлёт `stateUpdate` через уже подключённый messageBridge.
   void autoOpenRepo();
+
+  setupAppUpdater((event) => messageBridge?.send(event));
+
+  ipcMain.handle('gitbor:app-version', () => app.getVersion());
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

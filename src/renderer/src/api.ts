@@ -6,6 +6,7 @@ interface GitBorAPI {
   onEvent(callback: (event: unknown) => void): void;
   offEvent(): void;
   platform: string;
+  getAppVersion(): Promise<string>;
 }
 
 declare global {

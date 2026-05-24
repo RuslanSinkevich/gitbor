@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import type { t } from '../i18n';
+import { postCommand } from '../api';
 import { SgDialog } from './SgDialog';
 import s from './AboutDialog.module.css';
 
@@ -8,6 +10,12 @@ interface Props {
 }
 
 export function AboutDialog({ onClose, loc }: Props) {
+  const [version, setVersion] = useState('…');
+
+  useEffect(() => {
+    void window.gitBorAPI?.getAppVersion().then((v) => setVersion(v)).catch(() => setVersion('?'));
+  }, []);
+
   return (
     <SgDialog
       open
@@ -15,12 +23,21 @@ export function AboutDialog({ onClose, loc }: Props) {
       onClose={onClose}
       size="sm"
       footer={
-        <button className="sg-button sg-button--primary sg-button--sm" onClick={onClose}>
-          {loc.dialog.close}
-        </button>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            className="sg-button sg-button--md sg-button--ghost"
+            onClick={() => void postCommand({ type: 'checkForUpdates' })}
+          >
+            {loc.aboutDialog.checkUpdates}
+          </button>
+          <button type="button" className="sg-button sg-button--primary sg-button--sm" onClick={onClose}>
+            {loc.dialog.close}
+          </button>
+        </div>
       }
     >
-      <p className={s.version}>v0.1.0</p>
+      <p className={s.version}>v{version}</p>
       <p className={s.desc}>{loc.aboutDialog.product}</p>
       <div className={s.section}>
         <h3 className={s.sectionTitle}>{loc.aboutDialog.aboutMeTitle}</h3>
@@ -29,7 +46,7 @@ export function AboutDialog({ onClose, loc }: Props) {
         <p className={s.sectionText}>{loc.aboutDialog.authorBio}</p>
         <a
           className={s.link}
-          href="https://gitbor.ru/about"
+          href="https://ruslansinkevich.ru/about"
           target="_blank"
           rel="noreferrer"
         >

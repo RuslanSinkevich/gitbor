@@ -5,6 +5,7 @@ export interface GitBorAPI {
   onEvent(callback: (event: unknown) => void): void;
   offEvent(): void;
   platform: string;
+  getAppVersion(): Promise<string>;
 }
 
 type EventHandler = (_e: Electron.IpcRendererEvent, data: unknown) => void;
@@ -28,6 +29,8 @@ const api: GitBorAPI = {
   },
 
   platform: process.platform,
+
+  getAppVersion: () => ipcRenderer.invoke('gitbor:app-version') as Promise<string>,
 };
 
 contextBridge.exposeInMainWorld('gitBorAPI', api);

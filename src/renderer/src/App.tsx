@@ -13,6 +13,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useDialogs } from './hooks/useDialogs';
 import { useAutoFetch } from './hooks/useAutoFetch';
 import { useSyncActions } from './hooks/useSyncActions';
+import { useAppUpdater } from './hooks/useAppUpdater';
 import { TitleBar } from './features/titlebar';
 import { CommitsView, ChangesView, type RightPanel } from './features/layout';
 import { MergeBanner, shouldShowMergeBanner } from './features/merge';
@@ -50,6 +51,7 @@ export function App() {
   const { toasts, addToast, dismissToast } = useToasts(error, clearError);
   const { contextMenu, showContextMenu, closeContextMenu } = useContextMenu();
   const { prompt, showPrompt, closePrompt } = usePromptDialog();
+  useAppUpdater(showPrompt);
   const { diffTarget, openDiff, closeDiff } = useDiffState();
 
   /**

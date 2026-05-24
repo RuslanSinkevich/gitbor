@@ -200,7 +200,9 @@ type RendererCommandCore =
   | { type: 'safetyResolve'; requestId: string; action: RecoveryAction }
   | { type: 'killGitProcess'; pid: number }
   | { type: 'removeIndexLock' }
-  | { type: 'rollbackOperation'; journalEntryId: string };
+  | { type: 'rollbackOperation'; journalEntryId: string }
+  | { type: 'checkForUpdates' }
+  | { type: 'appUpdateInstall' };
 
 /** Источник операции (user/background). Не путать с `source` в merge-командах (имя ветки). */
 export type RendererCommand = RendererCommandCore & { opSource?: OperationSource };
@@ -283,6 +285,14 @@ export type MainEvent =
   | { type: 'gitActivityUpdated'; entry: GitActivityEntry }
   | { type: 'gitActivityCleared' }
   | { type: 'repoClosed'; path: string }
+  | { type: 'appUpdateReady'; version: string }
+  | {
+      type: 'appUpdateManualResult';
+      result: 'nsis-only' | 'available' | 'up-to-date' | 'error';
+      version?: string;
+      current?: string;
+      error?: string;
+    }
   /**
    * Сменилась видимость окна. Renderer использует это, чтобы остановить
    * фоновую активность (авто-fetch, опросные таймеры) пока окно скрыто

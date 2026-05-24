@@ -47,7 +47,8 @@ gitignored — regenerate locally as needed.
 npm run dist:win
 ```
 
-Output: `release/GitBor Setup X.Y.Z.exe`, `release/GitBor X.Y.Z.exe`
+Output: `release/GitBor-Setup-X.Y.Z.exe`, `release/GitBor-Portable-X.Y.Z.exe`
+(no spaces — matches `latest.yml` for auto-update).
 (portable). NSIS installer optionally enables Win10 LongPathsEnabled
 registry (requires admin during install) — see `build/installer.nsh`.
 

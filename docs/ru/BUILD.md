@@ -47,7 +47,8 @@ npm run build:icons
 npm run dist:win
 ```
 
-Вывод: `release/GitBor Setup X.Y.Z.exe`, `release/GitBor X.Y.Z.exe`
+Вывод: `release/GitBor-Setup-X.Y.Z.exe`, `release/GitBor-Portable-X.Y.Z.exe`
+(имена без пробелов — совпадают с `latest.yml` для auto-update).
 (portable). NSIS-инсталлятор опционально включает реестровый ключ
 Win10 LongPathsEnabled (требует прав администратора во время установки)
 — см. `build/installer.nsh`.
@@ -192,28 +193,17 @@ session, физически в `<userData>/Local Storage/`). Префиксы к
 что не влияют — они становятся осмысленными только когда тот же URL
 доступен из работающего приложения с авто-апдейтером.
 
-### Авто-обновления (по умолчанию ВЫКЛЮЧЕНЫ)
+### Авто-обновления
 
-GitBor собирается **без** подключённого `electron-updater` в `main.ts`.
-Сгенерированный `latest.yml` в рантайме игнорируется — пользователю
-надо качать новые инсталляторы руками.
+Подключены через `electron-updater` (`src/main/AppUpdater.ts`):
 
-Чтобы включить:
+- **URL:** `build.publish` → `https://storage.yandexcloud.net/gitbor/`
+- **Когда:** ~8 с после старта (packaged NSIS), фоновая загрузка
+- **Не работает:** dev (`npm run dev`), portable `.exe`, `GITBOR_SKIP_UPDATE_CHECK=1`
+- **Ручная проверка:** About → «Проверить обновления»
 
-1. `npm install electron-updater`.
-2. Добавить `build.publish` в `package.json` (см. выше).
-3. В `src/main/main.ts` после `app.whenReady`:
-
-   ```ts
-   import { autoUpdater } from 'electron-updater';
-   autoUpdater.logger = mainLogger;
-   autoUpdater.checkForUpdatesAndNotify();
-   ```
-
-4. Пересобрать и опубликовать через `electron-builder --publish always`,
-   чтобы `latest.yml` отражал новую версию.
-
-Платформо-зависимое:
+После `npm run dist:win` залить в бакет `latest.yml`, NSIS `.exe` и `.blockmap`.
+Версия в `package.json` должна расти на каждый релиз.
 
 - **Windows**: NSIS-таргет поддерживает авто-апдейты (delta-обновления
   через `.blockmap`); portable — НЕ поддерживает.
@@ -225,8 +215,7 @@ GitBor собирается **без** подключённого `electron-upda
 ## Известные ограничения
 
 - Нотаризация macOS требует Apple Developer ID — не настроена.
-- Авто-обновления не подключены (`electron-updater` не установлен, нет
-  `build.publish`). См. "Дистрибуция и авто-обновления" выше.
+- Авто-обновления: NSIS + Yandex bucket (см. «Авто-обновления» выше). macOS без подписи — авто-update не для prod.
 - Реальные продуктовые иконки ещё не нарисованы; placeholder-иконки
   геометрические/авто-сгенерированные. См. `scripts/build-icons.mjs`.
 - Bundled Git для Windows: не включён; пользователям нужно установить

@@ -387,6 +387,16 @@ export const en = {
     autoStashGroup: 'Safety',
     autoStashBadge: 'auto',
   },
+  appUpdater: {
+    title: 'GitBor',
+    restartMessage: 'Version {version} is ready. Restart GitBor to install the update?',
+    restartConfirm: 'Restart',
+    nsisOnly: 'Automatic updates are available only in the installed (NSIS) version of GitBor.',
+    availableMessage: 'Version {version} is available.',
+    availableDetail: 'Download started. You will be prompted to restart when it is ready.',
+    upToDate: 'You have the latest version ({version}).',
+    checkFailed: 'Could not check for updates.',
+  },
   aboutDialog: {
     product: 'Open-source Git client built with Electron and React.',
     aboutMeTitle: 'About Me',
@@ -394,6 +404,7 @@ export const en = {
     authorRole: 'Full-stack developer and creator of GitBor.',
     authorBio: 'I build open-source tools for developers: an AI code editor, a Git client, and infrastructure for productive local development with full control over data.',
     more: 'More about the author',
+    checkUpdates: 'Check for updates',
   },
   statusbar: {
     noRepo: 'No repository',
