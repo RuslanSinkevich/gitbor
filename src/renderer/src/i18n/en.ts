@@ -109,6 +109,14 @@ export const en = {
     noSearchResults: 'No results',
     loadMore: 'Load more commits ({loaded} loaded)',
     remoteOnlyHint: 'Fetched from remote, not in any local branch yet',
+    gpg: {
+      signed: '✓ Signed',
+      untrusted: '✓ Untrusted',
+      bad: '✗ Bad sig',
+      expired: '✓ Expired',
+      expiredKey: '✓ Exp. key',
+      revoked: '✗ Revoked',
+    },
   },
   details: {
     commit: 'Commit',
@@ -116,6 +124,7 @@ export const en = {
     fileTree: 'File Tree',
     author: 'Author',
     sha: 'SHA',
+    range: 'Range',
     parent: 'Parent',
     changedFiles: 'Changed Files',
     selectCommit: 'Select a commit to view details',

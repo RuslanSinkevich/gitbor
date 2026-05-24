@@ -104,6 +104,12 @@ export async function getFileDiff(
       return parseDiff(untrackedResult.stdout);
     }
 
+    if (hash.includes('..')) {
+      const [fromH, toH] = hash.split('..');
+      const result = await git.exec(['diff', ...wsFlag, fromH, toH, '--', file]);
+      return parseDiff(result.stdout);
+    }
+
     if (hash === 'STAGED') {
       const result = await git.exec(['diff', '--cached', ...wsFlag, '--', file]);
       if (result.stdout.trim()) return parseDiff(result.stdout);

@@ -364,6 +364,8 @@ export function App() {
   }, [selectCommit, closeDiff]);
 
   const handleCompareTo = useCallback((fromHash: string, toHash: string) => {
+    setViewMode('commits');
+    setRightPanel('diff');
     postCommand({ type: 'getCommitDiff', fromHash, toHash });
     setCompareFromHash(null);
   }, []);

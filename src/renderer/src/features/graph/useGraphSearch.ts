@@ -32,7 +32,7 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'а' || e.code === 'KeyF')) {
         e.preventDefault();
         setSearchVisible(true);
         // Если input уже примонтирован (повторный Ctrl+F при открытой

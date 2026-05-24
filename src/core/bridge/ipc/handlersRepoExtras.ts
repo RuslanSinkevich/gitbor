@@ -163,7 +163,7 @@ export const ipcHandlersRepoExtras: HandlerTable = {
     const result = await runTracked('rebase', ctx, () => ctx.ch.executeRebase(cmd.onto, cmd.entries));
     ctx.send({ type: 'operationEnd', operation: 'rebase', success: result.success, error: result.error });
     const progress = await ctx.ch.getRebaseProgress();
-    if (progress.inProgress) ctx.send({ type: 'rebaseProgress', data: progress });
+    ctx.send({ type: 'rebaseProgress', data: progress });
   },
 
   getGitActivity: async (_cmd, ctx) => {

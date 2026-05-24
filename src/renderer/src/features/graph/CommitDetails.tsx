@@ -105,6 +105,7 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
   const loc = t();
   const [tab, setTab] = useState<Tab>('commit');
   const tree = useMemo(() => detail ? buildFileTree(detail.files) : [], [detail]);
+  const isCompareRange = detail?.hash.includes('..') ?? false;
 
   const getFileMenuItems = useCallback((file: FileChange, commitHash: string): SgContextMenuItem[] => {
     const loc2 = t();
@@ -154,21 +155,27 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
             <h3 className={s.subject}>{detail.subject}</h3>
             {detail.body && <pre className={s.body}>{detail.body}</pre>}
             <div className={s.meta}>
-              <div className={s.metaRow}>
-                <span className={s.label}>{loc.details.author}:</span>
-                <span className={s.authorLine}>
-                  <AuthorAvatar name={detail.authorName} email={detail.authorEmail} size="md" />
-                  <span>{detail.authorName} &lt;{detail.authorEmail}&gt;</span>
-                </span>
-              </div>
-              <div className={s.metaRow}>
-                <span className={s.label}>{loc.graph.date}:</span>
-                <span>{formatDate(detail.authorDate)}</span>
-              </div>
-              <div className={s.metaRow}>
-                <span className={s.label}>{loc.details.sha}:</span>
-                <span className={s.sha} onClick={copySha} title={loc.details.clickToCopy}>{detail.hash}</span>
-              </div>
+              {!isCompareRange && (
+                <>
+                  <div className={s.metaRow}>
+                    <span className={s.label}>{loc.details.author}:</span>
+                    <span className={s.authorLine}>
+                      <AuthorAvatar name={detail.authorName} email={detail.authorEmail} size="md" />
+                      <span>{detail.authorName} &lt;{detail.authorEmail}&gt;</span>
+                    </span>
+                  </div>
+                  <div className={s.metaRow}>
+                    <span className={s.label}>{loc.graph.date}:</span>
+                    <span>{formatDate(detail.authorDate)}</span>
+                  </div>
+                </>
+              )}
+              {!isCompareRange && (
+                <div className={s.metaRow}>
+                  <span className={s.label}>{loc.details.sha}:</span>
+                  <span className={s.sha} onClick={copySha} title={loc.details.clickToCopy}>{detail.hash}</span>
+                </div>
+              )}
               {detail.parents.length > 0 && (
                 <div className={s.metaRow}>
                   <span className={s.label}>{loc.details.parent}:</span>

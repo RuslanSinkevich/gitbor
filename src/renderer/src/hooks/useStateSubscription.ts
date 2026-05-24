@@ -160,6 +160,25 @@ export function useStateSubscription(deps: StateSubscriptionDeps): void {
             return prev;
           });
           break;
+        case 'commitDiff': {
+          const { fromHash, toHash, files } = msg.data;
+          const rangeHash = `${fromHash}..${toHash}`;
+          d.setCommitDetail(() => ({
+            hash: rangeHash,
+            parents: [],
+            authorName: '',
+            authorEmail: '',
+            authorDate: 0,
+            committerName: '',
+            committerEmail: '',
+            commitDate: 0,
+            refs: [],
+            subject: `${fromHash.substring(0, 7)}..${toHash.substring(0, 7)}`,
+            body: '',
+            files,
+          }));
+          break;
+        }
         case 'graphData': {
           const repoPath = msg.repoPath;
           if (!repoPath) break;

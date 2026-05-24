@@ -1,19 +1,30 @@
+import { t } from '../../i18n';
 import s from './CommitGraph.module.css';
 
-const GPG_LABELS: Record<string, { label: string; cls: string }> = {
-  G: { label: '✓ Signed', cls: s.gpgGood },
-  U: { label: '✓ Untrusted', cls: s.gpgUntrusted },
-  B: { label: '✗ Bad sig', cls: s.gpgBad },
-  X: { label: '✓ Expired', cls: s.gpgUntrusted },
-  Y: { label: '✓ Exp.key', cls: s.gpgUntrusted },
-  R: { label: '✗ Revoked', cls: s.gpgBad },
-  // 'E' (signature cannot be verified — no key) намеренно отброшено в
-  // GitParser, чтобы не засорять граф чужих репо «? Err» бейджами.
+const GPG_STATUS_KEYS = {
+  G: 'signed',
+  U: 'untrusted',
+  B: 'bad',
+  X: 'expired',
+  Y: 'expiredKey',
+  R: 'revoked',
+} as const;
+
+const GPG_STATUS_CLS: Record<string, string> = {
+  G: s.gpgGood,
+  U: s.gpgUntrusted,
+  B: s.gpgBad,
+  X: s.gpgUntrusted,
+  Y: s.gpgUntrusted,
+  R: s.gpgBad,
 };
 
 /** Small inline badge showing GPG/SSH signature verification status. */
 export function GpgBadge({ status }: { status: string }) {
-  const info = GPG_LABELS[status];
-  if (!info) return null;
-  return <span className={`${s.gpgBadge} ${info.cls}`}>{info.label}</span>;
+  const key = GPG_STATUS_KEYS[status as keyof typeof GPG_STATUS_KEYS];
+  const cls = GPG_STATUS_CLS[status];
+  if (!key || !cls) return null;
+  const loc = t();
+  const label = loc.graph.gpg[key];
+  return <span className={`${s.gpgBadge} ${cls}`}>{label}</span>;
 }

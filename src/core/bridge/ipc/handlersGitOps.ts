@@ -32,8 +32,22 @@ export const ipcHandlersGitOps: HandlerTable = {
   submoduleUpdate: op('submoduleUpdate', (cmd, ctx) => ctx.ch.submoduleUpdate(cmd.path)),
   submoduleInit: op('submoduleInit', (cmd, ctx) => ctx.ch.submoduleInit(cmd.path)),
   rebaseTo: op('rebase', (cmd, ctx) => ctx.ch.rebaseTo(cmd.onto)),
-  continueRebase: op('rebase', (_cmd, ctx) => ctx.ch.continueRebase()),
-  skipRebase: op('rebase', (_cmd, ctx) => ctx.ch.skipRebase()),
+  continueRebase: async (_cmd, ctx) => {
+    const repoPath = ctx.sm.getState().repoPath || null;
+    ctx.send({ type: 'operationStart', operation: 'rebase', repoPath });
+    const result = await runTracked('rebase', ctx, () => ctx.ch.continueRebase());
+    ctx.send({ type: 'operationEnd', operation: 'rebase', success: result.success, error: result.error, repoPath });
+    const progress = await ctx.ch.getRebaseProgress();
+    ctx.send({ type: 'rebaseProgress', data: progress });
+  },
+  skipRebase: async (_cmd, ctx) => {
+    const repoPath = ctx.sm.getState().repoPath || null;
+    ctx.send({ type: 'operationStart', operation: 'rebase', repoPath });
+    const result = await runTracked('rebase', ctx, () => ctx.ch.skipRebase());
+    ctx.send({ type: 'operationEnd', operation: 'rebase', success: result.success, error: result.error, repoPath });
+    const progress = await ctx.ch.getRebaseProgress();
+    ctx.send({ type: 'rebaseProgress', data: progress });
+  },
 
   commit: opWithPostMerge('commit', (cmd, ctx) => ctx.ch.commit(cmd.message, cmd.amend)),
 
@@ -43,7 +57,12 @@ export const ipcHandlersGitOps: HandlerTable = {
   deleteTag: errOnFail((cmd, ctx) => ctx.ch.deleteTag(cmd.name, cmd.remote), 'Delete tag failed'),
   stashApply: errOnFail((cmd, ctx) => ctx.ch.stashApply(cmd.index), 'Stash apply failed'),
   stashDrop: errOnFail((cmd, ctx) => ctx.ch.stashDrop(cmd.index), 'Stash drop failed'),
-  abortRebase: errOnFail((_cmd, ctx) => ctx.ch.abortRebase(), 'Abort rebase failed'),
+  abortRebase: async (_cmd, ctx) => {
+    const result = await ctx.ch.abortRebase();
+    if (!result.success) ctx.send({ type: 'error', message: result.error || 'Abort rebase failed' });
+    const progress = await ctx.ch.getRebaseProgress();
+    ctx.send({ type: 'rebaseProgress', data: progress });
+  },
   stageHunk: errOnFail((cmd, ctx) => ctx.ch.stageHunk(cmd.file, cmd.hunkIndex, !!cmd.reverse), 'Stage hunk failed'),
   stageLines: errOnFail(
     (cmd, ctx) => ctx.ch.stageLines(cmd.file, cmd.hunkIndex, cmd.lineIndices, !!cmd.reverse),

@@ -111,6 +111,14 @@ export const ru: LocaleMap = {
     noSearchResults: 'Нет результатов',
     loadMore: 'Загрузить ещё ({loaded} загружено)',
     remoteOnlyHint: 'Загружен с remote, ещё не в локальной ветке',
+    gpg: {
+      signed: '✓ Подписан',
+      untrusted: '✓ Не доверен',
+      bad: '✗ Битая',
+      expired: '✓ Истёк',
+      expiredKey: '✓ Ключ ист.',
+      revoked: '✗ Отозван',
+    },
   },
   details: {
     commit: 'Коммит',
@@ -118,6 +126,7 @@ export const ru: LocaleMap = {
     fileTree: 'Дерево файлов',
     author: 'Автор',
     sha: 'SHA',
+    range: 'Диапазон',
     parent: 'Родитель',
     changedFiles: 'Изменённые файлы',
     selectCommit: 'Выберите коммит для просмотра деталей',
