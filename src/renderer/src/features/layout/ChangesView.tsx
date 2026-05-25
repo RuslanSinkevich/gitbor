@@ -30,6 +30,7 @@ interface Props {
   showPrompt: ShowPromptFn;
   loc: ReturnType<typeof t>;
   onOpenAiSettings: () => void;
+  onOpenGitignoreDialog?: () => void;
 }
 
 export function ChangesView({
@@ -37,7 +38,7 @@ export function ChangesView({
   conflictFile, setConflictFile, setMergeEditorFile,
   showContextMenu, openDiff, closeDiff, openFileHistory, openFileBlame,
   handleOpenMergeEditor, handleConflictResolved, selectCommit,
-  showPrompt, loc, onOpenAiSettings,
+  showPrompt, loc, onOpenAiSettings, onOpenGitignoreDialog,
 }: Props) {
   const [selectedFolder, setSelectedFolder] = useState<{ path: string; section: 'unstaged' | 'staged' } | null>(null);
   const fileListStorageKey = buildStorageKey('sg-layout:changes-file-list-width', state.repoPath);
@@ -88,6 +89,7 @@ export function ChangesView({
               showPrompt={showPrompt}
               activePath={selectedFolder?.path || conflictFile || diffTarget?.file}
               activeSection={activeSection}
+              onOpenGitignoreDialog={onOpenGitignoreDialog}
             />
           </div>
         }

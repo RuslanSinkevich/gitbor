@@ -1,0 +1,53 @@
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 10px;
+  margin: 0 0 6px 0;
+  background: color-mix(in srgb, var(--sg-warning, #d99000) 14%, var(--sg-surface));
+  border: 1px solid color-mix(in srgb, var(--sg-warning, #d99000) 40%, transparent);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-weight: 600;
+  color: var(--sg-foreground);
+}
+
+.hint {
+  margin-top: 2px;
+  color: var(--sg-foreground-muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.dismiss {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--sg-foreground-muted);
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 3px;
+}
+
+.dismiss:hover {
+  background: var(--sg-surface-hover);
+  color: var(--sg-foreground);
+}

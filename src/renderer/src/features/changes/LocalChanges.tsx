@@ -8,6 +8,7 @@ import { buildStorageKey } from '../../shared/uiPersist';
 import type { ShowPrompt } from '../graph/commitMenuItems';
 import { buildFileTree, FileTreeItem, fileName, collectFiles, type FileTreeNode } from './FileTree';
 import { useFileListKeyboard } from './useFileListKeyboard';
+import { GitignoreBanner } from '../gitignore';
 import s from './LocalChanges.module.css';
 
 interface Props {
@@ -25,12 +26,15 @@ interface Props {
   showPrompt?: ShowPrompt;
   activePath?: string;
   activeSection?: 'unstaged' | 'staged' | 'conflict';
+  /** Открыть модалку добавления .gitignore (по клику в баннере). */
+  onOpenGitignoreDialog?: () => void;
 }
 
 export function LocalChanges({
   repoPath,
   stagedFiles, unstagedFiles, onContextMenu, onOpenDiff, onFileHistory, onFileBlame,
   onOpenMergeEditor, onSelectFolder, showPrompt, activePath, activeSection,
+  onOpenGitignoreDialog,
 }: Props) {
   const loc = t();
   const stagedSplitStorageKey = buildStorageKey('sg-layout:changes-staged-height', repoPath);
@@ -252,12 +256,22 @@ export function LocalChanges({
 
   const kb = useFileListKeyboard(normalUnstaged, stagedFiles, conflictFiles, hasConflicts, kbClickFile, kbToggleStage);
 
+  const banner = onOpenGitignoreDialog
+    ? <GitignoreBanner repoPath={repoPath} onOpenDialog={onOpenGitignoreDialog} />
+    : null;
+
   if (stagedFiles.length === 0 && unstagedFiles.length === 0) {
-    return <div className={`${s.root} ${s.empty}`}><p>{loc.changes.noChanges}</p></div>;
+    return (
+      <div className={`${s.root} ${s.empty}`}>
+        {banner}
+        <p>{loc.changes.noChanges}</p>
+      </div>
+    );
   }
 
   return (
     <div className={s.root} tabIndex={0} onKeyDown={kb.handleKeyDown}>
+      {banner}
       <div className={s.mainSplit}>
         <SgSplitPane
           direction="vertical"

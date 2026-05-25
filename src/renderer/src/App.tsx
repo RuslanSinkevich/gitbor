@@ -622,6 +622,7 @@ export function App() {
                         handleConflictResolved={handleConflictResolved}
                         selectCommit={selectCommit} showPrompt={showPrompt} loc={loc}
                         onOpenAiSettings={() => dlg.setShowAiSettings(true)}
+                        onOpenGitignoreDialog={() => dlg.setShowGitignore(true)}
                       />
                     )}
                   </section>

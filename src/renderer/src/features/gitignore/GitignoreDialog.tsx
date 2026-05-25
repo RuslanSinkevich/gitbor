@@ -1,98 +1,130 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { t } from '../../i18n';
 import { postCommand, onMainEvent } from '../../api';
 import { SgDialog } from '../../ui/SgDialog';
-import { TEMPLATES } from './templates';
+import { SgCheckbox } from '../../ui/SgCheckbox';
+import {
+  TEMPLATE_GROUPS,
+  buildContent,
+  defaultOsTemplate,
+  type GitignoreCategory,
+} from './templates';
 import s from './GitignoreDialog.module.css';
 
 interface Props {
   onClose: () => void;
 }
 
-/** Dialog for creating/editing .gitignore with predefined templates. */
+interface LoadedState {
+  existing: string;
+  exists: boolean;
+}
+
+const CATEGORY_LABEL_KEY: Record<GitignoreCategory, 'os' | 'ide' | 'language'> = {
+  os: 'os',
+  ide: 'ide',
+  language: 'language',
+};
+
+/**
+ * Add .gitignore Template — двух-колоночная модалка по образцу Fork.
+ * Слева категории (OS / IDE / Language) с чекбоксами, справа live preview.
+ * Если файл уже есть — merge новых правил, не replace.
+ */
 export function GitignoreDialog({ onClose }: Props) {
   const loc = t();
-  const [content, setContent] = useState('');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [existingContent, setExistingContent] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState<LoadedState | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(() => {
+    const def = defaultOsTemplate();
+    return def ? new Set([def]) : new Set();
+  });
 
   useEffect(() => {
-    const unsub = onMainEvent((msg) => {
+    const off = onMainEvent((msg) => {
       if (msg.type === 'gitignoreContent') {
-        setExistingContent(msg.data);
-        setContent(msg.data);
-        setLoading(false);
+        setLoaded({ existing: msg.data, exists: msg.exists });
       }
     });
     postCommand({ type: 'getGitignore' });
-    return unsub;
+    return off;
   }, []);
 
-  const toggleTemplate = useCallback((name: string) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      const tpl = TEMPLATES.find(t => t.name === name);
-      if (!tpl) return prev;
-
-      if (next.has(name)) {
-        next.delete(name);
-        const lines = content.split('\n');
-        const tplLines = new Set(tpl.content.split('\n').map(l => l.trim()));
-        setContent(lines.filter(l => !tplLines.has(l.trim())).join('\n'));
-      } else {
-        next.add(name);
-        const existing = new Set(content.split('\n').map(l => l.trim()));
-        const newLines = tpl.content.split('\n').filter(l => !existing.has(l.trim()));
-        if (newLines.length) {
-          setContent(prev => (prev.trim() ? prev.trim() + '\n\n# ' + name + '\n' : '# ' + name + '\n') + newLines.join('\n'));
-        }
+  const orderedSelected = useMemo(() => {
+    const order: string[] = [];
+    for (const group of TEMPLATE_GROUPS) {
+      for (const tpl of group.templates) {
+        if (selected.has(tpl.name)) order.push(tpl.name);
       }
+    }
+    return order;
+  }, [selected]);
+
+  const preview = useMemo(
+    () => buildContent(orderedSelected, loaded?.existing ?? ''),
+    [orderedSelected, loaded],
+  );
+
+  const toggle = (name: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
       return next;
     });
-  }, [content]);
+  };
 
-  const handleSave = useCallback(() => {
-    postCommand({ type: 'writeGitignore', content: content.trim() + '\n' });
+  const handleAdd = () => {
+    postCommand({ type: 'writeGitignore', content: preview });
     onClose();
-  }, [content, onClose]);
+  };
 
-  if (loading) return null;
+  const canAdd = orderedSelected.length > 0 && loaded !== null;
+
+  if (loaded === null) return null;
 
   return (
     <SgDialog
       open
-      title={loc.gitignore?.title ?? '.gitignore Editor'}
+      title={loc.gitignore.title}
       onClose={onClose}
       size="lg"
-      onConfirm={handleSave}
-      confirmLabel={loc.gitignore.save}
+      onConfirm={canAdd ? handleAdd : undefined}
+      confirmLabel={loaded.exists ? loc.gitignore.merge : loc.gitignore.add}
       cancelLabel={loc.gitignore.cancel}
+      confirmDisabled={!canAdd}
     >
-      <div className={s.subtitle}>{loc.gitignore?.subtitle ?? 'Select templates or edit manually'}</div>
-
-      <div className={s.templates}>
-        {TEMPLATES.map(tpl => (
-          <button
-            key={tpl.name}
-            className={`${s.templateBtn} ${selected.has(tpl.name) ? s.templateBtnActive : ''}`}
-            onClick={() => toggleTemplate(tpl.name)}
-          >
-            {tpl.name}
-          </button>
-        ))}
+      <div className={s.subtitle}>
+        {loaded.exists ? loc.gitignore.subtitleMerge : loc.gitignore.subtitleAdd}
       </div>
 
-      {existingContent !== null && existingContent.trim() !== '' && (
-        <div className={s.warning}>{loc.gitignore?.existsWarning ?? 'Existing .gitignore will be overwritten'}</div>
-      )}
+      <div className={s.layout}>
+        <div className={s.categories}>
+          {TEMPLATE_GROUPS.map((group) => (
+            <div key={group.category} className={s.group}>
+              <div className={s.groupTitle}>
+                {loc.gitignore.categoryLabels[CATEGORY_LABEL_KEY[group.category]]}
+              </div>
+              <div className={s.groupItems}>
+                {group.templates.map((tpl) => (
+                  <SgCheckbox
+                    key={tpl.name}
+                    label={tpl.name}
+                    checked={selected.has(tpl.name)}
+                    onChange={() => toggle(tpl.name)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
 
-      <textarea
-        className={s.editor}
-        value={content}
-        onChange={e => setContent(e.target.value)}
-        spellCheck={false}
-      />
+        <div className={s.previewWrap}>
+          <div className={s.previewLabel}>{loc.gitignore.previewLabel}</div>
+          <pre className={s.preview} aria-readonly="true">
+            {orderedSelected.length === 0 ? loc.gitignore.previewEmpty : preview}
+          </pre>
+        </div>
+      </div>
     </SgDialog>
   );
 }

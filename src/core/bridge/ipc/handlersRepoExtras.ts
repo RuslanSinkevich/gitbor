@@ -55,9 +55,11 @@ export const ipcHandlersRepoExtras: HandlerTable = {
     const gitignorePath = join(ctx.ch.getRepoPath(), '.gitignore');
     try {
       const content = await readFile(gitignorePath, 'utf-8');
-      ctx.send({ type: 'gitignoreContent', data: content });
+      // `exists: true` даже для пустого файла. Баннер появляется только
+      // когда файла НЕТ; пустой `.gitignore` — это осознанный выбор юзера.
+      ctx.send({ type: 'gitignoreContent', data: content, exists: true });
     } catch {
-      ctx.send({ type: 'gitignoreContent', data: '' });
+      ctx.send({ type: 'gitignoreContent', data: '', exists: false });
     }
   },
 
