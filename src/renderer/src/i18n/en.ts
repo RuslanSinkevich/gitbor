@@ -414,6 +414,7 @@ export const en = {
     authorBio: 'I build open-source tools for developers: an AI code editor, a Git client, and infrastructure for productive local development with full control over data.',
     more: 'More about the author',
     checkUpdates: 'Check for updates',
+    checkingUpdates: 'Checking…',
   },
   statusbar: {
     noRepo: 'No repository',

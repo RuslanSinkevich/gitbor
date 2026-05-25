@@ -36,18 +36,14 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
   autoUpdater.logger = mainLogger;
   autoUpdater.autoDownload = true;
 
+  // `error` нужен: иначе unhandled rejection из недр electron-updater'а
+  // на недоступный бакет / битый latest.yml вылетает в main process.
   autoUpdater.on('error', (err) => {
     mainLogger.warn(`appUpdater: ${err.message}`);
   });
 
-  autoUpdater.on('update-available', (info) => {
-    mainLogger.info(`appUpdater: update available ${info.version}`);
-  });
-
-  autoUpdater.on('update-not-available', () => {
-    mainLogger.debug('appUpdater: up to date');
-  });
-
+  // Единственный event, который реально движет UI: после скачивания
+  // апдейта рендереру нужно показать prompt "перезапустить сейчас".
   autoUpdater.on('update-downloaded', (info) => {
     notify({ type: 'appUpdateReady', version: info.version });
   });

@@ -197,13 +197,36 @@ session, физически в `<userData>/Local Storage/`). Префиксы к
 
 Подключены через `electron-updater` (`src/main/AppUpdater.ts`):
 
-- **URL:** `build.publish` → `https://storage.yandexcloud.net/gitbor/`
+- **URL:** `build.publish` → `https://storage.yandexcloud.net/gitbor/stable/win/`
 - **Когда:** ~8 с после старта (packaged NSIS), фоновая загрузка
 - **Не работает:** dev (`npm run dev`), portable `.exe`, `GITBOR_SKIP_UPDATE_CHECK=1`
 - **Ручная проверка:** About → «Проверить обновления»
 
-После `npm run dist:win` залить в бакет `latest.yml`, NSIS `.exe` и `.blockmap`.
-Версия в `package.json` должна расти на каждый релиз.
+### Релизный цикл (Windows NSIS)
+
+1. Поднять `version` в `package.json` И в `src/renderer/package.json` (должны совпадать).
+2. `npm run dist:win` — собирает `release/`:
+   - `GitBor-Setup-X.Y.Z.exe` (NSIS, нужен)
+   - `GitBor-Setup-X.Y.Z.exe.blockmap` (delta-обновления, нужен)
+   - `latest.yml` (metadata авто-апдейтера, нужен)
+   - `GitBor-Portable-X.Y.Z.exe` (опционально, в auto-update не участвует)
+3. Залить **3 файла** (`.exe`, `.exe.blockmap`, `latest.yml`) в бакет
+   по префиксу `gitbor/stable/win/` — НЕ кидать в корень бакета и не
+   переименовывать `latest.yml`.
+4. Проверка: `https://storage.yandexcloud.net/gitbor/stable/win/latest.yml`
+   открывается без авторизации; парсится как YAML с полями `version`, `path`, `sha512`.
+5. Запустить старую установленную версию → через ~8 с в логах
+   (`%APPDATA%\GitBor\logs\YYYY-MM-DD.log` при `GITBOR_LOG_LEVEL=debug`)
+   виден `appUpdater: ... update available X.Y.Z`, фоновая загрузка,
+   prompt «Перезапустить».
+
+**Деградация бакета:** 404 / пустой `latest.yml` / нет сети — приложение
+живёт, в логе `appUpdater: ... check failed: ...`, manual check из About
+показывает локализованный «не удалось проверить».
+
+**Первая версия с updater'ом → следующая:** юзеры старой
+(без updater'а) сами не подхватят — нужен прямой апдейт инсталлятором
+один раз. Начиная со следующей версии — авто.
 
 - **Windows**: NSIS-таргет поддерживает авто-апдейты (delta-обновления
   через `.blockmap`); portable — НЕ поддерживает.

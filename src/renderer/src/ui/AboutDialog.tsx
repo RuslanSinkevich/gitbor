@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { t } from '../i18n';
-import { postCommand } from '../api';
+import { postCommand, onMainEvent } from '../api';
 import { SgDialog } from './SgDialog';
 import s from './AboutDialog.module.css';
 
@@ -11,10 +11,28 @@ interface Props {
 
 export function AboutDialog({ onClose, loc }: Props) {
   const [version, setVersion] = useState('…');
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     void window.gitBorAPI?.getAppVersion().then((v) => setVersion(v)).catch(() => setVersion('?'));
   }, []);
+
+  // useAppUpdater уже слушает appUpdateManualResult и показывает диалог.
+  // Здесь дублируем подписку только чтобы снять checking-флаг — иначе
+  // кнопка остаётся "Проверка…" пока диалог открыт.
+  useEffect(() => {
+    if (!checking) return;
+    const off = onMainEvent((msg) => {
+      if (msg.type === 'appUpdateManualResult') setChecking(false);
+    });
+    return off;
+  }, [checking]);
+
+  const handleCheck = () => {
+    if (checking) return;
+    setChecking(true);
+    void postCommand({ type: 'checkForUpdates' });
+  };
 
   return (
     <SgDialog
@@ -27,9 +45,10 @@ export function AboutDialog({ onClose, loc }: Props) {
           <button
             type="button"
             className="sg-button sg-button--md sg-button--ghost"
-            onClick={() => void postCommand({ type: 'checkForUpdates' })}
+            onClick={handleCheck}
+            disabled={checking}
           >
-            {loc.aboutDialog.checkUpdates}
+            {checking ? loc.aboutDialog.checkingUpdates : loc.aboutDialog.checkUpdates}
           </button>
           <button type="button" className="sg-button sg-button--primary sg-button--sm" onClick={onClose}>
             {loc.dialog.close}
