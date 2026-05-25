@@ -7,22 +7,20 @@
 с заведением артефактов. Этот документ фиксирует, что проверено в коде,
 какие источники имеют bound и какие пограничные кейсы остались.
 
-## Главная (уже решённая) утечка
+## Graph data (commits + graphLayout)
 
-`commits[] + graphLayout.nodes[]` неактивных табов — десятки MB на каждый
-неактивный таб монорепо.
+`commits[] + graphLayout.nodes[]` — основная тяжёлая структура (5-50 MB
+на репо). Данные виртуализированы: DOM содержит только видимые строки
+(OVERSCAN). Eviction при switchRepo убран — он вызывал моргание
+пустого графа и потерю scroll-позиции при возврате на таб.
 
-- **main:** `RepoSlicesStore.evictGraphData(path)` — вызывается из
-  `StateManager.switchRepo` по всем `trackedRepoPaths()` кроме нового
-  активного. Бампит `slice.token`, очищает `commits`/`graphLayout` и
-  cache-метки.
-- **renderer:** `useRepoSlices.evictInactiveGraphData(activePath)` —
-  вызывается из `useAppState` после `setActiveRepoIndex`.
+Текущая стратегия: данные живут в slice пока таб открыт. При закрытии
+таба (`removeSlice` / `notifyRepoClose`) данные удаляются полностью.
+
 - **bridge:** `MessageBridge.sentGraphByRepo` — на switchRepo держит
   только активный путь (Map sweep), на repoClose явный `delete`.
-
-Лимит истории: `PROGRESSIVE_FULL_LIMIT = 5000` коммитов
-(`RepoStateRefresher`) — без него на монорепо тянуло до 50k.
+- Лимит истории: `PROGRESSIVE_FULL_LIMIT = 5000` коммитов
+  (`RepoStateRefresher`) — без него на монорепо тянуло до 50k.
 
 ## Audit useEffect / подписок (renderer)
 
@@ -85,8 +83,7 @@
 
 ## Lightweight slice fields (branches/tags/stashes/remotes/...)
 
-Сейчас при switch evict'ятся только `commits` + `graphLayout`. Лёгкие
-поля остаются.
+Лёгкие поля остаются в slice всё время пока таб открыт:
 
 | Поле | Размер на репо |
 |------|----------------|

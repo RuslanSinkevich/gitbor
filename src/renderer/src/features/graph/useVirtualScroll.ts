@@ -61,7 +61,6 @@ export function useVirtualScroll(totalCount: number, scopeKey: string = '__defau
     const prevTotal = prevTotalRef.current;
     const maxScroll = Math.max(0, totalCount * ROW_HEIGHT - el.clientHeight);
     if (prevTotal !== totalCount) {
-      // Новое количество строк (refresh принёс +N или -N коммитов).
       if (el.scrollTop > maxScroll) {
         el.scrollTop = maxScroll;
         lastScrollTopRef.current = maxScroll;

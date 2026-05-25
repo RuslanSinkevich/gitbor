@@ -113,15 +113,6 @@ export class StateManager {
     // данные подтянет refreshAll/cold phase.
     const newSlice = this.store.activateRepo(repoPath);
 
-    // Eviction тяжёлых данных у НЕАКТИВНЫХ табов: graph (commits+layout)
-    // занимает 5-50 MB на репо. Раньше держали бессрочно «на всякий
-    // случай быстрого возврата» — на 3-х монорепо это уже 150+ MB,
-    // которые Electron не возвращает ОС. При возврате на таб делается
-    // быстрый refreshAll, deferHeavy подтягивает граф — UI usable
-    // через сотни мс, не блокирует.
-    for (const otherPath of this.store.trackedRepoPaths()) {
-      if (otherPath !== repoPath) this.store.evictGraphData(otherPath);
-    }
     const startToken = newSlice.token;
     const hasInMemoryData = newSlice.commits.length > 0 || newSlice.branches.length > 0;
 

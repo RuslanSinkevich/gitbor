@@ -148,8 +148,6 @@ export function useAppState() {
    */
   const switchRepoFast = useCallback((index: number) => {
     repoSlices.setActiveRepoIndex(index);
-    const target = repoSlices.meta.openRepos[index];
-    if (target) repoSlices.evictInactiveGraphData(target.path);
     resetTransientState();
     postCommand({ type: 'switchRepo', index });
   }, [repoSlices, resetTransientState]);
