@@ -349,13 +349,26 @@ export function App() {
   }, []);
 
   const handleConflictResolved = useCallback((resolvedPath: string) => {
+    let done = false;
+    let safety: ReturnType<typeof setTimeout> | null = null;
     const unsub = onMainEvent((msg) => {
+      if (done) return;
       if (msg.type === 'mergeState') {
+        done = true;
         unsub();
+        if (safety) clearTimeout(safety);
         const next = msg.data.conflictFiles.find(f => f.status === 'conflicted' && f.path !== resolvedPath);
         setConflictFile(next ? next.path : null);
       }
     });
+    // Safety: если main не пришлёт mergeState (IPC dropped / repo closed
+    // в этот момент), listener иначе остаётся в глобальном массиве навсегда.
+    // На сессии с десятками resolve это копится — отписываемся через 3 с.
+    safety = setTimeout(() => {
+      if (done) return;
+      done = true;
+      unsub();
+    }, 3000);
     postCommand({ type: 'getMergeState' });
   }, []);
 

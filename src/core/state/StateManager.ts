@@ -9,6 +9,7 @@ import {
 import { RepoSlicesStore } from './RepoSlicesStore';
 import { RepoStateRefresher } from './RepoStateRefresher';
 import { RepoEventBus } from './RepoEventBus';
+import { PreflightChecks } from '../safety/PreflightChecks';
 
 /**
  * StateManager — фасад над тремя независимыми модулями:
@@ -202,6 +203,10 @@ export class StateManager {
     // inflight refresh операции тихо вышли.
     this.store.removeSlice(closedPath);
     try { this.registry.release(closedPath); } catch { /* ignore */ }
+    // PreflightChecks.okCache держит per-repo записи (`repoPath|operation|...`).
+    // Без явной инвалидации они копились после каждого закрытого репо в
+    // длинной сессии — мелочь (десятки байт на запись), но утечка.
+    PreflightChecks.invalidateCache(closedPath);
     this.bus.notifyRepoClose(closedPath);
   }
 

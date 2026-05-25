@@ -64,6 +64,12 @@ export function useRunningOps(): RunningOpsApi {
     const key = repoPath ?? '';
     setRunningOpsByRepo(prev => {
       const next = new Map(prev);
+      // Пустой ключ зарезервирован под clone/init без репо. Если такая операция
+      // зависла и потом стартует обычная per-repo операция — старый "" так и
+      // болтается в карте. Каждый раз когда стартует «нормальная» операция
+      // (с repoPath), сносим осиротевший "" — он либо к этой операции
+      // отношения не имеет, либо clone уже давно завершился без endOperation.
+      if (key !== '' && next.has('')) next.delete('');
       next.set(key, operation);
       return next;
     });
