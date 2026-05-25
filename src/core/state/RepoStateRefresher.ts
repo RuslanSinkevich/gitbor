@@ -297,7 +297,7 @@ export class RepoStateRefresher {
         const parts = line.split('\t');
         if (parts.length < 3) continue;
         const [added, deleted, rawPath] = parts;
-        const path = rawPath.trim();
+        const path = GitParser.unquoteGitPath(rawPath.trim());
         // `-` означает бинарный файл — реально изменён, не stat-dirty.
         if (added === '-' || deleted === '-') continue;
         const addedNum = Number.parseInt(added, 10);

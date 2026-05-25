@@ -327,8 +327,9 @@ export function parseAuthorCodeStats(
     if (!line || line.startsWith('SKYFORK')) continue;
     const parts = line.split('\t');
     if (parts.length < 3) continue;
-    const [added, deleted, filePath] = parts;
-    if (!filePath) continue;
+    const [added, deleted, rawFilePath] = parts;
+    if (!rawFilePath) continue;
+    const filePath = GitParser.unquoteGitPath(rawFilePath);
     touchedFiles.add(filePath);
     if (added === '-' || deleted === '-') {
       binaryFiles++;

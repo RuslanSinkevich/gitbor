@@ -316,4 +316,16 @@ describe('parseFileChanges', () => {
     const changes = parseFileChanges(input);
     expect(changes[0]).toEqual({ status: 'C', path: 'copy.ts', oldPath: 'src.ts' });
   });
+
+  it('unquotes C-style quoted paths', () => {
+    const input = 'M\t"database/Stored Procedures/sp.sql"';
+    const changes = parseFileChanges(input);
+    expect(changes[0]).toEqual({ status: 'M', path: 'database/Stored Procedures/sp.sql' });
+  });
+
+  it('unquotes both paths in rename', () => {
+    const input = 'R100\t"old name.ts"\t"new name.ts"';
+    const changes = parseFileChanges(input);
+    expect(changes[0]).toEqual({ status: 'R', path: 'new name.ts', oldPath: 'old name.ts' });
+  });
 });

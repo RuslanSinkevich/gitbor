@@ -212,10 +212,17 @@ export function parseFileChanges(stdout: string): FileChange[] {
     if (parts.length < 2) continue;
 
     const status = parts[0].trim()[0];
+    // Даже при `core.quotePath=false` git C-quotes пути с `"`, `\`, `\n`, `\t`.
+    // Без unquoteGitPath такие пути попадают в UI с буквальными кавычками
+    // и ломают последующие git-вызовы по ним (тот же баг, что чинили в parseStatus).
     if (parts.length >= 3 && (status === 'R' || status === 'C')) {
-      result.push({ status, path: parts[2].trim(), oldPath: parts[1].trim() });
+      result.push({
+        status,
+        path: unquoteGitPath(parts[2].trim()),
+        oldPath: unquoteGitPath(parts[1].trim()),
+      });
     } else {
-      result.push({ status, path: parts[1].trim() });
+      result.push({ status, path: unquoteGitPath(parts[1].trim()) });
     }
   }
   return result;
