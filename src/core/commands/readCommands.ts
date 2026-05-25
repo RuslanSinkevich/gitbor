@@ -78,9 +78,11 @@ export async function getFileDiff(
   return queue.enqueueRead('getFileDiff', async () => {
     const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf899d15d4cef8de1';
     const wsFlag = ignoreWhitespace ? ['-w'] : [];
+    // --no-ext-diff: иначе diff.external отдаёт не unified → parseDiff → [].
+    const diffFlags = ['--no-ext-diff', '--no-textconv', '--no-color', ...wsFlag];
 
     if (hash === 'WORKING') {
-      const result = await git.exec(['diff', ...wsFlag, '--', file]);
+      const result = await git.exec(['diff', ...diffFlags, '--', file]);
       if (result.stdout.trim()) return parseDiff(result.stdout);
 
       // Diff пустой. Если файл tracked — это stat-dirty (mtime тронута
@@ -99,22 +101,22 @@ export async function getFileDiff(
 
       const nullDev = process.platform === 'win32' ? 'NUL' : '/dev/null';
       const untrackedResult = await git.exec(
-        ['diff', '--no-index', ...wsFlag, '--', nullDev, file]
+        ['diff', '--no-index', ...diffFlags, '--', nullDev, file]
       );
       return parseDiff(untrackedResult.stdout);
     }
 
     if (hash.includes('..')) {
       const [fromH, toH] = hash.split('..');
-      const result = await git.exec(['diff', ...wsFlag, fromH, toH, '--', file]);
+      const result = await git.exec(['diff', ...diffFlags, fromH, toH, '--', file]);
       return parseDiff(result.stdout);
     }
 
     if (hash === 'STAGED') {
-      const result = await git.exec(['diff', '--cached', ...wsFlag, '--', file]);
+      const result = await git.exec(['diff', '--cached', ...diffFlags, '--', file]);
       if (result.stdout.trim()) return parseDiff(result.stdout);
 
-      const newResult = await git.exec(['diff', '--cached', ...wsFlag, EMPTY_TREE, '--', file]);
+      const newResult = await git.exec(['diff', '--cached', ...diffFlags, EMPTY_TREE, '--', file]);
       return parseDiff(newResult.stdout);
     }
 
@@ -122,11 +124,11 @@ export async function getFileDiff(
     const parentParts = parentCheck.stdout.trim().split(/\s+/);
 
     if (parentParts.length > 1) {
-      const result = await git.exec(['diff', ...wsFlag, `${hash}^`, hash, '--', file]);
+      const result = await git.exec(['diff', ...diffFlags, `${hash}^`, hash, '--', file]);
       return parseDiff(result.stdout);
     }
 
-    const result = await git.exec(['diff', ...wsFlag, EMPTY_TREE, hash, '--', file]);
+    const result = await git.exec(['diff', ...diffFlags, EMPTY_TREE, hash, '--', file]);
     return parseDiff(result.stdout);
   });
 }

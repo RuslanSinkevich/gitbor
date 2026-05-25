@@ -8,6 +8,7 @@ import {
   parseRemotes,
   parseStatus,
   parseFileChanges,
+  unquoteGitPath,
 } from '../../src/core/git/GitParser';
 
 const NUL = '\x00';
@@ -265,6 +266,27 @@ describe('parseStatus', () => {
     const input = 'M  a.ts\n M b.ts\n?? c.ts\nA  d.ts\n';
     const result = parseStatus(input);
     expect(result).toHaveLength(4);
+  });
+
+  it('unquotes C-style quoted paths with spaces', () => {
+    const quoted = ' M "database/crm-database/dbo/Stored Procedures/sp_Search.sql"\n';
+    const result = parseStatus(quoted);
+    expect(result).toHaveLength(1);
+    expect(result[0].path).toBe('database/crm-database/dbo/Stored Procedures/sp_Search.sql');
+  });
+});
+
+describe('unquoteGitPath', () => {
+  it('strips surrounding quotes', () => {
+    expect(unquoteGitPath('"foo bar/baz.sql"')).toBe('foo bar/baz.sql');
+  });
+
+  it('leaves unquoted paths unchanged', () => {
+    expect(unquoteGitPath('foo/bar.sql')).toBe('foo/bar.sql');
+  });
+
+  it('unescapes backslash sequences', () => {
+    expect(unquoteGitPath('"foo\\"bar"')).toBe('foo"bar');
   });
 });
 

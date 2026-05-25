@@ -292,24 +292,19 @@ export class RepoStateRefresher {
     if (paths.length === 0) return dirty;
     try {
       const result = await git.exec(['diff', '--numstat', '--', ...paths]);
-      const reported = new Set<string>();
       for (const line of result.stdout.split('\n')) {
         if (!line) continue;
         const parts = line.split('\t');
         if (parts.length < 3) continue;
-        const [added, deleted, path] = parts;
-        reported.add(path);
+        const [added, deleted, rawPath] = parts;
+        const path = rawPath.trim();
         // `-` означает бинарный файл — реально изменён, не stat-dirty.
         if (added === '-' || deleted === '-') continue;
         const addedNum = Number.parseInt(added, 10);
         const deletedNum = Number.parseInt(deleted, 10);
+        // Только явный (0,0) из numstat. Раньше «path не в выводе → dirty»
+        // давало ложные stat-dirty при рассинхроне путей (кавычки, пробелы).
         if (addedNum === 0 && deletedNum === 0) dirty.add(path);
-      }
-      // numstat ничего не вывел для файла — diff пустой (0,0). Например
-      // file mode change без content change → numstat молчит, status
-      // показывает M. Считаем stat-dirty.
-      for (const p of paths) {
-        if (!reported.has(p)) dirty.add(p);
       }
     } catch {
       // best-effort: не помечаем

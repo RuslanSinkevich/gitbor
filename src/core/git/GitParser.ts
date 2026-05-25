@@ -11,6 +11,22 @@ import {
 
 const NUL = '\x00';
 
+/**
+ * Снимает C-style quoting с путей из git status/diff, когда
+ * `core.quotePath=true` (или git всё же процитировал путь с пробелами).
+ * Без этого `"database/foo bar/file.sql"` попадает в UI и в git diff как
+ * буквальные кавычки → ls-files/diff не находят файл → ложный stat-dirty.
+ */
+export function unquoteGitPath(path: string): string {
+  if (path.length < 2 || path[0] !== '"' || path[path.length - 1] !== '"') {
+    return path;
+  }
+  return path
+    .slice(1, -1)
+    .replace(/\\([\\"nt])/g, '$1')
+    .replace(/\\([0-3][0-7]{2})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)));
+}
+
 function lines(stdout: string): string[] {
   if (!stdout.trim()) return [];
   return stdout.split('\n').filter(l => l.length > 0);
@@ -168,7 +184,7 @@ export function parseStatus(stdout: string): FileStatus[] {
 
     const x = line[0];
     const y = line[1];
-    const filePath = line.slice(3);
+    const filePath = unquoteGitPath(line.slice(3));
 
     // UU, AA, DD, AU, UA, DU, UD — unmerged (conflict), show only as unstaged
     if (x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D')) {
