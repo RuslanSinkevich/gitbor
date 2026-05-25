@@ -35,6 +35,7 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
 
   autoUpdater.logger = mainLogger;
   autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = false;
 
   // `error` нужен: иначе unhandled rejection из недр electron-updater'а
   // на недоступный бакет / битый latest.yml вылетает в main process.
@@ -42,9 +43,11 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
     mainLogger.warn(`appUpdater: ${err.message}`);
   });
 
-  // Единственный event, который реально движет UI: после скачивания
-  // апдейта рендереру нужно показать prompt "перезапустить сейчас".
   autoUpdater.on('update-downloaded', (info) => {
+    if (info.version === app.getVersion()) {
+      mainLogger.debug(`appUpdater: downloaded same version ${info.version}, ignoring`);
+      return;
+    }
     notify({ type: 'appUpdateReady', version: info.version });
   });
 
@@ -58,7 +61,7 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
 
 export function installDownloadedUpdate(): void {
   if (!app.isPackaged || isPortableBuild()) return;
-  autoUpdater.quitAndInstall(false, true);
+  autoUpdater.quitAndInstall(true, true);
 }
 
 /** Ручная проверка — результат в renderer через `appUpdateManualResult`. */

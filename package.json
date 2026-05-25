@@ -1,7 +1,7 @@
 {
   "name": "gitbor",
   "productName": "GitBor",
-  "version": "0.1.6",
+  "version": "0.1.10",
   "description": "Cross-platform desktop Git client",
   "author": "Ruslan Sinkevich <ruslan-sink@mail.ru>",
   "license": "MIT",
@@ -88,6 +88,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "include": "build/installer.nsh",
