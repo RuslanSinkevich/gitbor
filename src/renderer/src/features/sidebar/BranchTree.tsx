@@ -233,8 +233,8 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
             } : {}));
           }}
           style={{ cursor: branch.isRemote ? undefined : 'grab' }}>
-          <span className={s.itemName}>{node.segment}</span>
           {branch.isCurrent && <span className={s.itemBadge} title={loc.sidebar.current} aria-label={loc.sidebar.current} />}
+          <span className={s.itemName}>{node.segment}</span>
           {branch.upstream && <span className={s.itemUpstream} title={branch.upstream}>↔</span>}
           {prefs && !branch.isRemote && (
             <BranchHoverActions
@@ -286,6 +286,35 @@ interface BranchHoverActionsProps {
  * визуально подсвечен и показан всегда — даже без hover, чтобы юзер видел,
  * какие ветки сейчас участвуют в графе. Inactive — только при hover/focus.
  */
+const IconPin = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="6" y1="8" x2="6" y2="11" />
+    <path d="M3 8h6L8 4.5V1.5H4v3L3 8z" />
+  </svg>
+);
+
+const IconFilter = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 2h10L7.5 6v4L4.5 11V6L1 2z" />
+  </svg>
+);
+
+const IconEyeOff = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1.5 1.5l9 9" />
+    <path d="M3.2 4.8C2.2 5.4 1 6 1 6s2 3 5 3c.8 0 1.5-.2 2.1-.5" />
+    <path d="M9.5 7.9C10.5 7 11 6 11 6s-2-3-5-3c-.4 0-.8.05-1.1.14" />
+  </svg>
+);
+
+const IconInfo = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="6" cy="6" r="5" />
+    <line x1="6" y1="5.5" x2="6" y2="9" />
+    <circle cx="6" cy="3.5" r="0.01" fill="currentColor" />
+  </svg>
+);
+
 function BranchHoverActions({
   loc, isPinned, isHidden, isSolo,
   onTogglePin, onToggleSolo, onToggleHide, onShowInfo,
@@ -298,27 +327,27 @@ function BranchHoverActions({
         onClick={onTogglePin}
         title={isPinned ? loc.sidebar.unpinBranch : loc.sidebar.pinBranch}
         aria-pressed={isPinned}
-      >📌</button>
+      ><IconPin /></button>
       <button
         type="button"
         className={`${s.branchActionBtn} ${isSolo ? s.branchActionActive : ''}`}
         onClick={onToggleSolo}
         title={isSolo ? loc.sidebar.clearGraphFilter : loc.sidebar.soloGraph}
         aria-pressed={isSolo}
-      >🔍</button>
+      ><IconFilter /></button>
       <button
         type="button"
         className={`${s.branchActionBtn} ${isHidden ? s.branchActionActive : ''}`}
         onClick={onToggleHide}
         title={isHidden ? loc.sidebar.unhideBranch : loc.sidebar.hideBranch}
         aria-pressed={isHidden}
-      >👁</button>
+      ><IconEyeOff /></button>
       <button
         type="button"
         className={s.branchActionBtn}
         onClick={onShowInfo}
         title={loc.sidebar.branchInfoTooltip}
-      >ℹ</button>
+      ><IconInfo /></button>
     </span>
   );
 }

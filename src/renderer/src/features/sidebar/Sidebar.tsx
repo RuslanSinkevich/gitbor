@@ -236,16 +236,22 @@ interface StashItemProps {
   onContextMenu(e: React.MouseEvent): void;
 }
 
+function stripStashBranch(msg: string): string {
+  return msg.replace(/^On [^:]+:\s*/, '');
+}
+
 function StashItem({ stash, loc, active, autoBadge, onSelect, onApply, onContextMenu }: StashItemProps) {
+  const fullMsg = stash.message || `stash@{${stash.index}}`;
+  const displayMsg = stripStashBranch(stash.message) || `stash@{${stash.index}}`;
   return (
     <div
       className={`${s.item} ${active ? s.itemCurrent : ''}`}
       onClick={onSelect}
       onDoubleClick={onApply}
       onContextMenu={onContextMenu}
-      title={stash.message || `stash@{${stash.index}}`}
+      title={fullMsg}
     >
-      <span className={s.itemName}>{stash.message || `stash@{${stash.index}}`}</span>
+      <span className={s.itemName}>{displayMsg}</span>
       {autoBadge && (
         <span className={s.itemUpstream} title={loc.stashDialog.autoStashBadge}>
           {loc.stashDialog.autoStashBadge}

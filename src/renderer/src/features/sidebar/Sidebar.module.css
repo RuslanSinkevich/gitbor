@@ -193,12 +193,12 @@
    бейджа. Цвет: --sg-status-icon-added (тот же зелёный, что у статус-
    иконок added/untracked — единая палитра «активного»). */
 .itemBadge {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--sg-status-icon-added);
   flex-shrink: 0;
-  margin-left: 4px;
+  margin-right: 6px;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--sg-status-icon-added) 25%, transparent);
 }
 
@@ -221,9 +221,12 @@
 }
 
 .branchActionBtn {
-  font-size: 10px;
-  line-height: 1;
-  padding: 1px 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
   border: none;
   background: transparent;
   color: var(--sg-foreground-muted);
