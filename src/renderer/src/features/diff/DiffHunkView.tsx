@@ -1,6 +1,5 @@
-import { postCommand } from '../../api';
-import { t } from '../../i18n';
 import type { DiffHunk } from '../../types';
+import { HunkActionsOverlay } from './HunkActionsOverlay';
 import s from './DiffView.module.css';
 
 interface Props {
@@ -11,45 +10,22 @@ interface Props {
   isStaged?: boolean;
 }
 
+/**
+ * Inline-режим: один hunk = `.hunkBlock` с компактным header и hover-overlay
+ * Stage/Discard/Unstage. Header `@@ -52,8 +52,9 @@ …` остаётся видимым
+ * как ориентир в потоке, но без фона и sticky — diff читается ближе к
+ * чистому коду (Fork-style).
+ */
 export function DiffHunkView({ hunk, hunkIndex, file, isWorkingCopy, isStaged }: Props) {
-  const loc = t();
-  const handleStageHunk = () => {
-    postCommand({ type: 'stageHunk', file, hunkIndex });
-  };
-
-  const handleUnstageHunk = () => {
-    postCommand({ type: 'stageHunk', file, hunkIndex, reverse: true });
-  };
-
-  const handleDiscardHunk = () => {
-    // Нативный confirm — без проброса showPrompt через 4 уровня
-    // (DiffHunkView вложен в DiffView → DiffPanel → RightPanelContent).
-    // Текст и заголовок берём из i18n, чтобы Discard на разных
-    // экранах звучал одинаково.
-    if (!window.confirm(`${loc.diff.discardHunkTitle}\n\n${loc.diff.discardHunkMessage}`)) return;
-    postCommand({ type: 'discardHunk', file, hunkIndex });
-  };
-
   return (
-    <div>
-      <div className={s.hunkHeader}>
-        <span>{hunk.header}</span>
-        {isWorkingCopy && (
-          <>
-            <button className={s.hunkAction} onClick={handleStageHunk} title={loc.diff.stageHunk}>
-              {loc.diff.stageHunk}
-            </button>
-            <button className={`${s.hunkAction} ${s.hunkActionDanger}`} onClick={handleDiscardHunk} title={loc.diff.discardHunk}>
-              {loc.diff.discardHunk}
-            </button>
-          </>
-        )}
-        {isStaged && (
-          <button className={s.hunkAction} onClick={handleUnstageHunk} title={loc.diff.unstageHunk}>
-            {loc.diff.unstageHunk}
-          </button>
-        )}
-      </div>
+    <div className={s.hunkBlock} tabIndex={-1}>
+      <div className={s.hunkHeaderCompact}>{hunk.header}</div>
+      <HunkActionsOverlay
+        file={file}
+        hunkIndex={hunkIndex}
+        isWorkingCopy={isWorkingCopy}
+        isStaged={isStaged === true}
+      />
       <table className={s.diffTable}>
         <tbody>
           {hunk.lines.map((line, i) => (

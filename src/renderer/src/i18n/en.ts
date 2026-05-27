@@ -172,6 +172,11 @@ export const en = {
     stageHunk: 'Stage Hunk',
     unstageHunk: 'Unstage Hunk',
     discardHunk: 'Discard Hunk…',
+    /* Short labels for hover-overlay above hunk block (Fork-style).
+       Full terms are too long for compact overlay; kept in title tooltip. */
+    stageHunkShort: 'Stage',
+    unstageHunkShort: 'Unstage',
+    discardHunkShort: 'Discard…',
     discardHunkTitle: 'Discard hunk?',
     discardHunkMessage: 'This will revert this hunk in the working copy. Other hunks of the same file are not affected. This cannot be undone.',
     discardHunkConfirm: 'Discard',

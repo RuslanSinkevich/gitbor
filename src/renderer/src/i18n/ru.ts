@@ -174,6 +174,12 @@ export const ru: LocaleMap = {
     stageHunk: 'Подготовить блок',
     unstageHunk: 'Убрать блок',
     discardHunk: 'Отбросить блок…',
+    /* Короткие подписи для hover-overlay поверх hunk-блока (как в Fork).
+       Полные термины слишком длинные — на маленьких файлах перекрывают diff.
+       Длинные варианты остаются в title (tooltip). */
+    stageHunkShort: 'Применить',
+    unstageHunkShort: 'Убрать',
+    discardHunkShort: 'Отбросить…',
     discardHunkTitle: 'Отбросить блок?',
     discardHunkMessage: 'Изменения этого блока будут отменены в рабочей копии. Остальные блоки файла не затрагиваются. Действие необратимо.',
     discardHunkConfirm: 'Отбросить',
