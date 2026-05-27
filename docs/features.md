@@ -52,7 +52,8 @@
 - Two modes: Inline and Split (side-by-side)
 - Syntax highlighting with line numbers
 - No `+`/`−` text prefix in line content — colored background only (cleaner copy-paste)
-- Stage Hunk / Unstage Hunk buttons per hunk (both inline and split modes)
+- **Hover-overlay hunk actions** (Fork-style): hover a hunk → thin primary frame appears around the block and Stage / Discard… / Unstage buttons float in the top-right corner. No persistent header bar per hunk — diff reads as clean code and fits more blocks per screen.
+- Compact `@@ -old +new @@` header per hunk: dimmed by default, brightens on hover (no sticky background)
 - Ignore Whitespace toggle
 - Dark text on colored backgrounds for better readability
 - Supports: working copy diff, staged diff, commit diff, untracked files, root commits

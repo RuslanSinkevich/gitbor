@@ -89,7 +89,7 @@ User clicks button in React
 | **graph/** | `CommitGraph` (virtualized), `CommitDetails`, `branchPaths`. |
 | **sidebar/** | Sidebar: `BranchTree` (current branch — зелёная точка вместо текстового бейджа), tags, stashes, remotes, submodules. |
 | **changes/** | `LocalChanges` (tree, контекстное меню по папкам применяет действия ко всем файлам внутри), `CommitBar` (subject + description), `FileTree` + вынесенные pure-helpers в `fileTreeModel.ts` (`buildFileTree`, `collectFiles`). |
-| **diff/** | `DiffPanel`, `DiffView`, `DiffHunkView` (без префиксов `+`/`−` в тексте строк — только цвет), `DiffSideBySide`, `ImageDiff`. |
+| **diff/** | `DiffPanel`, `DiffView`, `DiffHunkView`, `DiffSideBySide` (каждый hunk = `.hunkBlock` с `HunkActionsOverlay` поверх блока при `:hover` / `:focus-within` — как в Fork; без постоянной шапки `@@` с кнопками; без префиксов `+`/`−` в тексте строк — только цвет), `HunkActionsOverlay` (общий компонент Stage / Discard / Unstage — одна точка правды для inline и split), `ImageDiff`. |
 | **merge/** | `MergeDialog`, `MergeEditor`, `MergeBanner`, `ConflictPanel`. |
 | — | **`AppDialogs.tsx`** — все модальные диалоги вынесены из `App.tsx` для разделения ответственности. |
 | **blame/** | `BlameView`. |

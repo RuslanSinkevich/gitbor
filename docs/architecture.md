@@ -87,7 +87,7 @@ Feature folders under `src/renderer/src/features/`:
 | **graph/** | `CommitGraph` (virtualized), `CommitDetails`, `branchPaths`. |
 | **sidebar/** | Sidebar: `BranchTree` (current branch as a green dot, no text badge), tags, stashes, remotes, submodules. |
 | **changes/** | `LocalChanges` (tree, folder context menu applies to all files inside), `CommitBar` (subject + description), `FileTree` + extracted pure helpers in `fileTreeModel.ts` (`buildFileTree`, `collectFiles`). |
-| **diff/** | `DiffPanel`, `DiffView`, `DiffHunkView` (no `+`/`−` text prefix in line content — color-only), `DiffSideBySide`, `ImageDiff`. |
+| **diff/** | `DiffPanel`, `DiffView`, `DiffHunkView`, `DiffSideBySide` (each hunk = `.hunkBlock` with `HunkActionsOverlay` shown on `:hover`/`:focus-within` — Fork-style; no persistent `@@` header bar; no `+`/`−` text prefix in line content — color-only), `HunkActionsOverlay` (shared Stage / Discard / Unstage panel — single source of truth for both inline and split), `ImageDiff`. |
 | **merge/** | `MergeDialog`, `MergeEditor`, `MergeBanner`, `ConflictPanel`. |
 | — | **`AppDialogs.tsx`** — all modal dialogs extracted from `App.tsx` for cleaner separation of concerns. |
 | **blame/** | `BlameView`. |
