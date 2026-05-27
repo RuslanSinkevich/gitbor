@@ -18,7 +18,9 @@ import { TitleBar } from './features/titlebar';
 import { CommitsView, ChangesView, type RightPanel } from './features/layout';
 import { MergeBanner, shouldShowMergeBanner } from './features/merge';
 import { Toolbar } from './features/toolbar';
-import { Sidebar, BranchStatus } from './features/sidebar';
+import { Sidebar, BranchStatus, BranchInfoDialog } from './features/sidebar';
+import { useBranchPrefs } from './hooks/useBranchPrefs';
+import type { Branch } from './types';
 import { RepoTabs } from './features/repo-tabs';
 import { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo, clearLastActiveRepo, removeRecentRepo, findRepoIndexByPath, loadOpenRepos, saveOpenRepos } from './features/repo-manager';
 import { SgSplitPane } from './ui/SgSplitPane';
@@ -74,6 +76,23 @@ export function App() {
   const [compareFromHash, setCompareFromHash] = useState<string | null>(null);
   const [page, setPage] = useState<Page>('app');
   const [lang, setLangState] = useState(getLang);
+  /* Branch info dialog: текущая выбранная ветка показывается через SgDialog,
+     данные из стейта + getCommitDetails. setOpenInfoBranch(null) — закрыть. */
+  const [openInfoBranch, setOpenInfoBranch] = useState<Branch | null>(null);
+  const branchPrefsState = useBranchPrefs(state.repoPath);
+  /* Стабильный объект-фасад для Sidebar/BranchTree. useMemo — чтобы не
+     ломать React.memo / identity-зависимые useMemo внутри (поля self-bind
+     уже стабильны из useCallback в useBranchPrefs). */
+  const branchPrefsAPI = useMemo(() => ({
+    pinned: branchPrefsState.pinned,
+    hidden: branchPrefsState.hidden,
+    soloBranch: branchPrefsState.soloBranch,
+    togglePin: branchPrefsState.togglePin,
+    toggleHide: branchPrefsState.toggleHide,
+    toggleSolo: (name: string) => branchPrefsState.setSoloBranch(name),
+    clearSolo: () => branchPrefsState.setSoloBranch(null),
+    showInfo: (b: Branch) => setOpenInfoBranch(b),
+  }), [branchPrefsState]);
   // RepoManager как «вкладка»: «+» в RepoTabs включает этот флаг и
   // показывает менеджер поверх workspace, не открывая системный диалог.
   // Переключение на ДРУГОЙ репо-таб тоже его открывает (см.
@@ -605,6 +624,7 @@ export function App() {
                       showPrompt={showPrompt} requestCheckout={requestCheckout}
                       requestApplyStash={requestApplyStash}
                       selectedRefHash={state.selectedCommitHash}
+                      branchPrefs={branchPrefsAPI}
                     />
                   </aside>
                 }
@@ -677,6 +697,12 @@ export function App() {
       {syncDialogs}
       {checkoutDialog}
       {applyStashDialog}
+
+      <BranchInfoDialog
+        open={!!openInfoBranch}
+        branch={openInfoBranch}
+        onClose={() => setOpenInfoBranch(null)}
+      />
 
       {isDraggingFolder && (
         <div className={s.dropOverlay}>{loc.repoTabs.dnd.hint}</div>

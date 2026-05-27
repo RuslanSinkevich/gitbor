@@ -8,9 +8,27 @@ import type { RequestApplyStash } from '../stash';
 
 type Loc = ReturnType<typeof import('../../i18n').t>;
 
+/**
+ * Колбэки для Fork-style фич веток (pin / solo / hide / info).
+ * Опциональные — старые вызывающие места работают без них (фичи просто
+ * не появятся в меню). Когда передан колбэк — добавляем соответствующий
+ * пункт в группу «Действия с графом» / «Сайдбар».
+ */
+export interface BranchExtrasMenu {
+  isPinned?: boolean;
+  isHidden?: boolean;
+  isSolo?: boolean;
+  onTogglePin?: () => void;
+  onToggleHide?: () => void;
+  onToggleSolo?: () => void;
+  onClearSolo?: () => void;
+  onShowInfo?: () => void;
+}
+
 export function getBranchMenuItems(
   branch: Branch, currentBranch: string, loc: Loc, showPrompt: ShowPrompt,
   requestCheckout: RequestCheckout, onMerge?: (source: string) => void,
+  extras: BranchExtrasMenu = {},
 ): SgContextMenuItem[] {
   const items: SgContextMenuItem[] = [];
   if (!branch.isCurrent) {
@@ -62,6 +80,35 @@ export function getBranchMenuItems(
       onConfirm: (name) => postCommand({ type: 'createTag', name, ref: branch.name }),
     }),
   });
+
+  if (extras.onTogglePin || extras.onToggleSolo || extras.onToggleHide || extras.onShowInfo) {
+    items.push({ divider: true });
+    if (extras.onTogglePin) {
+      items.push({
+        label: extras.isPinned ? loc.sidebar.unpinBranch : loc.sidebar.pinBranch,
+        action: extras.onTogglePin,
+      });
+    }
+    if (extras.onToggleSolo) {
+      items.push({
+        label: extras.isSolo ? loc.sidebar.clearGraphFilter : loc.sidebar.soloGraph,
+        action: extras.isSolo && extras.onClearSolo ? extras.onClearSolo : extras.onToggleSolo,
+      });
+    }
+    if (extras.onToggleHide) {
+      items.push({
+        label: extras.isHidden ? loc.sidebar.unhideBranch : loc.sidebar.hideBranch,
+        action: extras.onToggleHide,
+      });
+    }
+    if (extras.onShowInfo) {
+      items.push({
+        label: loc.sidebar.branchInfo,
+        action: extras.onShowInfo,
+      });
+    }
+  }
+
   items.push({ divider: true });
   items.push({ label: loc.contextMenu.copyName, action: () => copyToClipboard(branch.name) });
   return items;

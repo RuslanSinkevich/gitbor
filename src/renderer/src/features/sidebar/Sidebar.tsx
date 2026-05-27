@@ -8,7 +8,7 @@ import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { getTagMenuItems, getStashMenuItems, getRemoteMenuItems } from './sidebarMenuItems';
 import {
   buildBranchTree, countLeaves, BranchTreeItem,
-  type BranchFolderExpand,
+  type BranchFolderExpand, type BranchPrefsAPI,
 } from './BranchTree';
 import { postCommand } from '../../api';
 import { SubmodulesList } from './SubmodulesList';
@@ -36,6 +36,9 @@ interface Props {
   requestApplyStash: RequestApplyStash;
   /** Хеш текущего выбранного ref (для подсветки активного stash). */
   selectedRefHash?: string | null;
+  /** Per-repo prefs для pin/solo/hide/info (создаётся в App.tsx через useBranchPrefs).
+      Если не передан — иконки на ветках не рендерятся. */
+  branchPrefs?: BranchPrefsAPI;
 }
 
 interface SectionState { branches: boolean; remotes: boolean; tags: boolean; stashes: boolean }
@@ -45,7 +48,7 @@ const ICONS = { branch: '⎇', remote: '☁', tag: '🏷', stash: '📦', change
 export function Sidebar({
   repoPath, currentBranch, branches, tags, stashes, remotes,
   localChangesCount, activeView, onContextMenu, onSwitchView, onSelectRef, onMerge, showPrompt, requestCheckout,
-  requestApplyStash, selectedRefHash,
+  requestApplyStash, selectedRefHash, branchPrefs,
 }: Props) {
   const loc = t();
   const [filter, setFilter] = useState('');
@@ -103,7 +106,10 @@ export function Sidebar({
   const filteredRemote = useMemo(() => lf ? remoteBranches.filter(b => b.name.toLowerCase().includes(lf)) : remoteBranches, [remoteBranches, lf]);
   const filteredTags = useMemo(() => lf ? tags.filter(tg => tg.name.toLowerCase().includes(lf)) : tags, [tags, lf]);
 
-  const localTree = useMemo(() => buildBranchTree(filteredLocal), [filteredLocal]);
+  const localTree = useMemo(
+    () => buildBranchTree(filteredLocal, '', branchPrefs?.pinned),
+    [filteredLocal, branchPrefs?.pinned],
+  );
 
   const handleBranchMove = useCallback((oldName: string, newName: string) => {
     if (oldName === newName) return;
@@ -156,7 +162,7 @@ export function Sidebar({
       <SidebarSection title={loc.sidebar.branches} icon={ICONS.branch} count={filteredLocal.length} expanded={sections.branches} onToggle={() => toggleSection('branches')}>
         {filteredLocal.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noBranches}</div>}
         {localTree.map(node => (
-          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandLocal} onBranchMove={handleBranchMove} />
+          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandLocal} onBranchMove={handleBranchMove} prefs={branchPrefs} />
         ))}
       </SidebarSection>
 

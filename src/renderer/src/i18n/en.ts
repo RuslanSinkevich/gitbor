@@ -98,6 +98,18 @@ export const en = {
     noStashes: 'No stashes',
     noRemotes: 'No remotes',
     noTags: 'No tags',
+    /* Fork-style hover-actions on branch row. Icons appear on hover/focus,
+       state persisted per repo in localStorage. */
+    pinBranch: 'Pin branch',
+    unpinBranch: 'Unpin branch',
+    pinned: 'Pinned',
+    soloGraph: 'Show only this branch in graph',
+    soloGraphActive: 'Graph is filtered by branch',
+    clearGraphFilter: 'Clear graph filter',
+    hideBranch: 'Hide from graph',
+    unhideBranch: 'Show in graph',
+    branchInfo: 'Branch info…',
+    branchInfoTooltip: 'Branch details',
   },
   graph: {
     graph: 'Graph',

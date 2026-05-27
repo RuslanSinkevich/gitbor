@@ -208,6 +208,56 @@
   flex-shrink: 0;
 }
 
+/* Fork-style hover-overlay над строкой ветки. Идле — невидим, не съедает
+   layout; при hover/focus-within строки .item — opacity 1. Active-кнопки
+   (например, pinned ветка) видны всегда, чтобы пользователь сверху видел,
+   какие ветки участвуют в графе/закреплены. */
+.branchActions {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.branchActionBtn {
+  font-size: 10px;
+  line-height: 1;
+  padding: 1px 4px;
+  border: none;
+  background: transparent;
+  color: var(--sg-foreground-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity var(--sg-transition), background var(--sg-transition);
+}
+
+.item:hover .branchActionBtn,
+.item:focus-within .branchActionBtn,
+.branchActionBtn.branchActionActive,
+.branchActionBtn:focus-visible {
+  opacity: 1;
+}
+
+.branchActionBtn:hover {
+  background: var(--sg-surface-hover);
+}
+
+.branchActionActive {
+  color: var(--sg-primary);
+}
+
+/* Hidden-from-graph: строка ветки получает чуть приглушённый текст,
+   но остаётся читаемой и кликабельной (чтобы юзер не «потерял» скрытую
+   ветку в списке). */
+.itemHiddenInGraph .itemName {
+  opacity: 0.55;
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--sg-foreground-muted) 60%, transparent);
+  text-decoration-thickness: 1px;
+}
+
 .autoStashGroupHeader {
   padding: 6px 12px 2px;
   font-size: 10px;

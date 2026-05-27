@@ -13,6 +13,29 @@ import {
 import type { t } from '../../i18n';
 import s from './Sidebar.module.css';
 
+/**
+ * Per-branch prefs из useBranchPrefs. Передаётся в дерево сверху, чтобы:
+ * 1. Сортировать pinned наверх внутри одной папки (buildBranchTree).
+ * 2. Показывать состояние иконок (pinned/hidden/solo) на строке ветки.
+ * 3. Выкидывать соответствующие toggle-команды через context menu и hover.
+ *
+ * Контракт по именам:
+ *   - локальные ветки — `branch.name` без префиксов (e.g. `feature/foo`)
+ *   - remote-ветки — полный путь (e.g. `origin/main`); сейчас pin/solo/hide
+ *     работают только для локальных (Fork тоже), поэтому remote-строки
+ *     рендерятся без иконок.
+ */
+export interface BranchPrefsAPI {
+  pinned: Set<string>;
+  hidden: Set<string>;
+  soloBranch: string | null;
+  togglePin: (name: string) => void;
+  toggleHide: (name: string) => void;
+  toggleSolo: (name: string) => void;
+  clearSolo: () => void;
+  showInfo: (branch: Branch) => void;
+}
+
 /* ─── Tree node ─── */
 
 export interface BranchTreeNode {
@@ -22,7 +45,11 @@ export interface BranchTreeNode {
   children: BranchTreeNode[];
 }
 
-export function buildBranchTree(branches: Branch[], stripPrefix = ''): BranchTreeNode[] {
+export function buildBranchTree(
+  branches: Branch[],
+  stripPrefix = '',
+  pinned?: Set<string>,
+): BranchTreeNode[] {
   const root: BranchTreeNode[] = [];
 
   for (const branch of branches) {
@@ -47,16 +74,29 @@ export function buildBranchTree(branches: Branch[], stripPrefix = ''): BranchTre
   }
 
   /* Не схлопываем цепочки вида a/b/c в одну строку: каждый сегмент после `/` — отдельный уровень дерева. */
-  return sortBranchTreeNodes(root);
+  return sortBranchTreeNodes(root, pinned);
 }
 
-function sortBranchTreeNodes(nodes: BranchTreeNode[]): BranchTreeNode[] {
+function isPinnedNode(node: BranchTreeNode, pinned: Set<string>): boolean {
+  if (node.branch && pinned.has(node.branch.name)) return true;
+  return node.children.some(c => isPinnedNode(c, pinned));
+}
+
+function sortBranchTreeNodes(nodes: BranchTreeNode[], pinned?: Set<string>): BranchTreeNode[] {
   const sortedChildren = nodes.map(node => ({
     ...node,
-    children: sortBranchTreeNodes(node.children),
+    children: sortBranchTreeNodes(node.children, pinned),
   }));
 
   return sortedChildren.sort((a, b) => {
+    /* Pinned (узлы с любой pinned-веткой внутри) — выше всех. Fork сортирует
+       по принципу "pinned bubble up": папка с pinned-листом всплывает над
+       обычными, даже если внутри есть и не-pinned ветки. */
+    if (pinned && pinned.size > 0) {
+      const aPin = isPinnedNode(a, pinned);
+      const bPin = isPinnedNode(b, pinned);
+      if (aPin !== bPin) return aPin ? -1 : 1;
+    }
     const aIsFolder = a.children.length > 0;
     const bIsFolder = b.children.length > 0;
     if (aIsFolder !== bIsFolder) return aIsFolder ? -1 : 1; // Папки выше листьев
@@ -92,9 +132,11 @@ interface BranchTreeItemProps {
   folderExpand?: BranchFolderExpand;
   /** Callback при drop ветки в папку (вызывает prompt rename). */
   onBranchMove?: (oldName: string, newName: string) => void;
+  /** Per-repo prefs для pin/solo/hide/info; не задано — фичи не показываются (актуально для remote-веток). */
+  prefs?: BranchPrefsAPI;
 }
 
-export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout, folderExpand, onBranchMove }: BranchTreeItemProps) {
+export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout, folderExpand, onBranchMove, prefs }: BranchTreeItemProps) {
   const [expandedInternal, setExpandedInternal] = useState(() => node.branch?.isCurrent ? true : depth < 1);
   const expanded = folderExpand ? folderExpand.isExpanded(node.fullPath) : expandedInternal;
   const toggleExpanded = folderExpand
@@ -155,7 +197,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
             {node.children.map(child => (
               <BranchTreeItem key={child.fullPath} node={child} depth={depth + 1} nested
                 currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu}
-                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} />
+                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} prefs={prefs} />
             ))}
           </div>
         )}
@@ -164,25 +206,59 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
   }
 
   if (branch) {
+    /* Fork-style actions: pin / solo / hide / info. Видимы только когда
+       prefs передан (для локальных веток). При hover/focus иконки всплывают
+       через CSS opacity на .branchActions; активные состояния (pinned,
+       soloBranch, hidden) подсвечиваются всегда. */
+    const isPinned = prefs?.pinned.has(branch.name) ?? false;
+    const isHidden = prefs?.hidden.has(branch.name) ?? false;
+    const isSolo = prefs?.soloBranch === branch.name;
+
     return (
       <>
-        <div className={`${s.item} ${rowItem} ${branch.isCurrent ? s.itemCurrent : ''}`}
+        <div className={`${s.item} ${rowItem} ${branch.isCurrent ? s.itemCurrent : ''} ${isHidden ? s.itemHiddenInGraph : ''}`}
           draggable={!branch.isRemote}
           onDragStart={handleDragStart}
           onClick={() => onSelectRef?.(branch.hash)}
           onDoubleClick={() => !branch.isCurrent && requestCheckout(branch.name)}
-          onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getBranchMenuItems(branch, currentBranch, loc, showPrompt, requestCheckout, onMerge)); }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            onContextMenu(e, getBranchMenuItems(branch, currentBranch, loc, showPrompt, requestCheckout, onMerge, prefs ? {
+              isPinned, isHidden, isSolo,
+              onTogglePin: () => prefs.togglePin(branch.name),
+              onToggleHide: () => prefs.toggleHide(branch.name),
+              onToggleSolo: () => prefs.toggleSolo(branch.name),
+              onClearSolo: () => prefs.clearSolo(),
+              onShowInfo: () => prefs.showInfo(branch),
+            } : {}));
+          }}
           style={{ cursor: branch.isRemote ? undefined : 'grab' }}>
           <span className={s.itemName}>{node.segment}</span>
           {branch.isCurrent && <span className={s.itemBadge} title={loc.sidebar.current} aria-label={loc.sidebar.current} />}
           {branch.upstream && <span className={s.itemUpstream} title={branch.upstream}>↔</span>}
+          {prefs && !branch.isRemote && (
+            <BranchHoverActions
+              loc={loc}
+              isPinned={isPinned}
+              isHidden={isHidden}
+              isSolo={isSolo}
+              onTogglePin={(e) => { e.stopPropagation(); prefs.togglePin(branch.name); }}
+              onToggleSolo={(e) => {
+                e.stopPropagation();
+                if (isSolo) prefs.clearSolo();
+                else prefs.toggleSolo(branch.name);
+              }}
+              onToggleHide={(e) => { e.stopPropagation(); prefs.toggleHide(branch.name); }}
+              onShowInfo={(e) => { e.stopPropagation(); prefs.showInfo(branch); }}
+            />
+          )}
         </div>
         {node.children.length > 0 && expanded && (
           <div className={s.treeChildren}>
             {node.children.map(child => (
               <BranchTreeItem key={child.fullPath} node={child} depth={depth + 1} nested
                 currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu}
-                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} />
+                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} prefs={prefs} />
             ))}
           </div>
         )}
@@ -191,4 +267,58 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
   }
 
   return null;
+}
+
+interface BranchHoverActionsProps {
+  loc: ReturnType<typeof t>;
+  isPinned: boolean;
+  isHidden: boolean;
+  isSolo: boolean;
+  onTogglePin: (e: React.MouseEvent) => void;
+  onToggleSolo: (e: React.MouseEvent) => void;
+  onToggleHide: (e: React.MouseEvent) => void;
+  onShowInfo: (e: React.MouseEvent) => void;
+}
+
+/**
+ * Hover-overlay для строки ветки (Fork-style). Четыре иконки в одном ряду:
+ * pin / solo / hide / info. Active-state (например, ветка уже pinned)
+ * визуально подсвечен и показан всегда — даже без hover, чтобы юзер видел,
+ * какие ветки сейчас участвуют в графе. Inactive — только при hover/focus.
+ */
+function BranchHoverActions({
+  loc, isPinned, isHidden, isSolo,
+  onTogglePin, onToggleSolo, onToggleHide, onShowInfo,
+}: BranchHoverActionsProps) {
+  return (
+    <span className={s.branchActions} role="group">
+      <button
+        type="button"
+        className={`${s.branchActionBtn} ${isPinned ? s.branchActionActive : ''}`}
+        onClick={onTogglePin}
+        title={isPinned ? loc.sidebar.unpinBranch : loc.sidebar.pinBranch}
+        aria-pressed={isPinned}
+      >📌</button>
+      <button
+        type="button"
+        className={`${s.branchActionBtn} ${isSolo ? s.branchActionActive : ''}`}
+        onClick={onToggleSolo}
+        title={isSolo ? loc.sidebar.clearGraphFilter : loc.sidebar.soloGraph}
+        aria-pressed={isSolo}
+      >🔍</button>
+      <button
+        type="button"
+        className={`${s.branchActionBtn} ${isHidden ? s.branchActionActive : ''}`}
+        onClick={onToggleHide}
+        title={isHidden ? loc.sidebar.unhideBranch : loc.sidebar.hideBranch}
+        aria-pressed={isHidden}
+      >👁</button>
+      <button
+        type="button"
+        className={s.branchActionBtn}
+        onClick={onShowInfo}
+        title={loc.sidebar.branchInfoTooltip}
+      >ℹ</button>
+    </span>
+  );
 }

@@ -100,6 +100,18 @@ export const ru: LocaleMap = {
     noStashes: 'Нет отложенных',
     noRemotes: 'Нет удалённых',
     noTags: 'Нет меток',
+    /* Fork-style hover-actions на ветке. Иконки появляются при hover/focus,
+       persist — per repo в localStorage. */
+    pinBranch: 'Закрепить ветку',
+    unpinBranch: 'Открепить ветку',
+    pinned: 'Закреплено',
+    soloGraph: 'Показать только эту ветку в графе',
+    soloGraphActive: 'Граф фильтруется по ветке',
+    clearGraphFilter: 'Сбросить фильтр графа',
+    hideBranch: 'Скрыть из графа',
+    unhideBranch: 'Показать в графе',
+    branchInfo: 'О ветке…',
+    branchInfoTooltip: 'Подробности о ветке',
   },
   graph: {
     graph: 'Граф',
