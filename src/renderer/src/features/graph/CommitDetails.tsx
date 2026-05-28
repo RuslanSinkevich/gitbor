@@ -4,6 +4,7 @@ import { postCommand, copyToClipboard } from '../../api';
 import type { CommitDetail, FileChange } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { AuthorAvatar } from '../../ui/AuthorAvatar';
+import { CommitExplainer } from '../ai';
 import s from './CommitDetails.module.css';
 
 type Tab = 'commit' | 'changes' | 'tree';
@@ -98,10 +99,12 @@ interface Props {
   onContextMenu?: (e: React.MouseEvent, items: SgContextMenuItem[]) => void;
   onFileHistory?: (file: string) => void;
   onFileBlame?: (file: string) => void;
+  /** Открыть AI Settings — нужно `CommitExplainer`'у когда конфиг отсутствует. */
+  onOpenAiSettings?: () => void;
   activePath?: string;
 }
 
-export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMenu, onFileHistory, onFileBlame, activePath }: Props) {
+export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMenu, onFileHistory, onFileBlame, onOpenAiSettings, activePath }: Props) {
   const loc = t();
   const [tab, setTab] = useState<Tab>('commit');
   const tree = useMemo(() => detail ? buildFileTree(detail.files) : [], [detail]);
@@ -154,6 +157,9 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
           <div className={s.commitTab}>
             <h3 className={s.subject}>{detail.subject}</h3>
             {detail.body && <pre className={s.body}>{detail.body}</pre>}
+            {!isCompareRange && onOpenAiSettings && (
+              <CommitExplainer hash={detail.hash} onOpenSettings={onOpenAiSettings} />
+            )}
             <div className={s.meta}>
               {!isCompareRange && (
                 <>

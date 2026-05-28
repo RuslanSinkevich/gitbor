@@ -39,6 +39,8 @@ interface Props {
   /** Сброс solo и hide (баннер «Показать все» / «Снять скрытие»). */
   onClearSolo: () => void;
   onClearAllHidden: () => void;
+  /** Открыть AI Settings — нужно `CommitExplainer`'у в CommitDetails. */
+  onOpenAiSettings?: () => void;
 }
 
 export function CommitsView({
@@ -47,6 +49,7 @@ export function CommitsView({
   showContextMenu, showPrompt, requestCheckout, setRebaseOnto,
   compareFrom, onCompareFrom, onCompareTo,
   soloBranch, hidden, onClearSolo, onClearAllHidden,
+  onOpenAiSettings,
 }: Props) {
   const loc = t();
   const graphHeightKey = buildStorageKey('sg-layout:commits-graph-height', state.repoPath);
@@ -140,6 +143,7 @@ export function CommitsView({
         onContextMenu={showContextMenu}
         onFileHistory={openFileHistory}
         onFileBlame={(f) => openFileBlame(f)}
+        onOpenAiSettings={onOpenAiSettings}
         activePath={diffTarget?.file}
       />
     </div>

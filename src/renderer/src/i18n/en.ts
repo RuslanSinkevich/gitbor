@@ -719,6 +719,33 @@ export const en = {
     showDetails: 'Show details',
     networkInfo: 'Cannot reach the remote repository',
   },
+  aiTier2: {
+    /* Common */
+    cancel: 'Cancel',
+    disclaimer: 'AI explanation — may be inaccurate. Always verify the code.',
+    aiDisabled: 'AI is disabled in settings (Privacy → AI enabled).',
+    /* Commit Explainer */
+    explainCommit: 'Explain commit',
+    explaining: 'Explaining…',
+    explainCommitTooltip: 'Ask AI to explain this commit',
+    /* Stash naming */
+    stashSuggest: 'Suggest name',
+    stashSuggesting: 'Suggesting…',
+    stashSuggestFailed: 'Could not suggest a name: {error}',
+    /* Reflog Explainer */
+    explainReflog: 'Explain reflog',
+    explainingReflog: 'Explaining reflog…',
+    /* Conflict helper */
+    explainConflict: 'Explain conflict',
+    explainingConflict: 'Analyzing conflict…',
+    /* Semantic search */
+    semanticSearchPrefix: 'AI: ',
+    semanticSearchPlaceholder: 'Describe what you are looking for…',
+    semanticSearchRun: 'Search',
+    semanticSearchBusy: 'Searching…',
+    semanticSearchEmpty: 'No matching commits.',
+    semanticSearchFailed: 'Search failed: {error}',
+  },
   ai: {
     title: 'AI Settings',
     subtitle: 'Connect any OpenAI-compatible service — OpenAI, Ollama, LM Studio, corporate gateway — or Qwen Web (chat.qwen.ai session token).',

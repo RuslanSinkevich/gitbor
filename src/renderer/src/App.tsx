@@ -689,6 +689,7 @@ export function App() {
                         hidden={branchPrefsState.hidden}
                         onClearSolo={() => branchPrefsState.setSoloBranch(null)}
                         onClearAllHidden={branchPrefsState.clearAllHidden}
+                        onOpenAiSettings={() => dlg.setShowAiSettings(true)}
                       />
                     ) : (
                       <ChangesView

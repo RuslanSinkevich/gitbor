@@ -1,0 +1,72 @@
+.runBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  align-self: flex-start;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--sg-primary) 35%, var(--sg-border));
+  border-radius: var(--sg-radius);
+  background: color-mix(in srgb, var(--sg-primary) 6%, var(--sg-surface));
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--sg-foreground-muted);
+}
+
+.title {
+  flex: 1;
+}
+
+.text {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--sg-foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.disclaimer {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--sg-foreground-muted);
+  font-style: italic;
+}
+
+.errorRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.errorText {
+  flex: 1;
+  color: var(--sg-danger);
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid color-mix(in srgb, var(--sg-primary) 30%, transparent);
+  border-top-color: var(--sg-primary);
+  border-radius: 50%;
+  animation: aiExplainSpin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes aiExplainSpin {
+  to { transform: rotate(360deg); }
+}
