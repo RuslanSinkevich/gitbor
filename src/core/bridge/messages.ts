@@ -196,6 +196,16 @@ type RendererCommandCore =
   | { type: 'aiGenerateCommitMessage'; requestId: string }
   | { type: 'aiCancelGenerate'; requestId: string }
 
+  // AI Tier-2 features (см. docs/tasks/ai-tier2-features-todo.md).
+  // Все streaming-вызовы (explain/reflog/conflict) идут через aiChunk/aiDone/
+  // aiError с собственным requestId и отменяются через aiCancelGenerate.
+  | { type: 'aiExplainCommit'; requestId: string; hash: string }
+  | { type: 'aiExplainReflog'; requestId: string; maxCount?: number }
+  | { type: 'aiAnalyzeConflict'; requestId: string; file: string }
+  // Synchronous Tier-2 calls — короткий ответ возвращается одним IPC.
+  | { type: 'aiSuggestStashName' }
+  | { type: 'aiSemanticSearch'; query: string; maxCommits?: number }
+
   // Safety: явный выбор юзера в SafetyDialog
   | { type: 'safetyResolve'; requestId: string; action: RecoveryAction }
   | { type: 'killGitProcess'; pid: number }
@@ -311,6 +321,9 @@ export type MainEvent =
   | { type: 'aiChunk'; requestId: string; delta: string }
   | { type: 'aiDone'; requestId: string; text: string; finishReason: string }
   | { type: 'aiError'; requestId: string; message: string; kind: string }
+  // Sync Tier-2 responses (короткий one-shot ответ).
+  | { type: 'aiStashNameResult'; success: boolean; name?: string; error?: string }
+  | { type: 'aiSemanticSearchResult'; success: boolean; hashes?: string[]; error?: string }
 
   /**
    * Универсальная ошибка от main → renderer.

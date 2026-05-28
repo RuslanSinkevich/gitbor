@@ -2,8 +2,25 @@ import { buildCommitSystemPrompt, buildCommitUserPrompt, resolvePrompt } from '.
 import type { AiProvider } from './providers/base';
 import { OpenAiCompatibleProvider } from './providers/OpenAiCompatibleProvider';
 import { QwenWebProvider } from './providers/QwenWebProvider';
-import { AiError, type AiCompletionResult, type AiDebugSnapshot, type AiProviderConfig } from './types';
+import { AiError, type AiCompletionResult, type AiDebugSnapshot, type AiFeatureId, type AiProviderConfig } from './types';
 import { mainLogger } from '../utils/Logger';
+
+interface RunPromptOptions {
+  systemPrompt: string;
+  userPrompt: string;
+  temperature?: number;
+  maxTokens?: number;
+  signal?: AbortSignal;
+  onChunk?: (delta: string) => void;
+  debugSink?: (snapshot: AiDebugSnapshot) => void;
+  /**
+   * Если задан и есть `config.modelOverrides[featureId]` — провайдер
+   * получит другую модель вместо `config.model`. Делается через
+   * временный provider c подменённым cfg.model, чтобы не плодить
+   * сетевые объекты и сохранить per-feature кэширование на уровне HTTP.
+   */
+  featureId?: AiFeatureId;
+}
 
 interface CommitMessageOptions {
   diff: string;
@@ -107,6 +124,49 @@ export class AiService {
     }
     return new OpenAiCompatibleProvider(this.config);
   }
+
+  /**
+   * Универсальная точка вызова AI для фич Tier-2. Принимает готовые
+   * system/user промпты (renderer/handlers формируют их через
+   * `resolvePrompt(id, cfg)` + конкретные плейсхолдеры) и выдаёт
+   * текст через `onChunk` (если провайдер streaming) + конечный
+   * `AiCompletionResult`.
+   *
+   * Per-feature model override: если `featureId` задан и в
+   * `config.modelOverrides[featureId]` есть непустая строка,
+   * создаём временный provider с подменённой моделью.
+   */
+  async runPrompt(options: RunPromptOptions): Promise<AiCompletionResult> {
+    if (!this.config) throw new AiError('AI provider is not configured', 'config');
+    const provider = this.providerForFeature(options.featureId);
+    const stripThink = this.config.stripThinkTags ?? false;
+    const result = await provider.complete({
+      systemPrompt: options.systemPrompt,
+      userPrompt: options.userPrompt,
+      temperature: options.temperature ?? 0.3,
+      maxTokens: options.maxTokens,
+      signal: options.signal,
+      onChunk: options.onChunk,
+      debugSink: options.debugSink,
+    });
+    if (stripThink) {
+      return { ...result, text: stripThinkTags(result.text) };
+    }
+    return result;
+  }
+
+  private providerForFeature(featureId: AiFeatureId | undefined): AiProvider {
+    if (!this.config) throw new AiError('AI provider is not configured', 'config');
+    const override = featureId ? this.config.modelOverrides?.[featureId]?.trim() : '';
+    if (!override) return this.ensureProvider();
+    const cfg = { ...this.config, model: override };
+    const mode = cfg.mode ?? 'openai-compatible';
+    return mode === 'qwen-web' ? new QwenWebProvider(cfg) : new OpenAiCompatibleProvider(cfg);
+  }
+}
+
+function stripThinkTags(s: string): string {
+  return s.replace(/<think>[\s\S]*?<\/think>/g, '');
 }
 
 /**

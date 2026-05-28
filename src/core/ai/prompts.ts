@@ -54,15 +54,55 @@ export const DEFAULT_PROMPTS: Record<PromptId, string> = {
     '- No backticks, no markdown, no surrounding quotes, no leading/trailing whitespace.',
     '- Respond with ONLY the commit message text. Do not add explanations, preambles or commentary.',
   ].join('\n'),
-  // TODO(ai-tier2): real prompt body lands together with the Commit Explainer feature.
-  explainCommit: 'TODO(ai-tier2): explainCommit prompt placeholder.',
-  // TODO(ai-tier2): real prompt body lands together with the Smart Stash Naming feature.
-  stashName: 'TODO(ai-tier2): stashName prompt placeholder.',
-  // TODO(ai-tier2): real prompt body lands together with the Reflog Explainer feature.
-  explainReflog: 'TODO(ai-tier2): explainReflog prompt placeholder.',
-  // TODO(ai-tier2): real prompt body lands together with the Conflict Helper feature.
-  analyzeConflict: 'TODO(ai-tier2): analyzeConflict prompt placeholder.',
+  explainCommit: [
+    'You are a senior code reviewer. Explain the supplied commit in 3-5 sentences:',
+    '- what changed at a high level (do NOT walk line by line);',
+    '- the likely intent of the author;',
+    '- anything a reviewer should pay particular attention to.',
+    '',
+    'The diff may be truncated; if so, note "(diff truncated)" once and continue with what is available.',
+    'Be concise. No backticks, no markdown lists, no preamble like "Sure, here is...".',
+    'Subject: {subject}',
+    'Body: {body}',
+  ].join('\n'),
+  stashName: [
+    'Suggest a short git stash name (3-7 words) based on the diff that follows.',
+    'Output ONLY the name itself: no surrounding quotes, no trailing punctuation, no markdown.',
+    'Keep it ASCII, lowercase if possible, words separated by spaces.',
+  ].join('\n'),
+  explainReflog: [
+    'You are a senior git user. Convert the following git reflog excerpt into a short, human-readable timeline:',
+    '- group adjacent low-level actions (5 reflog lines can be one logical event);',
+    '- mark "lost commits" (when HEAD moved without a commit being made on the way);',
+    '- if something looks like a mistake, suggest the exact recovery command(s).',
+    'Reply with concise sentences, no preamble, no markdown lists.',
+  ].join('\n'),
+  analyzeConflict: [
+    'You are a senior code reviewer. This is a git merge conflict.',
+    'Explain in simple words:',
+    '1. What the HEAD (ours) version does, in 3-5 words.',
+    '2. What the MERGE (theirs) version does, in 3-5 words.',
+    '3. Merge risk: low / medium / high. Briefly state why.',
+    '',
+    'IMPORTANT: do NOT propose a merged solution. Only describe.',
+    'The base version (common ancestor) may help you compare, but do not output it.',
+  ].join('\n'),
 };
+
+/**
+ * Системный промпт для MVP semantic search: LLM-rerank выборки коммитов
+ * (subject + body) без embeddings. Полная версия с embeddings — backlog
+ * (см. `docs/tasks/ai-tier2-features-todo.md` Фича 5).
+ *
+ * Не вынесена в DEFAULT_PROMPTS потому что у этой фичи нет настраиваемого
+ * текстового prompt'а — пользователь меняет model override, а не текст.
+ */
+export const SEMANTIC_SEARCH_SYSTEM_PROMPT = [
+  'You are a git history search tool.',
+  'You will receive a user query followed by a numbered list of recent commits (hash + subject + body).',
+  'Return up to 20 commit hashes that are most relevant to the query, ordered from most to least relevant.',
+  'Output format: one hash per line, plain ASCII, no markdown, no explanations. If no commit matches, return an empty response.',
+].join('\n');
 
 const LANGUAGE_NAMES: Record<'en' | 'ru', string> = {
   en: 'English',

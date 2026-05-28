@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AiHandlers } from '../../src/core/ai/AiHandlers';
+import { AiHandlers, applyPlaceholders } from '../../src/core/ai/AiHandlers';
 import { AiService } from '../../src/core/ai/AiService';
 import { AiError, type AiProviderConfig } from '../../src/core/ai/types';
 
@@ -224,6 +224,98 @@ describe('AiHandlers.generateCommitMessage', () => {
     expect(abortedInFetch).toBe(true);
   });
 
+  it('blocks foreign provider when allowCloudCodeShare=false', async () => {
+    const h = new AiHandlers(
+      makeService({
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: 'sk',
+        model: 'gpt-4o-mini',
+        allowCloudCodeShare: false,
+      }),
+      makeStore() as never,
+    );
+    await expect(h.generateCommitMessage('r1', 'd', () => {}))
+      .rejects.toMatchObject({ kind: 'config', message: expect.stringMatching(/Allow sending code/) });
+  });
+
+  it('allows foreign provider when allowCloudCodeShare=true', async () => {
+    const encoder = new TextEncoder();
+    fetchMock.mockResolvedValueOnce({
+      ok: true, status: 200, statusText: 'OK', text: async () => '',
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"ok"}}]}\n\n'));
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        },
+      }),
+    });
+    const h = new AiHandlers(
+      makeService({
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: 'sk',
+        model: 'gpt-4o-mini',
+        allowCloudCodeShare: true,
+      }),
+      makeStore() as never,
+    );
+    const res = await h.generateCommitMessage('r1', 'diff', () => {});
+    expect(res.text).toBe('ok');
+  });
+
+  it('always allows local provider regardless of allowCloudCodeShare', async () => {
+    const encoder = new TextEncoder();
+    fetchMock.mockResolvedValueOnce({
+      ok: true, status: 200, statusText: 'OK', text: async () => '',
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"ok"}}]}\n\n'));
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        },
+      }),
+    });
+    const h = new AiHandlers(
+      makeService({
+        baseUrl: 'http://localhost:11434/v1',
+        apiKey: '',
+        model: 'llama3.1:8b',
+        allowCloudCodeShare: false,
+      }),
+      makeStore() as never,
+    );
+    const res = await h.generateCommitMessage('r1', 'diff', () => {});
+    expect(res.text).toBe('ok');
+  });
+
+  it('blocks when aiEnabled=false', async () => {
+    const h = new AiHandlers(
+      makeService({
+        baseUrl: 'http://x/v1',
+        apiKey: '',
+        model: 'm',
+        aiEnabled: false,
+      }),
+      makeStore() as never,
+    );
+    await expect(h.generateCommitMessage('r1', 'd', () => {}))
+      .rejects.toMatchObject({ kind: 'config', message: expect.stringMatching(/AI is disabled/) });
+  });
+
+  it('blocks when features.commitMessage=false', async () => {
+    const h = new AiHandlers(
+      makeService({
+        baseUrl: 'http://x/v1',
+        apiKey: '',
+        model: 'm',
+        features: { commitMessage: false },
+      }),
+      makeStore() as never,
+    );
+    await expect(h.generateCommitMessage('r1', 'd', () => {}))
+      .rejects.toMatchObject({ kind: 'config', message: expect.stringMatching(/Commit message generation is disabled/) });
+  });
+
   it('cancelAll aborts all in-flight requests', async () => {
     let aborts = 0;
     fetchMock.mockImplementation((_url, init) => {
@@ -246,5 +338,94 @@ describe('AiHandlers.generateCommitMessage', () => {
     h.cancelAll();
     await expect(Promise.allSettled([p1, p2])).resolves.toBeDefined();
     expect(aborts).toBe(2);
+  });
+});
+
+describe('applyPlaceholders', () => {
+  it('substitutes {key} with value', () => {
+    expect(applyPlaceholders('Hello {name}', { name: 'world' })).toBe('Hello world');
+  });
+  it('handles multiple occurrences', () => {
+    expect(applyPlaceholders('{a}+{a}={b}', { a: '1', b: '2' })).toBe('1+1=2');
+  });
+  it('leaves unknown placeholders intact', () => {
+    expect(applyPlaceholders('Hi {name} from {place}', { name: 'X' })).toBe('Hi X from {place}');
+  });
+  it('handles empty vars map', () => {
+    expect(applyPlaceholders('plain text', {})).toBe('plain text');
+  });
+});
+
+describe('AiHandlers.runFeature (Tier-2 streaming)', () => {
+  it('rejects unconfigured service', async () => {
+    const h = new AiHandlers(makeService(null), makeStore() as never);
+    await expect(
+      h.runFeature({
+        requestId: 'r1', featureId: 'explainCommit', promptId: 'explainCommit',
+        placeholders: {}, userBody: 'x', onChunk: () => {},
+      }),
+    ).rejects.toMatchObject({ kind: 'config' });
+  });
+
+  it('blocks foreign provider w/o allowCloudCodeShare', async () => {
+    const h = new AiHandlers(
+      makeService({
+        baseUrl: 'https://api.openai.com/v1', apiKey: 'sk', model: 'm',
+        features: { explainCommit: true },
+      }),
+      makeStore() as never,
+    );
+    await expect(
+      h.runFeature({
+        requestId: 'r1', featureId: 'explainCommit', promptId: 'explainCommit',
+        placeholders: {}, userBody: 'x', onChunk: () => {},
+      }),
+    ).rejects.toMatchObject({ kind: 'config' });
+  });
+
+  it('blocks when feature toggle is false', async () => {
+    const h = new AiHandlers(
+      makeService({
+        baseUrl: 'http://x/v1', apiKey: '', model: 'm',
+        features: { explainCommit: false },
+      }),
+      makeStore() as never,
+    );
+    await expect(
+      h.runFeature({
+        requestId: 'r1', featureId: 'explainCommit', promptId: 'explainCommit',
+        placeholders: {}, userBody: 'x', onChunk: () => {},
+      }),
+    ).rejects.toMatchObject({ kind: 'config', message: expect.stringMatching(/disabled/) });
+  });
+
+  it('streams tokens and resolves text on success', async () => {
+    const encoder = new TextEncoder();
+    fetchMock.mockResolvedValueOnce({
+      ok: true, status: 200, statusText: 'OK', text: async () => '',
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"hi"}}]}\n\n'));
+          controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"!"}}]}\n\n'));
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        },
+      }),
+    });
+    const h = new AiHandlers(
+      makeService({
+        baseUrl: 'http://x/v1', apiKey: '', model: 'm',
+        features: { explainCommit: true },
+      }),
+      makeStore() as never,
+    );
+    const chunks: string[] = [];
+    const res = await h.runFeature({
+      requestId: 'r1', featureId: 'explainCommit', promptId: 'explainCommit',
+      placeholders: { subject: 'fix', body: '' }, userBody: 'diff',
+      onChunk: (d) => chunks.push(d),
+    });
+    expect(chunks).toEqual(['hi', '!']);
+    expect(res.text).toBe('hi!');
   });
 });
