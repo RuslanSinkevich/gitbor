@@ -203,3 +203,21 @@
 .rebaseBannerBtn:hover { background: color-mix(in srgb, var(--sg-foreground) 10%, transparent); }
 .rebaseBannerAbort { padding: 2px 10px; font-size: 11px; font-family: inherit; font-weight: 600; background: transparent; color: var(--sg-danger); border: 1px solid var(--sg-danger); border-radius: var(--sg-radius-sm); cursor: pointer; transition: all var(--sg-transition); }
 .rebaseBannerAbort:hover { background: color-mix(in srgb, var(--sg-danger) 15%, transparent); }
+
+/* Solo/Hide баннер графа. Sticky сверху над виртуализованным CommitGraph:
+   когда фильтр активен, юзер должен видеть метку даже при прокрутке вниз. */
+.graphFilterBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  font-size: 11px;
+  color: var(--sg-foreground);
+  background: color-mix(in srgb, var(--sg-primary) 12%, var(--sg-background));
+  border-bottom: 1px solid color-mix(in srgb, var(--sg-primary) 35%, transparent);
+  flex-shrink: 0;
+}
+.graphFilterBannerText { flex: 1; line-height: 1.4; }
+.graphFilterBannerBtn { padding: 1px 8px; font-size: 11px; font-family: inherit; font-weight: 600; background: transparent; color: var(--sg-foreground); border: 1px solid var(--sg-border); border-radius: var(--sg-radius-sm); cursor: pointer; transition: all var(--sg-transition); }
+.graphFilterBannerBtn:hover { background: color-mix(in srgb, var(--sg-foreground) 10%, transparent); }
+.graphFilterEmpty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; color: var(--sg-foreground-muted); font-size: 13px; height: 100%; }

@@ -117,6 +117,14 @@ export const en = {
     branchNoteHint: 'Stored locally per repository. Empty value removes the note.',
     branchNoteSave: 'Save',
   },
+  graphFilter: {
+    soloMessage: 'Graph filtered by branch \'{branch}\' — {kept} of {total} commits',
+    hideMessage: 'Graph filtered by hidden branches — {kept} of {total} commits',
+    clearSolo: 'Show all',
+    clearHide: 'Unhide all',
+    emptyAllHidden: 'All branches are hidden. Unhide at least one branch to see the graph.',
+    showAll: 'Show all branches',
+  },
   graph: {
     graph: 'Graph',
     description: 'Description',

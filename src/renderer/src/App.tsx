@@ -643,6 +643,10 @@ export function App() {
                         compareFrom={compareFromHash}
                         onCompareFrom={setCompareFromHash}
                         onCompareTo={handleCompareTo}
+                        soloBranch={branchPrefsState.soloBranch}
+                        hidden={branchPrefsState.hidden}
+                        onClearSolo={() => branchPrefsState.setSoloBranch(null)}
+                        onClearAllHidden={branchPrefsState.clearAllHidden}
                       />
                     ) : (
                       <ChangesView

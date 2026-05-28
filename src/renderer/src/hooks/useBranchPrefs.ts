@@ -24,6 +24,8 @@ export interface BranchPrefsState {
   toggleHide: (name: string) => void;
   setSoloBranch: (name: string | null) => void;
   setNote: (branchName: string, text: string) => void;
+  /** Сбросить hidden для всего репо разом (баннер «Показать все ветки»). */
+  clearAllHidden: () => void;
   clearAll: () => void;
 }
 
@@ -72,6 +74,14 @@ export function useBranchPrefs(repoPath: string): BranchPrefsState {
     });
   }, [repoPath]);
 
+  const clearAllHidden = useCallback(() => {
+    setPrefs(prev => {
+      if (prev.hidden.length === 0) return prev;
+      saveHidden(repoPath, []);
+      return { ...prev, hidden: [] };
+    });
+  }, [repoPath]);
+
   const clearAll = useCallback(() => {
     savePinned(repoPath, []);
     saveHidden(repoPath, []);
@@ -92,6 +102,7 @@ export function useBranchPrefs(repoPath: string): BranchPrefsState {
     toggleHide,
     setSoloBranch,
     setNote,
+    clearAllHidden,
     clearAll,
   };
 }

@@ -3,6 +3,8 @@ import { RightPanelContent, type RightPanel } from './RightPanelContent';
 import { SgSplitPane } from '../../ui/SgSplitPane';
 import { postCommand } from '../../api';
 import { buildStorageKey } from '../../shared/uiPersist';
+import { t, tpl } from '../../i18n';
+import { useGraphFilter } from '../../hooks/useGraphFilter';
 import type { AppState, CommitDetail } from '../../types';
 import type { ShowContextMenuFn } from '../../hooks/useContextMenu';
 import type { ShowPromptFn } from '../../ui/SgPromptDialog';
@@ -26,6 +28,17 @@ interface Props {
   compareFrom?: string | null;
   onCompareFrom?: (hash: string) => void;
   onCompareTo?: (from: string, to: string) => void;
+  /**
+   * Solo/Hide фильтр из useBranchPrefs. Если оба не заданы — useGraphFilter
+   * проксирует исходный список коммитов и server-side layout. Передаются
+   * сверху, чтобы один источник правды жил в useBranchPrefs (sidebar +
+   * graph синхронны).
+   */
+  soloBranch: string | null;
+  hidden: Set<string>;
+  /** Сброс solo и hide (баннер «Показать все» / «Снять скрытие»). */
+  onClearSolo: () => void;
+  onClearAllHidden: () => void;
 }
 
 export function CommitsView({
@@ -33,30 +46,88 @@ export function CommitsView({
   selectCommit, openDiff, openFileHistory, openFileBlame,
   showContextMenu, showPrompt, requestCheckout, setRebaseOnto,
   compareFrom, onCompareFrom, onCompareTo,
+  soloBranch, hidden, onClearSolo, onClearAllHidden,
 }: Props) {
+  const loc = t();
   const graphHeightKey = buildStorageKey('sg-layout:commits-graph-height', state.repoPath);
   const detailWidthKey = buildStorageKey('sg-layout:commits-detail-width', state.repoPath);
 
+  const filtered = useGraphFilter(state.commits, state.branches, soloBranch, hidden);
+  /* Если фильтр активен — используем результат фильтра (включая layout).
+     Иначе — server-side layout из state.graphLayout (он шире, mergeLinks
+     там корректные). Это даёт нулевой overhead при выключенном фильтре. */
+  const graphCommits = filtered.mode === 'none' ? state.commits : filtered.commits;
+  const graphNodes = filtered.mode === 'none' ? state.graphLayout.nodes : filtered.nodes;
+  const graphMaxColumns = filtered.mode === 'none' ? state.graphLayout.maxColumns : filtered.maxColumns;
+  const graphMergeLinks = filtered.mode === 'none' ? (state.graphLayout.mergeLinks ?? []) : filtered.mergeLinks;
+
+  const banner = (() => {
+    if (filtered.mode === 'solo' && soloBranch) {
+      return (
+        <div className={s.graphFilterBanner}>
+          <span className={s.graphFilterBannerText}>
+            {tpl(loc.graphFilter.soloMessage, {
+              branch: soloBranch,
+              kept: filtered.totalKept,
+              total: filtered.totalAll,
+            })}
+          </span>
+          <button type="button" className={s.graphFilterBannerBtn} onClick={onClearSolo}>
+            {loc.graphFilter.clearSolo}
+          </button>
+        </div>
+      );
+    }
+    if (filtered.mode === 'hide') {
+      return (
+        <div className={s.graphFilterBanner}>
+          <span className={s.graphFilterBannerText}>
+            {tpl(loc.graphFilter.hideMessage, {
+              kept: filtered.totalKept,
+              total: filtered.totalAll,
+            })}
+          </span>
+          <button type="button" className={s.graphFilterBannerBtn} onClick={onClearAllHidden}>
+            {loc.graphFilter.clearHide}
+          </button>
+        </div>
+      );
+    }
+    return null;
+  })();
+
+  const allHidden = filtered.mode === 'hide' && filtered.totalKept === 0;
+
   const graphPane = (
     <div className={s.graphPane}>
-      <CommitGraph
-        commits={state.commits}
-        graphNodes={state.graphLayout.nodes}
-        maxColumns={state.graphLayout.maxColumns}
-        mergeLinks={state.graphLayout.mergeLinks ?? []}
-        selectedHash={state.selectedCommitHash}
-        onSelect={selectCommit}
-        currentBranch={state.currentBranch}
-        repoPath={state.repoPath}
-        onContextMenu={showContextMenu}
-        showPrompt={showPrompt}
-        requestCheckout={requestCheckout}
-        onRebase={setRebaseOnto}
-        onLoadMore={() => postCommand({ type: 'getGraphData', maxCount: state.commits.length + 50000 })}
-        compareFrom={compareFrom}
-        onCompareFrom={onCompareFrom}
-        onCompareTo={onCompareTo}
-      />
+      {banner}
+      {allHidden ? (
+        <div className={s.graphFilterEmpty}>
+          <div>{loc.graphFilter.emptyAllHidden}</div>
+          <button type="button" className={s.graphFilterBannerBtn} onClick={onClearAllHidden}>
+            {loc.graphFilter.showAll}
+          </button>
+        </div>
+      ) : (
+        <CommitGraph
+          commits={graphCommits}
+          graphNodes={graphNodes}
+          maxColumns={graphMaxColumns}
+          mergeLinks={graphMergeLinks}
+          selectedHash={state.selectedCommitHash}
+          onSelect={selectCommit}
+          currentBranch={state.currentBranch}
+          repoPath={state.repoPath}
+          onContextMenu={showContextMenu}
+          showPrompt={showPrompt}
+          requestCheckout={requestCheckout}
+          onRebase={setRebaseOnto}
+          onLoadMore={() => postCommand({ type: 'getGraphData', maxCount: state.commits.length + 50000 })}
+          compareFrom={compareFrom}
+          onCompareFrom={onCompareFrom}
+          onCompareTo={onCompareTo}
+        />
+      )}
     </div>
   );
 

@@ -119,6 +119,14 @@ export const ru: LocaleMap = {
     branchNoteHint: 'Хранится локально для этого репозитория. Пустое значение удаляет заметку.',
     branchNoteSave: 'Сохранить',
   },
+  graphFilter: {
+    soloMessage: 'Граф отфильтрован по ветке «{branch}» — {kept} из {total} коммитов',
+    hideMessage: 'Граф отфильтрован по скрытым веткам — {kept} из {total} коммитов',
+    clearSolo: 'Показать все',
+    clearHide: 'Снять скрытие',
+    emptyAllHidden: 'Все ветки скрыты. Снимите скрытие хотя бы с одной, чтобы увидеть граф.',
+    showAll: 'Показать все ветки',
+  },
   graph: {
     graph: 'Граф',
     description: 'Описание',
