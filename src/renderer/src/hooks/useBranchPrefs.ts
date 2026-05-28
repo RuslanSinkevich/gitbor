@@ -1,24 +1,29 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  loadBranchPrefs, savePinned, saveHidden, saveSoloBranch,
+  loadBranchPrefs, savePinned, saveHidden, saveSoloBranch, saveBranchNotes,
   type BranchPrefs,
 } from '../features/sidebar/branchPrefsPersist';
 
 /**
- * Per-repo состояние Fork-style фич на ветках: pin / hide / solo.
+ * Per-repo состояние Fork-style фич на ветках: pin / hide / solo / notes.
  * Перезагружает себя при смене `repoPath` — каждое репо ведёт собственный
  * набор пиннов и фильтров.
  *
  * Возвращает sets (а не массивы) для O(1) проверок в hot path рендера
  * sidebar/graph. Сохраняем в localStorage как массивы (стабильный JSON).
+ *
+ * Заметки — Record<branchName, text>; пустой текст удаляет запись.
+ * Используются для tooltip на иконке Info и для модалки редактирования.
  */
 export interface BranchPrefsState {
   pinned: Set<string>;
   hidden: Set<string>;
   soloBranch: string | null;
+  notes: Record<string, string>;
   togglePin: (name: string) => void;
   toggleHide: (name: string) => void;
   setSoloBranch: (name: string | null) => void;
+  setNote: (branchName: string, text: string) => void;
   clearAll: () => void;
 }
 
@@ -56,11 +61,23 @@ export function useBranchPrefs(repoPath: string): BranchPrefsState {
     });
   }, [repoPath]);
 
+  const setNote = useCallback((branchName: string, text: string) => {
+    setPrefs(prev => {
+      const trimmed = text.trim();
+      const nextNotes = { ...prev.notes };
+      if (trimmed.length === 0) delete nextNotes[branchName];
+      else nextNotes[branchName] = text;
+      saveBranchNotes(repoPath, nextNotes);
+      return { ...prev, notes: nextNotes };
+    });
+  }, [repoPath]);
+
   const clearAll = useCallback(() => {
     savePinned(repoPath, []);
     saveHidden(repoPath, []);
     saveSoloBranch(repoPath, null);
-    setPrefs({ pinned: [], hidden: [], soloBranch: null });
+    saveBranchNotes(repoPath, {});
+    setPrefs({ pinned: [], hidden: [], soloBranch: null, notes: {} });
   }, [repoPath]);
 
   const pinnedSet = useMemo(() => new Set(prefs.pinned), [prefs.pinned]);
@@ -70,9 +87,11 @@ export function useBranchPrefs(repoPath: string): BranchPrefsState {
     pinned: pinnedSet,
     hidden: hiddenSet,
     soloBranch: prefs.soloBranch,
+    notes: prefs.notes,
     togglePin,
     toggleHide,
     setSoloBranch,
+    setNote,
     clearAll,
   };
 }

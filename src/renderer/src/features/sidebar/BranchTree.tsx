@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { Branch } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
+import { SgTooltip } from '../../ui/SgTooltip';
 import { getBranchMenuItems } from './sidebarMenuItems';
 import type { ShowPrompt } from '../graph/commitMenuItems';
 import type { RequestCheckout } from '../checkout';
@@ -12,6 +13,9 @@ import {
 } from './branchDnd';
 import type { t } from '../../i18n';
 import s from './Sidebar.module.css';
+
+/** Длина превью заметки в tooltip. Дальше — `…`. */
+const NOTE_PREVIEW_MAX = 200;
 
 /**
  * Per-branch prefs из useBranchPrefs. Передаётся в дерево сверху, чтобы:
@@ -29,6 +33,7 @@ export interface BranchPrefsAPI {
   pinned: Set<string>;
   hidden: Set<string>;
   soloBranch: string | null;
+  notes: Record<string, string>;
   togglePin: (name: string) => void;
   toggleHide: (name: string) => void;
   toggleSolo: (name: string) => void;
@@ -242,6 +247,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
               isPinned={isPinned}
               isHidden={isHidden}
               isSolo={isSolo}
+              noteText={prefs.notes[branch.name] ?? ''}
               onTogglePin={(e) => { e.stopPropagation(); prefs.togglePin(branch.name); }}
               onToggleSolo={(e) => {
                 e.stopPropagation();
@@ -274,6 +280,8 @@ interface BranchHoverActionsProps {
   isPinned: boolean;
   isHidden: boolean;
   isSolo: boolean;
+  /** Текущая заметка по ветке. Пустая строка — заметки нет, tooltip-плейсхолдер. */
+  noteText: string;
   onTogglePin: (e: React.MouseEvent) => void;
   onToggleSolo: (e: React.MouseEvent) => void;
   onToggleHide: (e: React.MouseEvent) => void;
@@ -316,9 +324,17 @@ const IconInfo = () => (
 );
 
 function BranchHoverActions({
-  loc, isPinned, isHidden, isSolo,
+  loc, isPinned, isHidden, isSolo, noteText,
   onTogglePin, onToggleSolo, onToggleHide, onShowInfo,
 }: BranchHoverActionsProps) {
+  const hasNote = noteText.trim().length > 0;
+  /* Tooltip: при наличии заметки — её превью; иначе — подсказка «нет заметки,
+     кликни чтобы добавить». title (HTML-tooltip) держим как fallback для
+     a11y/скриншот-ридеров — SgTooltip сам tabIndex/role не выставляет. */
+  const tooltipText = hasNote
+    ? truncateNote(noteText)
+    : loc.sidebar.branchNoteEmpty;
+
   return (
     <span className={s.branchActions} role="group">
       <button
@@ -342,12 +358,21 @@ function BranchHoverActions({
         title={isHidden ? loc.sidebar.unhideBranch : loc.sidebar.hideBranch}
         aria-pressed={isHidden}
       ><IconEyeOff /></button>
-      <button
-        type="button"
-        className={s.branchActionBtn}
-        onClick={onShowInfo}
-        title={loc.sidebar.branchInfoTooltip}
-      ><IconInfo /></button>
+      <SgTooltip text={tooltipText} position="left">
+        <button
+          type="button"
+          className={`${s.branchActionBtn} ${hasNote ? s.branchActionActive : ''}`}
+          onClick={onShowInfo}
+          title={tooltipText}
+          aria-pressed={hasNote}
+        ><IconInfo /></button>
+      </SgTooltip>
     </span>
   );
+}
+
+function truncateNote(text: string): string {
+  const t = text.trim();
+  if (t.length <= NOTE_PREVIEW_MAX) return t;
+  return `${t.slice(0, NOTE_PREVIEW_MAX)}…`;
 }

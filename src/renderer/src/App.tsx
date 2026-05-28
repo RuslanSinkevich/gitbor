@@ -87,6 +87,7 @@ export function App() {
     pinned: branchPrefsState.pinned,
     hidden: branchPrefsState.hidden,
     soloBranch: branchPrefsState.soloBranch,
+    notes: branchPrefsState.notes,
     togglePin: branchPrefsState.togglePin,
     toggleHide: branchPrefsState.toggleHide,
     toggleSolo: (name: string) => branchPrefsState.setSoloBranch(name),
@@ -701,6 +702,10 @@ export function App() {
       <BranchInfoDialog
         open={!!openInfoBranch}
         branch={openInfoBranch}
+        initialNote={openInfoBranch ? branchPrefsState.notes[openInfoBranch.name] ?? '' : ''}
+        onSave={(text) => {
+          if (openInfoBranch) branchPrefsState.setNote(openInfoBranch.name, text);
+        }}
         onClose={() => setOpenInfoBranch(null)}
       />
 
