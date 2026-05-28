@@ -1,8 +1,22 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { AiConfigStore, type CryptoProvider } from '../../src/core/ai/AiConfigStore';
+import { AiConfigStore, migrateToV3, type CryptoProvider } from '../../src/core/ai/AiConfigStore';
+
+/**
+ * v3-defaults, которые `load()` подмешивает в каждый возвращаемый
+ * `AiProviderConfig`. Держим в одном месте, чтобы тесты не повторяли
+ * один и тот же набор полей.
+ */
+const V3_LOADED_DEFAULTS = {
+  aiResponseLanguage: 'auto',
+  prompts: undefined,
+  features: undefined,
+  modelOverrides: undefined,
+  aiEnabled: true,
+  allowCloudCodeShare: false,
+} as const;
 
 function makeCrypto(available: boolean): CryptoProvider {
   return {
@@ -56,6 +70,7 @@ describe('AiConfigStore.save / load roundtrip', () => {
       commitLanguage: 'auto',
       headers: undefined,
       timeoutMs: undefined,
+      ...V3_LOADED_DEFAULTS,
     });
   });
 
@@ -109,6 +124,7 @@ describe('AiConfigStore.save / load roundtrip', () => {
       model: 'qwen3-max',
       commitLanguage: 'auto',
       timeoutMs: undefined,
+      ...V3_LOADED_DEFAULTS,
     });
   });
 
@@ -133,7 +149,7 @@ describe('AiConfigStore.clear', () => {
 
 describe('AiConfigStore legacy formats', () => {
   it('accepts stored plain:-prefixed key', () => {
-    require('fs').writeFileSync(
+    writeFileSync(
       join(dir, 'ai-config.json'),
       JSON.stringify({ version: 1, baseUrl: 'http://x/v1', apiKeyEncrypted: 'plain:legacy', model: 'm' }),
       'utf-8',
@@ -143,12 +159,91 @@ describe('AiConfigStore legacy formats', () => {
   });
 
   it('returns empty apiKey when encrypted blob undecodable', () => {
-    require('fs').writeFileSync(
+    writeFileSync(
       join(dir, 'ai-config.json'),
       JSON.stringify({ version: 1, baseUrl: 'http://x/v1', apiKeyEncrypted: 'enc:garbage', model: 'm' }),
       'utf-8',
     );
     const store = new AiConfigStore(dir, makeCrypto(true));
     expect(store.load()?.apiKey).toBe('');
+  });
+});
+
+describe('migrateToV3', () => {
+  it('promotes v2 ru commitLanguage to aiResponseLanguage=ru', () => {
+    const migrated = migrateToV3({
+      version: 2,
+      mode: 'openai-compatible',
+      baseUrl: 'http://x',
+      apiKeyEncrypted: '',
+      model: 'm',
+      commitLanguage: 'ru',
+    });
+    expect(migrated.version).toBe(3);
+    expect(migrated.aiResponseLanguage).toBe('ru');
+  });
+
+  it('promotes v2 en commitLanguage to aiResponseLanguage=en', () => {
+    const migrated = migrateToV3({
+      version: 2,
+      mode: 'openai-compatible',
+      baseUrl: 'http://x',
+      apiKeyEncrypted: '',
+      model: 'm',
+      commitLanguage: 'en',
+    });
+    expect(migrated.aiResponseLanguage).toBe('en');
+  });
+
+  it('defaults missing commitLanguage to aiResponseLanguage=auto', () => {
+    const migrated = migrateToV3({ version: 2, baseUrl: 'http://x', apiKeyEncrypted: '', model: 'm' });
+    expect(migrated.aiResponseLanguage).toBe('auto');
+  });
+
+  it('forces allowCloudCodeShare=false on v2 -> v3 (no implicit cloud opt-in)', () => {
+    const migrated = migrateToV3({ version: 2, baseUrl: 'http://x', apiKeyEncrypted: '', model: 'm' });
+    expect(migrated.allowCloudCodeShare).toBe(false);
+  });
+
+  it('enables only commitMessage by default on v2 -> v3', () => {
+    const migrated = migrateToV3({ version: 2, baseUrl: 'http://x', apiKeyEncrypted: '', model: 'm' });
+    expect(migrated.features).toEqual({ commitMessage: true });
+    expect(migrated.modelOverrides).toEqual({});
+    expect(migrated.aiEnabled).toBe(true);
+  });
+
+  it('leaves v3 config untouched', () => {
+    const v3 = {
+      version: 3,
+      baseUrl: 'http://x',
+      apiKeyEncrypted: '',
+      model: 'm',
+      aiResponseLanguage: 'en' as const,
+      allowCloudCodeShare: true,
+      features: { commitMessage: false, explainCommit: true },
+    };
+    expect(migrateToV3(v3)).toBe(v3);
+  });
+});
+
+describe('AiConfigStore v2 -> v3 load migration', () => {
+  it('reads ru commitLanguage from v2 file as aiResponseLanguage=ru', () => {
+    writeFileSync(
+      join(dir, 'ai-config.json'),
+      JSON.stringify({
+        version: 2,
+        mode: 'openai-compatible',
+        baseUrl: 'http://x/v1',
+        apiKeyEncrypted: 'plain:k',
+        model: 'gpt',
+        commitLanguage: 'ru',
+      }),
+      'utf-8',
+    );
+    const store = new AiConfigStore(dir, makeCrypto(true));
+    const loaded = store.load();
+    expect(loaded?.aiResponseLanguage).toBe('ru');
+    expect(loaded?.allowCloudCodeShare).toBe(false);
+    expect(loaded?.aiEnabled).toBe(true);
   });
 });

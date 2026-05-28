@@ -6,11 +6,40 @@
 /**
  * Язык, на котором модель должна писать commit message. Не связан с языком
  * UI. `auto` — не навязывать, модель сама подстраивается под diff.
+ *
+ * @deprecated Внутренне всё ведётся через `aiResponseLanguage` (общий для
+ * всех AI-фич). Тип оставлен для обратной совместимости подписи
+ * `AiProviderConfig.commitLanguage` и старых тестов.
  */
 export type CommitLanguage = 'auto' | 'en' | 'ru';
 
+/** Язык ответа AI (одно поле для всех фич, заменяет старый `commitLanguage`). */
+export type AiResponseLanguage = 'auto' | 'en' | 'ru';
+
 /** Режим подключения: OpenAI-compatible endpoint или сессия chat.qwen.ai. */
 export type AiConnectionMode = 'openai-compatible' | 'qwen-web';
+
+/**
+ * Идентификаторы доступных промптов. На этапе AI Settings Redesign в
+ * `DEFAULT_PROMPTS` реально заполнен только `commitMessage` —
+ * остальные ID добавлены наперёд под фичи Tier-2 (Commit Explainer,
+ * Stash Naming, Reflog Explainer, Conflict Helper). Текст-заглушка
+ * с TODO остаётся в DEFAULT_PROMPTS до соответствующего этапа.
+ */
+export type PromptId =
+  | 'commitMessage'
+  | 'explainCommit'
+  | 'stashName'
+  | 'explainReflog'
+  | 'analyzeConflict';
+
+/**
+ * Идентификаторы фич, которые юзер может выключить в Settings. Совпадают
+ * с PromptId плюс отдельный `semanticSearch` (он не использует один
+ * текстовый промпт). Дёргается в renderer перед каждым AI-вызовом и
+ * в AiService при первой попытке.
+ */
+export type AiFeatureId = PromptId | 'semanticSearch';
 
 /** Конфигурация подключения к AI-провайдеру. */
 export interface AiProviderConfig {
@@ -31,8 +60,50 @@ export interface AiProviderConfig {
    * Язык генерируемого commit message. По умолчанию `auto`. Хранится в
    * конфиге провайдера, а не отдельно, чтобы разные провайдеры/рабочие места
    * могли иметь разные настройки без расщепления store.
+   *
+   * @deprecated с конфига v3 заменено на `aiResponseLanguage` (общий язык
+   * ответа для всех AI-фич). Поле оставлено в типе, чтобы старый код
+   * (тесты, миграции) продолжал собираться; новые места читают только
+   * `aiResponseLanguage`.
    */
   commitLanguage?: CommitLanguage;
+  /**
+   * Язык ответа AI — общий для всех фич (commit message, explainCommit,
+   * explainReflog, analyzeConflict). `auto` = язык UI (`getLang()` в
+   * renderer); промпт идёт на английском (см. DEFAULT_PROMPTS), язык
+   * вывода добавляется в конец промпта через `resolvePrompt(id, cfg)`.
+   *
+   * stashName всегда возвращает английский, независимо от значения
+   * (это git-имя, а не текст для человека).
+   */
+  aiResponseLanguage?: AiResponseLanguage;
+  /** Кастомные промпты, перекрывающие defaults из `DEFAULT_PROMPTS`. */
+  prompts?: Partial<Record<PromptId, string>>;
+  /**
+   * Per-feature toggle. Если `false` — фича выключена; renderer прячет/
+   * disable'ит UI, AiService при попытке вызова кидает AiError(`config`).
+   * undefined = унаследовать default по фиче (см. `isFeatureEnabled`).
+   */
+  features?: Partial<Record<AiFeatureId, boolean>>;
+  /**
+   * Per-feature override модели. Если для конкретной фичи задан id —
+   * провайдер вызывается с ним вместо основного `config.model`.
+   * Полезно: дешёвая модель для stash naming, дорогая для conflict.
+   */
+  modelOverrides?: Partial<Record<AiFeatureId, string>>;
+  /**
+   * Глобальный AI kill-switch. `false` — все AI-кнопки disabled, IPC
+   * методы возвращают AiError. Default = true.
+   */
+  aiEnabled?: boolean;
+  /**
+   * Разрешить отправлять diff/code в **зарубежные** провайдеры (OpenAI,
+   * Anthropic, Groq). Default для свежих установок = `false` (импорто-
+   * замещение: юзер должен явно понимать, что код покидает РФ).
+   * Локальные, корпоративные, без-VPN и российские провайдеры под
+   * это ограничение **не подпадают**.
+   */
+  allowCloudCodeShare?: boolean;
   /** Дополнительные HTTP-заголовки (например для корп.прокси). */
   headers?: Record<string, string>;
   /** Таймаут запроса в миллисекундах. По умолчанию 60000. */

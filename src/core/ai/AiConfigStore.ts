@@ -1,7 +1,14 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { atomicWriteJSON } from '../safety/AtomicWrite';
-import type { AiConnectionMode, AiProviderConfig, CommitLanguage } from './types';
+import type {
+  AiConnectionMode,
+  AiFeatureId,
+  AiProviderConfig,
+  AiResponseLanguage,
+  CommitLanguage,
+  PromptId,
+} from './types';
 
 /**
  * Шифровальщик. В main-процессе сюда передаём Electron `safeStorage` (AES
@@ -16,7 +23,7 @@ export interface CryptoProvider {
 }
 
 const FILE_NAME = 'ai-config.json';
-const FORMAT_VERSION = 2;
+const FORMAT_VERSION = 3;
 
 interface PersistedConfig {
   version: number;
@@ -25,6 +32,7 @@ interface PersistedConfig {
   apiKeyEncrypted: string;
   qwenWebTokenEncrypted?: string;
   model: string;
+  /** v2-only: оставлено для миграции, в v3 не пишется. */
   commitLanguage?: CommitLanguage;
   headers?: Record<string, string>;
   timeoutMs?: number;
@@ -33,7 +41,28 @@ interface PersistedConfig {
   stripThinkTags?: boolean;
   extraBody?: Record<string, unknown>;
   debugLogging?: boolean;
+  /** v3 fields. */
+  aiResponseLanguage?: AiResponseLanguage;
+  prompts?: Partial<Record<PromptId, string>>;
+  features?: Partial<Record<AiFeatureId, boolean>>;
+  modelOverrides?: Partial<Record<AiFeatureId, string>>;
+  aiEnabled?: boolean;
+  allowCloudCodeShare?: boolean;
 }
+
+/**
+ * Дефолты для свежего/мигрированного конфига. Импортозамещающая логика:
+ * - все фичи cloud-провайдеров блокируются `allowCloudCodeShare=false`
+ *   (юзер явно разрешает отправку кода зарубеж);
+ * - `aiEnabled=true` чтобы первая установка работала из коробки;
+ * - `features.commitMessage=true` — единственная Tier-1 фича.
+ */
+const V3_DEFAULTS = {
+  features: { commitMessage: true } as Partial<Record<AiFeatureId, boolean>>,
+  modelOverrides: {} as Partial<Record<AiFeatureId, string>>,
+  aiEnabled: true,
+  allowCloudCodeShare: false,
+} as const;
 
 /**
  * Хранит AI-конфиг в `{userData}/ai-config.json`. Запись — через atomic
@@ -59,10 +88,19 @@ export class AiConfigStore {
       return null;
     }
     if (!raw || typeof raw !== 'object') return null;
-    const p = raw as Partial<PersistedConfig>;
+    const p = migrateToV3(raw as Partial<PersistedConfig>);
 
     const mode: AiConnectionMode =
       p.mode === 'qwen-web' ? 'qwen-web' : 'openai-compatible';
+
+    const sharedV3 = {
+      aiResponseLanguage: normalizeResponseLanguage(p.aiResponseLanguage),
+      prompts: sanitizePrompts(p.prompts),
+      features: sanitizeFeatures(p.features),
+      modelOverrides: sanitizeModelOverrides(p.modelOverrides),
+      aiEnabled: p.aiEnabled !== false,
+      allowCloudCodeShare: p.allowCloudCodeShare === true,
+    } as const;
 
     if (mode === 'qwen-web') {
       if (!p.model) return null;
@@ -76,6 +114,7 @@ export class AiConfigStore {
         model: p.model,
         commitLanguage: normalizeLanguage(p.commitLanguage),
         timeoutMs: p.timeoutMs,
+        ...sharedV3,
       };
     }
 
@@ -93,11 +132,20 @@ export class AiConfigStore {
       stripThinkTags: p.stripThinkTags,
       extraBody: p.extraBody,
       debugLogging: p.debugLogging,
+      ...sharedV3,
     };
   }
 
   async save(cfg: AiProviderConfig): Promise<void> {
     const mode = cfg.mode ?? 'openai-compatible';
+    const v3Common = {
+      aiResponseLanguage: normalizeResponseLanguage(cfg.aiResponseLanguage),
+      prompts: sanitizePrompts(cfg.prompts),
+      features: sanitizeFeatures(cfg.features),
+      modelOverrides: sanitizeModelOverrides(cfg.modelOverrides),
+      aiEnabled: cfg.aiEnabled !== false,
+      allowCloudCodeShare: cfg.allowCloudCodeShare === true,
+    } as const;
     if (mode === 'qwen-web') {
       const persisted: PersistedConfig = {
         version: FORMAT_VERSION,
@@ -106,8 +154,8 @@ export class AiConfigStore {
         apiKeyEncrypted: '',
         qwenWebTokenEncrypted: this.encode(cfg.qwenWebToken || ''),
         model: cfg.model,
-        commitLanguage: normalizeLanguage(cfg.commitLanguage),
         timeoutMs: cfg.timeoutMs,
+        ...v3Common,
       };
       await atomicWriteJSON(this.filePath, persisted);
       return;
@@ -120,7 +168,6 @@ export class AiConfigStore {
       apiKeyEncrypted: this.encode(cfg.apiKey || ''),
       qwenWebTokenEncrypted: '',
       model: cfg.model,
-      commitLanguage: normalizeLanguage(cfg.commitLanguage),
       headers: cfg.headers,
       timeoutMs: cfg.timeoutMs,
       systemInUser: cfg.systemInUser,
@@ -128,6 +175,7 @@ export class AiConfigStore {
       stripThinkTags: cfg.stripThinkTags,
       extraBody: cfg.extraBody,
       debugLogging: cfg.debugLogging,
+      ...v3Common,
     };
     await atomicWriteJSON(this.filePath, persisted);
   }
@@ -141,6 +189,7 @@ export class AiConfigStore {
       apiKeyEncrypted: '',
       qwenWebTokenEncrypted: '',
       model: '',
+      ...V3_DEFAULTS,
     };
     await atomicWriteJSON(this.filePath, empty);
   }
@@ -175,4 +224,93 @@ export class AiConfigStore {
 function normalizeLanguage(value: unknown): CommitLanguage {
   if (value === 'en' || value === 'ru') return value;
   return 'auto';
+}
+
+function normalizeResponseLanguage(value: unknown): AiResponseLanguage {
+  if (value === 'en' || value === 'ru') return value;
+  return 'auto';
+}
+
+/**
+ * Миграция персистированного конфига v1/v2 в v3.
+ *
+ * v1: без `version` или `version=1`. Уже валидный shape ai-config.json,
+ *     просто без `mode` (только `openai-compatible`).
+ * v2: добавлен `mode`, `commitLanguage`. Поля v3 (`prompts`, `features`,
+ *     `modelOverrides`, `aiEnabled`, `allowCloudCodeShare`,
+ *     `aiResponseLanguage`) отсутствуют.
+ *
+ * v2 → v3:
+ *   - features.commitMessage = true (единственная Tier-1 фича на момент v3).
+ *   - modelOverrides = {} (по умолчанию основная модель для всех фич).
+ *   - aiEnabled = true (старый конфиг работал, не ломаем UX).
+ *   - allowCloudCodeShare = false (для импортозамещения: даже если у
+ *     юзера был cloud-провайдер, мы по умолчанию НЕ продолжаем тихо
+ *     слать туда код — пусть включит явно).
+ *   - aiResponseLanguage = старый commitLanguage (auto/en/ru).
+ *
+ * v3-конфиг возвращается без изменений (поля проверит вызывающий
+ * через `sanitize*`).
+ */
+export function migrateToV3(p: Partial<PersistedConfig>): Partial<PersistedConfig> {
+  if (p.version === FORMAT_VERSION) return p;
+  // v2 (или раньше) → v3
+  const v2Lang: AiResponseLanguage = (() => {
+    if (p.commitLanguage === 'en' || p.commitLanguage === 'ru') return p.commitLanguage;
+    return 'auto';
+  })();
+  return {
+    ...p,
+    version: FORMAT_VERSION,
+    features: V3_DEFAULTS.features,
+    modelOverrides: V3_DEFAULTS.modelOverrides,
+    aiEnabled: V3_DEFAULTS.aiEnabled,
+    allowCloudCodeShare: V3_DEFAULTS.allowCloudCodeShare,
+    aiResponseLanguage: v2Lang,
+  };
+}
+
+function sanitizePrompts(raw: unknown): Partial<Record<PromptId, string>> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const allowed: PromptId[] = ['commitMessage', 'explainCommit', 'stashName', 'explainReflog', 'analyzeConflict'];
+  const out: Partial<Record<PromptId, string>> = {};
+  let hasAny = false;
+  for (const k of allowed) {
+    const v = (raw as Record<string, unknown>)[k];
+    if (typeof v === 'string' && v.length > 0) {
+      out[k] = v;
+      hasAny = true;
+    }
+  }
+  return hasAny ? out : undefined;
+}
+
+function sanitizeFeatures(raw: unknown): Partial<Record<AiFeatureId, boolean>> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const allowed: AiFeatureId[] = ['commitMessage', 'explainCommit', 'stashName', 'explainReflog', 'analyzeConflict', 'semanticSearch'];
+  const out: Partial<Record<AiFeatureId, boolean>> = {};
+  let hasAny = false;
+  for (const k of allowed) {
+    const v = (raw as Record<string, unknown>)[k];
+    if (typeof v === 'boolean') {
+      out[k] = v;
+      hasAny = true;
+    }
+  }
+  return hasAny ? out : undefined;
+}
+
+function sanitizeModelOverrides(raw: unknown): Partial<Record<AiFeatureId, string>> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const allowed: AiFeatureId[] = ['commitMessage', 'explainCommit', 'stashName', 'explainReflog', 'analyzeConflict', 'semanticSearch'];
+  const out: Partial<Record<AiFeatureId, string>> = {};
+  let hasAny = false;
+  for (const k of allowed) {
+    const v = (raw as Record<string, unknown>)[k];
+    if (typeof v === 'string' && v.trim().length > 0) {
+      out[k] = v;
+      hasAny = true;
+    }
+  }
+  return hasAny ? out : undefined;
 }
