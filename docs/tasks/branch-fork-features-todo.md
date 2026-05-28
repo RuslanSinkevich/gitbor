@@ -1,30 +1,7 @@
 # Fork-style фичи на ветках — TODO (v2)
 
-> Первая версия Pin + Info + hover-actions реализована, но требует доработки.
-> Solo graph пока не подключен к графу (toggle меняет state, но не фильтрует).
-> Hide — пока тоже только state, визуально dim, а нужно полное скрытие.
-
-## Задача 0: Иконки — убрать эмодзи, сделать SVG
-
-**Проблема:** Сейчас `BranchHoverActions` рендерит 📌🔍👁ℹ — цветные эмодзи,
-выглядят чужеродно и по-разному на разных ОС.
-
-**Решение:** Заменить на inline SVG 12×12, одноцветный `currentColor`.
-Проект уже использует Unicode-символы в sidebar (`⎇`, `☁`, `☰`), но для
-hover-actions нужны более чёткие иконки. Четыре штуки:
-
-| Действие | SVG-идея |
-|----------|----------|
-| Pin | Вертикальная булавка (pin). Линия + кружок на конце. |
-| Solo | Одна ветка / линза (filter). Ломаная линия с одним ответвлением. |
-| Hide | Глаз перечёркнутый / без зрачка (eye-off). |
-| Info | Буква «i» в кружке. |
-
-**Файл:** `BranchTree.tsx`, функция `BranchHoverActions`.
-Заменить текстовое содержимое четырёх `<button>` на `<svg>` элементы.
-CSS `.branchActionBtn` уже имеет `font-size: 10px` — заменить на
-`width: 14px; height: 14px;` для SVG. `color: currentColor` уже работает
-через `var(--sg-foreground-muted)` / `var(--sg-primary)` для active.
+> **Сделано:** Pin branches + hover-actions инфра, SVG-иконки (pin/filter/eye-off/info),
+> зелёная точка перед именем ветки, stash без `On <branch>:` в sidebar.
 
 ---
 
@@ -116,112 +93,29 @@ cherry-pick, rebase, discard changes, stage/unstage all) в правой пан�
 
 Все места, где после завершения операции должен сбрасываться `diffTarget`:
 
-1. **Commit** — после успешного коммита файлы из staging ушли. Diff
-   открытого staged-файла теперь пустой. Нужно `closeDiff()`.
-2. **Merge** — после merge (fast-forward или с коммитом) diff рабочей
-   копии может стать невалидным. `closeDiff()`.
-3. **Stash / Stash Pop** — после stash рабочий файл чист, после pop
-   файл изменился — старый diff невалиден. `closeDiff()`.
+1. **Commit** — после успешного коммита файлы из staging ушли. `closeDiff()`.
+2. **Merge** — после merge diff рабочей копии может стать невалидным. `closeDiff()`.
+3. **Stash / Stash Pop** — старый diff невалиден. `closeDiff()`.
 4. **Cherry-pick** — аналогично merge.
 5. **Rebase (continue / abort / skip)** — состояние файлов полностью
    меняется. `closeDiff()`.
 6. **Discard changes (single file / all)** — файл откачен, diff пуст.
-   `closeDiff()` или хотя бы `closeDiff()` если discard'нули именно
-   открытый файл.
-7. **Stage All / Unstage All** — diff может ссылаться на
-   `workingCopy`/`staged` контекст, который сменился. Как минимум
-   обновить, в идеале сбросить.
+7. **Stage All / Unstage All** — diff может ссылаться на изменённый контекст.
 8. **Reset (soft/mixed/hard)** — после hard reset diff точно невалиден.
 9. **Checkout branch** — diff рабочей копии от старой ветки невалиден.
-10. **Pull** — если pull принёс merge или ff, diff рабочей копии может
-    стать устаревшим.
+10. **Pull** — если pull принёс merge или ff, diff может устареть.
 
 **Где искать в коде:**
 
-- `App.tsx` — `closeDiff()` (setter `diffTarget → null`), `openDiff()`.
-  Проверить все обработчики операций: `handleMerge`, `handleStash`,
-  `handleCommit` и т.д. — зовут ли они `closeDiff()` после успеха.
-- `useAppState.ts` — подписка на `mainEvent`. После `stateUpdate` /
-  `fullState` проверить, не нужно ли инвалидировать открытый diff.
-- `ChangesView.tsx` — при переключении `staged ↔ unstaged` и при
-  полном сбросе списка файлов.
-- `useDiffState.ts` — сам хук, есть ли там логика авто-закрытия.
+- `App.tsx` — `closeDiff()`, обработчики операций.
+- `useAppState.ts` — подписка на `mainEvent`, `stateUpdate` / `fullState`.
+- `ChangesView.tsx` — переключение `staged ↔ unstaged`, сброс списка файлов.
+- `useDiffState.ts` — логика авто-закрытия.
 
 **Подход:**
 
-Самый надёжный — подписаться в `App.tsx` на `lastOpResult` (уже есть):
-если операция **записи** успешна (`lastOpResult.success && write-op`),
-вызвать `closeDiff()`. Это покроет **все** кейсы одним обработчиком.
-Для тонкой гранулярности (закрывать только если файл затронут) —
-сравнивать `diffTarget.file` с `lastOpResult.affectedFiles`, но это
-сложнее и может не понадобиться.
-
-Альтернатива: в `useAppState`, при получении нового `stateUpdate` с
-изменённым `localChanges` / `stagedChanges`, проверять, есть ли
-`diffTarget.file` в новом списке. Если нет — `closeDiff()`.
-
----
-
-## Задача 6: Зелёная точка текущей ветки — перенести в начало строки
-
-**Проблема:** Зелёная точка (`.itemBadge`) стоит **после** имени ветки
-(правее `<span className={s.itemName}>`). Из-за этого при длинных именах
-она уезжает далеко вправо или вообще не видна. В Fork точка/маркер стоит
-**перед** именем — сразу бросается в глаза.
-
-**Решение:**
-
-1. В `BranchTree.tsx`, `BranchTreeItem`, рендер leaf-ветки — переместить
-   `{branch.isCurrent && <span className={s.itemBadge} ... />}` **перед**
-   `<span className={s.itemName}>`.
-2. CSS `.itemBadge` — убрать `margin-left: 4px`, добавить `margin-right: 6px`.
-3. Проверить, что точка не конфликтует с drag-handle и hover-actions.
-
-**Файлы:** `BranchTree.tsx` (одна перестановка строк), `Sidebar.module.css`
-(замена margin).
-
----
-
-## Задача 7: Stash — скрыть имя ветки из видимого текста
-
-**Проблема:** Кнопка «Отложить» (Stash) сохраняет через git формат
-`On <branch>: <message>`. В sidebar stash-элемент показывает полный
-`stash.message` — например `On feature/long-branch-name: WIP`. Имя
-ветки занимает место и дублирует информацию (пользователь и так видит
-ветку рядом).
-
-**Решение:**
-
-1. Парсить `stash.message` при рендере в sidebar: если начинается с
-   `On <...>: ` — вырезать prefix, показать только user-message.
-   Если user-message пустой — показать `stash@{N}`.
-2. Полный оригинальный текст (с `On branch: ...`) показывать в
-   `title` / `SgTooltip` при наведении — чтобы инфо о ветке не
-   терялась, просто не занимала место.
-
-**Файлы:**
-
-- `Sidebar.tsx`, компонент `StashItem` (строка ~248):
-  ```
-  // сейчас:
-  <span className={s.itemName}>{stash.message || `stash@{${stash.index}}`}</span>
-
-  // нужно:
-  const displayMsg = stripStashBranch(stash.message) || `stash@{${stash.index}}`;
-  const fullMsg = stash.message || `stash@{${stash.index}}`;
-  <span className={s.itemName} title={fullMsg}>{displayMsg}</span>
-  ```
-- Новая утилита `stripStashBranch(msg: string): string` — простой regex
-  `/^On [^:]+:\s*/` → обрезать. Можно положить в сам `Sidebar.tsx`
-  (приватная функция) или вынести в `shared/`.
-
-**Edge cases:**
-- Stash без кастомного сообщения: git пишет `On branch: WIP on branch hash`.
-  После обрезки `On branch: ` останется `WIP on branch hash` — ок, это
-  понятнее чем полный формат.
-- Stash с пустым message: fallback на `stash@{N}`.
-- Stash не по формату `On ...:` (старые версии git / ручной stash) —
-  regex не матчит, показываем as-is.
+Самый надёжный — подписаться на `lastOpResult`: если операция записи
+успешна, вызвать `closeDiff()`. Покроет все кейсы одним обработчиком.
 
 ---
 
