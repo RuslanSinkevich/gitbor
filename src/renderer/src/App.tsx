@@ -38,6 +38,27 @@ import s from './App.module.css';
 type Page = 'app' | 'ui-kit';
 type ViewMode = 'changes' | 'commits';
 
+/**
+ * Имена операций (как они приходят в `lastOpResult.operation` от main),
+ * после успешного завершения которых открытый diff гарантированно
+ * становится устаревшим. Имена синхронизированы со строками в
+ * `op('<name>', …)` / `opWithPostMerge('<name>', …)` в
+ * `src/core/bridge/ipc/handlersGitOps.ts` и `handlersRepoExtras.ts`.
+ */
+const STALE_DIFF_OPS = new Set<string>([
+  'commit',
+  'merge',
+  'pull',
+  'stash',
+  'stashPop',
+  'cherry-pick',
+  'revert',
+  'reset',
+  'rebase',
+  'checkout',
+  'restoreReflog',
+]);
+
 export function App() {
   const {
     state, commitDetail, mergeState, error, selectCommit: rawSelectCommit, clearError,
@@ -144,6 +165,27 @@ export function App() {
         safety.shouldOpenModal({ errorClass, severity, source }),
     },
   );
+
+  /**
+   * Stale diff guard: после write-операций, меняющих рабочую копию /
+   * индекс / HEAD, текущий открытый diff почти всегда невалиден
+   * (файл могли удалить/переименовать/закоммитить/откатить). Закрываем
+   * правую панель — пусть юзер выберет файл заново. Один эффект на
+   * `lastOpResult` покрывает все handlersGitOps/handlersRepoExtras,
+   * которые шлют `operationEnd` через `op()`/`opWithPostMerge()` —
+   * проверять каждый handler отдельно избыточно и хрупко.
+   *
+   * Сюда не включены: fetch, push, addRemote, deleteBranch/Tag,
+   * createBranch, clone, init, submoduleInit/Update — они не трогают
+   * working tree активного diff. stageHunk/discardHunk/stageLines
+   * идут через `errOnFail` без `operationEnd` и закрываются эффектом
+   * выше по stagedFiles/unstagedFiles.
+   */
+  useEffect(() => {
+    if (!lastOpResult || !lastOpResult.success) return;
+    if (!STALE_DIFF_OPS.has(lastOpResult.operation)) return;
+    closeDiff();
+  }, [lastOpResult, closeDiff]);
   useAutoFetch(
     state.repoPath,
     !!state.repoPath,
