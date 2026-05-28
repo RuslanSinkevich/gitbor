@@ -38,11 +38,13 @@ const ANALYZE = process.env.GITBOR_ANALYZE === '1';
 const today = new Date().toISOString().slice(0, 10);
 const analyzeOut = path.resolve(__dirname, '../../docs/audit', `bundle-${today}.html`);
 
-// Bundle size regression gate. baseline 2026-05-11: главный chunk ~340 KB raw,
-// ~104 KB gzip. Threshold с запасом ~17% для зелёных мерчей. При GITBOR_BUNDLE_GATE_OFF=1
-// чек отключается (для локальных экспериментов).
-const BUNDLE_MAX_RAW_BYTES = 400 * 1024;
-const BUNDLE_MAX_GZIP_BYTES = 120 * 1024;
+// Bundle size regression gate. baseline 2026-05-28 (после Solo/Hide + AI
+// settings redesign + Tier-2 фич): главный chunk ~392 KB raw / ~123 KB gzip.
+// Threshold подняли до 430/130 KB — запас ~10% против шума при добавлении
+// мелких фич, но не настолько большой, чтобы пропустить заметную регрессию.
+// При GITBOR_BUNDLE_GATE_OFF=1 чек отключается (для локальных экспериментов).
+const BUNDLE_MAX_RAW_BYTES = 430 * 1024;
+const BUNDLE_MAX_GZIP_BYTES = 130 * 1024;
 const BUNDLE_GATE_DISABLED = process.env.GITBOR_BUNDLE_GATE_OFF === '1';
 
 function bundleSizeGatePlugin(): Plugin {
