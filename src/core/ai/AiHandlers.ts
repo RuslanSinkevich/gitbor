@@ -3,6 +3,55 @@ import type { AiConfigStore } from './AiConfigStore';
 import type { AiDebugStore } from './AiDebugStore';
 import { AiError, type AiConnectionMode, type AiDebugSnapshot, type AiProviderConfig } from './types';
 
+/**
+ * Хосты «зарубежных» облачных провайдеров. `allowCloudCodeShare=false`
+ * блокирует отправку diff/кода на эти хосты — но НЕ на локальные
+ * (localhost/127.0.0.1/0.0.0.0), не на российские (yandex), не на
+ * без-VPN (Qwen/DashScope/DeepSeek), не на корпоративные gateway'и.
+ *
+ * Дублируется в renderer (presets.ts/isForeignByConnection) — там
+ * нужен синхронный UI-gate; здесь — финальная проверка в main.
+ */
+const FOREIGN_HOSTS = new Set<string>([
+  'api.openai.com',
+  'api.anthropic.com',
+  'api.groq.com',
+]);
+
+function isForeignBaseUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    return FOREIGN_HOSTS.has(new URL(url).host.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Проверить, можно ли выполнить AI-вызов с текущим конфигом. Бросает
+ * `AiError('config')` если:
+ *   - `aiEnabled=false` (kill-switch),
+ *   - провайдер зарубежный, а `allowCloudCodeShare=false`.
+ *
+ * Локальные / корпоративные / российские / без-VPN провайдеры НЕ
+ * блокируются — это сознательное решение (см. ADR в
+ * `docs/tasks/ai-settings-redesign-todo.md`).
+ */
+export function ensureFeatureAllowed(cfg: AiProviderConfig | null): void {
+  if (!cfg) throw new AiError('AI provider is not configured', 'config');
+  if (cfg.aiEnabled === false) {
+    throw new AiError('AI is disabled in settings (Privacy → AI enabled).', 'config');
+  }
+  const mode: AiConnectionMode = cfg.mode ?? 'openai-compatible';
+  if (mode === 'qwen-web') return;
+  if (!isForeignBaseUrl(cfg.baseUrl)) return;
+  if (cfg.allowCloudCodeShare === true) return;
+  throw new AiError(
+    'This provider is a foreign cloud (OpenAI/Anthropic/Groq). Enable "Allow sending code to foreign providers" in AI Settings → Privacy or pick a local / Russian provider.',
+    'config',
+  );
+}
+
 interface AiTestResult {
   success: boolean;
   error?: string;
@@ -82,6 +131,11 @@ export class AiHandlers {
   ): Promise<{ text: string; finishReason: string }> {
     if (!this.service.isConfigured()) {
       throw new AiError('AI provider is not configured', 'config');
+    }
+    const cfg = this.service.getConfig();
+    ensureFeatureAllowed(cfg);
+    if (cfg?.features?.commitMessage === false) {
+      throw new AiError('Commit message generation is disabled in AI Settings → Features.', 'config');
     }
     const controller = new AbortController();
     this.pending.set(requestId, controller);

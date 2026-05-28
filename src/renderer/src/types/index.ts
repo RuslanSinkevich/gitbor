@@ -15,3 +15,4 @@ export type { ErrorSeverity, OperationSource } from '@core/errors/severity';
 export type { RendererCommand, MainEvent, RepoStats, AuthorStats, MonthlyCount, DayCommitEntry, AuthorCodeStatsResult, RepoSummaryDto, RepoSummaryBranchDto, RepoSummaryTagDto, RepoSummaryCommitDto } from '@core/bridge/messages';
 export type { GitActivityEntry, GitActivityCommand } from '@core/bridge/messages';
 export type { AiConnectionMode, AiProviderConfig, CommitLanguage } from '@core/bridge/messages';
+export type { AiResponseLanguage, AiFeatureId, PromptId } from '@core/ai/types';

@@ -140,3 +140,91 @@
   padding: 4px 0;
   font-size: 12px;
 }
+
+/* Двухколоночный layout диалога: левый рельс табов + правый scrollable content. */
+.tabsLayout {
+  display: grid;
+  grid-template-columns: 168px 1fr;
+  gap: 16px;
+  min-height: 420px;
+}
+
+.tabsRail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-right: 1px solid var(--sg-border);
+  padding-right: 8px;
+}
+
+.tabsRail button {
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: var(--sg-radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--sg-foreground);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.tabsRail button:hover {
+  background: color-mix(in srgb, var(--sg-foreground) 8%, transparent);
+}
+
+.tabsRail button.tabActive {
+  background: color-mix(in srgb, var(--sg-primary) 18%, transparent);
+  color: var(--sg-primary);
+  font-weight: 600;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  overflow-y: auto;
+  max-height: 60vh;
+  padding-right: 4px;
+}
+
+.promptHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--sg-foreground) 12%, transparent);
+  color: var(--sg-foreground-muted);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.warn {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-radius: var(--sg-radius-sm);
+  font-size: 12px;
+  background: color-mix(in srgb, #d29922 16%, transparent);
+  color: var(--sg-foreground);
+  border: 1px solid color-mix(in srgb, #d29922 50%, transparent);
+}
+
+.debugPre {
+  white-space: pre-wrap;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--sg-border, #ccc);
+  padding: 8px;
+  margin-top: 8px;
+  font-family: monospace;
+  font-size: 11px;
+  background: color-mix(in srgb, var(--sg-foreground) 4%, transparent);
+}

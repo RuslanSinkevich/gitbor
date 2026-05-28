@@ -1,4 +1,4 @@
-import { buildCommitSystemPrompt, buildCommitUserPrompt } from './prompts';
+import { buildCommitSystemPrompt, buildCommitUserPrompt, resolvePrompt } from './prompts';
 import type { AiProvider } from './providers/base';
 import { OpenAiCompatibleProvider } from './providers/OpenAiCompatibleProvider';
 import { QwenWebProvider } from './providers/QwenWebProvider';
@@ -52,8 +52,14 @@ export class AiService {
     if (!options.diff || !options.diff.trim()) {
       throw new AiError('diff is empty — nothing to describe', 'config');
     }
+    /* Системный промпт: пользовательский commit-prompt из настроек (если
+       задан) + языковая инструкция через resolvePrompt. Если override
+       совпадает с дефолтным, ничего не меняется. Старый
+       buildCommitSystemPrompt оставлен в кодовой базе для тестов
+       (DEFAULT_COMMIT_SYSTEM_PROMPT) и для случая, когда конфиг null. */
     const lang = this.config?.commitLanguage ?? 'auto';
-    const systemPrompt = options.systemPrompt ?? buildCommitSystemPrompt(lang);
+    const promptFromSettings = this.config ? resolvePrompt('commitMessage', this.config) : null;
+    const systemPrompt = options.systemPrompt ?? promptFromSettings ?? buildCommitSystemPrompt(lang);
     const userPrompt = buildCommitUserPrompt(options.diff, lang);
     const stripThink = this.config?.stripThinkTags ?? false;
     mainLogger.debug(`AI: generateCommitMessage lang=${lang} model=${this.config?.model ?? 'n/a'}`);
