@@ -101,16 +101,28 @@
 
 - Генерация одной кнопкой из staged diff
 - **Два режима**:
-  - **OpenAI-compatible** — работает с OpenAI, Ollama, LM Studio, DeepSeek, Groq и любым другим `/v1/chat/completions` endpoint
+  - **OpenAI-compatible** — работает с OpenAI, Ollama, LM Studio, DeepSeek, Groq, YandexGPT и любым другим `/v1/chat/completions` endpoint
   - **Qwen Web** — chat.qwen.ai через сессионный токен из `localStorage` (без официального API-ключа DashScope)
-- **Селектор пресетов** с группами optgroup: Cloud (OpenAI / DeepSeek / Groq), Local (Ollama / LM Studio), Web (Qwen Web), плюс Custom
-- **Язык commit message**: `auto` / `en` / `ru` (system + user промпты оба несут language-инструкцию, чтобы компенсировать мелкие/квантизованные локальные модели, которые игнорируют system prompt)
 - Streaming (SSE): чанки появляются в поле subject коммита по мере поступления
 - Кнопка **Cancel** прерывает inflight запрос через `AbortController`
 - Кнопка **Test connection** перед сохранением
 - API-ключ / Qwen-токен шифруются Electron `safeStorage` (DPAPI / Keychain / libsecret); fallback на префикс `plain:`, если key store недоступно
 - Diff обрезается до 6000 символов (head 70% + tail 20%), чтобы влезть в контекст модели
 - Доступ через AI-кнопку рядом с полем subject коммита
+
+## Диалог настроек AI
+
+- **6 табов на левом рельсе**: Подключение / Промпты / Возможности / Поведение / Приватность / Диагностика. Каждая секция — отдельный файл в `src/renderer/src/features/ai/sections/`
+- **Список пресетов** в порядке приоритета для импортозамещающего продукта:
+  1. **Локальные** — Ollama (default), LM Studio, llama.cpp server. Данные не покидают компьютер
+  2. **Корпоративные** — Qwen Corporate (vLLM / DashScope), Custom OpenAI-совместимый gateway. Пользователь сам прописывает baseUrl; для Qwen Corporate автоматом включаются system-in-user и strip-think
+  3. **Без VPN** — Qwen Web, Qwen API (Alibaba Cloud), DeepSeek
+  4. **Российские** — YandexGPT через OpenAI-совместимый endpoint Yandex Cloud (GigaChat в backlog — нужен отдельный OAuth-провайдер)
+  5. **Зарубежные** — OpenAI, Anthropic, Groq
+- **Промпты на диске** — на английском (`DEFAULT_PROMPTS` в `src/core/ai/prompts.ts`). LLM (включая Qwen и YandexGPT) делают reasoning лучше на английском. Язык ответа добавляется в конец промпта через `resolvePrompt(id, cfg)` по настройке **Язык ответа AI** в разделе «Поведение». Исключение: `stashName` всегда английский (это git-имя, не текст для пользователя)
+- **Per-feature toggle и per-feature model override** — отключить любую AI-фичу или направить отдельную фичу (например stash naming) на более дешёвую модель, не меняя основной провайдер
+- **Privacy gate** — `allowCloudCodeShare` (по умолчанию `false` для свежих установок) блокирует вызовы **зарубежных** провайдеров (OpenAI / Anthropic / Groq). Локальные / корпоративные / без-VPN / российские провайдеры всегда разрешены и проходят без gate
+- **Конфиг v3** — старый `ai-config.json` (v2) мигрируется при загрузке: `commitLanguage` становится `aiResponseLanguage`, `features.commitMessage=true`, `aiEnabled=true`, `allowCloudCodeShare=false` (без неявного opt-in в облако)
 
 ## Интерактивный rebase
 

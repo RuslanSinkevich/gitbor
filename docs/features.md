@@ -101,16 +101,28 @@
 
 - One-click generation from staged diff
 - **Two modes**:
-  - **OpenAI-compatible** — works with OpenAI, Ollama, LM Studio, DeepSeek, Groq and any other `/v1/chat/completions` endpoint
+  - **OpenAI-compatible** — works with OpenAI, Ollama, LM Studio, DeepSeek, Groq, YandexGPT and any other `/v1/chat/completions` endpoint
   - **Qwen Web** — chat.qwen.ai via session token from `localStorage` (no DashScope API key needed)
-- **Preset selector** with optgroups: Cloud (OpenAI / DeepSeek / Groq), Local (Ollama / LM Studio), Web (Qwen Web), plus Custom
-- **Commit language**: `auto` / `en` / `ru` (the system + user prompts both carry the language hint to compensate for small/quantized local models that ignore the system prompt)
 - Streaming (SSE): chunks land in the commit subject field as they arrive
 - **Cancel** button aborts the inflight request via `AbortController`
 - **Test connection** button before saving
 - API key / Qwen token encrypted via Electron `safeStorage` (DPAPI / Keychain / libsecret); fallback to `plain:` prefix if key store is unavailable
 - Diff truncated to 6000 chars (head 70% + tail 20%) to fit the model's context window
 - Accessible via the AI button next to the commit subject
+
+### AI Settings dialog
+
+- **Six tabs on the left rail**: Connection / Prompts / Features / Behavior / Privacy / Debug. Each section is one file under `src/renderer/src/features/ai/sections/`
+- **Preset list**, in priority order for the import-substitution audience:
+  1. **Local** — Ollama (default), LM Studio, llama.cpp server. Data never leaves the machine
+  2. **Corporate** — Qwen Corporate (vLLM / DashScope), Custom OpenAI-compatible gateway. User supplies baseUrl, system-in-user / strip-think defaults applied automatically for Qwen Corporate
+  3. **No-VPN** — Qwen Web, Qwen API (Alibaba Cloud), DeepSeek
+  4. **Russian** — YandexGPT via Yandex Cloud OpenAI-compatible endpoint (GigaChat in backlog — needs a separate OAuth provider)
+  5. **Foreign** — OpenAI, Anthropic, Groq
+- **Prompts on disk** are English (`DEFAULT_PROMPTS` in `src/core/ai/prompts.ts`). LLMs (including Qwen and YandexGPT) reason better in English. The reply language is added in the last line of the prompt via `resolvePrompt(id, cfg)` based on the **AI response language** setting in Behavior. Exception: `stashName` is always English (it ends up as a git stash name, not human text)
+- **Per-feature toggle and per-feature model override** — switch any AI capability off, or point an individual feature (e.g. stash naming) at a cheaper model than the main provider
+- **Privacy gate** — `allowCloudCodeShare` (default `false` for new installs) blocks calls to **foreign** providers (OpenAI / Anthropic / Groq). Local / corporate / no-VPN / Russian providers are always allowed and bypass the gate by design
+- **Config v3** — old `ai-config.json` (v2) is migrated on load: `commitLanguage` becomes `aiResponseLanguage`, `features.commitMessage=true`, `aiEnabled=true`, `allowCloudCodeShare=false` (no implicit cloud opt-in)
 
 ### Interactive Rebase
 
