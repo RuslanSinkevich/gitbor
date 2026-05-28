@@ -284,7 +284,7 @@ gitbor/
 ## Ключевые возможности
 
 - **Граф коммитов** — виртуализированная прокрутка, цвета веток, поиск
-- **Боковая панель** — ветки, теги, stash, remotes; checkout, merge, rename, delete; current branch — зелёная точка
+- **Боковая панель** — ветки, теги, stash, remotes; checkout, merge, rename, delete; current branch — зелёная точка; hover-действия per-branch (pin / solo / hide / note), Solo + Hide-фильтры графа и per-repo заметки по ветке
 - **Локальные изменения** — дерево файлов, stage/unstage/discard по файлу и по hunk
 - **Контекстное меню по папкам** — stage / unstage / discard / delete применяется ко всем файлам внутри (Staged/Unstaged)
 - **Просмотр diff** — inline + split, ignore whitespace, hover-кнопки stage/discard/unstage поверх hunk-блока (как в Fork); без префиксов `+`/`−` в тексте строк (только цвет)

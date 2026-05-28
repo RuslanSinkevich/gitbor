@@ -7,7 +7,7 @@ import type { Branch, Commit, GraphNode, MergeLink } from '../types';
  * для UI-баннера. computeGraphLayout сейчас возвращает `mergeLinks: []`
  * (поле задумано на будущее), но пробрасываем наружу как есть.
  */
-interface GraphFilterResult {
+export interface GraphFilterResult {
   /** Отфильтрованный список коммитов (после применения solo/hide). */
   commits: Commit[];
   nodes: GraphNode[];
@@ -58,54 +58,71 @@ export function useGraphFilter(
   soloBranch: string | null,
   hidden: Set<string>,
 ): GraphFilterResult {
-  return useMemo(() => {
-    const totalAll = commits.length;
+  return useMemo(
+    () => applyGraphFilter(commits, branches, soloBranch, hidden),
+    [commits, branches, soloBranch, hidden],
+  );
+}
 
-    // Build parents map один раз. commits.parents — short SHA не бывает,
-    // в строке хранятся полные хеши родителей; используем как есть.
-    const indexByHash = new Map<string, number>();
-    for (let i = 0; i < commits.length; i++) indexByHash.set(commits[i].hash, i);
+/**
+ * Чистая (без React) реализация фильтра графа. Вынесена из хука для
+ * unit-тестов: даёт ту же логику Solo/Hide на любых входных данных,
+ * включая edge cases (`soloBranch` ссылается на удалённую ветку,
+ * все ветки скрыты, hidden без `localBranches` и т.д.). Хук —
+ * тонкая `useMemo`-обёртка.
+ */
+export function applyGraphFilter(
+  commits: Commit[],
+  branches: Branch[],
+  soloBranch: string | null,
+  hidden: Set<string>,
+): GraphFilterResult {
+  const totalAll = commits.length;
 
-    const localBranches = branches.filter(b => !b.isRemote);
+  // Build parents map один раз. commits.parents — short SHA не бывает,
+  // в строке хранятся полные хеши родителей; используем как есть.
+  const indexByHash = new Map<string, number>();
+  for (let i = 0; i < commits.length; i++) indexByHash.set(commits[i].hash, i);
 
-    // ── Solo: BFS от одной ветки ──
-    if (soloBranch) {
-      const tip = localBranches.find(b => b.name === soloBranch);
-      if (!tip) {
-        // Ветка исчезла (удалена/переименована) — не фильтруем, отдаём как есть.
-        // Родитель снимет soloBranch через useEffect, если хочет.
-        return packResult(commits, 'none', totalAll, totalAll);
-      }
-      const keep = bfsReachable([tip.hash], indexByHash, commits);
-      const filtered = commits.filter(c => keep.has(c.hash));
-      return packResult(filtered, 'solo', filtered.length, totalAll);
+  const localBranches = branches.filter(b => !b.isRemote);
+
+  // ── Solo: BFS от одной ветки ──
+  if (soloBranch) {
+    const tip = localBranches.find(b => b.name === soloBranch);
+    if (!tip) {
+      // Ветка исчезла (удалена/переименована) — не фильтруем, отдаём как есть.
+      // Родитель снимет soloBranch через useEffect, если хочет.
+      return packResult(commits, 'none', totalAll, totalAll);
     }
+    const keep = bfsReachable([tip.hash], indexByHash, commits);
+    const filtered = commits.filter(c => keep.has(c.hash));
+    return packResult(filtered, 'solo', filtered.length, totalAll);
+  }
 
-    // ── Hide: BFS от всех НЕ-скрытых локальных веток ──
-    if (hidden.size > 0 && localBranches.length > 0) {
-      const visibleTips: string[] = [];
-      for (const b of localBranches) {
-        if (!hidden.has(b.name)) visibleTips.push(b.hash);
-      }
-      if (visibleTips.length === 0) {
-        // Все ветки скрыты — пустой граф. CommitsView отрисует баннер.
-        return {
-          commits: [],
-          nodes: [],
-          maxColumns: 0,
-          mergeLinks: [],
-          mode: 'hide',
-          totalKept: 0,
-          totalAll,
-        };
-      }
-      const keep = bfsReachable(visibleTips, indexByHash, commits);
-      const filtered = commits.filter(c => keep.has(c.hash));
-      return packResult(filtered, 'hide', filtered.length, totalAll);
+  // ── Hide: BFS от всех НЕ-скрытых локальных веток ──
+  if (hidden.size > 0 && localBranches.length > 0) {
+    const visibleTips: string[] = [];
+    for (const b of localBranches) {
+      if (!hidden.has(b.name)) visibleTips.push(b.hash);
     }
+    if (visibleTips.length === 0) {
+      // Все ветки скрыты — пустой граф. CommitsView отрисует баннер.
+      return {
+        commits: [],
+        nodes: [],
+        maxColumns: 0,
+        mergeLinks: [],
+        mode: 'hide',
+        totalKept: 0,
+        totalAll,
+      };
+    }
+    const keep = bfsReachable(visibleTips, indexByHash, commits);
+    const filtered = commits.filter(c => keep.has(c.hash));
+    return packResult(filtered, 'hide', filtered.length, totalAll);
+  }
 
-    return packResult(commits, 'none', totalAll, totalAll);
-  }, [commits, branches, soloBranch, hidden]);
+  return packResult(commits, 'none', totalAll, totalAll);
 }
 
 function packResult(

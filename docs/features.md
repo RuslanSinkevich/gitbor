@@ -27,6 +27,10 @@
 - Right-click — context menu: checkout, merge, rename, delete, new branch/tag
 - Cannot delete the currently checked-out branch (option hidden)
 - **Current branch marker** — green dot next to the name (no text badge cluttering the row)
+- **Hover-actions per branch** (Fork-style): pin / solo / hide / note icons appear on hover; active state stays visible without hover so you can see filter state at a glance. Per-repo state, stored in `localStorage`
+- **Solo graph filter** — click the filter icon on a branch to limit the graph to commits reachable from that branch tip (client-side BFS, no extra git calls). Banner over the graph shows the kept/total count and a "Show all" button to clear
+- **Hide branch from graph** — eye-off icon completely removes the branch's commits from the graph (BFS-subtraction: a commit stays visible if any non-hidden local branch can reach it). Same banner with "Unhide all" to clear; if every branch is hidden the graph shows an empty-state with "Show all branches"
+- **Branch notes** — info icon opens a textarea modal for free-form per-branch notes (links, ticket numbers, intent). Hover the icon — a tooltip shows the first 200 characters. Notes are stored locally per repo (`sg-branch-notes:<repo>`), never written to git config
 
 ### Local Changes
 

@@ -277,7 +277,7 @@ gitbor/
 ## Key Features
 
 - **Commit graph** — virtualized scroll, branch coloring, search
-- **Branch/Tag/Stash sidebar** — tree view, checkout, merge, rename, delete; current branch marked with green dot
+- **Branch/Tag/Stash sidebar** — tree view, checkout, merge, rename, delete; current branch marked with green dot; per-branch hover-actions (pin / solo / hide / note), Solo + Hide graph filters and per-repo branch notes
 - **Local changes** — tree view, stage/unstage/discard per file and per hunk
 - **Folder context menu** — stage / unstage / discard / delete applied to all files inside (Staged/Unstaged sections)
 - **Diff viewer** — inline + split, ignore whitespace, hover-overlay stage/discard/unstage on hunk block (Fork-style); no `+`/`−` text prefix in line content (color-only)
