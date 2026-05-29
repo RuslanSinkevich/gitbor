@@ -170,6 +170,7 @@
   cursor: pointer;
   gap: 6px;
   font-size: 13px;
+  line-height: 1.25;
   color: var(--sg-foreground);
   transition: background var(--sg-transition);
 }
@@ -182,24 +183,33 @@
   font-weight: 700;
 }
 
+.itemLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
 .itemName {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
 }
 
-/* Маркер «текущая ветка» — крупная зелёная точка вместо текстового
-   бейджа. Цвет: --sg-status-icon-added (тот же зелёный, что у статус-
-   иконок added/untracked — единая палитра «активного»). */
+/* Маркер «текущая ветка» — зелёная точка перед именем, по центру текста. */
 .itemBadge {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--sg-status-icon-added);
   flex-shrink: 0;
-  margin-right: 6px;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sg-status-icon-added) 25%, transparent);
+  align-self: center;
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--sg-status-icon-added) 25%, transparent);
+  /* Bold-текст (.itemCurrent) визуально поднимает центр — чуть вниз. */
+  transform: translateY(1px);
 }
 
 .itemUpstream {

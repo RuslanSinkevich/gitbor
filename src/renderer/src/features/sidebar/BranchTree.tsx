@@ -238,8 +238,12 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
             } : {}));
           }}
 >
-          {branch.isCurrent && <span className={s.itemBadge} title={loc.sidebar.current} aria-label={loc.sidebar.current} />}
-          <span className={s.itemName}>{node.segment}</span>
+          <span className={s.itemLabel}>
+            {branch.isCurrent && (
+              <span className={s.itemBadge} title={loc.sidebar.current} aria-label={loc.sidebar.current} />
+            )}
+            <span className={s.itemName}>{node.segment}</span>
+          </span>
           {branch.upstream && <span className={s.itemUpstream} title={branch.upstream}>↔</span>}
           {prefs && !branch.isRemote && (
             <BranchHoverActions
