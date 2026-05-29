@@ -4,7 +4,7 @@ import { postCommand, copyToClipboard } from '../../api';
 import type { CommitDetail, FileChange } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { AuthorAvatar } from '../../ui/AuthorAvatar';
-import { CommitExplainer } from '../ai';
+import { CommitExplainerButton, CommitExplainerOutput, useCommitExplainer } from '../ai';
 import s from './CommitDetails.module.css';
 
 type Tab = 'commit' | 'changes' | 'tree';
@@ -109,6 +109,10 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
   const [tab, setTab] = useState<Tab>('commit');
   const tree = useMemo(() => detail ? buildFileTree(detail.files) : [], [detail]);
   const isCompareRange = detail?.hash.includes('..') ?? false;
+  /* Состояние Commit Explainer-а лифтится сюда — кнопку держим в строке
+     табов (видна при любой высоте панели), результат рендерим под subject. */
+  const explainer = useCommitExplainer(detail?.hash ?? '', onOpenAiSettings ?? (() => {}));
+  const showExplainer = !isCompareRange && !!onOpenAiSettings && !!detail;
 
   const getFileMenuItems = useCallback((file: FileChange, commitHash: string): SgContextMenuItem[] => {
     const loc2 = t();
@@ -150,6 +154,11 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
         <button className={`${s.tab} ${tab === 'tree' ? s.tabActive : ''}`} onClick={() => setTab('tree')}>
           {loc.details.fileTree}
         </button>
+        {showExplainer && (
+          <div className={s.tabsActions}>
+            <CommitExplainerButton state={explainer} />
+          </div>
+        )}
       </div>
 
       <div className={s.content}>
@@ -157,9 +166,7 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
           <div className={s.commitTab}>
             <h3 className={s.subject}>{detail.subject}</h3>
             {detail.body && <pre className={s.body}>{detail.body}</pre>}
-            {!isCompareRange && onOpenAiSettings && (
-              <CommitExplainer hash={detail.hash} onOpenSettings={onOpenAiSettings} />
-            )}
+            {showExplainer && <CommitExplainerOutput state={explainer} />}
             <div className={s.meta}>
               {!isCompareRange && (
                 <>

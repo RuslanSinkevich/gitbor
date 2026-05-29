@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { LocalChanges, CommitBar } from '../changes';
+import { GitignoreBanner } from '../gitignore';
 import { ConflictPanel } from '../merge';
 import { RightPanelContent, type RightPanel } from './RightPanelContent';
 import { SgSplitPane } from '../../ui/SgSplitPane';
@@ -56,6 +57,9 @@ export function ChangesView({
 
   return (
     <div className={s.changesLayout}>
+      {onOpenGitignoreDialog && (
+        <GitignoreBanner repoPath={state.repoPath} onOpenDialog={onOpenGitignoreDialog} />
+      )}
       <SgSplitPane
         defaultSize={360}
         minSize={220}
@@ -89,7 +93,6 @@ export function ChangesView({
               showPrompt={showPrompt}
               activePath={selectedFolder?.path || conflictFile || diffTarget?.file}
               activeSection={activeSection}
-              onOpenGitignoreDialog={onOpenGitignoreDialog}
             />
           </div>
         }

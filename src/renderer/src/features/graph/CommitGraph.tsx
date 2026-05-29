@@ -148,16 +148,40 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
     <div className={s.root} tabIndex={0} onKeyDown={handleKeyDown}>
       {search.searchVisible && (
         <div className={s.searchBar}>
-          <input ref={search.searchRef} className={s.searchInput} type="text" placeholder={loc.graph.searchPlaceholder}
+          <input ref={search.searchRef} className={s.searchInput} type="text"
+            placeholder={search.aiMode ? loc.aiTier2.semanticSearchPlaceholder : loc.graph.searchPlaceholder}
             value={search.searchQuery} onChange={e => search.setSearchQuery(e.target.value)}
             onKeyDown={e => {
               if (e.key === 'Enter') search.navigateSearch(e.shiftKey ? -1 : 1);
               if (e.key === 'Escape') { search.setSearchVisible(false); search.setSearchQuery(''); }
             }}
           />
-          {search.searchQuery && (
+          <button
+            type="button"
+            className={`${s.searchAiToggle} ${search.aiMode ? s.searchAiToggleActive : ''}`}
+            onClick={search.toggleAiMode}
+            title={search.aiMode ? loc.aiTier2.semanticSearchOff : loc.aiTier2.semanticSearchOn}
+            aria-label={search.aiMode ? loc.aiTier2.semanticSearchOff : loc.aiTier2.semanticSearchOn}
+            aria-pressed={search.aiMode}
+          >
+            <SemanticSearchIcon />
+          </button>
+          {search.aiMode && search.semantic.status === 'busy' && (
+            <span className={s.searchCount}>{loc.aiTier2.semanticSearchBusy}</span>
+          )}
+          {search.aiMode && search.semantic.status === 'error' && (
+            <span className={s.searchCount} title={search.semantic.error}>
+              {loc.aiTier2.semanticSearchFailed.replace('{error}', '')}
+            </span>
+          )}
+          {search.searchQuery && !search.aiMode && (
             <span className={s.searchCount}>
               {search.searchMatches.length > 0 ? `${search.searchMatchIdx + 1}/${search.searchMatches.length}` : loc.graph.noSearchResults}
+            </span>
+          )}
+          {search.aiMode && search.semantic.status === 'done' && (
+            <span className={s.searchCount}>
+              {search.searchMatches.length > 0 ? `${search.searchMatchIdx + 1}/${search.searchMatches.length}` : loc.aiTier2.semanticSearchEmpty}
             </span>
           )}
           <button className={s.searchNav} onClick={() => search.navigateSearch(-1)} disabled={search.searchMatches.length === 0}>▲</button>
@@ -228,6 +252,16 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
         </div>
       </div>
     </div>
+  );
+}
+
+/** Иконка-«sparkle» для тумблера AI-поиска. */
+function SemanticSearchIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path d="M8 1.5L9.6 6.4L14.5 8L9.6 9.6L8 14.5L6.4 9.6L1.5 8L6.4 6.4L8 1.5Z" fill="currentColor" />
+      <path d="M12.5 11L13.1 12.4L14.5 13L13.1 13.6L12.5 15L11.9 13.6L10.5 13L11.9 12.4L12.5 11Z" fill="currentColor" opacity="0.7" />
+    </svg>
   );
 }
 

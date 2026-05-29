@@ -5,11 +5,11 @@ import type { AppState, RepoSummaryDto } from '../../types';
 import { loadRecent, removeRecentRepo, sameRepoPath } from './recentRepos';
 import { extractSummary, dtoToSummary, type RepoSummary } from './repoSummary';
 import { RepoDetail } from './RepoDetail';
+import { CloneRepoDialog } from './CloneRepoDialog';
+import { InitRepoDialog } from './InitRepoDialog';
 import s from './RepoManager.module.css';
 
 export { addRecentRepo, loadLastActiveRepo, saveLastActiveRepo } from './recentRepos';
-
-type Panel = 'none' | 'clone' | 'init';
 
 interface Props {
   state: AppState;
@@ -27,10 +27,7 @@ export function RepoManager({ state }: Props) {
   const rm = t().repoManager;
   const [recentRepos, setRecentRepos] = useState(loadRecent);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [panel, setPanel] = useState<Panel>('none');
-  const [cloneUrl, setCloneUrl] = useState('');
-  const [clonePath, setClonePath] = useState('');
-  const [initPath, setInitPath] = useState('');
+  const [openDialog, setOpenDialog] = useState<'none' | 'clone' | 'init'>('none');
 
   const [currentSummary, setCurrentSummary] = useState<RepoSummary | null>(null);
   const [loading, setLoading] = useState(false);
@@ -152,21 +149,6 @@ export function RepoManager({ state }: Props) {
     if (selectedPath === path) setSelectedPath(null);
   }, [selectedPath, normalizeKey]);
 
-  const handleClone = useCallback(() => {
-    if (!cloneUrl.trim() || !clonePath.trim()) return;
-    postCommand({ type: 'cloneRepo', url: cloneUrl.trim(), path: clonePath.trim() });
-    setPanel('none');
-    setCloneUrl('');
-    setClonePath('');
-  }, [cloneUrl, clonePath]);
-
-  const handleInit = useCallback(() => {
-    if (!initPath.trim()) return;
-    postCommand({ type: 'initRepo', path: initPath.trim() });
-    setPanel('none');
-    setInitPath('');
-  }, [initPath]);
-
   const selected = recentRepos.find(r => r.path === selectedPath);
 
   return (
@@ -178,24 +160,9 @@ export function RepoManager({ state }: Props) {
 
         <div className={s.actionButtons}>
           <button className={s.openBtn} onClick={handleOpenDialog}>{rm.openRepo}</button>
-          <button className={`${s.openBtn} ${s.openBtnSecondary}`} onClick={() => setPanel(panel === 'clone' ? 'none' : 'clone')}>{rm.cloneRepo}</button>
-          <button className={`${s.openBtn} ${s.openBtnSecondary}`} onClick={() => setPanel(panel === 'init' ? 'none' : 'init')}>{rm.initRepo}</button>
+          <button className={`${s.openBtn} ${s.openBtnSecondary}`} onClick={() => setOpenDialog('clone')}>{rm.cloneRepo}</button>
+          <button className={`${s.openBtn} ${s.openBtnSecondary}`} onClick={() => setOpenDialog('init')}>{rm.initRepo}</button>
         </div>
-
-        {panel === 'clone' && (
-          <div className={s.inlineForm}>
-            <input className={s.formInput} type="text" placeholder={rm.cloneUrl} value={cloneUrl} onChange={e => setCloneUrl(e.target.value)} autoFocus />
-            <input className={s.formInput} type="text" placeholder={rm.clonePath} value={clonePath} onChange={e => setClonePath(e.target.value)} />
-            <button className={s.formBtn} onClick={handleClone} disabled={!cloneUrl.trim() || !clonePath.trim()}>{rm.cloneStart}</button>
-          </div>
-        )}
-
-        {panel === 'init' && (
-          <div className={s.inlineForm}>
-            <input className={s.formInput} type="text" placeholder={rm.initPath} value={initPath} onChange={e => setInitPath(e.target.value)} autoFocus />
-            <button className={s.formBtn} onClick={handleInit} disabled={!initPath.trim()}>{rm.initStart}</button>
-          </div>
-        )}
 
         <div className={s.sectionLabel}>{rm.recent}</div>
 
@@ -227,6 +194,13 @@ export function RepoManager({ state }: Props) {
         state={state}
         onRemove={handleRemoveFromDetail}
       />
+
+      {openDialog === 'clone' && (
+        <CloneRepoDialog onClose={() => setOpenDialog('none')} />
+      )}
+      {openDialog === 'init' && (
+        <InitRepoDialog onClose={() => setOpenDialog('none')} />
+      )}
     </div>
   );
 }

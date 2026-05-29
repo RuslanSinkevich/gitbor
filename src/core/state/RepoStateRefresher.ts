@@ -327,6 +327,39 @@ export class RepoStateRefresher {
     if (target === this.state.repoPath) this.notify();
   }
 
+  /**
+   * Убрать фантомное изменение stat-dirty файла. `update-index --refresh`
+   * тут бессилен: файл числится `M` именно потому, что его сырые байты в
+   * рабочем дереве отличаются от блоба (CRLF↔LF при autocrlf/.gitattributes),
+   * хотя `git diff --numstat` после нормализации даёт (0,0). Единственный
+   * способ привести файл к каноничному виду git — переписать его из индекса
+   * (`git checkout -- <file>`). Перед этим проверяем numstat: если изменения
+   * реальные (не (0,0)), НЕ трогаем файл, чтобы не потерять правки.
+   */
+  async restoreStatDirtyFile(file: string, repoPath?: string): Promise<void> {
+    const target = repoPath ?? this.state.repoPath;
+    if (!target) return;
+    if (!this.store.isRepoTracked(target)) return;
+    const git = this.registry.acquire(target).git;
+
+    // Защита от потери данных: восстанавливаем только если контент идентичен.
+    const numstat = await git.exec(['diff', '--numstat', '--', file]).catch(() => undefined);
+    if (numstat) {
+      const line = numstat.stdout.split('\n').find((l) => l.trim());
+      if (line) {
+        const [added, deleted] = line.split('\t');
+        // Бинарный (`-`) или ненулевой numstat → реальные изменения, выходим.
+        if (added === '-' || deleted === '-') return;
+        if (!(Number.parseInt(added, 10) === 0 && Number.parseInt(deleted, 10) === 0)) return;
+      }
+    }
+
+    await git.exec(['checkout', '--', file]).catch(() => undefined);
+    await git.exec(['update-index', '--refresh']).catch(() => undefined);
+    await this.refreshStatus(target);
+    if (target === this.state.repoPath) this.notify();
+  }
+
   async refreshGraph(maxCount = 0, repoPath?: string): Promise<void> {
     const target = repoPath ?? this.state.repoPath;
     if (!target) return;

@@ -68,14 +68,21 @@ export function GitignoreBanner({ repoPath, onOpenDialog }: Props) {
 
   return (
     <div className={s.banner} role="status">
+      <span className={s.icon} aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1.5L15 14H1L8 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+          <path d="M8 6.2V9.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          <circle cx="8" cy="11.4" r="0.8" fill="currentColor" />
+        </svg>
+      </span>
       <div className={s.text}>
-        <div className={s.title}>{loc.gitignore.bannerTitle}</div>
-        <div className={s.hint}>{loc.gitignore.bannerHint}</div>
+        <span className={s.title}>{loc.gitignore.bannerTitle}</span>
+        <span className={s.hint}>{loc.gitignore.bannerHint}</span>
       </div>
       <div className={s.actions}>
         <button
           type="button"
-          className="sg-button sg-button--sm sg-button--primary"
+          className="sg-button sg-button--sm sg-button--ghost"
           onClick={onOpenDialog}
         >
           {loc.gitignore.bannerAction}

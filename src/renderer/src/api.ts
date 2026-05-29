@@ -44,6 +44,9 @@ const NON_RETRYABLE_TYPES = new Set<string>([
   'getBisectStatus', 'getGitignore',
   'getCommitDiff',
   'aiGetConfig', 'aiSetConfig', 'aiTestConnection', 'aiGenerateCommitMessage', 'aiCancelGenerate',
+  'aiTestPrompt', 'aiGetLastDebug', 'aiSuggestStashName', 'aiSemanticSearch',
+  'aiExplainCommit', 'aiExplainReflog', 'aiAnalyzeConflict',
+  'pickDirectory',
   'safetyResolve', 'killGitProcess', 'removeIndexLock', 'rollbackOperation',
 ]);
 

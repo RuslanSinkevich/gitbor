@@ -83,18 +83,19 @@ describe('resolvePrompt', () => {
     expect(out).toMatch(/Respond strictly in Russian\. Do not switch language mid-response\./);
   });
 
-  it('stashName always returns English even when aiResponseLanguage=ru', () => {
+  it('stashName follows aiResponseLanguage=ru just like other features', () => {
     const out = resolvePrompt('stashName', cfg({ aiResponseLanguage: 'ru' }));
-    expect(out).toBe(DEFAULT_PROMPTS.stashName);
-    expect(out).not.toMatch(/Respond strictly in/);
+    expect(out).toContain(DEFAULT_PROMPTS.stashName);
+    expect(out).toMatch(/Respond strictly in Russian/);
   });
 
-  it('stashName ignores user-provided prompts language wrapping', () => {
+  it('stashName with ru language still respects user-provided prompt as base', () => {
     const out = resolvePrompt('stashName', cfg({
       aiResponseLanguage: 'ru',
       prompts: { stashName: 'short name only' },
     }));
-    expect(out).toBe('short name only');
+    expect(out).toContain('short name only');
+    expect(out).toMatch(/Respond strictly in Russian/);
   });
 
   it('treats null config as en defaults', () => {

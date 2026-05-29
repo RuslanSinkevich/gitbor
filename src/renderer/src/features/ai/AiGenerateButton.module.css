@@ -1,16 +1,19 @@
+/* Иконка-only: квадрат с одной sparkle. Подпись/состояние — в title/aria. */
 .root {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  font-size: 12px;
+  justify-content: center;
+  padding: 0;
+  width: 28px;
+  height: 24px;
+  flex-shrink: 0;
   font-family: inherit;
   color: var(--sg-foreground);
   background: transparent;
   border: 1px solid var(--sg-border);
   border-radius: var(--sg-radius-sm);
   cursor: pointer;
-  transition: background var(--sg-transition), border-color var(--sg-transition);
+  transition: background var(--sg-transition), border-color var(--sg-transition), color var(--sg-transition);
 }
 
 .root:hover:not(:disabled) {

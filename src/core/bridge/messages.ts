@@ -35,6 +35,7 @@ type RendererCommandCore =
   | { type: 'getState' }
   | { type: 'refreshAll' }
   | { type: 'refreshStatIndex' }
+  | { type: 'restoreStatDirty'; file: string }
   | { type: 'getCommitDetails'; hash: string }
   | { type: 'getGraphData'; maxCount: number }
   | { type: 'getFileDiff'; file: string; hash: string; ignoreWhitespace?: boolean }
@@ -121,6 +122,10 @@ type RendererCommandCore =
   | { type: 'initRepo'; path: string }
   | { type: 'closeRepo'; index: number }
   | { type: 'switchRepo'; index: number }
+  /* Native folder picker — возвращает путь (через invoke) или null.
+     Отличается от openRepoDialog тем, что НЕ открывает выбранную папку
+     как репо. Нужен для clone/init dialogs (Обзор...). */
+  | { type: 'pickDirectory'; title?: string; defaultPath?: string }
 
   // Shell actions
   | { type: 'openInExplorer' }

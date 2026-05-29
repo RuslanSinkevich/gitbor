@@ -119,7 +119,7 @@
   3. **No-VPN** — Qwen Web, Qwen API (Alibaba Cloud), DeepSeek
   4. **Russian** — YandexGPT via Yandex Cloud OpenAI-compatible endpoint (GigaChat in backlog — needs a separate OAuth provider)
   5. **Foreign** — OpenAI, Anthropic, Groq
-- **Prompts on disk** are English (`DEFAULT_PROMPTS` in `src/core/ai/prompts.ts`). LLMs (including Qwen and YandexGPT) reason better in English. The reply language is added in the last line of the prompt via `resolvePrompt(id, cfg)` based on the **AI response language** setting in Behavior. Exception: `stashName` is always English (it ends up as a git stash name, not human text)
+- **Prompts on disk** are English (`DEFAULT_PROMPTS` in `src/core/ai/prompts.ts`). LLMs (including Qwen and YandexGPT) reason better in English. The reply language is added in the last line of the prompt via `resolvePrompt(id, cfg)` based on the **AI response language** setting in Behavior — applies uniformly to every feature, including stash names (git stores stash messages as UTF-8)
 - **Per-feature toggle and per-feature model override** — switch any AI capability off, or point an individual feature (e.g. stash naming) at a cheaper model than the main provider
 - **Privacy gate** — `allowCloudCodeShare` (default `false` for new installs) blocks calls to **foreign** providers (OpenAI / Anthropic / Groq). Local / corporate / no-VPN / Russian providers are always allowed and bypass the gate by design
 - **Config v3** — old `ai-config.json` (v2) is migrated on load: `commitLanguage` becomes `aiResponseLanguage`, `features.commitMessage=true`, `aiEnabled=true`, `allowCloudCodeShare=false` (no implicit cloud opt-in)

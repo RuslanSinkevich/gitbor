@@ -64,59 +64,9 @@
   background: rgba(128, 128, 128, 0.22);
 }
 
-.inlineForm {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 16px 12px;
-  border-bottom: 1px solid var(--sg-border);
-  background: var(--sg-surface-raised);
-  flex-shrink: 0;
-}
-
-.formInput {
-  width: 100%;
-  padding: 5px 8px;
-  font-size: 12px;
-  font-family: inherit;
-  background: var(--sg-input-bg);
-  color: var(--sg-foreground);
-  border: 1px solid var(--sg-border);
-  border-radius: var(--sg-radius-sm);
-  outline: none;
-  transition: border-color var(--sg-transition);
-}
-
-.formInput:focus {
-  border-color: var(--sg-primary);
-}
-
-.formInput::placeholder {
-  color: var(--sg-foreground-muted);
-}
-
-.formBtn {
-  align-self: flex-end;
-  padding: 4px 16px;
-  font-size: 12px;
-  font-family: inherit;
-  font-weight: 500;
-  background: var(--sg-primary);
-  color: var(--sg-primary-foreground);
-  border: none;
-  border-radius: var(--sg-radius-sm);
-  cursor: pointer;
-  transition: background var(--sg-transition);
-}
-
-.formBtn:hover {
-  background: var(--sg-primary-hover);
-}
-
-.formBtn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
+/* inline-форму clone/init убрали — теперь это отдельные SgDialog
+   (CloneRepoDialog / InitRepoDialog). Стили .inlineForm/.formInput/
+   .formBtn удалены вместе с panel-логикой. */
 
 .sectionLabel {
   padding: 10px 16px 4px;

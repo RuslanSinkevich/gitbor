@@ -301,7 +301,6 @@ export function AiSettingsDialog({ onClose }: Props) {
         return (
           <PromptsSection
             prompts={{ ...DEFAULT_PROMPTS, ...(prompts ?? {}) }}
-            features={features}
             onChange={handlePromptChange}
             onReset={handlePromptReset}
           />

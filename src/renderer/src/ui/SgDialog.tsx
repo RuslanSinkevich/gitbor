@@ -33,6 +33,8 @@ interface SgDialogProps {
   cancelLabel?: string;
   confirmDisabled?: boolean;
   confirmDanger?: boolean;
+  /** Спиннер на кнопке подтверждения (долгая операция). */
+  confirmLoading?: boolean;
   /** Идентификатор описания (aria-describedby) для скринридеров. */
   describedById?: string;
   /** Куда поставить начальный фокус (по умолчанию <dialog> ставит на первый focusable). */
@@ -48,7 +50,7 @@ interface SgDialogProps {
 export function SgDialog({
   open, title, onClose, children, footer, width,
   size, noPadding, headerExtra,
-  onConfirm, confirmLabel, cancelLabel, confirmDisabled, confirmDanger,
+  onConfirm, confirmLabel, cancelLabel, confirmDisabled, confirmDanger, confirmLoading,
   describedById, initialFocus,
 }: SgDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -86,15 +88,22 @@ export function SgDialog({
   const effectiveFooter = onConfirm
     ? (
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button className="sg-button sg-button--md sg-button--ghost" onClick={onClose}>
+        <button
+          className="sg-button sg-button--md sg-button--ghost"
+          onClick={onClose}
+          disabled={confirmLoading}
+        >
           {cancelLabel ?? loc.dialog.cancel}
         </button>
         <button
           className={`sg-button sg-button--md sg-button--${confirmDanger ? 'danger' : 'primary'}`}
           onClick={onConfirm}
-          disabled={confirmDisabled}
+          disabled={confirmDisabled || confirmLoading}
         >
-          {confirmLabel ?? loc.dialog.confirm}
+          <span className="sg-button-content">
+            {confirmLoading && <span className="sg-button-spinner" aria-hidden="true" />}
+            {confirmLabel ?? loc.dialog.confirm}
+          </span>
         </button>
       </div>
     )

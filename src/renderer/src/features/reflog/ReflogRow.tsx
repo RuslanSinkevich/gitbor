@@ -13,15 +13,15 @@ interface Props {
 export function ReflogRow({ entry, onCopyHash, onRestore, restoreLabel }: Props) {
   return (
     <tr className={s.row}>
-      <td>
+      <td className={s.colHashCell}>
         <span className={s.colHash} onClick={() => onCopyHash(entry.hash)} title={entry.hash}>
           {entry.shortHash}
         </span>
       </td>
-      <td><ActionBadge action={entry.action} /></td>
+      <td className={s.colActionCell}><ActionBadge action={entry.action} /></td>
       <td className={s.colMessage} title={entry.message}>{entry.message}</td>
-      <td className={s.colDate}>{formatReflogDate(entry.date)}</td>
-      <td>
+      <td className={`${s.colDate} ${s.colDateCell}`}>{formatReflogDate(entry.date)}</td>
+      <td className={s.colRestore}>
         <button className={s.restoreBtn} onClick={() => onRestore(entry)}>
           {restoreLabel}
         </button>

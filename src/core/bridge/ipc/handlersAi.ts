@@ -131,12 +131,23 @@ export const ipcHandlersAi: HandlerTable = {
         }
       }
       const truncatedDiff = truncate(fileDiffs.join('\n\n'), MAX_DIFF_BYTES, 'diff truncated');
+      /* Stash-entry или иной случай без diff: даём модели максимум контекста
+         из subject/body + список затронутых файлов, чтобы она не отвечала
+         «(diff truncated)» в каждую секцию. */
+      const userBody = truncatedDiff.trim().length > 0
+        ? truncatedDiff
+        : [
+            `[No diff available for ${hash.slice(0, 7)} — it may be a stash entry, a merge with no textual changes, or an unfetched commit.]`,
+            detail.files.length > 0
+              ? `Files touched (${detail.files.length}):\n${detail.files.slice(0, 30).map((f) => `- ${f.path}`).join('\n')}`
+              : 'No file list available.',
+          ].join('\n\n');
       const res = await ctx.ai.runFeature({
         requestId,
         featureId: 'explainCommit',
         promptId: 'explainCommit',
         placeholders: { subject: detail.subject, body: detail.body ?? '' },
-        userBody: truncatedDiff || `[no diff for ${hash.slice(0, 7)}]`,
+        userBody,
         onChunk: (delta) => ctx.send({ type: 'aiChunk', requestId, delta }),
       });
       ctx.send({ type: 'aiDone', requestId, text: res.text, finishReason: res.finishReason });

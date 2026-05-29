@@ -11,29 +11,32 @@ interface Props {
   onModelOverride: (id: AiFeatureId, value: string) => void;
 }
 
+type TitleKey =
+  | 'featureCommitMessage'
+  | 'featureExplainCommit'
+  | 'featureStashName'
+  | 'featureExplainReflog'
+  | 'featureAnalyzeConflict'
+  | 'featureSemanticSearch';
+
 interface Row {
   id: AiFeatureId;
-  titleKey: 'featureCommitMessage' | 'featureExplainCommit' | 'featureStashName' | 'featureExplainReflog' | 'featureAnalyzeConflict' | 'featureSemanticSearch';
-  implemented: boolean;
+  titleKey: TitleKey;
 }
 
 const ROWS: Row[] = [
-  { id: 'commitMessage',   titleKey: 'featureCommitMessage',   implemented: true  },
-  /* Tier-2 фичи — на этапе AI Settings Redesign только toggle-плейсхолдер;
-     реальная реализация (методы AiService, IPC, UI кнопки) лежит на
-     этапе ai-tier2-features-todo.md. */
-  { id: 'explainCommit',   titleKey: 'featureExplainCommit',   implemented: false },
-  { id: 'stashName',       titleKey: 'featureStashName',       implemented: false },
-  { id: 'explainReflog',   titleKey: 'featureExplainReflog',   implemented: false },
-  { id: 'analyzeConflict', titleKey: 'featureAnalyzeConflict', implemented: false },
-  { id: 'semanticSearch',  titleKey: 'featureSemanticSearch',  implemented: false },
+  { id: 'commitMessage',   titleKey: 'featureCommitMessage'   },
+  { id: 'explainCommit',   titleKey: 'featureExplainCommit'   },
+  { id: 'stashName',       titleKey: 'featureStashName'       },
+  { id: 'explainReflog',   titleKey: 'featureExplainReflog'   },
+  { id: 'analyzeConflict', titleKey: 'featureAnalyzeConflict' },
+  { id: 'semanticSearch',  titleKey: 'featureSemanticSearch'  },
 ];
 
 /**
  * Раздел «Возможности»: per-feature toggle + опциональный model-override.
- * Чекбокс выключенной/незакоммиченной фичи остаётся кликабельным — юзер
- * может заранее включить её, чтобы он сработал когда фича прилетит в
- * билд. AiService всё равно проверит features[id] при попытке вызова.
+ * AiService/AiHandlers проверяют features[id] при вызове, выключенные фичи
+ * просто не доступны из UI-точек интеграции.
  */
 export function FeaturesSection({ features, modelOverrides, onToggle, onModelOverride }: Props) {
   const loc = t().ai;
@@ -45,8 +48,6 @@ export function FeaturesSection({ features, modelOverrides, onToggle, onModelOve
           key={row.id}
           id={row.id}
           title={loc[row.titleKey]}
-          comingSoon={!row.implemented}
-          comingSoonLabel={loc.promptComingSoon}
           overrideLabel={loc.featureModelOverride}
           overridePlaceholder={loc.featureModelOverridePlaceholder}
           enabled={features?.[row.id] === true}
@@ -62,8 +63,6 @@ export function FeaturesSection({ features, modelOverrides, onToggle, onModelOve
 interface RowProps {
   id: AiFeatureId;
   title: string;
-  comingSoon: boolean;
-  comingSoonLabel: string;
   overrideLabel: string;
   overridePlaceholder: string;
   enabled: boolean;
@@ -73,7 +72,7 @@ interface RowProps {
 }
 
 function FeatureRow({
-  id, title, comingSoon, comingSoonLabel,
+  id, title,
   overrideLabel, overridePlaceholder,
   enabled, modelOverride, onToggle, onModelOverride,
 }: RowProps) {
@@ -92,7 +91,6 @@ function FeatureRow({
         <span>
           <div className={s.promptHeader}>
             <span>{title}</span>
-            {comingSoon && <span className={s.badge}>{comingSoonLabel}</span>}
           </div>
         </span>
       </label>

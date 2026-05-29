@@ -116,6 +116,26 @@
   border-top: 1px solid var(--sg-border);
 }
 
+.sg-button-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sg-button-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: sg-button-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes sg-button-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* === Tabs === */
 .sg-tabs-header {
   display: flex;

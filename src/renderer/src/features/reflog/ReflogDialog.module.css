@@ -150,12 +150,43 @@
   font-size: 11px;
   cursor: pointer;
   transition: all 0.15s;
+  white-space: nowrap;
 }
 
 .restoreBtn:hover {
   color: var(--sg-foreground, #ccc);
   border-color: var(--sg-primary, #0078d4);
   background: rgba(0, 120, 212, 0.1);
+}
+
+/* Колонка с кнопкой Восстановить должна держать ширину текста. */
+.colRestore {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* Колонка SHA: моноширинная, узкая. */
+.colHashCell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* Колонка с бейджем действия — по ширине бейджа. */
+.colActionCell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* Дата — фиксированная компактная ширина, сразу перед Восстановить. */
+.colDateCell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* Шапка таблицы: ровные правые отступы у колонок-фиксированной-ширины. */
+.tableHead th {
+  white-space: nowrap;
 }
 
 /* ─── Footer button ─── */
@@ -180,4 +211,101 @@
   text-align: center;
   color: var(--sg-foreground-muted, #888);
   font-size: 13px;
+}
+
+/* Тулбар над таблицей: subtitle слева, AI-кнопка справа. */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  background: var(--sg-surface-raised, #2d2d2d);
+  border: 1px solid var(--sg-border, #3c3c3c);
+  border-radius: var(--sg-radius);
+}
+
+.toolbarHint {
+  flex: 1;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--sg-foreground-muted, #888);
+}
+
+/* AI-кнопка в тулбаре — только иконка, тултип объясняет. */
+.aiButton {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+  height: 26px;
+}
+
+/* AI explainer panel. */
+.aiPanel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 10px 34px 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--sg-primary) 35%, var(--sg-border));
+  border-radius: var(--sg-radius);
+  background: color-mix(in srgb, var(--sg-primary) 6%, var(--sg-surface));
+}
+
+.aiClose {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  border: none;
+  border-radius: var(--sg-radius);
+  background: transparent;
+  color: var(--sg-foreground-muted);
+  cursor: pointer;
+}
+.aiClose:hover {
+  background: color-mix(in srgb, var(--sg-foreground) 12%, transparent);
+  color: var(--sg-foreground);
+}
+
+.aiBusy {
+  font-size: 12px;
+  color: var(--sg-foreground-muted);
+  font-style: italic;
+}
+
+.aiText {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--sg-foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.aiDisclaimer {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--sg-foreground-muted);
+  font-style: italic;
+}
+
+.aiError {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: var(--sg-radius);
+  background: color-mix(in srgb, var(--sg-danger) 12%, transparent);
+  color: var(--sg-danger);
+  font-size: 12px;
+  word-break: break-word;
 }

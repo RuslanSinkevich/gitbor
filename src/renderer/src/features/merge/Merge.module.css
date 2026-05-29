@@ -12,6 +12,66 @@
 .conflictNavArrows { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .conflictNavLabel { font-size: 11px; color: var(--sg-foreground-muted); white-space: nowrap; min-width: 50px; text-align: center; }
 
+/* ─── AI explainer (Tier-2) ─── */
+.aiButton {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+  height: 26px;
+}
+
+.aiPanel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 32px 8px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--sg-primary) 35%, var(--sg-border));
+  background: color-mix(in srgb, var(--sg-primary) 6%, var(--sg-surface));
+  flex-shrink: 0;
+  max-height: 35vh;
+  overflow-y: auto;
+}
+.aiClose {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  border: none;
+  border-radius: var(--sg-radius);
+  background: transparent;
+  color: var(--sg-foreground-muted);
+  cursor: pointer;
+}
+.aiClose:hover {
+  background: color-mix(in srgb, var(--sg-foreground) 12%, transparent);
+  color: var(--sg-foreground);
+}
+.aiBusy { font-size: 12px; color: var(--sg-foreground-muted); font-style: italic; }
+.aiText { font-size: 12.5px; line-height: 1.5; color: var(--sg-foreground); white-space: pre-wrap; word-break: break-word; }
+.aiDisclaimer { margin-top: 4px; font-size: 11px; color: var(--sg-foreground-muted); font-style: italic; }
+.aiError {
+  margin: 0;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--sg-danger) 12%, transparent);
+  color: var(--sg-danger);
+  font-size: 12px;
+  word-break: break-word;
+  border-bottom: 1px solid color-mix(in srgb, var(--sg-danger) 40%, transparent);
+  flex-shrink: 0;
+}
+
 /* ─── Two-column layout ─── */
 .mergeTwoCols { display: flex; flex: 2; overflow: hidden; }
 .mergeCol { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }

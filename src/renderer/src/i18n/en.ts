@@ -213,8 +213,8 @@ export const en = {
     statusCopied: 'Copied',
     ignoreWhitespace: 'Ignore Whitespace',
     statDirtyTitle: 'No actual changes',
-    statDirtyHint: 'File metadata changed but content is identical. This usually happens after format-on-save or external tools touched the file.',
-    statDirtyRefresh: 'Refresh index',
+    statDirtyHint: 'The file content matches git, but it is still flagged as modified — usually due to line-ending differences (CRLF/LF) or external tools (format-on-save). This button rewrites the file from the git version and removes it from changes. Real edits are never lost.',
+    statDirtyRefresh: 'Remove from changes',
     statDirtyTooltip: 'No actual changes (stat-dirty)',
   },
   fileHistory: {
@@ -489,6 +489,18 @@ export const en = {
     initRepo: 'Init Repository',
     initPath: 'Directory...',
     initStart: 'Init',
+    /* Clone/Init dialogs (modal version). */
+    cloneTitle: 'Clone Repository',
+    cloneParent: 'Parent folder',
+    cloneName: 'Folder name',
+    clonePreview: 'Will be created:',
+    cloneBrowse: 'Browse...',
+    cloneInvalidUrl: 'This does not look like a git URL',
+    cloneInProgress: 'Cloning...',
+    cloneFailed: 'Clone failed: {error}',
+    initTitle: 'Create Repository',
+    initParent: 'Parent folder',
+    initBrowse: 'Browse...',
     loading: 'Loading…',
     invalidRepo: 'Repository unavailable',
     removeFromList: 'Remove from list',
@@ -722,21 +734,37 @@ export const en = {
   aiTier2: {
     /* Common */
     cancel: 'Cancel',
+    hide: 'Hide',
     disclaimer: 'AI explanation — may be inaccurate. Always verify the code.',
+    sectionLabels: {
+      'what changed': 'What changed',
+      'why': 'Why',
+      'watch out for': 'Watch out for',
+      'timeline': 'Timeline',
+      'lost commits': 'Lost commits',
+      'recovery': 'Recovery',
+      'ours': 'Ours',
+      'theirs': 'Theirs',
+      'risk': 'Risk',
+      'what to check': 'What to check',
+    } as Record<string, string>,
     aiDisabled: 'AI is disabled in settings (Privacy → AI enabled).',
     /* Commit Explainer */
     explainCommit: 'Explain commit',
     explaining: 'Explaining…',
-    explainCommitTooltip: 'Ask AI to explain this commit',
+    explainCommitTooltip: 'AI summary of the commit: what changed, why, what to look at',
     /* Stash naming */
     stashSuggest: 'Suggest name',
+    stashSuggestTooltip: 'AI suggests a short stash name from your changes',
     stashSuggesting: 'Suggesting…',
     stashSuggestFailed: 'Could not suggest a name: {error}',
     /* Reflog Explainer */
     explainReflog: 'Explain reflog',
+    explainReflogTooltip: 'AI summarises what you did in the repo and flags any lost commits',
     explainingReflog: 'Explaining reflog…',
     /* Conflict helper */
     explainConflict: 'Explain conflict',
+    explainConflictTooltip: 'AI breaks down both sides and tells you what to consider before picking one',
     explainingConflict: 'Analyzing conflict…',
     /* Semantic search */
     semanticSearchPrefix: 'AI: ',
@@ -745,6 +773,9 @@ export const en = {
     semanticSearchBusy: 'Searching…',
     semanticSearchEmpty: 'No matching commits.',
     semanticSearchFailed: 'Search failed: {error}',
+    semanticSearchToggleLabel: 'AI',
+    semanticSearchOn: 'Turn on AI semantic search',
+    semanticSearchOff: 'Turn off AI search (back to plain text)',
   },
   ai: {
     title: 'AI Settings',
@@ -801,7 +832,6 @@ export const en = {
     promptsHeader: 'Custom prompts',
     promptsHint: 'Default prompts are in English: LLMs (including local Qwen and YandexGPT) reason better in English. The response is translated separately via the "AI response language" setting in Behavior.',
     promptResetDefault: 'Reset to default',
-    promptComingSoon: 'Coming soon',
     /* Features section. */
     featuresHeader: 'Enable features',
     featuresHint: 'Disabled features hide their UI buttons. Use this to keep accidental calls from a model you do not trust for that task.',

@@ -1,4 +1,11 @@
 export { AiSettingsDialog } from './AiSettingsDialog';
 export { AiGenerateButton } from './AiGenerateButton';
-export { CommitExplainer } from './CommitExplainer';
+export {
+  CommitExplainer,
+  CommitExplainerButton,
+  CommitExplainerOutput,
+  useCommitExplainer,
+} from './CommitExplainer';
+export { AiIcon } from './AiIcon';
+export { AiSections } from './AiSections';
 export { localizeAiError } from './errors';

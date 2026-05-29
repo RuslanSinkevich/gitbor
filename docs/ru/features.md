@@ -119,7 +119,7 @@
   3. **Без VPN** — Qwen Web, Qwen API (Alibaba Cloud), DeepSeek
   4. **Российские** — YandexGPT через OpenAI-совместимый endpoint Yandex Cloud (GigaChat в backlog — нужен отдельный OAuth-провайдер)
   5. **Зарубежные** — OpenAI, Anthropic, Groq
-- **Промпты на диске** — на английском (`DEFAULT_PROMPTS` в `src/core/ai/prompts.ts`). LLM (включая Qwen и YandexGPT) делают reasoning лучше на английском. Язык ответа добавляется в конец промпта через `resolvePrompt(id, cfg)` по настройке **Язык ответа AI** в разделе «Поведение». Исключение: `stashName` всегда английский (это git-имя, не текст для пользователя)
+- **Промпты на диске** — на английском (`DEFAULT_PROMPTS` в `src/core/ai/prompts.ts`). LLM (включая Qwen и YandexGPT) делают reasoning лучше на английском. Язык ответа добавляется в конец промпта через `resolvePrompt(id, cfg)` по настройке **Язык ответа AI** в разделе «Поведение» — действует на все фичи одинаково, в том числе на stash naming (git хранит сообщения stash как UTF-8)
 - **Per-feature toggle и per-feature model override** — отключить любую AI-фичу или направить отдельную фичу (например stash naming) на более дешёвую модель, не меняя основной провайдер
 - **Privacy gate** — `allowCloudCodeShare` (по умолчанию `false` для свежих установок) блокирует вызовы **зарубежных** провайдеров (OpenAI / Anthropic / Groq). Локальные / корпоративные / без-VPN / российские провайдеры всегда разрешены и проходят без gate
 - **Конфиг v3** — старый `ai-config.json` (v2) мигрируется при загрузке: `commitLanguage` становится `aiResponseLanguage`, `features.commitMessage=true`, `aiEnabled=true`, `allowCloudCodeShare=false` (без неявного opt-in в облако)

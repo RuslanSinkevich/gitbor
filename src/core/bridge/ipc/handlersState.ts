@@ -18,6 +18,9 @@ export const ipcHandlersState: HandlerTable = {
   refreshStatIndex: async (_cmd, ctx) => {
     await ctx.sm.refreshStatIndex();
   },
+  restoreStatDirty: async (cmd, ctx) => {
+    await ctx.sm.restoreStatDirtyFile(cmd.file);
+  },
 
   getCommitDetails: async (cmd, ctx) => {
     const detail = await ctx.ch.getCommitDetails(cmd.hash);

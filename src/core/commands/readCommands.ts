@@ -90,13 +90,22 @@ export async function getFileDiff(
       // рендерил бы файл как «новый/добавленный» через --no-index.
       const trackedCheck = await git.exec(['ls-files', '--error-unmatch', '--', file]);
       if (trackedCheck.exitCode === 0) {
-        return [{
-          path: file,
-          status: 'modified',
-          hunks: [],
-          isBinary: false,
-          statDirty: true,
-        }];
+        // Пустой diff у tracked-файла ≠ всегда stat-dirty: после
+        // `update-index --refresh` файл чистый, но diff по-прежнему пуст.
+        // Смотрим unstaged-колонку porcelain: ` M` / `MM` → ещё в status.
+        const statusResult = await git.exec(['status', '--porcelain', '--', file]);
+        const line = statusResult.stdout.trim().split('\n').find((l) => l.length > 2) ?? '';
+        const unstaged = line[1];
+        if (unstaged === 'M' || unstaged === 'U') {
+          return [{
+            path: file,
+            status: 'modified',
+            hunks: [],
+            isBinary: false,
+            statDirty: true,
+          }];
+        }
+        return [];
       }
 
       const nullDev = process.platform === 'win32' ? 'NUL' : '/dev/null';

@@ -85,6 +85,10 @@ export class StateManager {
     return this.refresher.refreshStatIndex(repoPath);
   }
 
+  restoreStatDirtyFile(file: string, repoPath?: string): Promise<void> {
+    return this.refresher.restoreStatDirtyFile(file, repoPath);
+  }
+
   refreshGraph(maxCount = 0, repoPath?: string): Promise<void> {
     return this.refresher.refreshGraph(maxCount, repoPath);
   }

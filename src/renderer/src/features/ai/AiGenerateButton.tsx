@@ -97,10 +97,10 @@ export function AiGenerateButton({
         onClick={handleCancel}
         type="button"
         title={loc.aiCancel}
+        aria-label={loc.aiCancel}
         data-state="generating"
       >
         <span className={s.spinner} />
-        <span>{loc.aiGenerating}</span>
       </button>
     );
   }
@@ -116,20 +116,18 @@ export function AiGenerateButton({
       disabled={disabled || !loaded}
       type="button"
       title={title}
+      aria-label={loc.aiGenerate}
     >
-      <AiIcon />
-      <span>{loc.aiGenerate}</span>
+      <AiSparkle />
     </button>
   );
 }
 
-function AiIcon() {
+function AiSparkle() {
   return (
-    <svg className={s.icon} width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path
-        d="M8 1.5L9.3 5.2L13 6.5L9.3 7.8L8 11.5L6.7 7.8L3 6.5L6.7 5.2L8 1.5ZM12.5 10L13 11.5L14.5 12L13 12.5L12.5 14L12 12.5L10.5 12L12 11.5L12.5 10Z"
-        fill="currentColor"
-      />
+    <svg className={s.icon} width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M8 1.5L9.6 6.4L14.5 8L9.6 9.6L8 14.5L6.4 9.6L1.5 8L6.4 6.4L8 1.5Z" fill="currentColor" />
+      <path d="M12.5 11L13.1 12.4L14.5 13L13.1 13.6L12.5 15L11.9 13.6L10.5 13L11.9 12.4L12.5 11Z" fill="currentColor" opacity="0.7" />
     </svg>
   );
 }

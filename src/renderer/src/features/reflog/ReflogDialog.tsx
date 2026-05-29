@@ -5,6 +5,9 @@ import type { ReflogEntry } from '../../types';
 import type { ShowPrompt } from '../graph/commitMenuItems';
 import { SgDialog } from '../../ui/SgDialog';
 import { ReflogTable } from './ReflogTable';
+import { useAiConfig } from '../ai/useAiConfig';
+import { useAiStream } from '../ai/useAiStream';
+import { AiIcon, AiSections } from '../ai';
 import s from './ReflogDialog.module.css';
 
 interface Props {
@@ -15,9 +18,12 @@ interface Props {
 /** Dialog showing git reflog with ability to restore (hard reset) to any entry. */
 export function ReflogDialog({ onClose, showPrompt }: Props) {
   const loc = t();
+  const tier2 = loc.aiTier2;
   const rl = loc.reflog;
   const [entries, setEntries] = useState<ReflogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const { config, loaded: aiLoaded } = useAiConfig();
+  const stream = useAiStream();
 
   useEffect(() => {
     const unsub = onMainEvent((msg) => {
@@ -29,6 +35,17 @@ export function ReflogDialog({ onClose, showPrompt }: Props) {
     postCommand({ type: 'getReflog', maxCount: 100 });
     return unsub;
   }, []);
+
+  /* AI-кнопка видна только если фича включена в Settings. UI-gate, финальная
+     проверка в main (см. AiHandlers.runFeature). */
+  const aiAvailable =
+    aiLoaded && !!config &&
+    config.aiEnabled !== false &&
+    config.features?.explainReflog !== false;
+
+  const handleExplain = useCallback(() => {
+    stream.start((requestId) => ({ type: 'aiExplainReflog', requestId, maxCount: 100 }));
+  }, [stream]);
 
   const handleCopyHash = useCallback((hash: string) => {
     copyToClipboard(hash);
@@ -56,7 +73,44 @@ export function ReflogDialog({ onClose, showPrompt }: Props) {
       size="xl"
       footer={<button className="sg-button sg-button--ghost sg-button--md" onClick={onClose}>{loc.dialog.close}</button>}
     >
-      <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--sg-foreground-muted)' }}>{rl.subtitle}</p>
+      <div className={s.toolbar}>
+        <p className={s.toolbarHint}>{rl.subtitle}</p>
+        {aiAvailable && (
+          <button
+            type="button"
+            className={`sg-button sg-button--primary sg-button--sm ${s.aiButton}`}
+            onClick={stream.busy ? stream.cancel : handleExplain}
+            disabled={!stream.busy && entries.length === 0}
+            title={stream.busy ? tier2.cancel : tier2.explainReflogTooltip}
+            aria-label={stream.busy ? tier2.cancel : tier2.explainReflog}
+          >
+            <AiIcon size={14} />
+          </button>
+        )}
+      </div>
+
+      {stream.error && (
+        <div className={s.aiError}>{stream.error}</div>
+      )}
+      {(stream.busy || stream.text) && (
+        <div className={s.aiPanel}>
+          <button
+            type="button"
+            className={s.aiClose}
+            onClick={stream.reset}
+            title={tier2.hide}
+            aria-label={tier2.hide}
+          >
+            ×
+          </button>
+          {stream.busy && !stream.text && <div className={s.aiBusy}>{tier2.explainingReflog}</div>}
+          {stream.text && <AiSections text={stream.text} />}
+          {!stream.busy && stream.text && (
+            <div className={s.aiDisclaimer}>{tier2.disclaimer}</div>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div className={s.loading}>{loc.app.loading}</div>
       ) : entries.length === 0 ? (

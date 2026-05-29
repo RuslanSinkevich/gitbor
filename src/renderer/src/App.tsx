@@ -8,7 +8,7 @@ import { useMenuActions } from './hooks/useMenuActions';
 import { useOperationToasts } from './hooks/useOperationToasts';
 import { useSafetyDialog } from './hooks/useSafetyDialog';
 import { countCheckoutDirty, useCheckout } from './features/checkout';
-import { useApplyStash } from './features/stash';
+import { useApplyStash, StashCreateDialog } from './features/stash';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useDialogs } from './hooks/useDialogs';
 import { useAutoFetch } from './hooks/useAutoFetch';
@@ -201,20 +201,18 @@ export function App() {
    * Stash через модалку: пустое имя → `git stash push` без `-m`,
    * непустое → `git stash push -m <message>`. Используется и из тулбара,
    * и из меню/горячих клавиш (через useMenuActions).
+   *
+   * Отдельный `StashCreateDialog` (а не SgPromptDialog) нужен ради
+   * AI-кнопки «Предложить имя» рядом с input'ом — её невозможно
+   * втиснуть в универсальный prompt-dialog без раздувания его API.
    */
+  const [showStashDialog, setShowStashDialog] = useState(false);
   const promptStash = useCallback(() => {
-    showPrompt({
-      title: loc.stashDialog.title,
-      label: loc.stashDialog.label,
-      placeholder: loc.stashDialog.placeholder,
-      confirmLabel: loc.stashDialog.confirm,
-      allowEmpty: true,
-      onConfirm: (value) => {
-        const trimmed = value.trim();
-        postCommand({ type: 'stash', message: trimmed || undefined });
-      },
-    });
-  }, [showPrompt, loc.stashDialog]);
+    setShowStashDialog(true);
+  }, []);
+  const handleStashSubmit = useCallback((message: string) => {
+    postCommand({ type: 'stash', message: message || undefined });
+  }, []);
 
   const handleMenuAction = useMenuActions({
     state, setViewMode, ...dlg, showPrompt, promptStash, handleOpenMergeDialog, runPull, runPush,
@@ -745,6 +743,13 @@ export function App() {
       {syncDialogs}
       {checkoutDialog}
       {applyStashDialog}
+
+      {showStashDialog && (
+        <StashCreateDialog
+          onClose={() => setShowStashDialog(false)}
+          onSubmit={handleStashSubmit}
+        />
+      )}
 
       <BranchInfoDialog
         open={!!openInfoBranch}

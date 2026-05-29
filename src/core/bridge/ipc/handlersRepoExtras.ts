@@ -144,6 +144,12 @@ export const ipcHandlersRepoExtras: HandlerTable = {
   openRepoDialog: async (_cmd, ctx) => {
     await ctx.ch.openRepoDialog();
   },
+  pickDirectory: async (cmd, ctx) => {
+    /* Возвращает путь (string | null) через invoke — НЕ через `send`.
+       Соответственно renderer ждёт результат от invokeCommand, а не
+       подписывается на отдельный event. См. api.ts/NON_RETRYABLE_TYPES. */
+    return await ctx.ch.pickDirectory({ title: cmd.title, defaultPath: cmd.defaultPath });
+  },
   closeRepo: async (cmd, ctx) => {
     await ctx.ch.closeRepo(cmd.index);
   },

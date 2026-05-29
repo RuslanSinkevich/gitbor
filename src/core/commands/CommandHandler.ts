@@ -462,6 +462,24 @@ export class CommandHandler {
     return result.filePaths[0];
   }
 
+  /**
+   * Native picker папки без побочных эффектов. В отличие от
+   * `openRepoDialog`, НЕ открывает выбранный путь как репо — нужен для
+   * clone/init dialogs (Обзор...) и любых других мест, где надо
+   * получить путь обратно в renderer.
+   */
+  async pickDirectory(opts?: { title?: string; defaultPath?: string }): Promise<string | null> {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    if (!win) return null;
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openDirectory', 'createDirectory'],
+      title: opts?.title,
+      defaultPath: opts?.defaultPath,
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  }
+
   getDiffPayload(file: string, hash: string) { return { file, hash, repoPath: this.state.getState().repoPath }; }
   getFilePayload(file: string) { return { file, repoPath: this.state.getState().repoPath }; }
 

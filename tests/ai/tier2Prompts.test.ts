@@ -23,10 +23,10 @@ describe('Tier-2 prompt assembly', () => {
     expect(tpl).toMatch(/Respond strictly in Russian/);
   });
 
-  it('stashName is always English even with ru response language', () => {
+  it('stashName follows aiResponseLanguage=ru like other features', () => {
     const tpl = resolvePrompt('stashName', { baseUrl: 'http://x', apiKey: '', model: 'm', aiResponseLanguage: 'ru' });
-    expect(tpl).not.toMatch(/Respond strictly in/);
-    expect(tpl).toBe(DEFAULT_PROMPTS.stashName);
+    expect(tpl).toMatch(/Respond strictly in Russian/);
+    expect(tpl).toContain(DEFAULT_PROMPTS.stashName);
   });
 
   it('explainReflog substitutes nothing — body comes as userPrompt', () => {

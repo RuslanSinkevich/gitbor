@@ -272,6 +272,41 @@
   cursor: default;
 }
 
+/* Тумблер AI рядом с инпутом — только иконка-sparkle, тултип объясняет.
+   Active = primary, off = нейтральный. */
+.searchAiToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 24px;
+  height: 22px;
+  background: transparent;
+  border: 1px solid var(--sg-border);
+  border-radius: 4px;
+  color: var(--sg-foreground-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.searchAiToggle:hover {
+  border-color: color-mix(in srgb, var(--sg-primary) 50%, var(--sg-border));
+  color: var(--sg-foreground);
+}
+
+.searchAiToggleActive {
+  background: var(--sg-primary);
+  border-color: var(--sg-primary);
+  color: #fff;
+}
+
+.searchAiToggleActive:hover {
+  background: color-mix(in srgb, var(--sg-primary) 88%, #000);
+  border-color: color-mix(in srgb, var(--sg-primary) 88%, #000);
+  color: #fff;
+}
+
 .searchClose {
   background: none;
   border: none;
@@ -284,6 +319,40 @@
 
 .searchClose:hover {
   color: var(--sg-foreground);
+}
+
+/* Тумблер AI-поиска: серый ghost в выключенном состоянии, primary —
+   во включённом. Юзеру видно, чем поиск занят, и можно явно переключить. */
+.searchAiToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  background: transparent;
+  color: var(--sg-foreground-muted);
+  border: 1px solid var(--sg-border);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+}
+
+.searchAiToggle:hover {
+  color: var(--sg-foreground);
+  border-color: var(--sg-primary);
+}
+
+.searchAiToggleActive {
+  background: var(--sg-primary);
+  color: #fff;
+  border-color: var(--sg-primary);
+}
+
+.searchAiToggleActive:hover {
+  background: color-mix(in srgb, var(--sg-primary) 85%, transparent);
+  color: #fff;
 }
 
 /* ─── GPG signature badges ─── */

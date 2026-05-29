@@ -8,8 +8,24 @@ import { buildStorageKey } from '../../shared/uiPersist';
 import type { ShowPrompt } from '../graph/commitMenuItems';
 import { buildFileTree, FileTreeItem, fileName, collectFiles, type FileTreeNode } from './FileTree';
 import { useFileListKeyboard } from './useFileListKeyboard';
-import { GitignoreBanner } from '../gitignore';
 import s from './LocalChanges.module.css';
+
+/* Иконки в стиле тулбара: 14×14, viewBox 16, stroke currentColor 1.5. */
+const IconStageAll = () => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+    <path d="M8 3.5v9M3.5 8h9" />
+  </svg>
+);
+const IconUnstageAll = () => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+    <path d="M3.5 8h9" />
+  </svg>
+);
+const IconDiscardAll = () => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 4.5h10M6.2 4.5V3h3.6v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" />
+  </svg>
+);
 
 interface Props {
   repoPath: string;
@@ -26,15 +42,12 @@ interface Props {
   showPrompt?: ShowPrompt;
   activePath?: string;
   activeSection?: 'unstaged' | 'staged' | 'conflict';
-  /** Открыть модалку добавления .gitignore (по клику в баннере). */
-  onOpenGitignoreDialog?: () => void;
 }
 
 export function LocalChanges({
   repoPath,
   stagedFiles, unstagedFiles, onContextMenu, onOpenDiff, onFileHistory, onFileBlame,
   onOpenMergeEditor, onSelectFolder, showPrompt, activePath, activeSection,
-  onOpenGitignoreDialog,
 }: Props) {
   const loc = t();
   const stagedSplitStorageKey = buildStorageKey('sg-layout:changes-staged-height', repoPath);
@@ -256,14 +269,9 @@ export function LocalChanges({
 
   const kb = useFileListKeyboard(normalUnstaged, stagedFiles, conflictFiles, hasConflicts, kbClickFile, kbToggleStage);
 
-  const banner = onOpenGitignoreDialog
-    ? <GitignoreBanner repoPath={repoPath} onOpenDialog={onOpenGitignoreDialog} />
-    : null;
-
   if (stagedFiles.length === 0 && unstagedFiles.length === 0) {
     return (
       <div className={`${s.root} ${s.empty}`}>
-        {banner}
         <p>{loc.changes.noChanges}</p>
       </div>
     );
@@ -271,7 +279,6 @@ export function LocalChanges({
 
   return (
     <div className={s.root} tabIndex={0} onKeyDown={kb.handleKeyDown}>
-      {banner}
       <div className={s.mainSplit}>
         <SgSplitPane
           direction="vertical"
@@ -306,10 +313,14 @@ export function LocalChanges({
                   <span className={s.sectionTitle}>{loc.changes.unstaged} ({normalUnstaged.length})</span>
                   <div className={s.sectionActions}>
                     {normalUnstaged.some(f => f.status !== '?') && (
-                      <button className={`${s.sectionAction} ${s.sectionActionDanger}`} onClick={handleDiscardAll} title={loc.changes.discardAll}>✕</button>
+                      <button className={`${s.sectionAction} ${s.sectionActionIcon} ${s.sectionActionDanger}`} onClick={handleDiscardAll} title={loc.changes.discardAll} aria-label={loc.changes.discardAll}>
+                        <IconDiscardAll />
+                      </button>
                     )}
                     {normalUnstaged.length > 0 && (
-                      <button className={s.sectionAction} onClick={handleStageAll} title={loc.changes.stageAll}>{loc.contextMenu.stage}</button>
+                      <button className={`${s.sectionAction} ${s.sectionActionIcon}`} onClick={handleStageAll} title={loc.changes.stageAll} aria-label={loc.changes.stageAll}>
+                        <IconStageAll />
+                      </button>
                     )}
                   </div>
                 </div>
@@ -333,7 +344,11 @@ export function LocalChanges({
                 <div className={s.sectionHeader}>
                   <span className={s.sectionTitle}>{loc.changes.staged} ({stagedFiles.length})</span>
                   {stagedFiles.length > 0 && (
-                    <button className={s.sectionAction} onClick={handleUnstageAll} title={loc.changes.unstageAll}>{loc.contextMenu.unstage}</button>
+                    <div className={s.sectionActions}>
+                      <button className={`${s.sectionAction} ${s.sectionActionIcon}`} onClick={handleUnstageAll} title={loc.changes.unstageAll} aria-label={loc.changes.unstageAll}>
+                        <IconUnstageAll />
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div className={s.fileList}>

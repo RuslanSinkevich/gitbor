@@ -89,7 +89,7 @@ export function DiffPanel({ file, hash }: Props) {
         <div style={{ opacity: 0.7, maxWidth: 420 }}>{loc.diff.statDirtyHint}</div>
         <button
           className="sg-button sg-button--md sg-button--primary"
-          onClick={() => postCommand({ type: 'refreshStatIndex' })}
+          onClick={() => postCommand({ type: 'restoreStatDirty', file })}
         >
           {loc.diff.statDirtyRefresh}
         </button>

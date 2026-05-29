@@ -1,7 +1,10 @@
-import { forwardRef } from 'react';
+import { forwardRef, useCallback } from 'react';
 import type { ConflictBlock } from '../../types';
 import { t, tpl } from '../../i18n';
 import { useConflictResolution, mkKey, type LineKey } from './useConflictResolution';
+import { useAiConfig } from '../ai/useAiConfig';
+import { useAiStream } from '../ai/useAiStream';
+import { AiIcon, AiSections } from '../ai';
 import s from './Merge.module.css';
 
 interface Props {
@@ -15,7 +18,19 @@ interface Props {
 export function MergeEditor({ file, sourceBranch, targetBranch, onResolved, onCancel }: Props) {
   const loc = t();
   const me = loc.mergeEditor;
+  const tier2 = loc.aiTier2;
   const cr = useConflictResolution(file, onResolved);
+  const { config, loaded: aiLoaded } = useAiConfig();
+  const aiStream = useAiStream();
+
+  const aiAvailable =
+    aiLoaded && !!config &&
+    config.aiEnabled !== false &&
+    config.features?.analyzeConflict !== false;
+
+  const handleExplain = useCallback(() => {
+    aiStream.start((requestId) => ({ type: 'aiAnalyzeConflict', requestId, file }));
+  }, [aiStream, file]);
 
   if (cr.loading) {
     return <ModalShell><div className={s.mergeLoading}>{me.loading}</div></ModalShell>;
@@ -37,7 +52,43 @@ export function MergeEditor({ file, sourceBranch, targetBranch, onResolved, onCa
             </span>
             <button className={s.btnGhost} onClick={() => cr.navigateConflict(1)}>▶</button>
           </div>
+          {aiAvailable && (
+            <button
+              type="button"
+              className={`sg-button sg-button--primary sg-button--sm ${s.aiButton}`}
+              onClick={aiStream.busy ? aiStream.cancel : handleExplain}
+              title={aiStream.busy ? tier2.cancel : tier2.explainConflictTooltip}
+              aria-label={aiStream.busy ? tier2.cancel : tier2.explainConflict}
+              style={{ marginLeft: 'auto' }}
+            >
+              <AiIcon size={14} />
+            </button>
+          )}
         </div>
+
+        {aiStream.error && (
+          <div className={s.aiError}>{aiStream.error}</div>
+        )}
+        {(aiStream.busy || aiStream.text) && (
+          <div className={s.aiPanel}>
+            <button
+              type="button"
+              className={s.aiClose}
+              onClick={aiStream.reset}
+              title={tier2.hide}
+              aria-label={tier2.hide}
+            >
+              ×
+            </button>
+            {aiStream.busy && !aiStream.text && (
+              <div className={s.aiBusy}>{tier2.explainingConflict}</div>
+            )}
+            {aiStream.text && <AiSections text={aiStream.text} />}
+            {!aiStream.busy && aiStream.text && (
+              <div className={s.aiDisclaimer}>{tier2.disclaimer}</div>
+            )}
+          </div>
+        )}
 
         <div className={s.mergeTwoCols}>
           <SideColumnPane

@@ -55,37 +55,69 @@ export const DEFAULT_PROMPTS: Record<PromptId, string> = {
     '- Respond with ONLY the commit message text. Do not add explanations, preambles or commentary.',
   ].join('\n'),
   explainCommit: [
-    'You are a senior code reviewer. Explain the supplied commit in 3-5 sentences:',
-    '- what changed at a high level (do NOT walk line by line);',
-    '- the likely intent of the author;',
-    '- anything a reviewer should pay particular attention to.',
+    'You are a senior code reviewer. Explain the supplied commit briefly and clearly.',
     '',
-    'The diff may be truncated; if so, note "(diff truncated)" once and continue with what is available.',
-    'Be concise. No backticks, no markdown lists, no preamble like "Sure, here is...".',
+    'Reply using exactly this three-section structure. Each section title on its own line,',
+    'followed by 1-3 short sentences. Separate sections with a single blank line.',
+    'Do not output markdown, bullets, asterisks or backticks. Use plain text only.',
+    '',
+    'What changed:',
+    '<1-3 sentences at a high level, no line-by-line walkthrough>',
+    '',
+    'Why:',
+    '<1-3 sentences on the likely intent of the author>',
+    '',
+    'Watch out for:',
+    '<1-3 sentences on risks, edge cases or things a reviewer should check; write "Nothing specific." if none>',
+    '',
+    'Rules for each section:',
+    '- Always fill every section with real text. Never leave a section as a placeholder like "(diff truncated)", "n/a", or "unknown".',
+    '- If the diff is empty, missing or truncated, rely on the subject and body to describe the change as best you can; mention briefly that the diff was not available.',
+    '- If even the subject and body are not informative (e.g. stash snapshot, automatic commit), say so plainly in the first section and still attempt the other two.',
+    '',
     'Subject: {subject}',
     'Body: {body}',
   ].join('\n'),
   stashName: [
-    'Suggest a short git stash name (3-7 words) based on the diff that follows.',
+    'Suggest a short git stash name (3-7 words) describing the diff that follows.',
     'Output ONLY the name itself: no surrounding quotes, no trailing punctuation, no markdown.',
-    'Keep it ASCII, lowercase if possible, words separated by spaces.',
+    'Lowercase if possible, words separated by spaces. Do not use slashes or path separators.',
   ].join('\n'),
   explainReflog: [
-    'You are a senior git user. Convert the following git reflog excerpt into a short, human-readable timeline:',
-    '- group adjacent low-level actions (5 reflog lines can be one logical event);',
-    '- mark "lost commits" (when HEAD moved without a commit being made on the way);',
-    '- if something looks like a mistake, suggest the exact recovery command(s).',
-    'Reply with concise sentences, no preamble, no markdown lists.',
+    'You are a senior git user. Convert the following git reflog excerpt into a short, human-readable timeline.',
+    '',
+    'Reply using exactly this three-section structure. Each section title on its own line,',
+    'followed by 1-4 short sentences or compact lines. Separate sections with a single blank line.',
+    'Do not output markdown, bullets, asterisks or backticks. Use plain text only.',
+    '',
+    'Timeline:',
+    '<group adjacent low-level entries into 1-4 logical events; each event on its own line>',
+    '',
+    'Lost commits:',
+    '<list any moments when HEAD moved without making a commit on the way; write "None." if there are none>',
+    '',
+    'Recovery:',
+    '<if anything looks like a mistake, suggest the exact recovery command(s); write "Not needed." if everything looks fine>',
   ].join('\n'),
   analyzeConflict: [
-    'You are a senior code reviewer. This is a git merge conflict.',
-    'Explain in simple words:',
-    '1. What the HEAD (ours) version does, in 3-5 words.',
-    '2. What the MERGE (theirs) version does, in 3-5 words.',
-    '3. Merge risk: low / medium / high. Briefly state why.',
+    'You are a senior code reviewer. This is a git merge conflict in a single file.',
+    'Your job is to describe both sides so a human can pick — do NOT propose a merged solution.',
     '',
-    'IMPORTANT: do NOT propose a merged solution. Only describe.',
-    'The base version (common ancestor) may help you compare, but do not output it.',
+    'Reply using exactly this four-section structure. Each section title on its own line,',
+    'followed by 1-3 short sentences. Separate sections with a single blank line.',
+    'Do not output markdown, bullets, asterisks or backticks. Use plain text only.',
+    '',
+    'Ours:',
+    '<1-2 sentences: what the HEAD (ours) side does and likely why>',
+    '',
+    'Theirs:',
+    '<1-2 sentences: what the incoming (theirs) side does and likely why>',
+    '',
+    'Risk:',
+    '<state risk as low / medium / high and explain briefly what could go wrong if the wrong side is picked>',
+    '',
+    'What to check:',
+    '<1-3 short questions or things a reviewer should verify before picking a side>',
   ].join('\n'),
 };
 
@@ -123,13 +155,12 @@ const LANGUAGE_NAMES: Record<'en' | 'ru', string> = {
  *   - `auto` -> рассматривается выше уровнем (renderer передаёт уже
  *     разрешённое 'en'/'ru' через `resolveResponseLanguage`).
  *
- * Исключение: `stashName` **всегда** возвращает английский — это git-имя,
- * не текст для пользователя, и оно идёт в command line / UI чекбоксы.
- * Поэтому для него инструкция про язык не добавляется никогда.
+ * Раньше `stashName` был жёстко английский «потому что это идёт в CLI», но
+ * git stash messages — это UTF-8, юзеры всё равно их читают в UI; если
+ * выбрали русский язык ответов — будем давать русское имя.
  */
 export function resolvePrompt(id: PromptId, cfg: AiProviderConfig | null | undefined): string {
   const base = cfg?.prompts?.[id]?.trim() ? cfg.prompts[id]! : DEFAULT_PROMPTS[id];
-  if (id === 'stashName') return base;
   const lang = resolveResponseLanguage(cfg, 'en');
   if (lang === 'en') return base;
   return `${base}\n\nIMPORTANT: Respond strictly in ${LANGUAGE_NAMES[lang]}. Do not switch language mid-response.`;

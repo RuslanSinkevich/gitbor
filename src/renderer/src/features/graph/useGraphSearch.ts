@@ -1,14 +1,75 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import type { Commit } from '../../types';
+import type { Commit, MainEvent } from '../../types';
+import { onMainEvent, postCommand } from '../../api';
 
+export type SemanticSearchState =
+  | { status: 'idle' }
+  | { status: 'busy' }
+  | { status: 'done'; hashes: string[] }
+  | { status: 'error'; error: string };
+
+/**
+ * Поиск по графу. Два режима:
+ *  - text (по умолчанию): синхронный substring-матч по subject/author/hash.
+ *  - ai: семантический поиск через провайдер. Включается отдельным
+ *    тумблером в UI — раньше переключение шло по префиксу `ai:`, но юзеры
+ *    не понимали, что это значит. Дёргает `aiSemanticSearch` с debounce
+ *    в 400 мс, результат — список hash-ей.
+ */
 export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => void, scrollToRow: (row: number) => void) {
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchMatchIdx, setSearchMatchIdx] = useState(0);
+  const [aiMode, setAiMode] = useState(false);
+  const [semantic, setSemantic] = useState<SemanticSearchState>({ status: 'idle' });
+
+  /* Подписка на одноразовый ответ — ставим один раз, фильтруем по
+     текущему статусу. Если пришёл ответ, но юзер уже вышел из ai-режима
+     или очистил поле, мы просто перезапишем result, дальше memo вернёт []
+     потому что условие `aiMode && trimmed` не выполнится. */
+  useEffect(() => {
+    const unsub = onMainEvent((msg: MainEvent) => {
+      if (msg.type !== 'aiSemanticSearchResult') return;
+      if (msg.success) {
+        setSemantic({ status: 'done', hashes: msg.hashes ?? [] });
+      } else {
+        setSemantic({ status: 'error', error: msg.error ?? 'unknown error' });
+      }
+    });
+    return unsub;
+  }, []);
+
+  /* Триггер запроса для AI-режима с debounce. Очищение текста и переход
+     в обычный режим сбрасывают semantic в idle. */
+  useEffect(() => {
+    if (!aiMode) {
+      setSemantic({ status: 'idle' });
+      return;
+    }
+    const query = searchQuery.trim();
+    if (!query) {
+      setSemantic({ status: 'idle' });
+      return;
+    }
+    setSemantic({ status: 'busy' });
+    const timer = setTimeout(() => {
+      postCommand({ type: 'aiSemanticSearch', query, maxCommits: 200 });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery, aiMode]);
 
   const searchMatches = useMemo(() => {
     if (!searchQuery.trim()) return [];
+    if (aiMode) {
+      if (semantic.status !== 'done') return [];
+      const hashes = new Set(semantic.hashes);
+      const out: number[] = [];
+      for (let i = 0; i < commits.length; i++) {
+        if (hashes.has(commits[i].hash)) out.push(i);
+      }
+      return out;
+    }
     const q = searchQuery.toLowerCase();
     const matches: number[] = [];
     for (let i = 0; i < commits.length; i++) {
@@ -18,7 +79,7 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
       }
     }
     return matches;
-  }, [commits, searchQuery]);
+  }, [commits, searchQuery, aiMode, semantic]);
 
   const searchMatchSet = useMemo(() => new Set(searchMatches), [searchMatches]);
 
@@ -35,9 +96,6 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
       if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'а' || e.code === 'KeyF')) {
         e.preventDefault();
         setSearchVisible(true);
-        // Если input уже примонтирован (повторный Ctrl+F при открытой
-        // панели) — фокусим сразу. Иначе focus поставит effect ниже,
-        // когда searchRef.current появится после рендера.
         searchRef.current?.focus();
       }
       if (e.key === 'Escape' && searchVisible) {
@@ -49,16 +107,20 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [searchVisible]);
 
-  // Автофокус search-input ровно один раз — на переход hidden→visible.
-  // Без таймера: эффект бежит после commit'а, ref уже привязан.
   useEffect(() => {
     if (searchVisible) searchRef.current?.focus();
   }, [searchVisible]);
 
-  useEffect(() => { setSearchMatchIdx(0); }, [searchQuery]);
+  useEffect(() => { setSearchMatchIdx(0); }, [searchQuery, aiMode]);
+
+  const toggleAiMode = useCallback(() => {
+    setAiMode((v) => !v);
+    setSemantic({ status: 'idle' });
+  }, []);
 
   return {
     searchRef, searchQuery, setSearchQuery, searchVisible, setSearchVisible,
     searchMatchIdx, searchMatches, searchMatchSet, navigateSearch,
+    semantic, aiMode, toggleAiMode,
   };
 }
