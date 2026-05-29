@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   loadBranchPrefs, savePinned, saveHidden, saveSoloBranch, saveBranchNotes,
+  migrateBranchPrefs,
   type BranchPrefs,
 } from '../features/sidebar/branchPrefsPersist';
 
@@ -24,6 +25,8 @@ export interface BranchPrefsState {
   toggleHide: (name: string) => void;
   setSoloBranch: (name: string | null) => void;
   setNote: (branchName: string, text: string) => void;
+  /** Перенести prefs при переименовании ветки (`git branch -m`). */
+  renameBranch: (oldName: string, newName: string) => void;
   /** Сбросить hidden для всего репо разом (баннер «Показать все ветки»). */
   clearAllHidden: () => void;
   clearAll: () => void;
@@ -74,6 +77,19 @@ export function useBranchPrefs(repoPath: string): BranchPrefsState {
     });
   }, [repoPath]);
 
+  const renameBranch = useCallback((oldName: string, newName: string) => {
+    if (!oldName || !newName || oldName === newName) return;
+    setPrefs(prev => {
+      const next = migrateBranchPrefs(prev, oldName, newName);
+      if (next === prev) return prev;
+      savePinned(repoPath, next.pinned);
+      saveHidden(repoPath, next.hidden);
+      saveSoloBranch(repoPath, next.soloBranch);
+      saveBranchNotes(repoPath, next.notes);
+      return next;
+    });
+  }, [repoPath]);
+
   const clearAllHidden = useCallback(() => {
     setPrefs(prev => {
       if (prev.hidden.length === 0) return prev;
@@ -102,6 +118,7 @@ export function useBranchPrefs(repoPath: string): BranchPrefsState {
     toggleHide,
     setSoloBranch,
     setNote,
+    renameBranch,
     clearAllHidden,
     clearAll,
   };

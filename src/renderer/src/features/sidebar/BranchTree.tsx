@@ -332,9 +332,6 @@ function BranchHoverActions({
   onTogglePin, onToggleSolo, onToggleHide, onShowInfo,
 }: BranchHoverActionsProps) {
   const hasNote = noteText.trim().length > 0;
-  /* Tooltip: при наличии заметки — её превью; иначе — подсказка «нет заметки,
-     кликни чтобы добавить». title (HTML-tooltip) держим как fallback для
-     a11y/скриншот-ридеров — SgTooltip сам tabIndex/role не выставляет. */
   const tooltipText = hasNote
     ? truncateNote(noteText)
     : loc.sidebar.branchNoteEmpty;
@@ -362,12 +359,12 @@ function BranchHoverActions({
         title={isHidden ? loc.sidebar.unhideBranch : loc.sidebar.hideBranch}
         aria-pressed={isHidden}
       ><IconEyeOff /></button>
-      <SgTooltip text={tooltipText} position="left">
+      <SgTooltip text={tooltipText} position="left" maxWidth={280}>
         <button
           type="button"
           className={`${s.branchActionBtn} ${hasNote ? s.branchActionActive : ''}`}
           onClick={onShowInfo}
-          title={tooltipText}
+          aria-label={loc.sidebar.branchNote}
           aria-pressed={hasNote}
         ><IconInfo /></button>
       </SgTooltip>

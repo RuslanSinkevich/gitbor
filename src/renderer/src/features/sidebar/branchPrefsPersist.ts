@@ -98,3 +98,33 @@ export function saveBranchNote(repoPath: string, branchName: string, text: strin
   else existing[branchName] = text;
   saveBranchNotes(repoPath, existing);
 }
+
+function remapList(list: string[], oldName: string, newName: string): string[] {
+  if (!list.includes(oldName)) return list;
+  const next = list.filter(n => n !== oldName);
+  if (!next.includes(newName)) next.push(newName);
+  return next;
+}
+
+/** Перенести pin/hide/solo/notes при `git branch -m`. */
+export function migrateBranchPrefs(
+  prefs: BranchPrefs,
+  oldName: string,
+  newName: string,
+): BranchPrefs {
+  if (!oldName || !newName || oldName === newName) return prefs;
+
+  const pinned = remapList(prefs.pinned, oldName, newName);
+  const hidden = remapList(prefs.hidden, oldName, newName);
+  const soloBranch = prefs.soloBranch === oldName ? newName : prefs.soloBranch;
+  let notes = prefs.notes;
+  if (oldName in prefs.notes) {
+    notes = { ...prefs.notes, [newName]: prefs.notes[oldName] };
+    delete notes[oldName];
+  }
+
+  if (pinned === prefs.pinned && hidden === prefs.hidden && soloBranch === prefs.soloBranch && notes === prefs.notes) {
+    return prefs;
+  }
+  return { pinned, hidden, soloBranch, notes };
+}

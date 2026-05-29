@@ -267,10 +267,14 @@
   pointer-events: none;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
-.sg-tooltip--top { bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); }
-.sg-tooltip--bottom { top: calc(100% + 6px); left: 50%; transform: translateX(-50%); }
-.sg-tooltip--left { right: calc(100% + 6px); top: 50%; transform: translateY(-50%); }
-.sg-tooltip--right { left: calc(100% + 6px); top: 50%; transform: translateY(-50%); }
+.sg-tooltip--portal {
+  position: fixed;
+  z-index: 9999;
+}
+.sg-tooltip--multiline {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 /* === Toast === */
 .sg-toast-container {

@@ -186,6 +186,17 @@ export function App() {
     if (!STALE_DIFF_OPS.has(lastOpResult.operation)) return;
     closeDiff();
   }, [lastOpResult, closeDiff]);
+
+  useEffect(() => {
+    if (!lastOpResult || !lastOpResult.success) return;
+    if (lastOpResult.operation !== 'renameBranch') return;
+    const cmd = lastCommandRef.current;
+    if (cmd?.type !== 'renameBranch') return;
+    branchPrefsState.renameBranch(cmd.oldName, cmd.newName);
+    setOpenInfoBranch(prev =>
+      prev?.name === cmd.oldName ? { ...prev, name: cmd.newName } : prev,
+    );
+  }, [lastOpResult, branchPrefsState.renameBranch]);
   useAutoFetch(
     state.repoPath,
     !!state.repoPath,
