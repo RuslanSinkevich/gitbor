@@ -52,3 +52,7 @@ tests-e2e/_report/
 tests-e2e/test-results/
 playwright-report/
 test-results/
+
+# VM dev helper scripts + Linux release output (local only)
+vm-scripts/
+linux-release/
