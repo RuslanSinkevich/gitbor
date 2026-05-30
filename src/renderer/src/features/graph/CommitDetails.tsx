@@ -1,39 +1,14 @@
 import { useState, useMemo, useCallback } from 'react';
 import { t } from '../../i18n';
 import { postCommand, copyToClipboard } from '../../api';
-import type { CommitDetail, FileChange } from '../../types';
+import type { CommitDetail, FileChange, FileStatus } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { AuthorAvatar } from '../../ui/AuthorAvatar';
-import { CommitExplainerButton, CommitExplainerOutput, useCommitExplainer } from '../ai';
+import { CommitExplainerButton, CommitExplainerOutput, type CommitExplainerState } from '../ai';
+import { buildFileTree, FileTreeItem } from '../changes/FileTree';
 import s from './CommitDetails.module.css';
 
 type Tab = 'commit' | 'changes' | 'tree';
-
-interface FileTreeNode {
-  name: string;
-  path: string;
-  status?: string;
-  children: FileTreeNode[];
-}
-
-function buildFileTree(files: FileChange[]): FileTreeNode[] {
-  const root: FileTreeNode[] = [];
-  for (const file of files) {
-    const parts = file.path.split('/');
-    let current = root;
-    for (let i = 0; i < parts.length; i++) {
-      const name = parts[i];
-      const isFile = i === parts.length - 1;
-      let existing = current.find(n => n.name === name);
-      if (!existing) {
-        existing = { name, path: parts.slice(0, i + 1).join('/'), status: isFile ? file.status : undefined, children: [] };
-        current.push(existing);
-      }
-      current = existing.children;
-    }
-  }
-  return root;
-}
 
 function statusIcon(status: string): string {
   switch (status) {
@@ -62,36 +37,6 @@ function formatDate(ts: number): string {
   });
 }
 
-function FileTreeItem({ node, depth, commitHash, onOpenDiff, activePath }: { node: FileTreeNode; depth: number; commitHash: string; onOpenDiff?: (file: string, hash: string) => void; activePath?: string }) {
-  const [expanded, setExpanded] = useState(true);
-  const isDir = node.children.length > 0;
-
-  const handleClick = () => {
-    if (isDir) setExpanded(e => !e);
-    else if (onOpenDiff) onOpenDiff(node.path, commitHash);
-    else postCommand({ type: 'openDiff', file: node.path, hash: commitHash });
-  };
-
-  return (
-    <>
-      <div className={`${s.fileTreeRow} ${!isDir && activePath === node.path ? s.fileTreeRowActive : ''}`} style={{ paddingLeft: depth * 16 + 4 }} onClick={handleClick}>
-        {isDir ? (
-          <span className={`${s.fileTreeArrow} ${expanded ? s.fileTreeArrowExpanded : ''}`}>&#9656;</span>
-        ) : (
-          <span className={s.fileTreeArrowPlaceholder} />
-        )}
-        <span className={s.fileTreeName}>{node.name}</span>
-        {node.status && (
-          <span className={`${s.fileTreeStatus} ${statusCls(node.status)}`}>{statusIcon(node.status)}</span>
-        )}
-      </div>
-      {isDir && expanded && node.children.map(child => (
-        <FileTreeItem key={child.path} node={child} depth={depth + 1} commitHash={commitHash} onOpenDiff={onOpenDiff} activePath={activePath} />
-      ))}
-    </>
-  );
-}
-
 interface Props {
   detail: CommitDetail | null;
   onSelectCommit?: (hash: string) => void;
@@ -106,9 +51,13 @@ interface Props {
       чтобы скрывать правую панель диффа на вкладке «Коммит». */
   activeTab?: Tab;
   onTabChange?: (tab: Tab) => void;
+  /** Состояние Commit Explainer-а лифтится в CommitsView: при переключении
+      вкладок detailPane ремаунтится, и локальный useAiStream отменял бы
+      in-flight запрос. Держим стрим в родителе, который не ремаунтится. */
+  explainer: CommitExplainerState;
 }
 
-export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMenu, onFileHistory, onFileBlame, onOpenAiSettings, activePath, activeTab, onTabChange }: Props) {
+export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMenu, onFileHistory, onFileBlame, onOpenAiSettings, activePath, activeTab, onTabChange, explainer }: Props) {
   const loc = t();
   const [tabInternal, setTabInternal] = useState<Tab>('commit');
   const tab = activeTab ?? tabInternal;
@@ -116,11 +65,22 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
     setTabInternal(next);
     onTabChange?.(next);
   };
-  const tree = useMemo(() => detail ? buildFileTree(detail.files) : [], [detail]);
+  /* Дерево строим тем же builder'ом, что и staged/unstaged в LocalChanges,
+     и рендерим тем же FileTreeItem — чтобы вид совпадал во всех трёх местах.
+     FileChange → FileStatus: добавляем staged:false (в дереве коммита оно
+     не используется, нужно только для совместимости типа). */
+  const tree = useMemo(() => {
+    if (!detail) return [];
+    const asStatus: FileStatus[] = detail.files.map((f) => ({
+      path: f.path,
+      status: f.status as FileStatus['status'],
+      staged: false,
+    }));
+    return buildFileTree(asStatus);
+  }, [detail]);
   const isCompareRange = detail?.hash.includes('..') ?? false;
-  /* Состояние Commit Explainer-а лифтится сюда — кнопку держим в строке
-     табов (видна при любой высоте панели), результат рендерим под subject. */
-  const explainer = useCommitExplainer(detail?.hash ?? '', onOpenAiSettings ?? (() => {}));
+  /* Кнопку держим в строке табов (видна при любой высоте панели), результат
+     рендерим под subject. Сам стрим живёт в CommitsView (см. проп explainer). */
   const showExplainer = !isCompareRange && !!onOpenAiSettings && !!detail;
 
   const getFileMenuItems = useCallback((file: FileChange, commitHash: string): SgContextMenuItem[] => {
@@ -165,7 +125,10 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
         </button>
         {showExplainer && (
           <div className={s.tabsActions}>
-            <CommitExplainerButton state={explainer} />
+            <CommitExplainerButton
+              state={explainer}
+              onFocusCommitTab={() => setTab('commit')}
+            />
           </div>
         )}
       </div>
@@ -234,7 +197,16 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
         {tab === 'tree' && (
           <div className={s.treeTab}>
             {tree.map(node => (
-              <FileTreeItem key={node.path} node={node} depth={0} commitHash={detail.hash} onOpenDiff={onOpenDiff} activePath={activePath} />
+              <FileTreeItem
+                key={node.path}
+                node={node}
+                depth={0}
+                section="unstaged"
+                activePath={activePath}
+                activeSection="unstaged"
+                onClickFile={(file) => onOpenDiff ? onOpenDiff(file.path, detail.hash) : postCommand({ type: 'openDiff', file: file.path, hash: detail.hash })}
+                onContextMenu={(e, file) => onContextMenu?.(e, getFileMenuItems(file, detail.hash))}
+              />
             ))}
           </div>
         )}

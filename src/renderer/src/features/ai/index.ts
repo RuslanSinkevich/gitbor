@@ -5,6 +5,7 @@ export {
   CommitExplainerButton,
   CommitExplainerOutput,
   useCommitExplainer,
+  type SharedState as CommitExplainerState,
 } from './CommitExplainer';
 export { AiIcon } from './AiIcon';
 export { AiSections } from './AiSections';

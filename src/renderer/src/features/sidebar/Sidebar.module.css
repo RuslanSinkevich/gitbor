@@ -123,16 +123,9 @@
   transform: rotate(90deg);
 }
 
-.sectionIcon {
-  font-size: 12px;
-  width: 16px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
 .sectionTitle {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--sg-foreground);

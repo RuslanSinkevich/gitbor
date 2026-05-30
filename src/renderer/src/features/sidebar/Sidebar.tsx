@@ -43,7 +43,7 @@ interface Props {
 
 interface SectionState { branches: boolean; remotes: boolean; tags: boolean; stashes: boolean }
 
-const ICONS = { branch: '⎇', remote: '☁', tag: '🏷', stash: '📦', changes: '●' } as const;
+const ICONS = { changes: '●' } as const;
 
 export function Sidebar({
   repoPath, currentBranch, branches, tags, stashes, remotes,
@@ -160,14 +160,14 @@ export function Sidebar({
         <input className={s.filterInput} type="text" placeholder={loc.sidebar.filter} value={filter} onChange={(e) => setFilter(e.target.value)} />
       </div>
 
-      <SidebarSection title={loc.sidebar.branches} icon={ICONS.branch} count={filteredLocal.length} expanded={sections.branches} onToggle={() => toggleSection('branches')}>
+      <SidebarSection title={loc.sidebar.branches} count={filteredLocal.length} expanded={sections.branches} onToggle={() => toggleSection('branches')}>
         {filteredLocal.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noBranches}</div>}
         {localTree.map(node => (
           <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandLocal} onBranchMove={handleBranchMove} prefs={branchPrefs} />
         ))}
       </SidebarSection>
 
-      <SidebarSection title={loc.sidebar.remotes} icon={ICONS.remote} count={remotes.length} expanded={sections.remotes} onToggle={() => toggleSection('remotes')}>
+      <SidebarSection title={loc.sidebar.remotes} count={remotes.length} expanded={sections.remotes} onToggle={() => toggleSection('remotes')}>
         {remotes.length === 0 && <div className={s.emptySection}>{loc.sidebar.noRemotes}</div>}
         {remoteEntries.map(({ remote, remoteTree, remoteBranchSig }) => (
           <RemoteFolder key={remote.name} repoPath={repoPath} remote={remote} tree={remoteTree} remoteBranchSig={remoteBranchSig}
@@ -176,7 +176,7 @@ export function Sidebar({
         ))}
       </SidebarSection>
 
-      <SidebarSection title={loc.sidebar.tags} icon={ICONS.tag} count={filteredTags.length} expanded={sections.tags} onToggle={() => toggleSection('tags')}>
+      <SidebarSection title={loc.sidebar.tags} count={filteredTags.length} expanded={sections.tags} onToggle={() => toggleSection('tags')}>
         {filteredTags.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noTags}</div>}
         {filteredTags.map(tag => (
           <div key={tag.name} className={s.item}
@@ -188,7 +188,7 @@ export function Sidebar({
         ))}
       </SidebarSection>
 
-      <SidebarSection title={loc.sidebar.stashes} icon={ICONS.stash} count={stashes.length} expanded={sections.stashes} onToggle={() => toggleSection('stashes')}>
+      <SidebarSection title={loc.sidebar.stashes} count={stashes.length} expanded={sections.stashes} onToggle={() => toggleSection('stashes')}>
         {stashes.length === 0 && <div className={s.emptySection}>{loc.sidebar.noStashes}</div>}
         {stashes.filter(st => !isAutoStash(st)).map(stash => (
           <StashItem
@@ -315,14 +315,13 @@ function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, 
   );
 }
 
-function SidebarSection({ title, icon, count, expanded, onToggle, children }: {
-  title: string; icon: string; count: number; expanded: boolean; onToggle: () => void; children: React.ReactNode;
+function SidebarSection({ title, count, expanded, onToggle, children }: {
+  title: string; count: number; expanded: boolean; onToggle: () => void; children: React.ReactNode;
 }) {
   return (
     <div className={s.section}>
       <div className={s.sectionHeader} onClick={onToggle}>
         <span className={`${s.arrow} ${expanded ? s.arrowExpanded : ''}`}>&#9656;</span>
-        <span className={s.sectionIcon}>{icon}</span>
         <span className={s.sectionTitle}>{title}</span>
         <span className={s.sectionCount}>{count}</span>
       </div>

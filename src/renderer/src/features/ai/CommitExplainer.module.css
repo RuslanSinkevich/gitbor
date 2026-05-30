@@ -1,4 +1,5 @@
-/* Иконка-only кнопка: компактный квадрат, без подписи (есть title/aria). */
+/* Иконка-only кнопка: компактный квадрат, без подписи (есть title/aria).
+   Как остальные AI-кнопки (reflog/merge). */
 .runBtn {
   display: inline-flex;
   align-items: center;
@@ -7,6 +8,16 @@
   width: 28px;
   height: 24px;
   flex-shrink: 0;
+}
+
+/* Во время генерации — кнопка пульсирует (иконка остаётся на месте). */
+.runBtnBusy {
+  animation: runBtnPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes runBtnPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
 }
 
 .panel {

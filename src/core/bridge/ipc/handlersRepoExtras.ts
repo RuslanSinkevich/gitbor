@@ -211,11 +211,18 @@ export const ipcHandlersRepoExtras: HandlerTable = {
     if (!repoPath) return;
     const { spawn } = await import('child_process');
     if (process.platform === 'win32') {
-      // ВАЖНО: НЕ передаём repoPath в строку команды (`cd /d "${repoPath}"`)
-      // — там был shell-injection через `&`/`"` в имени папки. Вместо этого
-      // запускаем cmd.exe с cwd=repoPath, чтобы новый терминал открылся уже
-      // в нужной директории, и repoPath никогда не парсится cmd-парсером.
-      const proc = spawn('cmd.exe', [], { cwd: repoPath, windowsHide: false, detached: true, stdio: 'ignore' });
+      // Открываем НОВОЕ окно терминала через `cmd /c start`. Без `start`
+      // cmd.exe запускается невидимо (у Electron-GUI нет консоли), и юзер
+      // видит «ничего не произошло».
+      //
+      // Безопасность: repoPath НЕ попадает в строку команды (там был бы
+      // shell-injection через `&`/`"` в имени папки) — он идёт только как
+      // cwd процесса, поэтому новый терминал стартует в нужной директории,
+      // а cmd-парсер repoPath никогда не видит. Пустые кавычки "" — это
+      // обязательный пустой title для команды `start`.
+      const proc = spawn('cmd.exe', ['/c', 'start', '', 'cmd.exe'], {
+        cwd: repoPath, windowsHide: false, detached: true, stdio: 'ignore',
+      });
       proc.unref();
     } else if (process.platform === 'darwin') {
       // open -a Terminal <path> — `path` идёт отдельным аргументом

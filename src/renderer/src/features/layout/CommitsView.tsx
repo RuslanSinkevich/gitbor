@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CommitGraph, CommitDetails } from '../graph';
+import { useCommitExplainer } from '../ai';
 import { RightPanelContent, type RightPanel } from './RightPanelContent';
 import { SgSplitPane } from '../../ui/SgSplitPane';
 import { postCommand } from '../../api';
@@ -61,6 +62,11 @@ export function CommitsView({
      только на «Изменения»/«Дерево файлов». */
   const [detailTab, setDetailTab] = useState<'commit' | 'changes' | 'tree'>('commit');
   const showDiffPane = !!diffTarget && detailTab !== 'commit';
+
+  /* Стрим Commit Explainer-а держим здесь, а не в CommitDetails: при
+     переключении вкладок detailPane перемещается в дереве (split ↔ no-split)
+     и CommitDetails ремаунтится — локальный useAiStream отменял бы запрос. */
+  const explainer = useCommitExplainer(commitDetail?.hash ?? '', onOpenAiSettings ?? (() => {}));
 
   const filtered = useGraphFilter(state.commits, state.branches, soloBranch, hidden);
   /* Если фильтр активен — используем результат фильтра (включая layout).
@@ -154,6 +160,7 @@ export function CommitsView({
         activePath={diffTarget?.file}
         activeTab={detailTab}
         onTabChange={setDetailTab}
+        explainer={explainer}
       />
     </div>
   );

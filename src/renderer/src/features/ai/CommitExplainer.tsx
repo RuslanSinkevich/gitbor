@@ -6,7 +6,7 @@ import { AiIcon } from './AiIcon';
 import { AiSections } from './AiSections';
 import s from './CommitExplainer.module.css';
 
-interface SharedState {
+export interface SharedState {
   hash: string;
   onOpenSettings: () => void;
   loaded: boolean;
@@ -51,27 +51,38 @@ export function useCommitExplainer(hash: string, onOpenSettings: () => void): Sh
 
 interface ButtonProps {
   state: SharedState;
+  /** При клике сначала переключить фокус на вкладку «Коммит». */
+  onFocusCommitTab?: () => void;
 }
 
 /**
- * Маленькая кнопка-триггер в строке табов CommitDetails. Отдельно от
- * результата — чтобы её было видно даже когда нижняя панель сжата по
- * высоте и сам commitTab почти не виден.
+ * Маленькая кнопка-триггер в строке табов CommitDetails.
+ *
+ * При клике: фокусирует вкладку «Коммит» (результат там), затем
+ * запускает/отменяет генерацию. Во время генерации — просто синяя,
+ * без спиннера.
  */
-export function CommitExplainerButton({ state }: ButtonProps) {
+export function CommitExplainerButton({ state, onFocusCommitTab }: ButtonProps) {
   const loc = t().aiTier2;
   if (state.hidden) return null;
   const { stream, start, loaded } = state;
+
+  const handleClick = () => {
+    onFocusCommitTab?.();
+    if (stream.busy) stream.cancel();
+    else start();
+  };
+
   return (
     <button
       type="button"
-      className={`sg-button sg-button--primary sg-button--sm ${s.runBtn}`}
-      onClick={stream.busy ? stream.cancel : start}
+      className={`sg-button sg-button--primary sg-button--sm ${s.runBtn} ${stream.busy ? s.runBtnBusy : ''}`}
+      onClick={handleClick}
       title={stream.busy ? loc.cancel : loc.explainCommitTooltip}
       aria-label={stream.busy ? loc.cancel : loc.explainCommit}
       disabled={!loaded}
     >
-      {stream.busy ? <span className={s.spinner} /> : <AiIcon size={14} />}
+      <AiIcon size={14} />
     </button>
   );
 }
