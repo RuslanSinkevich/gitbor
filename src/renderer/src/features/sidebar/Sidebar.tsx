@@ -119,11 +119,12 @@ export function Sidebar({
       defaultValue: newName,
       onConfirm: (finalName) => {
         if (finalName && finalName !== oldName) {
+          branchPrefs?.renameBranch(oldName, finalName);
           postCommand({ type: 'renameBranch', oldName, newName: finalName });
         }
       },
     });
-  }, [showPrompt, loc.sidebar]);
+  }, [showPrompt, loc.sidebar, branchPrefs]);
 
   // На больших репо (сотни remote-branches за 5 лет) buildBranchTree +
   // sortBranchTreeNodes с localeCompare — десятки/сотни мс. Строим дерево
@@ -150,7 +151,7 @@ export function Sidebar({
       </div>
       <div className={`${s.navItem} ${activeView === 'commits' ? s.navItemActive : ''}`} onClick={() => onSwitchView('commits')}>
         <span className={s.navIcon}>☰</span>
-        <span className={s.navLabel}>{loc.sidebar.allCommits}</span>
+        <span className={s.navLabel}>{loc.sidebar.graph}</span>
       </div>
 
       <div className={s.navDivider} />

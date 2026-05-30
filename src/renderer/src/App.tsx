@@ -114,6 +114,7 @@ export function App() {
     toggleSolo: (name: string) => branchPrefsState.setSoloBranch(name),
     clearSolo: () => branchPrefsState.setSoloBranch(null),
     showInfo: (b: Branch) => setOpenInfoBranch(b),
+    renameBranch: branchPrefsState.renameBranch,
   }), [branchPrefsState]);
   // RepoManager как «вкладка»: «+» в RepoTabs включает этот флаг и
   // показывает менеджер поверх workspace, не открывая системный диалог.
@@ -187,16 +188,22 @@ export function App() {
     closeDiff();
   }, [lastOpResult, closeDiff]);
 
+  /**
+   * После успешного коммита авто-выбираем новый HEAD (tip текущей ветки) —
+   * «авто-клик» по коммиту в графе. `commit` через `opWithPostMerge` шлёт
+   * обновление веток/графа ДО `operationEnd`, события идут по одному IPC-
+   * каналу по порядку, поэтому к моменту смены `lastOpResult` на `commit`
+   * `state.branches` уже содержит свежий tip. Граф сам проскроллится к
+   * выбранному (эффект scrollToRow в CommitGraph). Вид не переключаем —
+   * фокус срабатывает, когда пользователь откроет вкладку коммитов.
+   */
   useEffect(() => {
     if (!lastOpResult || !lastOpResult.success) return;
-    if (lastOpResult.operation !== 'renameBranch') return;
-    const cmd = lastCommandRef.current;
-    if (cmd?.type !== 'renameBranch') return;
-    branchPrefsState.renameBranch(cmd.oldName, cmd.newName);
-    setOpenInfoBranch(prev =>
-      prev?.name === cmd.oldName ? { ...prev, name: cmd.newName } : prev,
-    );
-  }, [lastOpResult, branchPrefsState.renameBranch]);
+    if (lastOpResult.operation !== 'commit') return;
+    const tip = state.branches.find(b => b.isCurrent)?.hash;
+    if (tip && tip !== state.selectedCommitHash) selectCommit(tip);
+  }, [lastOpResult, state.branches, state.selectedCommitHash, selectCommit]);
+
   useAutoFetch(
     state.repoPath,
     !!state.repoPath,

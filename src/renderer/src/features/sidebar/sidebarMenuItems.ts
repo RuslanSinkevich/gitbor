@@ -23,6 +23,8 @@ export interface BranchExtrasMenu {
   onToggleSolo?: () => void;
   onClearSolo?: () => void;
   onShowInfo?: () => void;
+  /** Перенести pin/hide/solo/notes на новое имя перед отправкой renameBranch. */
+  onRename?: (oldName: string, newName: string) => void;
 }
 
 export function getBranchMenuItems(
@@ -45,7 +47,12 @@ export function getBranchMenuItems(
       action: () => showPrompt({
         title: tpl(loc.contextMenu.rename, { name: branch.name }),
         defaultValue: branch.name,
-        onConfirm: (newName) => postCommand({ type: 'renameBranch', oldName: branch.name, newName }),
+        onConfirm: (newName) => {
+          if (newName && newName !== branch.name) {
+            extras.onRename?.(branch.name, newName);
+            postCommand({ type: 'renameBranch', oldName: branch.name, newName });
+          }
+        },
       }),
     });
     if (!branch.isCurrent) {

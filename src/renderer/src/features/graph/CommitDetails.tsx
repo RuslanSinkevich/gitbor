@@ -102,11 +102,20 @@ interface Props {
   /** Открыть AI Settings — нужно `CommitExplainer`'у когда конфиг отсутствует. */
   onOpenAiSettings?: () => void;
   activePath?: string;
+  /** Управляемая вкладка: родителю (CommitsView) нужно знать активную вкладку,
+      чтобы скрывать правую панель диффа на вкладке «Коммит». */
+  activeTab?: Tab;
+  onTabChange?: (tab: Tab) => void;
 }
 
-export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMenu, onFileHistory, onFileBlame, onOpenAiSettings, activePath }: Props) {
+export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMenu, onFileHistory, onFileBlame, onOpenAiSettings, activePath, activeTab, onTabChange }: Props) {
   const loc = t();
-  const [tab, setTab] = useState<Tab>('commit');
+  const [tabInternal, setTabInternal] = useState<Tab>('commit');
+  const tab = activeTab ?? tabInternal;
+  const setTab = (next: Tab) => {
+    setTabInternal(next);
+    onTabChange?.(next);
+  };
   const tree = useMemo(() => detail ? buildFileTree(detail.files) : [], [detail]);
   const isCompareRange = detail?.hash.includes('..') ?? false;
   /* Состояние Commit Explainer-а лифтится сюда — кнопку держим в строке

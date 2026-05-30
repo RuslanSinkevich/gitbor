@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   loadBranchPrefs, savePinned, saveHidden, saveSoloBranch, saveBranchNotes,
-  migrateBranchPrefs,
+  migrateBranchPrefs, saveBranchPrefs,
   type BranchPrefs,
 } from '../features/sidebar/branchPrefsPersist';
 
@@ -81,11 +81,9 @@ export function useBranchPrefs(repoPath: string): BranchPrefsState {
     if (!oldName || !newName || oldName === newName) return;
     setPrefs(prev => {
       const next = migrateBranchPrefs(prev, oldName, newName);
-      if (next === prev) return prev;
-      savePinned(repoPath, next.pinned);
-      saveHidden(repoPath, next.hidden);
-      saveSoloBranch(repoPath, next.soloBranch);
-      saveBranchNotes(repoPath, next.notes);
+      if (next !== prev) {
+        saveBranchPrefs(repoPath, next);
+      }
       return next;
     });
   }, [repoPath]);

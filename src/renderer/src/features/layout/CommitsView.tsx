@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { CommitGraph, CommitDetails } from '../graph';
 import { RightPanelContent, type RightPanel } from './RightPanelContent';
 import { SgSplitPane } from '../../ui/SgSplitPane';
@@ -54,6 +55,12 @@ export function CommitsView({
   const loc = t();
   const graphHeightKey = buildStorageKey('sg-layout:commits-graph-height', state.repoPath);
   const detailWidthKey = buildStorageKey('sg-layout:commits-detail-width', state.repoPath);
+
+  /* Активная вкладка деталей коммита. На вкладке «Коммит» правая панель
+     диффа не нужна (там нет выбора конкретного файла) — показываем её
+     только на «Изменения»/«Дерево файлов». */
+  const [detailTab, setDetailTab] = useState<'commit' | 'changes' | 'tree'>('commit');
+  const showDiffPane = !!diffTarget && detailTab !== 'commit';
 
   const filtered = useGraphFilter(state.commits, state.branches, soloBranch, hidden);
   /* Если фильтр активен — используем результат фильтра (включая layout).
@@ -145,13 +152,15 @@ export function CommitsView({
         onFileBlame={(f) => openFileBlame(f)}
         onOpenAiSettings={onOpenAiSettings}
         activePath={diffTarget?.file}
+        activeTab={detailTab}
+        onTabChange={setDetailTab}
       />
     </div>
   );
 
   const bottomPane = (
     <div className={s.commitBottomPane}>
-      {diffTarget ? (
+      {showDiffPane ? (
         <SgSplitPane
           direction="horizontal"
           defaultSize={360}

@@ -90,7 +90,7 @@ export const en = {
     moveBranchPrompt: 'New name for {old}:',
     filter: 'Filter',
     localChanges: 'Local Changes',
-    allCommits: 'All Commits',
+    graph: 'Commit Graph',
     modifiedFiles: 'modified files',
     noChanges: 'No changes',
     noMatches: 'No matches',

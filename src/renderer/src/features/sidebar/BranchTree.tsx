@@ -39,6 +39,7 @@ export interface BranchPrefsAPI {
   toggleSolo: (name: string) => void;
   clearSolo: () => void;
   showInfo: (branch: Branch) => void;
+  renameBranch: (oldName: string, newName: string) => void;
 }
 
 /* ─── Tree node ─── */

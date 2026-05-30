@@ -128,3 +128,10 @@ export function migrateBranchPrefs(
   }
   return { pinned, hidden, soloBranch, notes };
 }
+
+export function saveBranchPrefs(repoPath: string, prefs: BranchPrefs): void {
+  savePinned(repoPath, prefs.pinned);
+  saveHidden(repoPath, prefs.hidden);
+  saveSoloBranch(repoPath, prefs.soloBranch);
+  saveBranchNotes(repoPath, prefs.notes);
+}
