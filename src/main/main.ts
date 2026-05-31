@@ -56,6 +56,21 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
 }
 
+// Chromium sandbox на Linux требует setuid-root `chrome-sandbox` ЛИБО
+// разрешённых unprivileged user namespaces. В AppImage первое невозможно
+// (бинарь монтируется из /tmp, setuid там не работает), а второе зарезано
+// AppArmor на Ubuntu 23.10+ и в части корпоративных РФ-сборок — из-за чего
+// приложение падает с "SUID sandbox helper ... aborting" при обычном
+// двойном клике по скачанному AppImage.
+//
+// Чтобы конечный пользователь мог просто скачать и запустить (без флагов,
+// libfuse-плясок и прав администратора), на Linux отключаем sandbox.
+// Откат для hardened-окружений: переменная GITBOR_ENABLE_SANDBOX=1.
+// Guard по platform исключает влияние на Windows/macOS, где sandbox работает.
+if (process.platform === 'linux' && process.env.GITBOR_ENABLE_SANDBOX !== '1') {
+  app.commandLine.appendSwitch('no-sandbox');
+}
+
 /**
  * Sanity-check что Vite dev-server слушает порт. Вызывается один раз
  * перед `loadURL`. Раньше тут был цикл с `setTimeout(250)` retry до

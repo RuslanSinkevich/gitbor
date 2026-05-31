@@ -15,9 +15,34 @@ function isPortableBuild(): boolean {
 }
 
 /**
- * Auto-update через Yandex Object Storage (generic provider в build.publish).
- * Только packaged NSIS; dev и portable — пропускаем.
- * UI — в renderer (i18n).
+ * electron-builder зашивает `publish.url` (`stable/win/`) в app-update.yml.
+ * Но Linux/macOS-артефакты лежат в других папках бакета (`stable/linux/`,
+ * `stable/mac/`), а electron-updater ищет `latest-linux.yml` /
+ * `latest-mac.yml` относительно feed-URL. Без переопределения Linux искал
+ * бы `stable/win/latest-linux.yml` и обновление не находилось бы.
+ *
+ * Поэтому feed-URL выставляем по платформе в рантайме. Для Windows значение
+ * совпадает с app-update.yml — поведение не меняется. Linux auto-update
+ * поддерживается только для AppImage (deb обновляется через apt).
+ */
+function configurePlatformFeedUrl(): void {
+  const base =
+    process.env.GITBOR_UPDATE_BASE_URL ??
+    'https://storage.yandexcloud.net/gitbor/stable';
+  const dir =
+    process.platform === 'win32'
+      ? 'win'
+      : process.platform === 'darwin'
+        ? 'mac'
+        : 'linux';
+  autoUpdater.setFeedURL({ provider: 'generic', url: `${base}/${dir}/` });
+}
+
+/**
+ * Auto-update через Yandex Object Storage (generic provider).
+ * Поддержка: packaged Windows NSIS и Linux AppImage. Пропускаем dev,
+ * Windows-portable и deb (apt). Feed-URL — по платформе
+ * (см. configurePlatformFeedUrl). UI — в renderer (i18n).
  */
 export function setupAppUpdater(notify: (event: MainEvent) => void): void {
   if (!app.isPackaged) {
@@ -36,6 +61,7 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
   autoUpdater.logger = mainLogger;
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = false;
+  configurePlatformFeedUrl();
 
   // `error` нужен: иначе unhandled rejection из недр electron-updater'а
   // на недоступный бакет / битый latest.yml вылетает в main process.
@@ -70,6 +96,8 @@ export async function runManualUpdateCheck(notify: (event: MainEvent) => void): 
     notify({ type: 'appUpdateManualResult', result: 'nsis-only' });
     return;
   }
+
+  configurePlatformFeedUrl();
 
   try {
     const result = await autoUpdater.checkForUpdates();

@@ -92,7 +92,7 @@ export const ru: LocaleMap = {
     moveBranchPrompt: 'Новое имя для {old}:',
     filter: 'Фильтр',
     localChanges: 'Локальные изменения',
-    graph: 'Дерево коммитов',
+    graph: 'Граф комитов',
     modifiedFiles: 'изменённых файлов',
     noChanges: 'Нет изменений',
     noMatches: 'Нет совпадений',

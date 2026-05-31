@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { t } from '../../i18n';
 import { postCommand } from '../../api';
 import { GitActivityIndicator } from '../git-activity';
+import { shouldShowMergeBanner } from '../merge';
 import type { MergeState } from '../../types';
 import type { ShowPrompt } from '../graph/commitMenuItems';
 import s from './Toolbar.module.css';
@@ -26,8 +27,8 @@ interface Props {
   /**
    * Активное merge/cherry-pick/revert состояние. Если задано и
    * `inProgress === true`, в правой части тулбара показывается красная
-   * кнопка «Прервать» (как в Fork). Rebase скрыт, у него свой баннер
-   * с continue/skip/abort.
+   * кнопка «Отменить». Скрывается, если виден MergeBanner (те же конфликты).
+   * Rebase скрыт — у него свой баннер с continue/skip/abort.
    */
   mergeState?: MergeState | null;
   showPrompt?: ShowPrompt;
@@ -127,7 +128,11 @@ export function Toolbar(props: Props) {
   const behind = props.behind ?? 0;
   const loc = t();
 
-  const showAbort = !!mergeState?.inProgress && mergeState.kind !== 'rebase' && mergeState.kind !== 'none';
+  const showAbort =
+    !!mergeState?.inProgress &&
+    mergeState.kind !== 'rebase' &&
+    mergeState.kind !== 'none' &&
+    !shouldShowMergeBanner(mergeState);
 
   const abortKindLabel = mergeState?.kind === 'cherry-pick' ? loc.mergeBanner.cherryPicking
     : mergeState?.kind === 'revert' ? loc.mergeBanner.reverting
