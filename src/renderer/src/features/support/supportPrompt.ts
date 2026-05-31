@@ -46,6 +46,8 @@ export interface SupportPromptApi {
   close: () => void;
   /** Больше не показывать никогда. */
   dismissForever: () => void;
+  /** Открыть вручную (кнопка «Сказать спасибо» в About) — вне недельной логики. */
+  openManually: () => void;
 }
 
 /**
@@ -80,5 +82,7 @@ export function useSupportPrompt(enabled: boolean): SupportPromptApi {
     setOpen(false);
   };
 
-  return { open, close, dismissForever };
+  const openManually = () => setOpen(true);
+
+  return { open, close, dismissForever, openManually };
 }

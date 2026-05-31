@@ -7,9 +7,11 @@ import s from './AboutDialog.module.css';
 interface Props {
   onClose: () => void;
   loc: ReturnType<typeof t>;
+  /** Открыть диалог «спасибо автору» (та же модалка, что раз в неделю). */
+  onSayThanks?: () => void;
 }
 
-export function AboutDialog({ onClose, loc }: Props) {
+export function AboutDialog({ onClose, loc, onSayThanks }: Props) {
   const [version, setVersion] = useState('…');
   const [checking, setChecking] = useState(false);
 
@@ -41,18 +43,29 @@ export function AboutDialog({ onClose, loc }: Props) {
       onClose={onClose}
       size="sm"
       footer={
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            className="sg-button sg-button--md sg-button--ghost"
-            onClick={handleCheck}
-            disabled={checking}
-          >
-            {checking ? loc.aboutDialog.checkingUpdates : loc.aboutDialog.checkUpdates}
-          </button>
-          <button type="button" className="sg-button sg-button--primary sg-button--sm" onClick={onClose}>
-            {loc.dialog.close}
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 8 }}>
+          {onSayThanks ? (
+            <button
+              type="button"
+              className="sg-button sg-button--sm sg-button--ghost"
+              onClick={() => { onSayThanks(); onClose(); }}
+            >
+              {loc.aboutDialog.sayThanks}
+            </button>
+          ) : <span />}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className="sg-button sg-button--sm sg-button--ghost"
+              onClick={handleCheck}
+              disabled={checking}
+            >
+              {checking ? loc.aboutDialog.checkingUpdates : loc.aboutDialog.checkUpdates}
+            </button>
+            <button type="button" className="sg-button sg-button--primary sg-button--sm" onClick={onClose}>
+              {loc.dialog.close}
+            </button>
+          </div>
         </div>
       }
     >

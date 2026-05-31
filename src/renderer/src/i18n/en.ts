@@ -267,10 +267,9 @@ export const en = {
   },
   support: {
     title: 'Enjoying GitBor?',
-    intro: 'GitBor is built by one person and given away for free. If it helped you, any kind word means a lot.',
-    telegram: "Author's Telegram",
-    site: 'Website & other projects',
-    email: 'Send an email',
+    intro: 'GitBor is built by one person and given away for free. If it helped you, consider supporting the project.',
+    donateTitle: 'Support the project',
+    donateSubtitle: 'GitBor is free — your support is much appreciated!',
     shareNote: 'And, of course, tell your developer friends about GitBor — that is the best support.',
     dontShow: "Don't show again",
     thanks: 'Thanks!',
@@ -458,6 +457,7 @@ export const en = {
     more: 'More about the author',
     checkUpdates: 'Check for updates',
     checkingUpdates: 'Checking…',
+    sayThanks: 'Say thanks',
   },
   statusbar: {
     noRepo: 'No repository',

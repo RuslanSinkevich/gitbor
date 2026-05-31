@@ -4,8 +4,9 @@
 #  Chto delaet:
 #    1. zabiraet svezhiy kod iz obshchey papki (krome node_modules/.git)
 #    2. stavit zavisimosti (esli menyalis)
-#    3. sobiraet AppImage + deb (npm run dist:linux)
-#    4. kladet artefakty obratno v obshchuyu papku -> na Windows
+#    3. chistit starye artefakty (release/ + linux-release/)
+#    4. sobiraet AppImage + deb + rpm (npm run dist:linux)
+#    5. kladet artefakty obratno v obshchuyu papku -> na Windows
 #  Zapusk (iz obshchey papki, ne iz ~/gitbor):
 #    bash /media/sf_gitbor/vm-scripts/release-linux.sh
 # ============================================================
@@ -45,15 +46,30 @@ if [ ! -f "$DST/resources/icon.png" ]; then
   npm run build:icons
 fi
 
-echo "==> 4. Sborka Linux-artefaktov (dist:linux)"
+echo "==> 4. Proverka rpm-tooling (dlya .rpm pod RedOS/Fedora)"
+if ! command -v rpmbuild >/dev/null 2>&1; then
+  echo "   rpmbuild ne najden, ustanavlivayu paket rpm"
+  sudo apt install -y rpm
+fi
+
+echo "==> 5. Ochistka staryh artefaktov (release/ + linux-release/)"
+rm -f "$DST"/release/*.AppImage \
+      "$DST"/release/*.AppImage.blockmap \
+      "$DST"/release/*_amd64.deb \
+      "$DST"/release/*.rpm \
+      "$DST"/release/latest-linux.yml 2>/dev/null || true
+rm -rf "$OUT"
+
+echo "==> 6. Sborka Linux-artefaktov (AppImage + deb + rpm)"
 npm run dist:linux
 
-echo "==> 5. Kopirovanie artefaktov obratno v $OUT"
+echo "==> 7. Kopirovanie artefaktov obratno v $OUT"
 mkdir -p "$OUT"
 copied=0
 for f in "$DST"/release/*.AppImage \
          "$DST"/release/*.AppImage.blockmap \
          "$DST"/release/*_amd64.deb \
+         "$DST"/release/*.rpm \
          "$DST"/release/latest-linux.yml; do
   if [ -f "$f" ]; then
     cp -v "$f" "$OUT/"
@@ -71,8 +87,9 @@ echo "============================================================"
 echo " GOTOVO. Fayly na Windows tut:"
 echo "   D:\\Users\\Admin\\Desktop\\Skycode\\gitbor\\linux-release\\"
 echo ""
-echo " Zalit v bucket: gitbor/stable/linux/  (perezapisat 3 fayla)"
+echo " Zalit v bucket: gitbor/stable/linux/  (perezapisat)"
 echo "   - GitBor-X.Y.Z.AppImage"
 echo "   - gitbor_X.Y.Z_amd64.deb"
+echo "   - gitbor-X.Y.Z.x86_64.rpm"
 echo "   - latest-linux.yml"
 echo "============================================================"

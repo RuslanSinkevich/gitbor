@@ -16,6 +16,7 @@
 | `release-linux.sh` | После правок на Windows, для релиза | Синкает код Win→VM, ставит зависимости, собирает AppImage+deb, кладёт в `linux-release/` (видно на Windows) |
 | `copy-release.sh` | Если собрал вручную | Просто копирует готовые артефакты из `~/gitbor/release` в общую папку |
 | `install-appimage.sh` | Поставить AppImage с ярлыком | Кладёт AppImage в `~/Applications`, создаёт иконку и ярлык в меню (без админа). Авто-апдейт заменяет файл на месте |
+| `install-deb.sh` | Поставить как обычный юзер (Ubuntu/Debian) | Сносит старую установку (AppImage + deb), ставит свежий `.deb` через apt. Иконка и меню — автоматом. Авто-апдейта нет |
 
 ## Команды
 
@@ -35,6 +36,9 @@ bash /media/sf_gitbor/vm-scripts/release-linux.sh
 
 # поставить AppImage с ярлыком в меню (без админа)
 bash /media/sf_gitbor/vm-scripts/install-appimage.sh
+
+# поставить как обычный юзер через deb (иконка автоматом, без авто-апдейта)
+bash /media/sf_gitbor/vm-scripts/install-deb.sh
 ```
 
 ## Релизный цикл Linux

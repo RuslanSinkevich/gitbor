@@ -1,7 +1,7 @@
 {
   "name": "gitbor",
   "productName": "GitBor",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Cross-platform desktop Git client",
   "author": "Ruslan Sinkevich <ruslan-sink@mail.ru>",
   "license": "MIT",
@@ -69,7 +69,8 @@
     "linux": {
       "target": [
         "AppImage",
-        "deb"
+        "deb",
+        "rpm"
       ],
       "category": "Development",
       "icon": "resources/icon.png",

@@ -55,6 +55,8 @@ interface AppDialogsProps {
   repoPath?: string | null;
   /** Safety-диалог: current/onAction/close. */
   safety?: UseSafetyDialog;
+  /** Открыть диалог «спасибо автору» из About. */
+  onSayThanks?: () => void;
 }
 
 export function AppDialogs(props: AppDialogsProps) {
@@ -69,6 +71,7 @@ export function AppDialogs(props: AppDialogsProps) {
     dlg, showPrompt, loc,
     repoPath,
     safety,
+    onSayThanks,
   } = props;
 
   return (
@@ -99,7 +102,7 @@ export function AppDialogs(props: AppDialogsProps) {
           <MergeDialog source={mergeDialogSource} target={currentBranch} onClose={() => setMergeDialogSource(null)} />
         )}
 
-        {dlg.showAbout && <AboutDialog onClose={() => dlg.setShowAbout(false)} loc={loc} />}
+        {dlg.showAbout && <AboutDialog onClose={() => dlg.setShowAbout(false)} loc={loc} onSayThanks={onSayThanks} />}
         {dlg.showSshKeys && <SshKeysDialog onClose={() => dlg.setShowSshKeys(false)} />}
         {dlg.showRepoSettings && <RepoSettingsDialog onClose={() => dlg.setShowRepoSettings(false)} />}
         {dlg.showReflog && <ReflogDialog onClose={() => dlg.setShowReflog(false)} showPrompt={showPrompt} />}

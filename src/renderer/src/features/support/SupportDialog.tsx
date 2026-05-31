@@ -8,23 +8,23 @@ interface Props {
   onDismiss: () => void;
 }
 
-const TELEGRAM_URL = 'https://t.me/ruslansinkevich';
-const SITE_URL = 'https://ruslansinkevich.ru';
-const EMAIL = 'ruslan-sink@mail.ru';
+const DONATE_SUMS = [300, 500, 1000, 5000] as const;
+const YOOMONEY_RECEIVER = '4100117726681107';
+const DONATE_TARGET = 'Поддержка GitBor';
 
-const IconTelegram = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <path d="M21.9 4.3 18.7 19.6c-.2 1-.9 1.3-1.7.8l-4.7-3.5-2.3 2.2c-.3.3-.5.5-1 .5l.4-5 9-8.1c.4-.3-.1-.5-.6-.2L6.4 13.6l-4.8-1.5c-1-.3-1-1 .2-1.5l18.7-7.2c.9-.3 1.6.2 1.4 1.4z" />
-  </svg>
-);
-const IconSite = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-    <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18" />
-  </svg>
-);
-const IconMail = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-    <rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" />
+function yoomoneyUrl(sum: number): string {
+  const params = new URLSearchParams({
+    receiver: YOOMONEY_RECEIVER,
+    sum: String(sum),
+    'quickpay-form': 'donate',
+    targets: DONATE_TARGET,
+  });
+  return `https://yoomoney.ru/quickpay/confirm?${params.toString()}`;
+}
+
+const IconHeart = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M12 21s-7.5-4.8-10-9.2C.6 9 1.6 5.6 4.8 5c2-.4 3.6.6 4.7 2 1.1-1.4 2.7-2.4 4.7-2 3.2.6 4.2 4 2.8 6.8C19.5 16.2 12 21 12 21z" />
   </svg>
 );
 
@@ -45,20 +45,31 @@ export function SupportDialog({ open, onClose, onDismiss }: Props) {
   return (
     <SgDialog open={open} title={loc.title} onClose={onClose} size="sm" footer={footer}>
       <p className={s.intro}>{loc.intro}</p>
-      <div className={s.links}>
-        <a className={s.linkRow} href={TELEGRAM_URL} target="_blank" rel="noreferrer noopener">
-          <span className={s.linkIcon}><IconTelegram /></span>
-          <span>{loc.telegram}</span>
-        </a>
-        <a className={s.linkRow} href={SITE_URL} target="_blank" rel="noreferrer noopener">
-          <span className={s.linkIcon}><IconSite /></span>
-          <span>{loc.site}</span>
-        </a>
-        <a className={s.linkRow} href={`mailto:${EMAIL}`}>
-          <span className={s.linkIcon}><IconMail /></span>
-          <span>{loc.email}</span>
-        </a>
+
+      <div className={s.donateCard}>
+        <div className={s.donateHead}>
+          <span className={s.donateTitle}>
+            <span className={s.heart}><IconHeart /></span>
+            {loc.donateTitle}
+          </span>
+          <span className={s.donateSubtitle}>{loc.donateSubtitle}</span>
+        </div>
+
+        <div className={s.sums}>
+          {DONATE_SUMS.map((sum) => (
+            <a
+              key={sum}
+              className={s.sumBtn}
+              href={yoomoneyUrl(sum)}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              {sum} ₽
+            </a>
+          ))}
+        </div>
       </div>
+
       <p className={s.shareNote}>{loc.shareNote}</p>
     </SgDialog>
   );

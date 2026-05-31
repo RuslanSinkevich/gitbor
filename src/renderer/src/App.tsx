@@ -775,6 +775,7 @@ export function App() {
         dlg={dlg} showPrompt={showPrompt} loc={loc}
         repoPath={state.repoPath}
         safety={safety}
+        onSayThanks={supportPrompt.openManually}
       />
 
       {syncDialogs}
