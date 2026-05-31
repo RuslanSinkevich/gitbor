@@ -23,6 +23,7 @@ import { useBranchPrefs } from './hooks/useBranchPrefs';
 import type { Branch } from './types';
 import { RepoTabs } from './features/repo-tabs';
 import { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo, clearLastActiveRepo, removeRecentRepo, findRepoIndexByPath, loadOpenRepos, saveOpenRepos } from './features/repo-manager';
+import { useSupportPrompt } from './features/support';
 import { SgSplitPane } from './ui/SgSplitPane';
 import { usePromptDialog } from './ui/SgPromptDialog';
 import { AppDialogs } from './AppDialogs';
@@ -32,6 +33,7 @@ import { t, tpl, setLang, getLang } from './i18n';
 // Lazy-load экономит ~десятки кБ из основного бандла (showcase секции импортят
 // демо-данные графа, токены, кучу sg-компонентов разом).
 const UiShowcase = lazy(() => import('./pages/UiShowcase').then(m => ({ default: m.UiShowcase })));
+const SupportDialog = lazy(() => import('./features/support').then(m => ({ default: m.SupportDialog })));
 import { buildStorageKey } from './shared/uiPersist';
 import s from './App.module.css';
 
@@ -389,8 +391,10 @@ export function App() {
   }, [pendingOpenMergeEditor, clearPendingOpenMergeEditor]);
 
   useEffect(() => {
-    if (!diffTarget || viewMode !== 'changes') return;
+    if (!diffTarget) return;
     const { file, hash } = diffTarget;
+    // Действуем только на дифф рабочей копии/индекса; дифф коммита (hash —
+    // sha) живёт по своему ключу и чистится отдельным эффектом.
     if (hash !== 'WORKING' && hash !== 'STAGED') return;
     const inUnstaged = state.unstagedFiles.some(f => f.path === file);
     const inStaged = state.stagedFiles.some(f => f.path === file);
@@ -402,7 +406,7 @@ export function App() {
     if ((hash === 'WORKING' && !inUnstaged) || (hash === 'STAGED' && !inStaged)) {
       closeDiff();
     }
-  }, [state.unstagedFiles, state.stagedFiles, diffTarget, viewMode, closeDiff]);
+  }, [state.unstagedFiles, state.stagedFiles, diffTarget, closeDiff]);
 
   useEffect(() => {
     const wasInProgress = prevMergeRef.current;
@@ -473,11 +477,22 @@ export function App() {
     const newHash = commitDetail?.hash ?? null;
     if (newHash && newHash !== prevCommitHashRef.current) {
       prevCommitHashRef.current = newHash;
-      if (viewMode === 'commits' && commitDetail!.files.length > 0) {
-        openDiff(commitDetail!.files[0].path, commitDetail!.hash);
+      if (viewMode === 'commits') {
+        if (commitDetail!.files.length > 0) {
+          openDiff(commitDetail!.files[0].path, commitDetail!.hash);
+        } else {
+          // Коммит без файлов (пустой / merge без изменений): нет файла для
+          // диффа — закрываем, иначе висит дифф предыдущего коммита.
+          closeDiff();
+        }
       }
+    } else if (newHash === null && prevCommitHashRef.current !== null) {
+      // Выбор коммита сброшен (или коммит исчез из истории) — чистим дифф,
+      // чтобы в нижней панели не оставался файл уже неактуального коммита.
+      prevCommitHashRef.current = null;
+      if (viewMode === 'commits') closeDiff();
     }
-  }, [commitDetail, viewMode, openDiff]);
+  }, [commitDetail, viewMode, openDiff, closeDiff]);
 
   const hasRepo = !!state.repoPath;
   /** Один путь в индексе и в рабочей копии — одна позиция в бейдже/статусбаре. */
@@ -496,6 +511,10 @@ export function App() {
   // Показываем менеджер если юзер явно его открыл («+») ИЛИ если нет
   // открытых репо вовсе (RepoManager — единственный осмысленный экран).
   const repoManagerVisible = showRepoManager || !hasRepo;
+
+  // Ненавязчивое «спасибо автору»: показываем не чаще раза в неделю и только
+  // когда пользователь реально работает с репо (не на экране менеджера).
+  const supportPrompt = useSupportPrompt(hasRepo && !repoManagerVisible);
 
   // Авто-сброс «+»-вкладки при появлении нового репо: если из RepoManager
   // юзер открыл existing/new репо, openRepos увеличится и main переключит
@@ -778,6 +797,16 @@ export function App() {
         }}
         onClose={() => setOpenInfoBranch(null)}
       />
+
+      {supportPrompt.open && (
+        <Suspense fallback={null}>
+          <SupportDialog
+            open
+            onClose={supportPrompt.close}
+            onDismiss={supportPrompt.dismissForever}
+          />
+        </Suspense>
+      )}
 
       {isDraggingFolder && (
         <div className={s.dropOverlay}>{loc.repoTabs.dnd.hint}</div>

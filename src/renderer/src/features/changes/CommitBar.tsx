@@ -22,8 +22,17 @@ export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings, m
   const [description, setDescription] = useState('');
   const [amend, setAmend] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
   const prefilledRef = useRef(false);
+  const prevRunningRef = useRef(false);
+
+  // Спиннер на кнопке коммита держим, пока идёт операция, и снимаем, когда
+  // isOperationRunning сменился с true на false (операция завершилась).
+  useEffect(() => {
+    if (prevRunningRef.current && !isOperationRunning) setSubmitting(false);
+    prevRunningRef.current = isOperationRunning;
+  }, [isOperationRunning]);
 
   // Предзаполнение subject для merge-commit'а в стиле git/Fork:
   // `Merge branch 'source' into target`. Делаем только если поля пустые
@@ -80,6 +89,7 @@ export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings, m
     const desc = description.trim();
     const msg = desc ? `${subj}\n\n${desc}` : subj;
     setAiError(null);
+    setSubmitting(true);
     postCommand({ type: 'commit', message: msg, amend: amend || undefined });
     setSubject('');
     setDescription('');
@@ -167,9 +177,12 @@ export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings, m
             onOpenSettings={onOpenAiSettings}
           />
         </div>
-        <button className={s.button} disabled={!canCommit} onClick={doCommit}>
-          {loc.changes.commit}
-          {stagedCount > 0 && <span className={s.count}>({stagedCount})</span>}
+        <button className={s.button} disabled={!canCommit || submitting} onClick={doCommit}>
+          <span className="sg-button-content">
+            {submitting && <span className="sg-button-spinner" aria-hidden="true" />}
+            {loc.changes.commit}
+            {stagedCount > 0 && <span className={s.count}>({stagedCount})</span>}
+          </span>
         </button>
       </div>
     </div>

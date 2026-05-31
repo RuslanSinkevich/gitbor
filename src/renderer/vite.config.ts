@@ -40,11 +40,14 @@ const analyzeOut = path.resolve(__dirname, '../../docs/audit', `bundle-${today}.
 
 // Bundle size regression gate. baseline 2026-05-28 (после Solo/Hide + AI
 // settings redesign + Tier-2 фич): главный chunk ~392 KB raw / ~123 KB gzip.
-// Threshold подняли до 430/130 KB — запас ~10% против шума при добавлении
-// мелких фич, но не настолько большой, чтобы пропустить заметную регрессию.
+// 2026-05-31: stash-мини-ветки в графе + markdown-заметки + модалка
+// поддержки + персональные инсайты статистики + унификация спиннеров на
+// кнопках. Тяжёлое (Markdown, SupportDialog) вынесено в lazy-чанки; в
+// главный попал только код графа стэшей (часть всегда-загружаемого графа),
+// поэтому gzip-порог поднят 130 → 132 KB. Raw без изменений (430).
 // При GITBOR_BUNDLE_GATE_OFF=1 чек отключается (для локальных экспериментов).
 const BUNDLE_MAX_RAW_BYTES = 430 * 1024;
-const BUNDLE_MAX_GZIP_BYTES = 130 * 1024;
+const BUNDLE_MAX_GZIP_BYTES = 132 * 1024;
 const BUNDLE_GATE_DISABLED = process.env.GITBOR_BUNDLE_GATE_OFF === '1';
 
 function bundleSizeGatePlugin(): Plugin {

@@ -1,15 +1,16 @@
 import { memo, useRef, useEffect, useCallback, useMemo, type KeyboardEvent as ReactKBEvent } from 'react';
 import { t } from '../../i18n';
-import type { Commit, GraphNode, MergeLink } from '../../types';
+import type { Commit, GraphNode, MergeLink, Stash } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { ROW_HEIGHT, COL_WIDTH, LEFT_PAD, NODE_RADIUS, MERGE_RADIUS, DESC_PAD, colX, formatCommitDate } from './graphConstants';
 import { getCommitMenuItems, type ShowPrompt, type OnRebase } from './commitMenuItems';
 import type { RequestCheckout } from '../checkout';
-import { groupBranchPaths, getNodeCircles, getMergeLinkPaths, type BranchPathData, type NodeCircle } from './branchPaths';
+import { groupBranchPaths, getNodeCircles, getMergeLinkPaths, getStashOffshoots, type BranchPathData, type NodeCircle, type StashOffshoot } from './branchPaths';
 import { GpgBadge } from './GpgBadge';
 import { useVirtualScroll } from './useVirtualScroll';
 import { useGraphSearch } from './useGraphSearch';
 import { AuthorAvatar } from '../../ui/AuthorAvatar';
+import { isAutoStash } from '../stash/autoStash';
 import s from './CommitGraph.module.css';
 
 /**
@@ -60,6 +61,8 @@ interface Props {
   graphNodes: GraphNode[];
   maxColumns: number;
   mergeLinks: MergeLink[];
+  /** Stash'и репо — рисуются мини-ветками у своих базовых коммитов. */
+  stashes?: Stash[];
   selectedHash: string | null;
   onSelect: (hash: string) => void;
   currentBranch: string;
@@ -79,7 +82,7 @@ interface Props {
   onCompareTo?: (from: string, to: string) => void;
 }
 
-function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, currentBranch, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, compareFrom, onCompareFrom, onCompareTo }: Props) {
+function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, stashes, selectedHash, onSelect, currentBranch, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, compareFrom, onCompareFrom, onCompareTo }: Props) {
   const loc = t();
   const graphWidth = LEFT_PAD * 2 + (maxColumns + 1) * COL_WIDTH + 12;
   const totalHeight = commits.length * ROW_HEIGHT;
@@ -115,6 +118,19 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
 
   const rowMeta = useMemo(() => getOrComputeRowMeta(graphNodes, commits.length), [graphNodes, commits.length]);
 
+  /* Stash мини-ветки: фильтруем авто-stash'и (служебные snapshot'ы safety-net,
+     их юзеру в графе видеть незачем) и вычисляем позицию у базового коммита. */
+  const allStashOffshoots = useMemo<StashOffshoot[]>(() => {
+    if (!stashes || stashes.length === 0) return [];
+    const userStashes = stashes.filter(st => !isAutoStash(st));
+    if (userStashes.length === 0) return [];
+    const baseCol = new Array<number>(commits.length).fill(0);
+    for (const node of graphNodes) {
+      baseCol[node.commitIndex] = node.column;
+    }
+    return getStashOffshoots(commits, baseCol, userStashes);
+  }, [stashes, commits, graphNodes]);
+
   const svgTop = visibleRange.start * ROW_HEIGHT;
   const svgBottom = visibleRange.end * ROW_HEIGHT;
   const svgHeight = svgBottom - svgTop;
@@ -128,6 +144,11 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
   const visibleCircles = useMemo(
     () => allNodeCircles.filter(nc => nc.cy >= svgTop - margin && nc.cy <= svgBottom + margin),
     [allNodeCircles, svgTop, svgBottom, margin],
+  );
+
+  const visibleStashes = useMemo(
+    () => allStashOffshoots.filter(so => so.nodeY >= svgTop - margin && so.nodeY <= svgBottom + margin),
+    [allStashOffshoots, svgTop, svgBottom, margin],
   );
 
   const visibleCommits = commits.slice(visibleRange.start, visibleRange.end);
@@ -213,6 +234,18 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
                 ? <polygon key={`n${i}`} points={`${nc.cx},${nc.cy - MERGE_RADIUS} ${nc.cx + MERGE_RADIUS},${nc.cy} ${nc.cx},${nc.cy + MERGE_RADIUS} ${nc.cx - MERGE_RADIUS},${nc.cy}`} fill={nc.color} stroke={bgColor} strokeWidth={2} opacity={nc.dimmed ? 0.45 : 1} />
                 : <circle key={`n${i}`} cx={nc.cx} cy={nc.cy} r={NODE_RADIUS} fill={nc.color} stroke={bgColor} strokeWidth={2} opacity={nc.dimmed ? 0.45 : 1} />
             ))}
+            {visibleStashes.map((so, i) => (
+              <g key={`st${i}`} className={s.stashNode}>
+                <title>{`${so.ref}: ${so.message}`}</title>
+                <path d={so.d} stroke={so.color} strokeWidth={1.5} fill="none" strokeDasharray="2 2" strokeLinecap="round" />
+                <rect
+                  x={so.nodeX - NODE_RADIUS} y={so.nodeY - NODE_RADIUS}
+                  width={NODE_RADIUS * 2} height={NODE_RADIUS * 2} rx={1.5}
+                  fill={so.color} stroke={bgColor} strokeWidth={1.5}
+                  transform={`rotate(45 ${so.nodeX} ${so.nodeY})`}
+                />
+              </g>
+            ))}
           </svg>
 
           {visibleCommits.map((commit, vi) => {
@@ -279,6 +312,7 @@ export const CommitGraph = memo(CommitGraphImpl, (prev, next) => (
   prev.graphNodes === next.graphNodes &&
   prev.maxColumns === next.maxColumns &&
   prev.mergeLinks === next.mergeLinks &&
+  prev.stashes === next.stashes &&
   prev.selectedHash === next.selectedHash &&
   prev.currentBranch === next.currentBranch &&
   prev.compareFrom === next.compareFrom &&

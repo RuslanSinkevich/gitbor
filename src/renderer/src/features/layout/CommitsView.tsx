@@ -130,6 +130,7 @@ export function CommitsView({
           graphNodes={graphNodes}
           maxColumns={graphMaxColumns}
           mergeLinks={graphMergeLinks}
+          stashes={state.stashes}
           selectedHash={state.selectedCommitHash}
           onSelect={selectCommit}
           currentBranch={state.currentBranch}

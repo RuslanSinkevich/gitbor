@@ -23,6 +23,29 @@
   height: 26px;
 }
 
+.meClose {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+  border: 1px solid transparent;
+  border-radius: var(--sg-radius-sm);
+  background: transparent;
+  color: var(--sg-foreground-muted);
+  cursor: pointer;
+  transition: all var(--sg-transition);
+}
+.meClose:hover {
+  background: color-mix(in srgb, var(--sg-danger) 14%, transparent);
+  border-color: color-mix(in srgb, var(--sg-danger) 40%, transparent);
+  color: var(--sg-danger);
+}
+
 .aiPanel {
   position: relative;
   display: flex;

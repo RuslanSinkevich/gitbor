@@ -70,7 +70,7 @@ export const GIT_REF_FORMAT =
 export const GIT_TAG_REF_FORMAT =
   '%(refname:short)%00%(objectname)';
 export const GIT_STASH_FORMAT =
-  '%gd%x00%H%x00%gs';
+  '%gd%x00%H%x00%gs%x00%P';
 
 /** MD5-хэш для дедупликации `git log` stdout. */
 export function hashGitStdout(s: string): string {

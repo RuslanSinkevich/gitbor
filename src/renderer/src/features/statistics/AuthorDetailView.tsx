@@ -2,6 +2,7 @@ import { t } from '../../i18n';
 import type { AuthorStats, AuthorCodeStatsResult } from '../../types';
 import { ContributionHeatmap } from './ContributionHeatmap';
 import { ActivityBars } from './ActivityBars';
+import { computeAuthorInsights } from './authorInsights';
 import s from './Statistics.module.css';
 
 interface Props {
@@ -16,6 +17,9 @@ export function AuthorDetailView({ author, codeStats, codeStatsLoading, onCalcul
   const sl = loc.stats;
   const stats = codeStats?.stats;
   const dash = '—';
+  const insights = computeAuthorInsights(author.dailyCounts);
+  const weekdayLabels = [sl.mon, sl.tue, sl.wed, sl.thu, sl.fri, sl.sat, sl.sun];
+  const maxWeekday = Math.max(1, ...insights.weekdayCounts);
   const lastCalculated = stats
     ? new Date(stats.calculatedAt).toLocaleString()
     : sl.notCalculated;
@@ -46,6 +50,44 @@ export function AuthorDetailView({ author, codeStats, codeStatsLoading, onCalcul
         <div className={s.metricCard}>
           <div className={s.metricValue}>{author.lastDate}</div>
           <div className={s.metricLabel}>{sl.lastCommit}</div>
+        </div>
+      </div>
+
+      <div className={s.insightsSection}>
+        <h3 className={s.sectionTitle}>{sl.insights}</h3>
+        <div className={s.metricsRow}>
+          <div className={s.metricCard}>
+            <div className={s.metricValue}>{insights.activeDays.toLocaleString()}</div>
+            <div className={s.metricLabel}>{sl.activeDays}</div>
+          </div>
+          <div className={s.metricCard}>
+            <div className={s.metricValue}>{insights.longestStreak} {sl.streakDays}</div>
+            <div className={s.metricLabel}>{sl.longestStreak}</div>
+          </div>
+          <div className={s.metricCard}>
+            <div className={s.metricValue}>{insights.currentStreak} {sl.streakDays}</div>
+            <div className={s.metricLabel}>{sl.currentStreak}</div>
+          </div>
+          <div className={s.metricCard}>
+            <div className={s.metricValue}>{insights.avgPerActiveDay}</div>
+            <div className={s.metricLabel}>{sl.avgPerActiveDay}</div>
+          </div>
+        </div>
+        <div className={s.weekdayChart}>
+          <div className={s.weekdayChartTitle}>{sl.weekdayActivity}</div>
+          <div className={s.weekdayBars}>
+            {insights.weekdayCounts.map((count, i) => (
+              <div key={i} className={s.weekdayCol} title={`${weekdayLabels[i]}: ${count}`}>
+                <div className={s.weekdayBarTrack}>
+                  <div
+                    className={s.weekdayBarFill}
+                    style={{ height: `${(count / maxWeekday) * 100}%` }}
+                  />
+                </div>
+                <div className={s.weekdayLabel}>{weekdayLabels[i]}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

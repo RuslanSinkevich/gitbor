@@ -146,6 +146,53 @@
   margin-bottom: 20px;
 }
 
+/* ── Персональные инсайты автора ── */
+.insightsSection {
+  margin-bottom: 20px;
+}
+
+.weekdayChart {
+  margin-top: 4px;
+}
+.weekdayChartTitle {
+  font-size: 12px;
+  color: var(--sg-foreground-muted);
+  margin-bottom: 8px;
+}
+.weekdayBars {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  height: 90px;
+}
+.weekdayCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+}
+.weekdayBarTrack {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.weekdayBarFill {
+  width: 70%;
+  min-height: 2px;
+  background: var(--sg-primary);
+  border-radius: 3px 3px 0 0;
+  transition: height var(--sg-transition);
+}
+.weekdayLabel {
+  font-size: 10px;
+  color: var(--sg-foreground-muted);
+  flex-shrink: 0;
+}
+
 .codeStatsSection {
   margin-bottom: 20px;
   padding: 12px 14px;

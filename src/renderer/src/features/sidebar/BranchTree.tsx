@@ -360,10 +360,10 @@ function BranchHoverActions({
         title={isHidden ? loc.sidebar.unhideBranch : loc.sidebar.hideBranch}
         aria-pressed={isHidden}
       ><IconEyeOff /></button>
-      <SgTooltip text={tooltipText} position="left" maxWidth={280}>
+      <SgTooltip text={tooltipText} position="right" maxWidth={280}>
         <button
           type="button"
-          className={`${s.branchActionBtn} ${hasNote ? s.branchActionActive : ''}`}
+          className={`${s.branchActionBtn} ${hasNote ? s.branchActionFilled : ''}`}
           onClick={onShowInfo}
           aria-label={loc.sidebar.branchNote}
           aria-pressed={hasNote}

@@ -1,0 +1,52 @@
+.intro {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--sg-foreground);
+}
+
+.links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.linkRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--sg-border);
+  border-radius: var(--sg-radius);
+  color: var(--sg-foreground);
+  text-decoration: none;
+  font-size: 13px;
+  transition: background var(--sg-transition), border-color var(--sg-transition);
+}
+.linkRow:hover {
+  background: var(--sg-surface-hover);
+  border-color: color-mix(in srgb, var(--sg-primary) 50%, var(--sg-border));
+}
+
+.linkIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sg-primary);
+  flex-shrink: 0;
+}
+
+.shareNote {
+  margin: 14px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sg-foreground-muted);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}

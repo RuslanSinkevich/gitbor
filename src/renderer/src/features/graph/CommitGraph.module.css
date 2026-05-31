@@ -76,6 +76,14 @@
   overflow: visible;
 }
 
+/* Stash мини-ветка: включаем события мыши только на самом узле, чтобы
+   работал нативный <title>-тултип; остальной SVG остаётся прозрачным
+   для кликов по строкам графа. */
+.stashNode {
+  pointer-events: auto;
+  cursor: help;
+}
+
 .row {
   position: absolute;
   left: 0;

@@ -38,6 +38,12 @@ export interface Stash {
   index: string;
   hash: string;
   message: string;
+  /**
+   * Hash базового коммита, на котором сделан stash (первый родитель
+   * stash-коммита). Нужен, чтобы нарисовать stash мини-веткой в графе,
+   * прицепив его к нужному ряду. Может отсутствовать на старых данных.
+   */
+  parentHash?: string;
 }
 
 export interface Remote {

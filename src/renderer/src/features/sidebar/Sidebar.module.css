@@ -242,8 +242,15 @@
 .item:hover .branchActionBtn,
 .item:focus-within .branchActionBtn,
 .branchActionBtn.branchActionActive,
+.branchActionBtn.branchActionFilled,
 .branchActionBtn:focus-visible {
   opacity: 1;
+}
+
+/* Заметка с контентом: кнопка info всегда видна (есть что показать), но
+   остаётся серой, как пустая — без синей подсветки активного состояния. */
+.branchActionFilled {
+  color: var(--sg-foreground-muted);
 }
 
 .branchActionBtn:hover {

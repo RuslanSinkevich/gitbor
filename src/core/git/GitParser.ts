@@ -127,14 +127,18 @@ export function parseTags(stdout: string): Tag[] {
   return result;
 }
 
-// ─── Stashes (from git stash list --format=%gd%x00%H%x00%gs) ───
+// ─── Stashes (from git stash list --format=%gd%x00%H%x00%gs%x00%P) ───
 
 export function parseStashes(stdout: string): Stash[] {
   const result: Stash[] = [];
   for (const raw of lines(stdout)) {
     const parts = nulFields(raw);
     if (parts.length < 3) continue;
-    result.push({ index: parts[0], hash: parts[1], message: parts[2] });
+    const stash: Stash = { index: parts[0], hash: parts[1], message: parts[2] };
+    // %P отдаёт всех родителей через пробел; база stash — первый родитель.
+    const firstParent = parts[3]?.trim().split(/\s+/)[0];
+    if (firstParent) stash.parentHash = firstParent;
+    result.push(stash);
   }
   return result;
 }

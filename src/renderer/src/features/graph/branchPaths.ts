@@ -3,7 +3,7 @@
  * Produces smooth curves similar to Fork/SourceTree.
  */
 import type { GraphNode, MergeLink } from '../../types';
-import { colX, rowY, ROW_HEIGHT } from './graphConstants';
+import { colX, rowY, ROW_HEIGHT, COL_WIDTH } from './graphConstants';
 
 export interface BranchPathData {
   color: string;
@@ -208,6 +208,68 @@ export interface NodeCircle {
   isMerge: boolean;
   /** Mirrors GraphNode.isRemoteOnly so the renderer can fade the dot. */
   dimmed: boolean;
+}
+
+/**
+ * Stash, отрисованный как мини-ветка (Fork-style): короткий отросток от
+ * базового коммита вверх-вправо с отдельным узлом-«коробкой». Чисто
+ * декоративный слой поверх графа — не трогает раскладку коммитов.
+ */
+export interface StashOffshoot {
+  /** stash@{n} — для подписи/тултипа. */
+  ref: string;
+  message: string;
+  hash: string;
+  color: string;
+  /** SVG-path от базового узла к узлу stash. */
+  d: string;
+  /** Координаты узла stash. */
+  nodeX: number;
+  nodeY: number;
+}
+
+const STASH_COLOR = '#d7ba7d';
+
+/**
+ * Собрать мини-ветки stash'ей для строк графа. `baseColByIndex` — колонка
+ * базового коммита (его первый родитель = `stash^1`). Stash'и, чей базовый
+ * коммит не виден в текущем `commits`, пропускаем.
+ */
+export function getStashOffshoots(
+  commits: { hash: string }[],
+  baseColByIndex: number[],
+  stashes: { index: string; message: string; hash: string; parentHash?: string }[],
+): StashOffshoot[] {
+  if (stashes.length === 0) return [];
+  const hashToIdx = new Map<string, number>();
+  for (let i = 0; i < commits.length; i++) hashToIdx.set(commits[i].hash, i);
+
+  const out: StashOffshoot[] = [];
+  for (const st of stashes) {
+    if (!st.parentHash) continue;
+    const baseIdx = hashToIdx.get(st.parentHash);
+    if (baseIdx === undefined) continue;
+
+    const baseCol = baseColByIndex[baseIdx] ?? 0;
+    const baseX = colX(baseCol);
+    const baseY = rowY(baseIdx);
+    const nodeX = baseX + COL_WIDTH;
+    const nodeY = baseY - ROW_HEIGHT * 0.5;
+
+    const dy = nodeY - baseY;
+    const d = `M${baseX},${baseY} C${baseX},${baseY + dy * 0.4} ${nodeX},${nodeY - dy * 0.4} ${nodeX},${nodeY}`;
+
+    out.push({
+      ref: st.index,
+      message: st.message,
+      hash: st.hash,
+      color: STASH_COLOR,
+      d,
+      nodeX,
+      nodeY,
+    });
+  }
+  return out;
 }
 
 export function getNodeCircles(graphNodes: GraphNode[], commits: { parents: string[] }[]): NodeCircle[] {

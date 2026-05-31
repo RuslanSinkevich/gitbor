@@ -64,6 +64,16 @@ export function MergeEditor({ file, sourceBranch, targetBranch, onResolved, onCa
               <AiIcon size={14} />
             </button>
           )}
+          <button
+            type="button"
+            className={s.meClose}
+            onClick={onCancel}
+            title={me.close}
+            aria-label={me.close}
+            style={aiAvailable ? undefined : { marginLeft: 'auto' }}
+          >
+            ×
+          </button>
         </div>
 
         {aiStream.error && (
@@ -275,7 +285,10 @@ function ResultPane({ resultLines, resolvedConflicts, conflictCount, allResolved
         </span>
         <button className={s.btnSecondary} onClick={onCancel}>{me.cancel}</button>
         <button className={s.btnPrimary} onClick={onResolve} disabled={!allResolved || resolving}>
-          {resolving ? me.resolving : me.resolve}
+          <span className="sg-button-content">
+            {resolving && <span className="sg-button-spinner" aria-hidden="true" />}
+            {resolving ? me.resolving : me.resolve}
+          </span>
         </button>
       </div>
     </>
