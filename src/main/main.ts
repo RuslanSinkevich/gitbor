@@ -57,17 +57,25 @@ if (process.platform === 'linux') {
 }
 
 // Chromium sandbox на Linux требует setuid-root `chrome-sandbox` ЛИБО
-// разрешённых unprivileged user namespaces. В AppImage первое невозможно
-// (бинарь монтируется из /tmp, setuid там не работает), а второе зарезано
-// AppArmor на Ubuntu 23.10+ и в части корпоративных РФ-сборок — из-за чего
-// приложение падает с "SUID sandbox helper ... aborting" при обычном
-// двойном клике по скачанному AppImage.
+// разрешённых unprivileged user namespaces.
 //
-// Чтобы конечный пользователь мог просто скачать и запустить (без флагов,
-// libfuse-плясок и прав администратора), на Linux отключаем sandbox.
-// Откат для hardened-окружений: переменная GITBOR_ENABLE_SANDBOX=1.
-// Guard по platform исключает влияние на Windows/macOS, где sandbox работает.
-if (process.platform === 'linux' && process.env.GITBOR_ENABLE_SANDBOX !== '1') {
+// - deb/rpm: setuid на `chrome-sandbox` ставит postinst-скрипт при установке
+//   (build/linux-after-install.sh), root-права есть -> штатный sandbox
+//   работает даже на Ubuntu 24.04+/26.04, где userns зарезан AppArmor.
+//   НЕЛЬЗЯ форсить здесь --no-sandbox: на таком ядре дочерний процесс без
+//   sandbox не спавнится и приложение падает с ERR_FAILED при запуске.
+// - AppImage: бинарь монтируется из /tmp, setuid там невозможен, а userns
+//   зарезан -> sandbox запустить нечем. Только тут отключаем sandbox, чтобы
+//   юзер мог просто скачать и запустить (ценой потери sandbox).
+//
+// Detection: APPIMAGE выставляется рантаймом AppImage. Откат: для hardened-
+// окружений GITBOR_ENABLE_SANDBOX=1 принудительно включает sandbox везде.
+const isAppImage = Boolean(process.env.APPIMAGE);
+if (
+  process.platform === 'linux' &&
+  isAppImage &&
+  process.env.GITBOR_ENABLE_SANDBOX !== '1'
+) {
   app.commandLine.appendSwitch('no-sandbox');
 }
 

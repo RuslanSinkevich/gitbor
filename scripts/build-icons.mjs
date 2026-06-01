@@ -333,6 +333,19 @@ function buildElectronIcons(sourcePath, smallSourcePath) {
   console.log('[build-icons] writing resources/icon.png (1024×1024)...');
   const pngBuffer = writePngFile(icon1024, resolve(RESOURCES, 'icon.png'));
 
+  // Linux: electron-builder ставит linux.icon как есть. Один размер 1024×1024
+  // ломает by-name lookup (`Icon=gitbor`) в GNOME/KDE -> generic-заглушка
+  // («шестерёнка»). Отдаём директорию со стандартными размерами hicolor —
+  // тогда electron-builder ставит весь набор и иконка резолвится у всех.
+  console.log('[build-icons] generating Linux icon set (resources/icons/)...');
+  const linuxDir = resolve(RESOURCES, 'icons');
+  ensureDir(linuxDir);
+  const linuxSizes = [16, 32, 48, 64, 128, 256, 512];
+  for (const s of linuxSizes) {
+    const src = (s <= 16 && smallPng) ? smallPng : srcPng;
+    writePngFile(resizePng(src, s), resolve(linuxDir, `${s}x${s}.png`));
+  }
+
   console.log('[build-icons] generating ICO (manual multi-size)...');
   const icoSizes = [16, 24, 32, 48, 64, 128, 256];
   const pngBufs = icoSizes.map(s => {

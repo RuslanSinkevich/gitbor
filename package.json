@@ -73,7 +73,7 @@
         "rpm"
       ],
       "category": "Development",
-      "icon": "resources/icon.png",
+      "icon": "resources/icons",
       "maintainer": "Ruslan Sinkevich <ruslan-sink@mail.ru>",
       "synopsis": "Cross-platform desktop Git client",
       "description": "GitBor is a cross-platform desktop Git client built on Electron, providing a fast and intuitive interface for Git repository management.",
@@ -85,6 +85,12 @@
           "MimeType": "inode/directory;"
         }
       }
+    },
+    "deb": {
+      "afterInstall": "build/linux-after-install.sh"
+    },
+    "rpm": {
+      "afterInstall": "build/linux-after-install.sh"
     },
     "nsis": {
       "oneClick": false,
