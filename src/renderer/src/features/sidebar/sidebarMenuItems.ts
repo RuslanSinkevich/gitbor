@@ -65,7 +65,7 @@ export function getBranchMenuItems(
           message: loc.dialog.deleteBranchMessage,
           confirmLabel: loc.dialog.delete,
           danger: true,
-          onConfirm: () => postCommand({ type: 'deleteBranch', branch: branch.name }),
+          onConfirm: () => postCommand({ type: 'deleteBranch', branch: branch.name, force: true }),
         }),
       });
     }

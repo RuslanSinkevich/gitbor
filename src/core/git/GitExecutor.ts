@@ -181,11 +181,15 @@ export class GitExecutor {
       const proc = spawn('git', fullArgs, { cwd, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: env ? { ...process.env, ...env } : undefined });
       this.activeProcesses.add(proc);
 
-      let stdout = '';
-      let stderr = '';
+      // Накапливаем чанки в Buffer[] и склеиваем один раз через Buffer.concat:
+      // строковая конкатенация (`s += chunk.toString()`) на больших stdout (status
+      // на 30+ МБ untracked) плодит миллионы временных строк → GC-давление и
+      // фриз main thread. Buffer.concat — O(N) без промежуточных аллокаций.
+      const stdoutChunks: Buffer[] = [];
+      const stderrChunks: Buffer[] = [];
 
-      proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
-      proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+      proc.stdout.on('data', (chunk: Buffer) => { stdoutChunks.push(chunk); });
+      proc.stderr.on('data', (chunk: Buffer) => { stderrChunks.push(chunk); });
 
       const timer = setTimeout(() => {
         proc.kill('SIGTERM');
@@ -196,6 +200,8 @@ export class GitExecutor {
         this.activeProcesses.delete(proc);
         const duration = Date.now() - startTime;
         const exitCode = code ?? 1;
+        const stdout = Buffer.concat(stdoutChunks).toString('utf8');
+        const stderr = Buffer.concat(stderrChunks).toString('utf8');
         mainLogger.debug(`git done(stdin): exit=${exitCode} duration=${duration}ms`);
         this.reportToActivity(displayArgs, cwd, stdout, stderr, exitCode, duration, startTime);
         if (exitCode !== 0) GitExecutor.notifyStderr(stderr);

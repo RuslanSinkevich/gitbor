@@ -268,3 +268,65 @@
 .hunkBlockSplitCol:last-child {
   border-right: none;
 }
+
+/* Whole-file side-by-side (виртуализированный весь файл).
+   Внешний контейнер скроллится по обеим осям; .wholeInner задаёт реальную
+   ширину контента (колонки шире контейнера → горизонтальный скролл общий,
+   а не по каждой строке). Ряды абсолютно спозиционированы внутри
+   .wholeViewport фиксированной высотой — виртуализация. */
+.wholeFile {
+  flex: 1;
+  overflow: auto;
+}
+
+.wholeInner {
+  min-width: 100%;
+}
+
+.wholeViewport {
+  position: relative;
+  width: 100%;
+}
+
+.wholeRow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.wholeCell {
+  display: flex;
+  align-items: flex-start;
+  border-right: 1px solid var(--sg-border);
+  overflow: hidden;
+  white-space: pre;
+}
+
+.wholeCell:last-child {
+  border-right: none;
+}
+
+.wholeLineNo {
+  flex: 0 0 50px;
+  text-align: right;
+  padding: 0 8px 0 4px;
+  color: var(--sg-foreground-muted);
+  user-select: none;
+  opacity: 0.5;
+}
+
+.wholeContent {
+  padding: 0 8px;
+  white-space: pre;
+}
+
+.wholeBanner {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 11px;
+  background: color-mix(in srgb, #d29922 18%, transparent);
+  color: var(--sg-foreground);
+  border-bottom: 1px solid var(--sg-border);
+}

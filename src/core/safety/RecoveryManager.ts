@@ -260,7 +260,6 @@ export class RecoveryManager {
   private removeLockFile(): void {
     const lockPath = join(this.git.getCwd(), '.git', 'index.lock');
     try {
-      const { statSync } = require('fs');
       const stat = statSync(lockPath);
       const ageMs = Date.now() - stat.mtimeMs;
       if (ageMs < 2000) {

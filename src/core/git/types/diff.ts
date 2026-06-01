@@ -27,6 +27,13 @@ export interface FileDiff {
    * и кнопкой «Refresh index», а не «новый файл».
    */
   statDirty?: boolean;
+  /**
+   * Full-context (whole-file) diff был запрошен, но результат превысил лимит
+   * безопасности (`WHOLE_FILE_LINE_LIMIT`). Сюда кладётся обычный diff с
+   * контекстом по умолчанию, а renderer показывает плашку и не строит
+   * построчный whole-file вид (защита от мусорных/гигантских файлов).
+   */
+  tooLargeForWhole?: boolean;
 }
 
 export interface BlameLine {

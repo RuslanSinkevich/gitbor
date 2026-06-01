@@ -38,7 +38,7 @@ type RendererCommandCore =
   | { type: 'restoreStatDirty'; file: string }
   | { type: 'getCommitDetails'; hash: string }
   | { type: 'getGraphData'; maxCount: number }
-  | { type: 'getFileDiff'; file: string; hash: string; ignoreWhitespace?: boolean }
+  | { type: 'getFileDiff'; file: string; hash: string; ignoreWhitespace?: boolean; fullContext?: boolean }
   | { type: 'getFileBlame'; file: string; hash?: string }
   | { type: 'getFileHistory'; file: string }
   | { type: 'addRemote'; name: string; url: string }

@@ -1,9 +1,11 @@
-import { useState } from 'react';
 import type { FileDiff } from '../../types';
 import { t } from '../../i18n';
 import { DiffHunkView } from './DiffHunkView';
 import { DiffSideBySide } from './DiffSideBySide';
+import { DiffWholeFile } from './DiffWholeFile';
 import s from './DiffView.module.css';
+
+export type DiffMode = 'inline' | 'split' | 'whole';
 
 interface Props {
   diff: FileDiff;
@@ -11,9 +13,9 @@ interface Props {
   hash: string;
   ignoreWs?: boolean;
   onToggleWs?: () => void;
+  mode: DiffMode;
+  onModeChange: (mode: DiffMode) => void;
 }
-
-type DiffMode = 'inline' | 'side-by-side';
 
 const STATUS_CLS: Record<string, string> = {
   added: s.statusAdded,
@@ -23,9 +25,8 @@ const STATUS_CLS: Record<string, string> = {
   copied: s.statusRenamed,
 };
 
-export function DiffView({ diff, file, hash, ignoreWs, onToggleWs }: Props) {
+export function DiffView({ diff, file, hash, ignoreWs, onToggleWs, mode, onModeChange }: Props) {
   const loc = t();
-  const [mode, setMode] = useState<DiffMode>('inline');
   const isWorkingCopy = hash === 'WORKING';
   const isStaged = hash === 'STAGED';
   const statusLabel =
@@ -59,15 +60,21 @@ export function DiffView({ diff, file, hash, ignoreWs, onToggleWs }: Props) {
         <div className={s.modeToggle}>
           <button
             className={`${s.modeBtn} ${mode === 'inline' ? s.modeBtnActive : ''}`}
-            onClick={() => setMode('inline')}
+            onClick={() => onModeChange('inline')}
           >
             {loc.diff.inline}
           </button>
           <button
-            className={`${s.modeBtn} ${mode === 'side-by-side' ? s.modeBtnActive : ''}`}
-            onClick={() => setMode('side-by-side')}
+            className={`${s.modeBtn} ${mode === 'split' ? s.modeBtnActive : ''}`}
+            onClick={() => onModeChange('split')}
           >
             {loc.diff.split}
+          </button>
+          <button
+            className={`${s.modeBtn} ${mode === 'whole' ? s.modeBtnActive : ''}`}
+            onClick={() => onModeChange('whole')}
+          >
+            {loc.diff.wholeFile}
           </button>
         </div>
       </div>
@@ -82,8 +89,15 @@ export function DiffView({ diff, file, hash, ignoreWs, onToggleWs }: Props) {
             <DiffHunkView key={i} hunk={hunk} hunkIndex={i} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
           ))}
         </div>
-      ) : (
+      ) : mode === 'split' ? (
         <DiffSideBySide hunks={diff.hunks} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
+      ) : diff.tooLargeForWhole ? (
+        <>
+          <div className={s.wholeBanner}>{loc.diff.tooLargeForWhole}</div>
+          <DiffSideBySide hunks={diff.hunks} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
+        </>
+      ) : (
+        <DiffWholeFile hunks={diff.hunks} />
       )}
     </div>
   );

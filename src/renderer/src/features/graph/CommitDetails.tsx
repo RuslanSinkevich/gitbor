@@ -89,6 +89,16 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
       { label: loc2.contextMenu.openDiff, action: () => onOpenDiff ? onOpenDiff(file.path, commitHash) : postCommand({ type: 'openDiff', file: file.path, hash: commitHash }) },
       { label: loc2.contextMenu.openFile, action: () => postCommand({ type: 'openFile', file: file.path }) },
     ];
+    // «Сравнить с прошлой ревизией» — только для конкретного коммита, не для
+    // диапазона сравнения. PREV: резолвится в backend в `prev..commit`.
+    if (!commitHash.includes('..')) {
+      items.push({
+        label: loc2.contextMenu.compareWithPrevRevision,
+        action: () => onOpenDiff
+          ? onOpenDiff(file.path, `PREV:${commitHash}`)
+          : postCommand({ type: 'openDiff', file: file.path, hash: `PREV:${commitHash}` }),
+      });
+    }
     if (onFileHistory) items.push({ label: loc2.contextMenu.fileHistory, action: () => onFileHistory(file.path) });
     if (onFileBlame) items.push({ label: loc2.contextMenu.blame, action: () => onFileBlame(file.path) });
     items.push(

@@ -71,15 +71,46 @@ export async function getCommitDetails(
   });
 }
 
-export async function getFileDiff(
-  queue: OperationQueue, git: GitExecutor, file: string, hash: string,
-  ignoreWhitespace?: boolean,
+const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf899d15d4cef8de1';
+
+/**
+ * Whole-file (full-context) diff: число -U больше любого вменяемого файла,
+ * git сам клампит до реального размера → один hunk на весь файл. Int32-safe.
+ */
+const FULL_CONTEXT_FLAG = '-U2000000000';
+
+/**
+ * Предохранитель против построчного просмотра гигантских/мусорных файлов
+ * (минифицированные бандлы, lock-файлы на сотни тысяч строк): full-context
+ * diff с таким числом строк не отдаём в renderer целиком, а откатываемся на
+ * обычный контекст и помечаем `tooLargeForWhole`.
+ */
+const WHOLE_FILE_LINE_LIMIT = 60_000;
+
+/**
+ * Разрешает спец-хэш `PREV:<commit>` в диапазон `prev..commit`, где `prev` —
+ * предыдущая ревизия, реально менявшая файл (а не просто родитель коммита).
+ * Если такой ревизии нет (файл создан в этом коммите) — сравниваем с пустым
+ * деревом. Любой обычный хэш/диапазон возвращается без изменений.
+ */
+async function resolveEffectiveHash(git: GitExecutor, file: string, hash: string): Promise<string> {
+  if (!hash.startsWith('PREV:')) return hash;
+  const target = hash.slice('PREV:'.length);
+  const log = await git.exec(['log', '-2', '--format=%H', target, '--', file]);
+  const hashes = log.stdout.trim().split('\n').map((s) => s.trim()).filter(Boolean);
+  const prev = hashes[1];
+  return prev ? `${prev}..${target}` : `${EMPTY_TREE}..${target}`;
+}
+
+async function computeFileDiff(
+  git: GitExecutor, file: string, hash: string,
+  ignoreWhitespace?: boolean, fullContext?: boolean,
 ): Promise<FileDiff[]> {
-  return queue.enqueueRead('getFileDiff', async () => {
-    const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf899d15d4cef8de1';
+  {
     const wsFlag = ignoreWhitespace ? ['-w'] : [];
+    const ctxFlag = fullContext ? [FULL_CONTEXT_FLAG] : [];
     // --no-ext-diff: иначе diff.external отдаёт не unified → parseDiff → [].
-    const diffFlags = ['--no-ext-diff', '--no-textconv', '--no-color', ...wsFlag];
+    const diffFlags = ['--no-ext-diff', '--no-textconv', '--no-color', ...wsFlag, ...ctxFlag];
 
     if (hash === 'WORKING') {
       const result = await git.exec(['diff', ...diffFlags, '--', file]);
@@ -139,6 +170,28 @@ export async function getFileDiff(
 
     const result = await git.exec(['diff', ...diffFlags, EMPTY_TREE, hash, '--', file]);
     return parseDiff(result.stdout);
+  }
+}
+
+export async function getFileDiff(
+  queue: OperationQueue, git: GitExecutor, file: string, hash: string,
+  ignoreWhitespace?: boolean, fullContext?: boolean,
+): Promise<FileDiff[]> {
+  return queue.enqueueRead('getFileDiff', async () => {
+    const effectiveHash = await resolveEffectiveHash(git, file, hash);
+    const diffs = await computeFileDiff(git, file, effectiveHash, ignoreWhitespace, fullContext);
+    if (!fullContext) return diffs;
+
+    const totalLines = diffs.reduce(
+      (n, d) => n + d.hunks.reduce((m, h) => m + h.lines.length, 0), 0,
+    );
+    if (totalLines <= WHOLE_FILE_LINE_LIMIT) return diffs;
+
+    // Файл слишком большой для построчного whole-file вида — откатываемся на
+    // обычный контекст и помечаем флагом, чтобы renderer показал плашку.
+    const fallback = await computeFileDiff(git, file, effectiveHash, ignoreWhitespace, false);
+    for (const d of fallback) d.tooLargeForWhole = true;
+    return fallback;
   });
 }
 

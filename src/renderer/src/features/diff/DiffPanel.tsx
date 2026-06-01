@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import type { FileDiff } from '../../types';
 import { t } from '../../i18n';
 import { postCommand, onMainEvent, isElectron } from '../../api';
-import { DiffView } from './DiffView';
+import { DiffView, type DiffMode } from './DiffView';
 import { ImageDiff, isImageFile } from './ImageDiff';
 import s from './DiffView.module.css';
 
@@ -13,6 +13,24 @@ interface Props {
 
 const DIFF_TIMEOUT_MS = 15_000;
 
+const MODE_KEY_RO = 'sg-diff-mode-ro';
+const MODE_KEY_RW = 'sg-diff-mode-rw';
+
+/** Read-only diff: коммит, диапазон `a..b`, PREV: — всё кроме рабочей копии. */
+function isReadOnlyHash(hash: string): boolean {
+  return hash !== 'WORKING' && hash !== 'STAGED';
+}
+
+function loadMode(readOnly: boolean): DiffMode {
+  const stored = typeof localStorage !== 'undefined'
+    ? localStorage.getItem(readOnly ? MODE_KEY_RO : MODE_KEY_RW)
+    : null;
+  if (stored === 'inline' || stored === 'split' || stored === 'whole') return stored;
+  // Для просмотра коммита/сравнения дефолт — весь файл (как VS Git History);
+  // для рабочей копии — hunk-вид, чтобы были stage/discard действия.
+  return readOnly ? 'whole' : 'inline';
+}
+
 export function DiffPanel({ file, hash }: Props) {
   const loc = t();
   const [diffs, setDiffs] = useState<FileDiff[] | null>(null);
@@ -21,6 +39,20 @@ export function DiffPanel({ file, hash }: Props) {
   const [ignoreWs, setIgnoreWs] = useState(false);
   const requestRef = useRef({ file, hash });
 
+  const readOnly = isReadOnlyHash(hash);
+  const [mode, setMode] = useState<DiffMode>(() => loadMode(readOnly));
+  // При переходе read-only ↔ editable (например, файл коммита → рабочая копия)
+  // возвращаем дефолт/сохранённый режим для нового контекста.
+  useEffect(() => { setMode(loadMode(readOnly)); }, [readOnly]);
+
+  const handleModeChange = useCallback((next: DiffMode) => {
+    setMode(next);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(readOnly ? MODE_KEY_RO : MODE_KEY_RW, next);
+    }
+  }, [readOnly]);
+
+  const needsFullContext = mode === 'whole';
   const isImage = isImageFile(file);
 
   useEffect(() => {
@@ -39,7 +71,7 @@ export function DiffPanel({ file, hash }: Props) {
     setDiffs(null);
     setError(null);
     requestRef.current = { file, hash };
-    postCommand({ type: 'getFileDiff', file, hash, ignoreWhitespace: ignoreWs || undefined });
+    postCommand({ type: 'getFileDiff', file, hash, ignoreWhitespace: ignoreWs || undefined, fullContext: needsFullContext || undefined });
 
     const unsub = onMainEvent((msg) => {
       if (msg.type === 'fileDiff') {
@@ -59,7 +91,7 @@ export function DiffPanel({ file, hash }: Props) {
     }, DIFF_TIMEOUT_MS);
 
     return () => { unsub(); clearTimeout(timeout); };
-  }, [file, hash, isImage, ignoreWs, loc]);
+  }, [file, hash, isImage, ignoreWs, loc, needsFullContext]);
 
   const handleToggleWs = useCallback(() => {
     setIgnoreWs(prev => !prev);
@@ -102,6 +134,7 @@ export function DiffPanel({ file, hash }: Props) {
       {diffs.map((d, i) => (
         <DiffView key={`${d.path}-${i}`} diff={d} file={file} hash={hash}
           ignoreWs={ignoreWs} onToggleWs={handleToggleWs}
+          mode={mode} onModeChange={handleModeChange}
         />
       ))}
     </>

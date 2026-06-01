@@ -7,6 +7,18 @@ import type { ShowPromptFn } from '../../ui/SgPromptDialog';
 
 export type ShowPrompt = ShowPromptFn;
 
+const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf899d15d4cef8de1';
+
+/**
+ * Хэш для сравнения «с предыдущей»: root-коммит сравниваем с пустым деревом,
+ * merge — с первым родителем (mainline), обычный коммит — с родителем.
+ */
+function previousHash(commit: Commit): string {
+  if (commit.parents.length === 0) return EMPTY_TREE;
+  if (commit.parents.length > 1) return `${commit.hash}^1`;
+  return `${commit.hash}^`;
+}
+
 function formatCommitInfo(commit: Commit): string {
   const date = commit.authorDate
     ? new Date(commit.authorDate).toISOString().replace('T', ' ').substring(0, 19)
@@ -118,6 +130,10 @@ export function getCommitMenuItems(
     { divider: true },
 
     { label: loc.contextMenu.compareToLocal, action: () => postCommand({ type: 'openDiff', file: '.', hash: commit.hash }) },
+    ...(onCompareTo ? [{
+      label: loc.contextMenu.compareWithPrevious,
+      action: () => onCompareTo(previousHash(commit), commit.hash),
+    }] : []),
     { label: loc.contextMenu.compareFrom, action: () => onCompareFrom?.(commit.hash) },
     ...(compareFrom && compareFrom !== commit.hash ? [{
       label: tpl(loc.contextMenu.compareTo, { hash: compareFrom.substring(0, 7) }),
