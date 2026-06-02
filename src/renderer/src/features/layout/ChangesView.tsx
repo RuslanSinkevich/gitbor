@@ -32,6 +32,7 @@ interface Props {
   loc: ReturnType<typeof t>;
   onOpenAiSettings: () => void;
   onOpenGitignoreDialog?: () => void;
+  onExpandDiff?: (file: string, hash: string) => void;
 }
 
 export function ChangesView({
@@ -39,7 +40,7 @@ export function ChangesView({
   conflictFile, setConflictFile, setMergeEditorFile,
   showContextMenu, openDiff, closeDiff, openFileHistory, openFileBlame,
   handleOpenMergeEditor, handleConflictResolved, selectCommit,
-  showPrompt, loc, onOpenAiSettings, onOpenGitignoreDialog,
+  showPrompt, loc, onOpenAiSettings, onOpenGitignoreDialog, onExpandDiff,
 }: Props) {
   const [selectedFolder, setSelectedFolder] = useState<{ path: string; section: 'unstaged' | 'staged' } | null>(null);
   const fileListStorageKey = buildStorageKey('sg-layout:changes-file-list-width', state.repoPath);
@@ -113,6 +114,7 @@ export function ChangesView({
                   diffTarget={diffTarget}
                   selectCommit={selectCommit}
                   openDiff={openDiff}
+                  onExpandDiff={onExpandDiff}
                 />
               ) : (
                 <div className={s.emptyDiff}>{loc.details.selectCommit}</div>

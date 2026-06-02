@@ -1,17 +1,17 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
-import type { FileDiff } from '../../types';
+import { useEffect, useState, useCallback } from 'react';
 import { t } from '../../i18n';
-import { postCommand, onMainEvent, isElectron } from '../../api';
+import { postCommand } from '../../api';
 import { DiffView, type DiffMode } from './DiffView';
 import { ImageDiff, isImageFile } from './ImageDiff';
+import { useFileDiff } from './useFileDiff';
 import s from './DiffView.module.css';
 
 interface Props {
   file: string;
   hash: string;
+  /** Открыть текущий файл в полноэкранной модалке сравнения. */
+  onExpand?: (file: string, hash: string) => void;
 }
-
-const DIFF_TIMEOUT_MS = 15_000;
 
 const MODE_KEY_RO = 'sg-diff-mode-ro';
 const MODE_KEY_RW = 'sg-diff-mode-rw';
@@ -26,18 +26,14 @@ function loadMode(readOnly: boolean): DiffMode {
     ? localStorage.getItem(readOnly ? MODE_KEY_RO : MODE_KEY_RW)
     : null;
   if (stored === 'inline' || stored === 'split' || stored === 'whole') return stored;
-  // Для просмотра коммита/сравнения дефолт — весь файл (как VS Git History);
-  // для рабочей копии — hunk-вид, чтобы были stage/discard действия.
-  return readOnly ? 'whole' : 'inline';
+  // Дефолт везде — inline (unified): и для коммита/сравнения, и для рабочей
+  // копии. Сохранённый выбор пользователя (localStorage) приоритетнее.
+  return 'inline';
 }
 
-export function DiffPanel({ file, hash }: Props) {
+export function DiffPanel({ file, hash, onExpand }: Props) {
   const loc = t();
-  const [diffs, setDiffs] = useState<FileDiff[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [ignoreWs, setIgnoreWs] = useState(false);
-  const requestRef = useRef({ file, hash });
 
   const readOnly = isReadOnlyHash(hash);
   const [mode, setMode] = useState<DiffMode>(() => loadMode(readOnly));
@@ -52,49 +48,12 @@ export function DiffPanel({ file, hash }: Props) {
     }
   }, [readOnly]);
 
-  const needsFullContext = mode === 'whole';
   const isImage = isImageFile(file);
-
-  useEffect(() => {
-    if (isImage) {
-      setLoading(false);
-      return;
-    }
-
-    if (!isElectron) {
-      setLoading(false);
-      setError(loc.diff.ipcUnavailable);
-      return;
-    }
-
-    setLoading(true);
-    setDiffs(null);
-    setError(null);
-    requestRef.current = { file, hash };
-    postCommand({ type: 'getFileDiff', file, hash, ignoreWhitespace: ignoreWs || undefined, fullContext: needsFullContext || undefined });
-
-    const unsub = onMainEvent((msg) => {
-      if (msg.type === 'fileDiff') {
-        const isMatch = msg.file === file && msg.hash === hash;
-        if (isMatch) {
-          setDiffs(msg.data);
-          setLoading(false);
-        }
-      }
-    });
-
-    const timeout = setTimeout(() => {
-      setLoading(prev => {
-        if (prev) setError(loc.diff.requestTimedOut);
-        return false;
-      });
-    }, DIFF_TIMEOUT_MS);
-
-    return () => { unsub(); clearTimeout(timeout); };
-  }, [file, hash, isImage, ignoreWs, loc, needsFullContext]);
+  const needsFullContext = mode === 'whole';
+  const { diffs, loading, error } = useFileDiff(file, hash, ignoreWs, needsFullContext, !isImage);
 
   const handleToggleWs = useCallback(() => {
-    setIgnoreWs(prev => !prev);
+    setIgnoreWs((prev) => !prev);
   }, []);
 
   if (isImage) {
@@ -135,6 +94,7 @@ export function DiffPanel({ file, hash }: Props) {
         <DiffView key={`${d.path}-${i}`} diff={d} file={file} hash={hash}
           ignoreWs={ignoreWs} onToggleWs={handleToggleWs}
           mode={mode} onModeChange={handleModeChange}
+          onExpand={onExpand ? () => onExpand(file, hash) : undefined}
         />
       ))}
     </>

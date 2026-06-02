@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSideRows, maxRowContentLength } from '../../src/renderer/src/features/diff/diffRows';
+import { buildSideRows, maxRowContentLength, rowChange, buildChangeMarks } from '../../src/renderer/src/features/diff/diffRows';
 import type { DiffHunk, DiffLine } from '../../src/core/git/types';
 
 function ctx(content: string, o: number, n: number): DiffLine {
@@ -96,5 +96,45 @@ describe('maxRowContentLength', () => {
 
   it('returns 0 for empty rows', () => {
     expect(maxRowContentLength([])).toBe(0);
+  });
+});
+
+describe('rowChange', () => {
+  it('classifies modify when both sides changed', () => {
+    const [row] = buildSideRows([hunk([rem('a', 1), add('A', 1)])]);
+    expect(rowChange(row)).toBe('modify');
+  });
+
+  it('classifies pure add and pure remove', () => {
+    const addRows = buildSideRows([hunk([add('A', 1)])]);
+    const remRows = buildSideRows([hunk([rem('a', 1)])]);
+    expect(rowChange(addRows[0])).toBe('add');
+    expect(rowChange(remRows[0])).toBe('remove');
+  });
+
+  it('classifies context as none', () => {
+    const [row] = buildSideRows([hunk([ctx('a', 1, 1)])]);
+    expect(rowChange(row)).toBe('none');
+  });
+});
+
+describe('buildChangeMarks', () => {
+  it('emits a mark per changed row with proportional ratio', () => {
+    const rows = buildSideRows([hunk([
+      ctx('a', 1, 1),
+      add('B', 2),
+      ctx('c', 2, 3),
+      rem('d', 3),
+    ])]);
+    const marks = buildChangeMarks(rows);
+    expect(marks).toHaveLength(2);
+    expect(marks[0].type).toBe('add');
+    expect(marks[1].type).toBe('remove');
+    expect(marks[0].ratio).toBeGreaterThanOrEqual(0);
+    expect(marks[0].ratio).toBeLessThan(1);
+  });
+
+  it('returns empty for no rows', () => {
+    expect(buildChangeMarks([])).toEqual([]);
   });
 });

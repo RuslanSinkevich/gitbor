@@ -494,6 +494,29 @@ export function App() {
     }
   }, [commitDetail, viewMode, openDiff, closeDiff]);
 
+  /**
+   * Переход commits → changes: дифф выбранного коммита (hash = sha) не относится
+   * к рабочей копии, и в changes-view (где может вообще не быть локальных файлов)
+   * висел бы как «старый» дифф. Чистим только коммит-дифф в панели diff —
+   * рабочие/индексные дифы (WORKING/STAGED) и file-history внутри changes
+   * (свой sha-дифф) не трогаем. Срабатывает строго на смену viewMode.
+   */
+  const prevViewModeRef = useRef<ViewMode>(viewMode);
+  useEffect(() => {
+    const prev = prevViewModeRef.current;
+    prevViewModeRef.current = viewMode;
+    if (prev === viewMode) return;
+    if (
+      viewMode === 'changes' &&
+      rightPanel === 'diff' &&
+      diffTarget &&
+      diffTarget.hash !== 'WORKING' &&
+      diffTarget.hash !== 'STAGED'
+    ) {
+      closeDiff();
+    }
+  }, [viewMode, rightPanel, diffTarget, closeDiff]);
+
   const hasRepo = !!state.repoPath;
   /** Один путь в индексе и в рабочей копии — одна позиция в бейдже/статусбаре. */
   const localChangesCount = useMemo(() => {
@@ -725,6 +748,7 @@ export function App() {
                         onClearSolo={() => branchPrefsState.setSoloBranch(null)}
                         onClearAllHidden={branchPrefsState.clearAllHidden}
                         onOpenAiSettings={() => dlg.setShowAiSettings(true)}
+                        onExpandDiff={(f, h) => dlg.setCompareTarget({ file: f, hash: h })}
                       />
                     ) : (
                       <ChangesView
@@ -739,6 +763,7 @@ export function App() {
                         selectCommit={selectCommit} showPrompt={showPrompt} loc={loc}
                         onOpenAiSettings={() => dlg.setShowAiSettings(true)}
                         onOpenGitignoreDialog={() => dlg.setShowGitignore(true)}
+                        onExpandDiff={(f, h) => dlg.setCompareTarget({ file: f, hash: h })}
                       />
                     )}
                   </section>

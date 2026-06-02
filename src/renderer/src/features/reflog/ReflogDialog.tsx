@@ -78,7 +78,7 @@ export function ReflogDialog({ onClose, showPrompt }: Props) {
         {aiAvailable && (
           <button
             type="button"
-            className={`sg-button sg-button--primary sg-button--sm ${s.aiButton}`}
+            className={`sg-ai-button ${s.aiButton}`}
             onClick={stream.busy ? stream.cancel : handleExplain}
             disabled={!stream.busy && entries.length === 0}
             title={stream.busy ? tier2.cancel : tier2.explainReflogTooltip}

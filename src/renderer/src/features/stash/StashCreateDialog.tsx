@@ -94,7 +94,7 @@ export function StashCreateDialog({ onClose, onSubmit }: Props) {
         {aiAvailable && (
           <button
             type="button"
-            className="sg-button sg-button--primary sg-button--sm"
+            className="sg-ai-button"
             onClick={handleSuggest}
             disabled={busy}
             title={busy ? tier2.stashSuggesting : tier2.stashSuggestTooltip}

@@ -76,7 +76,7 @@ User clicks button in React
 | **AtomicWrite** | Атомарная запись через tmp+rename с fsync. Retry на Windows через `Atomics.wait` (без busy-spin). |
 | **AiService** | Фасад над `AiProvider`. `isConfigured()` проверяет активный режим (`openai-compatible` требует `baseUrl + model`; `qwen-web` требует `qwenWebToken + model`). `generateCommitMessage` строит промпты с учётом `commitLanguage`, зовёт провайдер и постпроцессит результат (срезает ```` ``` ```` и обрамляющие кавычки). |
 | **AiHandlers** | Map из `requestId → AbortController`. `getConfig` маскирует секрет (`apiKey` / `qwenWebToken` → `••••••••`) перед отправкой в renderer. `setConfig` мёрджит секреты: маскированное или пустое значение от UI значит «оставь предыдущий секрет». `cancelAll()` отменяет все inflight генерации при выключении. |
-| **AiConfigStore** | Хранилище конфига в `{userData}/ai-config.json` с `version: 2`. Atomic write через `atomicWriteJSON`. Секреты шифруются Electron `safeStorage` (DPAPI / Keychain / libsecret); если key store недоступен — fallback на префикс `plain:`, чтобы ключ оставался читаемым для диагностики. `clear()` пишет пустую запись, а не удаляет файл. |
+| **AiConfigStore** | Хранилище конфига в `{userData}/ai-config.json` с `version: 3` (`migrateToV3` обновляет старые файлы при загрузке). Atomic write через `atomicWriteJSON`. Секреты шифруются Electron `safeStorage` (DPAPI / Keychain / libsecret); если key store недоступен — fallback на префикс `plain:`, чтобы ключ оставался читаемым для диагностики. `clear()` пишет пустую запись, а не удаляет файл. |
 | **OpenAiCompatibleProvider** | `/v1/chat/completions` с SSE-стримом. OpenAI, Ollama, LM Studio, DeepSeek, Groq. Возвращает `usage` и `finishReason` (`stop`/`length`/`error`/`aborted`). |
 | **QwenWebProvider** | Неофициальный мост к `chat.qwen.ai`. Двушаговый флоу: `POST /api/v2/chats/new` для chat_id, потом `POST /api/v2/chat/completions?chat_id=…` с SSE. Сессионный токен из `localStorage` (без официального API-ключа DashScope). Для неизвестных id моделей фолбэк на `qwen3-max`. |
 
@@ -134,7 +134,7 @@ User clicks button in React
 `src/core/ai/`. Модуль независим: провайдеры — за маленьким интерфейсом `AiProvider`, остальная часть приложения общается с `AiHandlers` через IPC.
 
 - **Режимы** — `openai-compatible` (любой `/v1/chat/completions` endpoint: OpenAI, Ollama, LM Studio, DeepSeek, Groq) и `qwen-web` (chat.qwen.ai через сессионный токен).
-- **`AiProviderConfig`** — `mode`, `baseUrl`, `apiKey`, `qwenWebToken?`, `model`, `commitLanguage` (`auto`/`en`/`ru`), `headers?`, `timeoutMs?`.
+- **`AiProviderConfig`** — `mode`, `baseUrl`, `apiKey`, `qwenWebToken?`, `model`, `aiResponseLanguage` (`auto`/`en`/`ru`; устаревшее `commitLanguage` оставлено для миграции с v2), `headers?`, `timeoutMs?`.
 - **Промпты** (`prompts.ts`) — `buildCommitSystemPrompt(language)` добавляет правила под язык; `buildCommitUserPrompt(diff, language)` обрезает diff до `MAX_DIFF_CHARS = 6000` (head 70% + tail 20% с маркером `[diff truncated, N chars omitted]` посередине); user-промпт повторяет language-инструкцию, потому что мелкие/квантизованные локальные модели часто «забывают» system prompt.
 - **`AiService.generateCommitMessage`** — зовёт провайдер, потом `postProcessCommit` срезает ```` ``` ```` и обрамляющие кавычки (модели любят оборачивать ответ, даже когда просишь plain text).
 - **Streaming** — оба провайдера стримят через SSE (`onChunk(delta)`). Renderer выводит чанки live в поле subject коммита.

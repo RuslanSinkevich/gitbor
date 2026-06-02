@@ -14,6 +14,7 @@ import type {
 } from '../types';
 import { sendReady, onMainEvent } from '../api';
 import { setLang, t, tpl } from '../i18n';
+import { buildCompareLabel } from '../features/diff/compareLabel';
 import {
   pickMetaFields,
   pickSliceFields,
@@ -163,6 +164,12 @@ export function useStateSubscription(deps: StateSubscriptionDeps): void {
         case 'commitDiff': {
           const { fromHash, toHash, files } = msg.data;
           const rangeHash = `${fromHash}..${toHash}`;
+          const loc = t();
+          const subject = buildCompareLabel(fromHash, toHash, {
+            vsPrevious: loc.compare.vsPrevious,
+            sinceCreation: loc.compare.sinceCreation,
+            range: (from, to) => tpl(loc.compare.range, { from, to }),
+          });
           d.setCommitDetail(() => ({
             hash: rangeHash,
             parents: [],
@@ -173,7 +180,7 @@ export function useStateSubscription(deps: StateSubscriptionDeps): void {
             committerEmail: '',
             commitDate: 0,
             refs: [],
-            subject: `${fromHash.substring(0, 7)}..${toHash.substring(0, 7)}`,
+            subject,
             body: '',
             files,
           }));

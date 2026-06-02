@@ -74,7 +74,7 @@ Modules under `src/core/`:
 | **AtomicWrite** | Atomic file writes via tmp+rename with fsync. Windows retry uses `Atomics.wait` (no busy-spin). |
 | **AiService** | Facade over `AiProvider`. `isConfigured()` checks the active mode (`openai-compatible` requires `baseUrl + model`; `qwen-web` requires `qwenWebToken + model`). `generateCommitMessage` builds prompts with the configured `commitLanguage`, calls the provider, and post-processes the result (strips ```` ``` ```` fences and surrounding quotes). |
 | **AiHandlers** | Per-`requestId` `AbortController` map. `getConfig` masks the secret (`apiKey` / `qwenWebToken` → `••••••••`) before sending to the renderer. `setConfig` merges secrets: a masked or empty value from the UI means "keep the previous secret". `cancelAll()` aborts every inflight generation on shutdown. |
-| **AiConfigStore** | Persistent config in `{userData}/ai-config.json` with `version: 2`. Atomic write via `atomicWriteJSON`. Secrets are encrypted via Electron `safeStorage` (DPAPI / Keychain / libsecret); when unavailable, falls back to a `plain:` prefix so keys remain readable for diagnostics. `clear()` writes an empty entry rather than deleting the file. |
+| **AiConfigStore** | Persistent config in `{userData}/ai-config.json` with `version: 3` (`migrateToV3` upgrades older files on load). Atomic write via `atomicWriteJSON`. Secrets are encrypted via Electron `safeStorage` (DPAPI / Keychain / libsecret); when unavailable, falls back to a `plain:` prefix so keys remain readable for diagnostics. `clear()` writes an empty entry rather than deleting the file. |
 | **OpenAiCompatibleProvider** | `/v1/chat/completions` with SSE streaming. Used by OpenAI, Ollama, LM Studio, DeepSeek, Groq. Reports `usage` and `finishReason` (`stop`/`length`/`error`/`aborted`). |
 | **QwenWebProvider** | Unofficial bridge to `chat.qwen.ai`. Two-step flow: `POST /api/v2/chats/new` to create a chat id, then `POST /api/v2/chat/completions?chat_id=…` with SSE. Uses the session token from `localStorage` (no DashScope API key). Falls back to `qwen3-max` for unknown model ids. |
 
@@ -132,7 +132,7 @@ Custom hooks under `src/renderer/src/hooks/`:
 `src/core/ai/`. The module is independent: providers live behind a small `AiProvider` interface, the rest of the app talks to `AiHandlers` over IPC.
 
 - **Modes** — `openai-compatible` (any `/v1/chat/completions` endpoint: OpenAI, Ollama, LM Studio, DeepSeek, Groq) and `qwen-web` (chat.qwen.ai via session token).
-- **`AiProviderConfig`** — `mode`, `baseUrl`, `apiKey`, `qwenWebToken?`, `model`, `commitLanguage` (`auto`/`en`/`ru`), `headers?`, `timeoutMs?`.
+- **`AiProviderConfig`** — `mode`, `baseUrl`, `apiKey`, `qwenWebToken?`, `model`, `aiResponseLanguage` (`auto`/`en`/`ru`; legacy `commitLanguage` kept for v2 migration), `headers?`, `timeoutMs?`.
 - **Prompts** (`prompts.ts`) — `buildCommitSystemPrompt(language)` includes language-specific rules; `buildCommitUserPrompt(diff, language)` truncates the diff to `MAX_DIFF_CHARS = 6000` (head 70% + tail 20% with a `[diff truncated, N chars omitted]` marker in the middle); the user prompt repeats the language hint because small/quantized local models often forget the system prompt.
 - **`AiService.generateCommitMessage`** — calls the provider, then `postProcessCommit` strips ```` ``` ```` fences and surrounding quotes (models love to wrap the answer even when asked for plain text).
 - **Streaming** — both providers stream via SSE (`onChunk(delta)`). The renderer renders chunks live in the commit subject field.

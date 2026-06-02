@@ -45,9 +45,13 @@ const analyzeOut = path.resolve(__dirname, '../../docs/audit', `bundle-${today}.
 // кнопках. Тяжёлое (Markdown, SupportDialog) вынесено в lazy-чанки; в
 // главный попал только код графа стэшей (часть всегда-загружаемого графа),
 // поэтому gzip-порог поднят 130 → 132 KB. Raw без изменений (430).
+// 2026-06-01: overview-ruler (полоса-обзор изменений) для inline/split-видов
+// diff + сводка строк (+N/−M) в тулбаре. Canvas-миникарта и обёртка вынесены
+// в lazy-чанк; в главный попал минимальный eager-glue (lazy()/Suspense) и
+// подсчёт строк в DiffView. Пороги подняты gzip 132 → 133, raw 430 → 431 KB.
 // При GITBOR_BUNDLE_GATE_OFF=1 чек отключается (для локальных экспериментов).
-const BUNDLE_MAX_RAW_BYTES = 430 * 1024;
-const BUNDLE_MAX_GZIP_BYTES = 132 * 1024;
+const BUNDLE_MAX_RAW_BYTES = 431 * 1024;
+const BUNDLE_MAX_GZIP_BYTES = 133 * 1024;
 const BUNDLE_GATE_DISABLED = process.env.GITBOR_BUNDLE_GATE_OFF === '1';
 
 function bundleSizeGatePlugin(): Plugin {

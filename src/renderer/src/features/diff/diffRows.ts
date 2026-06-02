@@ -75,3 +75,37 @@ export function maxRowContentLength(rows: SideRow[]): number {
   }
   return max;
 }
+
+export type RowChange = 'add' | 'remove' | 'modify' | 'none';
+
+/**
+ * Классифицирует ряд для миникарты-обзора: удаление слева + добавление справа
+ * = изменённая строка (`modify`); только добавление/удаление = `add`/`remove`;
+ * контекст без изменений = `none`.
+ */
+export function rowChange(row: SideRow): RowChange {
+  const removed = row.left.type === 'remove';
+  const added = row.right.type === 'add';
+  if (removed && added) return 'modify';
+  if (added) return 'add';
+  if (removed) return 'remove';
+  return 'none';
+}
+
+export interface ChangeMark {
+  /** Позиция ряда в диапазоне [0..1) относительно всего файла. */
+  ratio: number;
+  type: Exclude<RowChange, 'none'>;
+}
+
+/** Собирает метки изменений для миникарты: по одной на каждый изменённый ряд. */
+export function buildChangeMarks(rows: SideRow[]): ChangeMark[] {
+  const total = rows.length;
+  if (total === 0) return [];
+  const marks: ChangeMark[] = [];
+  for (let i = 0; i < total; i++) {
+    const c = rowChange(rows[i]);
+    if (c !== 'none') marks.push({ ratio: i / total, type: c });
+  }
+  return marks;
+}

@@ -96,13 +96,16 @@
   --sg-status-icon-conflict: #f97316;
 
   /* Semantic: diff stats */
-  --sg-diff-added: #73c991;
-  --sg-diff-deleted: #c74e39;
+  --sg-diff-added: #6cc488;
+  --sg-diff-deleted: #d17a6a;
 
-  /* Diff line colors */
-  --sg-diff-add-bg: #d4edda;
-  --sg-diff-del-bg: #f8d7da;
-  --sg-diff-text: #1a1a1a;
+  /* Diff line colors — полупрозрачная заливка поверх тёмной поверхности,
+     текст обычным foreground. Раньше тут стояли светлые #d4edda/#f8d7da с
+     тёмным текстом (как для светлой темы) — на тёмном фоне это давало
+     кричащие яркие блоки и неестественный красный. */
+  --sg-diff-add-bg: color-mix(in srgb, #2ea043 18%, transparent);
+  --sg-diff-del-bg: color-mix(in srgb, #c74e39 20%, transparent);
+  --sg-diff-text: var(--sg-foreground);
 
   /* Semantic: operation status (used by activity log, badges, etc.) */
   --sg-status-running: var(--sg-primary);

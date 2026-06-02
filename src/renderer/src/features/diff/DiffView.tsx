@@ -1,9 +1,35 @@
+import { lazy, Suspense, useMemo, type ReactNode } from 'react';
 import type { FileDiff } from '../../types';
 import { t } from '../../i18n';
+import { SgIconButton } from '../../ui/SgIconButton';
 import { DiffHunkView } from './DiffHunkView';
 import { DiffSideBySide } from './DiffSideBySide';
-import { DiffWholeFile } from './DiffWholeFile';
+
+// Полоса-обзор изменений (overview ruler) для inline/split — некритичный chrome,
+// грузим отдельным чанком. До загрузки контент уже виден в обычном скроллере
+// (fallback), затем рядом появляется миникарта.
+const DiffScrollMinimap = lazy(() => import('./DiffScrollMinimap').then((m) => ({ default: m.DiffScrollMinimap })));
+
+/**
+ * Оборачивает diff-контент в ленивую полосу-обзор. Пока чанк миникарты грузится
+ * (или если он недоступен) — те же `children` показываются в обычном скроллере,
+ * поэтому контент виден сразу, без мигания. Один и тот же React-элемент
+ * переиспользуется в fallback и в активном дереве (монтируется только одно).
+ */
+function MinimapScroll({ version, children }: { version: string; children: ReactNode }) {
+  return (
+    <Suspense fallback={<div className={s.wholeWrap}><div className={s.diffScroll}>{children}</div></div>}>
+      <DiffScrollMinimap version={version}>{children}</DiffScrollMinimap>
+    </Suspense>
+  );
+}
+import { InlineIcon, SplitIcon, WholeFileIcon, WhitespaceIcon, ExpandIcon } from './diffIcons';
 import s from './DiffView.module.css';
+
+// Whole-file вид + миникарта нужны по требованию (режим «весь файл» /
+// модалка), а не на каждый diff — выносим в отдельный чанк, чтобы не
+// раздувать главный бандл.
+const DiffWholeFile = lazy(() => import('./DiffWholeFile').then((m) => ({ default: m.DiffWholeFile })));
 
 export type DiffMode = 'inline' | 'split' | 'whole';
 
@@ -15,6 +41,8 @@ interface Props {
   onToggleWs?: () => void;
   mode: DiffMode;
   onModeChange: (mode: DiffMode) => void;
+  /** Открыть текущий файл в полноэкранной модалке. Скрыто, если не задано. */
+  onExpand?: () => void;
 }
 
 const STATUS_CLS: Record<string, string> = {
@@ -25,7 +53,7 @@ const STATUS_CLS: Record<string, string> = {
   copied: s.statusRenamed,
 };
 
-export function DiffView({ diff, file, hash, ignoreWs, onToggleWs, mode, onModeChange }: Props) {
+export function DiffView({ diff, file, hash, ignoreWs, onToggleWs, mode, onModeChange, onExpand }: Props) {
   const loc = t();
   const isWorkingCopy = hash === 'WORKING';
   const isStaged = hash === 'STAGED';
@@ -36,6 +64,18 @@ export function DiffView({ diff, file, hash, ignoreWs, onToggleWs, mode, onModeC
     : diff.status === 'renamed' ? loc.diff.statusRenamed
     : diff.status === 'copied' ? loc.diff.statusCopied
     : diff.status;
+
+  // Сводка изменений (как в VS «Изменений N, −M, +K»): считаем строки по типу.
+  const { adds, dels } = useMemo(() => {
+    let a = 0, d = 0;
+    for (const h of diff.hunks) {
+      for (const l of h.lines) {
+        if (l.type === 'add') a++;
+        else if (l.type === 'remove') d++;
+      }
+    }
+    return { adds: a, dels: d };
+  }, [diff.hunks]);
 
   return (
     <div className={s.root}>
@@ -48,35 +88,57 @@ export function DiffView({ diff, file, hash, ignoreWs, onToggleWs, mode, onModeC
             ? `${diff.oldPath} → ${diff.path}`
             : diff.path}
         </span>
+        {!diff.isBinary && (adds > 0 || dels > 0) && (
+          <span className={s.diffStat} aria-label={`+${adds} −${dels}`}>
+            {adds > 0 && <span className={s.diffStatAdd}>+{adds}</span>}
+            {dels > 0 && <span className={s.diffStatDel}>−{dels}</span>}
+          </span>
+        )}
         {onToggleWs && (
-          <button
-            className={`${s.modeBtn} ${ignoreWs ? s.modeBtnActive : ''}`}
+          <SgIconButton
+            size="sm"
+            tooltip={loc.diff.ignoreWhitespace}
+            aria-pressed={ignoreWs}
+            className={ignoreWs ? s.iconBtnActive : ''}
             onClick={onToggleWs}
-            title={loc.diff.ignoreWhitespace}
           >
-            {loc.diff.ignoreWhitespace}
-          </button>
+            <WhitespaceIcon />
+          </SgIconButton>
         )}
         <div className={s.modeToggle}>
-          <button
-            className={`${s.modeBtn} ${mode === 'inline' ? s.modeBtnActive : ''}`}
+          <SgIconButton
+            size="sm"
+            tooltip={loc.diff.inline}
+            aria-pressed={mode === 'inline'}
+            className={mode === 'inline' ? s.iconBtnActive : ''}
             onClick={() => onModeChange('inline')}
           >
-            {loc.diff.inline}
-          </button>
-          <button
-            className={`${s.modeBtn} ${mode === 'split' ? s.modeBtnActive : ''}`}
+            <InlineIcon />
+          </SgIconButton>
+          <SgIconButton
+            size="sm"
+            tooltip={loc.diff.split}
+            aria-pressed={mode === 'split'}
+            className={mode === 'split' ? s.iconBtnActive : ''}
             onClick={() => onModeChange('split')}
           >
-            {loc.diff.split}
-          </button>
-          <button
-            className={`${s.modeBtn} ${mode === 'whole' ? s.modeBtnActive : ''}`}
+            <SplitIcon />
+          </SgIconButton>
+          <SgIconButton
+            size="sm"
+            tooltip={loc.diff.wholeFile}
+            aria-pressed={mode === 'whole'}
+            className={mode === 'whole' ? s.iconBtnActive : ''}
             onClick={() => onModeChange('whole')}
           >
-            {loc.diff.wholeFile}
-          </button>
+            <WholeFileIcon />
+          </SgIconButton>
         </div>
+        {onExpand && (
+          <SgIconButton size="sm" tooltip={loc.diff.expand} onClick={onExpand}>
+            <ExpandIcon />
+          </SgIconButton>
+        )}
       </div>
 
       {diff.isBinary ? (
@@ -84,20 +146,28 @@ export function DiffView({ diff, file, hash, ignoreWs, onToggleWs, mode, onModeC
       ) : diff.hunks.length === 0 ? (
         <div className={s.empty}>{loc.diff.noChanges}</div>
       ) : mode === 'inline' ? (
-        <div className={s.hunks}>
-          {diff.hunks.map((hunk, i) => (
-            <DiffHunkView key={i} hunk={hunk} hunkIndex={i} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
-          ))}
-        </div>
+        <MinimapScroll version={`${diff.path}|${ignoreWs}|inline`}>
+          <div className={s.hunks}>
+            {diff.hunks.map((hunk, i) => (
+              <DiffHunkView key={i} hunk={hunk} hunkIndex={i} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
+            ))}
+          </div>
+        </MinimapScroll>
       ) : mode === 'split' ? (
-        <DiffSideBySide hunks={diff.hunks} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
+        <MinimapScroll version={`${diff.path}|${ignoreWs}|split`}>
+          <DiffSideBySide hunks={diff.hunks} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
+        </MinimapScroll>
       ) : diff.tooLargeForWhole ? (
         <>
           <div className={s.wholeBanner}>{loc.diff.tooLargeForWhole}</div>
-          <DiffSideBySide hunks={diff.hunks} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
+          <MinimapScroll version={`${diff.path}|${ignoreWs}|toolarge`}>
+            <DiffSideBySide hunks={diff.hunks} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
+          </MinimapScroll>
         </>
       ) : (
-        <DiffWholeFile hunks={diff.hunks} />
+        <Suspense fallback={<div className={s.empty}>{loc.diff.loading}</div>}>
+          <DiffWholeFile hunks={diff.hunks} />
+        </Suspense>
       )}
     </div>
   );

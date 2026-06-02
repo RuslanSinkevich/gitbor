@@ -43,6 +43,8 @@ interface Props {
   onClearAllHidden: () => void;
   /** Открыть AI Settings — нужно `CommitExplainer`'у в CommitDetails. */
   onOpenAiSettings?: () => void;
+  /** Развернуть текущий файл в полноэкранной модалке сравнения. */
+  onExpandDiff?: (file: string, hash: string) => void;
 }
 
 export function CommitsView({
@@ -51,7 +53,7 @@ export function CommitsView({
   showContextMenu, showPrompt, requestCheckout, setRebaseOnto,
   compareFrom, onCompareFrom, onCompareTo,
   soloBranch, hidden, onClearSolo, onClearAllHidden,
-  onOpenAiSettings,
+  onOpenAiSettings, onExpandDiff,
 }: Props) {
   const loc = t();
   const graphHeightKey = buildStorageKey('sg-layout:commits-graph-height', state.repoPath);
@@ -185,6 +187,7 @@ export function CommitsView({
                 diffTarget={diffTarget}
                 selectCommit={selectCommit}
                 openDiff={openDiff}
+                onExpandDiff={onExpandDiff}
               />
             </div>
           }

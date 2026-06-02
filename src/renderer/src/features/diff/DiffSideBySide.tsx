@@ -70,7 +70,15 @@ function SidePaneTable({ lines, highlightClass }: SidePaneTableProps) {
     <table className={s.diffTable}>
       <tbody>
         {lines.map((line, i) => (
-          <tr key={i} className={line.type === 'add' || line.type === 'remove' ? highlightClass : ''}>
+          <tr
+            key={i}
+            data-diff-mark={line.type === 'add' ? 'add' : line.type === 'remove' ? 'remove' : undefined}
+            className={
+              line.type === 'add' || line.type === 'remove' ? highlightClass
+              : line.type === 'empty' ? s.lineEmpty
+              : ''
+            }
+          >
             <td className={s.lineNo}>{line.lineNo ?? ''}</td>
             <td className={s.lineContent}>{line.type !== 'empty' ? line.content : ''}</td>
           </tr>

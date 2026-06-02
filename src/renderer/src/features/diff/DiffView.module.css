@@ -36,14 +36,39 @@
   text-transform: uppercase;
 }
 
-.statusAdded { background: #2ea04333; color: #3fb950; }
-.statusDeleted { background: #f8514933; color: #f85149; }
-.statusModified { background: #d29922; color: #1e1e1e; }
-.statusRenamed { background: #388bfd33; color: #58a6ff; }
+.statusAdded { background: color-mix(in srgb, var(--sg-diff-added) 20%, transparent); color: var(--sg-diff-added); }
+.statusDeleted { background: color-mix(in srgb, var(--sg-diff-deleted) 20%, transparent); color: var(--sg-diff-deleted); }
+.statusModified { background: color-mix(in srgb, var(--sg-file-modified) 20%, transparent); color: var(--sg-file-modified); }
+.statusRenamed { background: color-mix(in srgb, var(--sg-file-renamed) 20%, transparent); color: var(--sg-file-renamed); }
+
+/* Сводка изменений в тулбаре diff: +N / −M строк. */
+.diffStat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-family: var(--sg-font-mono);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.diffStatAdd { color: var(--sg-diff-added); font-weight: 600; }
+.diffStatDel { color: var(--sg-diff-deleted); font-weight: 600; }
 
 .modeToggle {
   display: flex;
   gap: 2px;
+}
+
+/* Активная иконка-режим в diff-тулбаре. !important — чтобы перебить базовые
+   .sg-icon-button и .sg-icon-button:hover (равная специфичность, исход зависел
+   от порядка стилей). Подсветка — синий контур (inset box-shadow, не влияет
+   на раскладку) + primary-глиф, без сплошной заливки. */
+.iconBtnActive,
+.iconBtnActive:hover {
+  background: transparent !important;
+  color: var(--sg-primary) !important;
+  box-shadow: inset 0 0 0 1.5px var(--sg-primary) !important;
 }
 
 .modeBtn {
@@ -65,11 +90,25 @@
   border-color: var(--sg-primary);
 }
 
+/* Список hunk-блоков inline-режима. Скролл теперь на внешнем .diffScroll
+   (рядом живёт миникарта), поэтому сам список не скроллится — иначе была бы
+   вложенная полоса прокрутки. */
 .hunks {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: auto;
   padding: 2px 0;
+}
+
+/* Общий вертикальный скроллер для inline/split: рядом с ним фиксированная
+   полоса-обзор (DiffScrollMinimap). Горизонтальный скролл — внутри блоков.
+   Нативный скроллбар прячем — справа единый overview-ruler (как в VS). */
+.diffScroll {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.diffScroll::-webkit-scrollbar {
+  display: none;
 }
 
 /* Hunk block — обёртка для одного блока изменений (header + строки diff).
@@ -197,6 +236,19 @@
   background: var(--sg-diff-del-bg, color-mix(in srgb, #f85149 22%, transparent));
 }
 
+/* Заполнитель парности: на этой стороне строки нет (другая сторона — вставка
+   или удаление). Лёгкая диагональная штриховка читается как «здесь пусто»,
+   сохраняя построчное выравнивание колонок (line-to-line parity). */
+.lineEmpty {
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    color-mix(in srgb, var(--sg-foreground-muted) 9%, transparent) 4px,
+    color-mix(in srgb, var(--sg-foreground-muted) 9%, transparent) 8px
+  );
+}
+
 .lineAdd .lineContent,
 .lineRemove .lineContent {
   color: var(--sg-diff-text, inherit);
@@ -225,9 +277,8 @@
 .sideBySide {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* Скролл вынесен на внешний .diffScroll (с миникартой справа); sticky-шапка
+     прилипает к нему. Сам блок не скроллится, чтобы не было двойной полосы. */
 }
 
 .sideBySideHeader {
@@ -270,42 +321,122 @@
 }
 
 /* Whole-file side-by-side (виртуализированный весь файл).
-   Внешний контейнер скроллится по обеим осям; .wholeInner задаёт реальную
-   ширину контента (колонки шире контейнера → горизонтальный скролл общий,
-   а не по каждой строке). Ряды абсолютно спозиционированы внутри
-   .wholeViewport фиксированной высотой — виртуализация. */
-.wholeFile {
+   Структура: .wholeRoot (колонка) = шапка Original/Modified + .wholeWrap.
+   .wholeWrap (строка) = .wholePanes (две независимые скролл-панели) + миникарта.
+   Каждая .wholePane скроллится сама: вертикаль синхронизируется между панелями
+   из JS, горизонталь у каждой своя. Вертикальный нативный скроллбар спрятан
+   (справа единый overview-ruler), горизонтальный — виден у низа панели. */
+.wholeRoot {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Шапка Original/Modified — закреплена сверху (flex-shrink:0, вне скролл-зоны),
+   единым баром: фон + нижняя граница, чтобы не выглядела «оторванной». */
+.wholeHeaderRow {
+  display: flex;
+  flex-shrink: 0;
+  background: var(--sg-surface-raised);
+  border-bottom: 1px solid var(--sg-border);
+}
+
+/* Спейсер под ширину миникарты, чтобы шапка совпадала по колонкам с панелями. */
+.minimapSpacer {
+  flex: 0 0 14px;
+  width: 14px;
+  background: var(--sg-surface-raised);
+}
+
+.wholeWrap {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.wholePanes {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.wholePane {
+  flex: 1 1 0;
+  min-width: 0;
   overflow: auto;
-}
-
-.wholeInner {
-  min-width: 100%;
-}
-
-.wholeViewport {
   position: relative;
+  border-right: 1px solid var(--sg-border);
+}
+
+.wholePane:last-child {
+  border-right: none;
+}
+
+/* Прячем только вертикальный нативный скроллбар (Chromium): позицию по вертикали
+   показывает overview-ruler справа, а горизонтальный скроллбар у низа панели
+   нужен для длинных строк. */
+.wholePane::-webkit-scrollbar:vertical {
+  display: none;
+}
+
+.wholePane::-webkit-scrollbar:horizontal {
+  height: 10px;
+}
+
+.wholePane::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--sg-foreground-muted) 35%, transparent);
+  border-radius: 5px;
+}
+
+/* Дорожка одной стороны: высота = весь файл (виртуализация по top), ширина =
+   max(панель, длина строки) → горизонтальный скролл при длинных строках. */
+.wholeLane {
+  position: relative;
+}
+
+.wholeLaneRow {
+  position: absolute;
+  left: 0;
+  display: flex;
+  align-items: flex-start;
+  white-space: pre;
   width: 100%;
 }
 
-.wholeRow {
+/* Полоса-обзор изменений справа (Fork-style). Узкая, кликабельная. */
+.minimap {
+  position: relative;
+  flex: 0 0 14px;
+  width: 14px;
+  cursor: pointer;
+  background: var(--sg-surface-raised);
+  border-left: 1px solid var(--sg-border);
+  user-select: none;
+}
+
+.minimapCanvas {
   position: absolute;
-  left: 0;
-  right: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
-.wholeCell {
-  display: flex;
-  align-items: flex-start;
-  border-right: 1px solid var(--sg-border);
-  overflow: hidden;
-  white-space: pre;
-}
-
-.wholeCell:last-child {
-  border-right: none;
+/* Рамка текущего вьюпорта — нейтральный «бегунок» (заменяет нативный
+   скроллбар). Серый полупрозрачный, без инородного синего. */
+.minimapViewport {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  min-height: 10px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--sg-foreground) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sg-foreground) 30%, transparent);
+  pointer-events: none;
 }
 
 .wholeLineNo {
@@ -329,4 +460,15 @@
   background: color-mix(in srgb, #d29922 18%, transparent);
   color: var(--sg-foreground);
   border-bottom: 1px solid var(--sg-border);
+}
+
+/* Контент diff внутри полноэкранной модалки сравнения. */
+.modalDiff {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  font-family: var(--sg-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow: hidden;
 }

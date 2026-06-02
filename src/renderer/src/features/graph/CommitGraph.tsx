@@ -87,6 +87,25 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, stashes,
   const graphWidth = LEFT_PAD * 2 + (maxColumns + 1) * COL_WIDTH + 12;
   const totalHeight = commits.length * ROW_HEIGHT;
 
+  /*
+   * Заголовок «Описание» и левый отступ subject'ов позиционируются по ширине
+   * графа. Во время операций (fetch/merge/rebase) graphLayout обновляется
+   * несколькими промежуточными событиями, и maxColumns кратковременно скачет
+   * (большой → маленький → большой). Из-за этого подпись «Описание» дёргалась
+   * влево-вправо. Держим «high-water mark» ширины в пределах одного репо:
+   * значение только растёт, поэтому подпись не дрожит при просадках. При смене
+   * репо (repoPath) сбрасываем, чтобы узкий граф не наследовал ширину широкого.
+   * Мутация ref во время рендера безопасна — это чистый кэш по repoPath
+   * (тот же приём, что и WeakMap-кэши выше).
+   */
+  const stableWidthRef = useRef<{ repo: string | undefined; width: number }>({ repo: repoPath, width: graphWidth });
+  if (stableWidthRef.current.repo !== repoPath) {
+    stableWidthRef.current = { repo: repoPath, width: graphWidth };
+  } else if (graphWidth > stableWidthRef.current.width) {
+    stableWidthRef.current.width = graphWidth;
+  }
+  const stableGraphWidth = stableWidthRef.current.width;
+
   const { bodyRef, visibleRange, scrollToRow } = useVirtualScroll(commits.length, repoPath ?? '__default__');
   const search = useGraphSearch(commits, onSelect, scrollToRow);
 
@@ -212,7 +231,7 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, stashes,
       )}
 
       <div className={s.header}>
-        <div className={s.colDesc} style={{ paddingLeft: graphWidth }}>{loc.graph.description}</div>
+        <div className={s.colDesc} style={{ paddingLeft: stableGraphWidth }}>{loc.graph.description}</div>
         <div className={s.colAuthor}>{loc.graph.author}</div>
         <div className={s.colDate}>{loc.graph.date}</div>
         <div className={s.colHash}>{loc.graph.sha}</div>
@@ -251,7 +270,7 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, stashes,
           {visibleCommits.map((commit, vi) => {
             const i = visibleRange.start + vi;
             const { rightEdge, color: nodeColor, isRemoteOnly } = rowMeta[i];
-            const descLeft = Math.min(colX(rightEdge) + DESC_PAD, graphWidth);
+            const descLeft = Math.min(colX(rightEdge) + DESC_PAD, stableGraphWidth);
             // Контрастная иерархия: коммиты с ref-бейджами (HEAD/branch/tag)
             // выделены чуть более насыщенным subject — это «anchor-коммиты»,
             // у которых есть имя. Остальные рендерятся в стандартной яркости.

@@ -10,14 +10,15 @@ interface Props {
   diffTarget: { file: string; hash: string };
   selectCommit: (hash: string) => void;
   openDiff: (file: string, hash: string) => void;
+  onExpandDiff?: (file: string, hash: string) => void;
 }
 
-export function RightPanelContent({ rightPanel, setRightPanel, diffTarget, selectCommit, openDiff }: Props) {
+export function RightPanelContent({ rightPanel, setRightPanel, diffTarget, selectCommit, openDiff, onExpandDiff }: Props) {
   if (rightPanel === 'history') {
     return <FileHistory file={diffTarget.file} onOpenDiff={(f, h) => { openDiff(f, h); setRightPanel('diff'); }} />;
   }
   if (rightPanel === 'blame') {
     return <BlameView file={diffTarget.file} hash={diffTarget.hash} onSelectCommit={selectCommit} />;
   }
-  return <DiffPanel file={diffTarget.file} hash={diffTarget.hash} />;
+  return <DiffPanel file={diffTarget.file} hash={diffTarget.hash} onExpand={onExpandDiff} />;
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { CompareTarget } from '../features/diff';
 
 /** All dialog visibility states managed in one place. */
 export interface DialogStates {
@@ -14,6 +15,7 @@ export interface DialogStates {
   showRepoStats: boolean;
   showGitActivity: boolean;
   showAiSettings: boolean;
+  compareTarget: CompareTarget | null;
 }
 
 export interface DialogActions {
@@ -29,6 +31,7 @@ export interface DialogActions {
   setShowRepoStats: (v: boolean) => void;
   setShowGitActivity: (v: boolean) => void;
   setShowAiSettings: (v: boolean) => void;
+  setCompareTarget: (v: CompareTarget | null) => void;
 }
 
 /**
@@ -48,6 +51,7 @@ export function useDialogs(): DialogStates & DialogActions {
   const [showRepoStats, setShowRepoStats] = useState(false);
   const [showGitActivity, setShowGitActivity] = useState(false);
   const [showAiSettings, setShowAiSettings] = useState(false);
+  const [compareTarget, setCompareTarget] = useState<CompareTarget | null>(null);
 
   return {
     showAbout, setShowAbout,
@@ -62,5 +66,6 @@ export function useDialogs(): DialogStates & DialogActions {
     showRepoStats, setShowRepoStats,
     showGitActivity, setShowGitActivity,
     showAiSettings, setShowAiSettings,
+    compareTarget, setCompareTarget,
   };
 }

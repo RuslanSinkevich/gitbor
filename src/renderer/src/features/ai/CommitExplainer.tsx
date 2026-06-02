@@ -76,7 +76,7 @@ export function CommitExplainerButton({ state, onFocusCommitTab }: ButtonProps) 
   return (
     <button
       type="button"
-      className={`sg-button sg-button--primary sg-button--sm ${s.runBtn} ${stream.busy ? s.runBtnBusy : ''}`}
+      className={`sg-ai-button ${s.runBtn} ${stream.busy ? s.runBtnBusy : ''}`}
       onClick={handleClick}
       title={stream.busy ? loc.cancel : loc.explainCommitTooltip}
       aria-label={stream.busy ? loc.cancel : loc.explainCommit}

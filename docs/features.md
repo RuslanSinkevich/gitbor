@@ -59,7 +59,7 @@
 - **Hover-overlay hunk actions** (Fork-style): hover a hunk → thin primary frame appears around the block and Stage / Discard… / Unstage buttons float in the top-right corner. No persistent header bar per hunk — diff reads as clean code and fits more blocks per screen.
 - Compact `@@ -old +new @@` header per hunk: dimmed by default, brightens on hover (no sticky background)
 - Ignore Whitespace toggle
-- Dark text on colored backgrounds for better readability
+- Theme-aware diff colors — translucent line backgrounds tuned per theme (light text in dark mode, dark text in light mode); no harsh bright blocks in dark mode
 - Supports: working copy diff, staged diff, commit diff, untracked files, root commits
 
 ### Merge Conflict Resolution

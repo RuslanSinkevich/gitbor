@@ -31,6 +31,7 @@ const StatisticsDialog = lazy(() => import('./features/statistics').then(m => ({
 const GitActivityDialog = lazy(() => import('./features/git-activity').then(m => ({ default: m.GitActivityDialog })));
 const AiSettingsDialog = lazy(() => import('./features/ai').then(m => ({ default: m.AiSettingsDialog })));
 const SafetyDialog = lazy(() => import('./features/safety').then(m => ({ default: m.SafetyDialog })));
+const CompareModal = lazy(() => import('./features/diff').then(m => ({ default: m.CompareModal })));
 
 interface AppDialogsProps {
   contextMenu: ReturnType<typeof useContextMenu>['contextMenu'];
@@ -114,6 +115,7 @@ export function AppDialogs(props: AppDialogsProps) {
         {dlg.showRepoStats && <StatisticsDialog onClose={() => dlg.setShowRepoStats(false)} />}
         {dlg.showGitActivity && <GitActivityDialog onClose={() => dlg.setShowGitActivity(false)} repoPath={repoPath} />}
         {dlg.showAiSettings && <AiSettingsDialog onClose={() => dlg.setShowAiSettings(false)} />}
+        {dlg.compareTarget && <CompareModal target={dlg.compareTarget} onClose={() => dlg.setCompareTarget(null)} />}
 
         {safety?.current && (
           <SafetyDialog

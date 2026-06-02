@@ -177,6 +177,11 @@ export const en = {
     aiCancel: 'Cancel',
     dismissAiError: 'Dismiss error',
   },
+  compare: {
+    vsPrevious: 'Changes vs the previous commit',
+    sinceCreation: 'Changes since the file was created',
+    range: '{from} → {to}',
+  },
   diff: {
     loading: 'Loading diff...',
     noDiff: 'No diff available',
@@ -195,6 +200,8 @@ export const en = {
     inline: 'Inline',
     split: 'Split',
     wholeFile: 'Whole File',
+    expand: 'Open in full screen',
+    compareTitle: 'Compare',
     tooLargeForWhole: 'File too large for full view — showing changes only',
     original: 'Original',
     modified: 'Modified',

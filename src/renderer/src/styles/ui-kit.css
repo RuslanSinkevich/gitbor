@@ -26,6 +26,32 @@
 .sg-button--ghost:hover { background: var(--sg-surface-hover); }
 .sg-button:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* === AI Button ===
+   Единый нейтральный стиль для всех AI-кнопок (Commit Explainer, Reflog,
+   Conflict, Stash Suggest, генерация commit message). Не залит primary —
+   прозрачный фон + рамка, на hover/активности подсвечивается primary.
+   Размеры задаёт класс/inline-стиль на месте использования. */
+.sg-ai-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--sg-foreground);
+  background: transparent;
+  border: 1px solid var(--sg-border);
+  border-radius: var(--sg-radius-sm);
+  cursor: pointer;
+  transition: background var(--sg-transition), border-color var(--sg-transition), color var(--sg-transition);
+}
+.sg-ai-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sg-input-bg) 70%, var(--sg-primary) 30%);
+  border-color: var(--sg-primary);
+  color: var(--sg-primary);
+}
+.sg-ai-button:disabled { opacity: 0.4; cursor: default; }
+
 /* === Icon Button === */
 .sg-icon-button {
   display: inline-flex;

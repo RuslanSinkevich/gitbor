@@ -1,7 +1,13 @@
 export const ROW_HEIGHT = 28;
-export const COL_WIDTH = 14;
-export const LEFT_PAD = 20;
-export const NODE_RADIUS = 5;
+/*
+ * Расстояние между дорожками графа. Уменьшено 14 → 11 (Fork-style): ветки
+ * визуально «прижимаются» друг к другу, граф занимает заметно меньше места по
+ * ширине. Вся геометрия (узлы, кривые, merge-линии) выводится из colX(), так
+ * что менять достаточно здесь — алгоритм раскладки и maxColumns не затронуты.
+ */
+export const COL_WIDTH = 11;
+export const LEFT_PAD = 16;
+export const NODE_RADIUS = 4.5;
 export const MERGE_RADIUS = 4;
 export const OVERSCAN = 30;
 export const DESC_PAD = 16;

@@ -41,23 +41,35 @@ function nulFields(line: string): string[] {
 export function parseRefs(refString: string): RefInfo[] {
   if (!refString.trim()) return [];
 
-  return refString.split(',').map(raw => {
+  const out: RefInfo[] = [];
+  for (const raw of refString.split(',')) {
     const r = raw.trim();
+    if (!r) continue;
 
     if (r.startsWith('HEAD -> ')) {
-      return { name: r.slice(8), type: 'head' as const };
+      out.push({ name: r.slice(8), type: 'head' });
+      continue;
     }
     if (r === 'HEAD') {
-      return { name: 'HEAD', type: 'head' as const };
+      out.push({ name: 'HEAD', type: 'head' });
+      continue;
     }
     if (r.startsWith('tag: ')) {
-      return { name: r.slice(5), type: 'tag' as const };
+      out.push({ name: r.slice(5), type: 'tag' });
+      continue;
     }
     if (r.includes('/')) {
-      return { name: r, type: 'remote' as const };
+      // refs/remotes/<remote>/HEAD — символический указатель на дефолтную
+      // ветку remote'а (origin/HEAD и т.п.). Он всегда совпадает с одноимённой
+      // remote-веткой (origin/develop) и только дублирует бейдж на коммите.
+      // Fork и другие клиенты его не показывают — отбрасываем как шум.
+      if (r.endsWith('/HEAD')) continue;
+      out.push({ name: r, type: 'remote' });
+      continue;
     }
-    return { name: r, type: 'branch' as const };
-  });
+    out.push({ name: r, type: 'branch' });
+  }
+  return out;
 }
 
 // ─── Commits (from git log --format=%H%x00%P%x00...) ───

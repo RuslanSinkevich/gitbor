@@ -179,6 +179,11 @@ export const ru: LocaleMap = {
     aiCancel: 'Отмена',
     dismissAiError: 'Скрыть ошибку',
   },
+  compare: {
+    vsPrevious: 'Изменения относительно предыдущего коммита',
+    sinceCreation: 'Изменения с момента создания файла',
+    range: '{from} → {to}',
+  },
   diff: {
     loading: 'Загрузка diff...',
     noDiff: 'Нет diff',
@@ -197,6 +202,8 @@ export const ru: LocaleMap = {
     inline: 'В строку',
     split: 'Разделить',
     wholeFile: 'Весь файл',
+    expand: 'Открыть на весь экран',
+    compareTitle: 'Сравнение',
     tooLargeForWhole: 'Файл слишком большой для полного просмотра — показаны только изменения',
     original: 'Оригинал',
     modified: 'Изменённый',

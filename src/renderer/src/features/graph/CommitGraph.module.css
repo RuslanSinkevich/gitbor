@@ -304,15 +304,15 @@
 }
 
 .searchAiToggleActive {
-  background: var(--sg-primary);
+  background: transparent;
   border-color: var(--sg-primary);
-  color: #fff;
+  color: var(--sg-primary);
 }
 
 .searchAiToggleActive:hover {
-  background: color-mix(in srgb, var(--sg-primary) 88%, #000);
-  border-color: color-mix(in srgb, var(--sg-primary) 88%, #000);
-  color: #fff;
+  background: color-mix(in srgb, var(--sg-primary) 12%, transparent);
+  border-color: var(--sg-primary);
+  color: var(--sg-primary);
 }
 
 .searchClose {
@@ -353,14 +353,14 @@
 }
 
 .searchAiToggleActive {
-  background: var(--sg-primary);
-  color: #fff;
+  background: transparent;
+  color: var(--sg-primary);
   border-color: var(--sg-primary);
 }
 
 .searchAiToggleActive:hover {
-  background: color-mix(in srgb, var(--sg-primary) 85%, transparent);
-  color: #fff;
+  background: color-mix(in srgb, var(--sg-primary) 12%, transparent);
+  color: var(--sg-primary);
 }
 
 /* ─── GPG signature badges ─── */

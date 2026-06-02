@@ -55,7 +55,7 @@ export function MergeEditor({ file, sourceBranch, targetBranch, onResolved, onCa
           {aiAvailable && (
             <button
               type="button"
-              className={`sg-button sg-button--primary sg-button--sm ${s.aiButton}`}
+              className={`sg-ai-button ${s.aiButton}`}
               onClick={aiStream.busy ? aiStream.cancel : handleExplain}
               title={aiStream.busy ? tier2.cancel : tier2.explainConflictTooltip}
               aria-label={aiStream.busy ? tier2.cancel : tier2.explainConflict}
