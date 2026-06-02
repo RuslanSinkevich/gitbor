@@ -84,6 +84,8 @@ const EMPTY_META: Meta = {
 export function pickSliceFields(data: Partial<AppState>): Partial<RepoSlice> {
   const out: Partial<RepoSlice> = {};
   for (const key of SLICE_KEYS) {
+    // selectedCommitHash — только renderer; main всегда шлёт null и затирал бы клик.
+    if (key === 'selectedCommitHash') continue;
     if (key in data) (out as Record<string, unknown>)[key] = (data as Record<string, unknown>)[key];
   }
   return out;

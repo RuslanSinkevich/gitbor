@@ -112,6 +112,7 @@ export function useStateSubscription(deps: StateSubscriptionDeps): void {
           const metaPatch = pickMetaFields(data);
           d.applyMetaPatch(metaPatch);
           if (data.repoPath) {
+            const existing = d.slicesRef.current.get(data.repoPath);
             d.replaceSlice(data.repoPath, {
               repoPath: data.repoPath,
               repoName: data.repoName,
@@ -127,7 +128,7 @@ export function useStateSubscription(deps: StateSubscriptionDeps): void {
               behind: data.behind,
               commits: data.commits,
               graphLayout: data.graphLayout,
-              selectedCommitHash: data.selectedCommitHash,
+              selectedCommitHash: existing?.selectedCommitHash ?? null,
             });
           }
           break;
