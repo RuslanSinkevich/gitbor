@@ -13,6 +13,10 @@ const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf899d15d4cef8de1';
  * Хэш для сравнения «с предыдущей»: root-коммит сравниваем с пустым деревом,
  * merge — с первым родителем (mainline), обычный коммит — с родителем.
  */
+function isCurrentHead(commit: Commit): boolean {
+  return commit.refs.some(r => r.type === 'head');
+}
+
 function previousHash(commit: Commit): string {
   if (commit.parents.length === 0) return EMPTY_TREE;
   if (commit.parents.length > 1) return `${commit.hash}^1`;
@@ -31,6 +35,7 @@ export type OnRebase = (onto: string) => void;
 export function getCommitMenuItems(
   commit: Commit, currentBranch: string, showPrompt: ShowPrompt, requestCheckout: RequestCheckout,
   onRebase?: OnRebase, compareFrom?: string | null, onCompareFrom?: (hash: string) => void, onCompareTo?: (from: string, to: string) => void,
+  headOnRemote = false,
 ): SgContextMenuItem[] {
   const loc = t();
   const shortHash = commit.hash.substring(0, 7);
@@ -85,6 +90,11 @@ export function getCommitMenuItems(
       disabled: !onRebase,
     },
     { divider: true },
+
+    ...(isCurrentHead(commit) && commit.parents.length > 0 && !headOnRemote ? [
+      { label: loc.contextMenu.uncommitToStaging, action: () => postCommand({ type: 'resetTo', hash: commit.parents[0], mode: 'soft' }) },
+      { divider: true },
+    ] as SgContextMenuItem[] : []),
 
     {
       label: tpl(loc.contextMenu.resetToHere, { branch: currentBranch }),

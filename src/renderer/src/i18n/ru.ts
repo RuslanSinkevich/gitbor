@@ -366,6 +366,7 @@ export const ru: LocaleMap = {
     stashShow: 'Показать изменения',
     cherryPick: 'Cherry-pick этот коммит',
     revert: 'Откатить (Revert) этот коммит',
+    uncommitToStaging: 'Вернуть коммит в подготовленные',
     resetSoft: 'Soft (сохранить в staging)',
     resetMixed: 'Mixed (сохранить в working dir)',
     resetHard: 'Hard (удалить изменения)',

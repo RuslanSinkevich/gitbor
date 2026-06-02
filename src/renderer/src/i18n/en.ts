@@ -363,6 +363,7 @@ export const en = {
     stashShow: 'Show Changes',
     cherryPick: 'Cherry-pick this commit',
     revert: 'Revert this commit',
+    uncommitToStaging: 'Uncommit to staging',
     resetSoft: 'Soft (keep in staging)',
     resetMixed: 'Mixed (keep in working dir)',
     resetHard: 'Hard (discard changes)',

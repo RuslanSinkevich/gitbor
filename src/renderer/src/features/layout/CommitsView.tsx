@@ -145,6 +145,7 @@ export function CommitsView({
           compareFrom={compareFrom}
           onCompareFrom={onCompareFrom}
           onCompareTo={onCompareTo}
+          headOnRemote={state.branches.some(b => b.isCurrent && b.upstream) && state.ahead === 0}
         />
       )}
     </div>

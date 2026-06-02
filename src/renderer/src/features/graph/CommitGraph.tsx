@@ -80,9 +80,11 @@ interface Props {
   compareFrom?: string | null;
   onCompareFrom?: (hash: string) => void;
   onCompareTo?: (from: string, to: string) => void;
+  /** HEAD совпадает с upstream (ahead === 0) — uncommit запрещён. */
+  headOnRemote?: boolean;
 }
 
-function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, stashes, selectedHash, onSelect, currentBranch, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, compareFrom, onCompareFrom, onCompareTo }: Props) {
+function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, stashes, selectedHash, onSelect, currentBranch, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, compareFrom, onCompareFrom, onCompareTo, headOnRemote = false }: Props) {
   const loc = t();
   const graphWidth = LEFT_PAD * 2 + (maxColumns + 1) * COL_WIDTH + 12;
   const totalHeight = commits.length * ROW_HEIGHT;
@@ -283,7 +285,7 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, stashes,
                 style={{ top: i * ROW_HEIGHT, height: ROW_HEIGHT }}
                 onClick={() => onSelect(commit.hash)}
                 title={isRemoteOnly ? loc.graph.remoteOnlyHint : undefined}
-                onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getCommitMenuItems(commit, currentBranch, showPrompt, requestCheckout, onRebase, compareFrom, onCompareFrom, onCompareTo)); }}>
+                onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getCommitMenuItems(commit, currentBranch, showPrompt, requestCheckout, onRebase, compareFrom, onCompareFrom, onCompareTo, headOnRemote)); }}>
                 <div className={s.rowDesc} style={{ paddingLeft: descLeft }}>
                   {commit.refs.map((ref) => (
                     <span key={ref.name} className={s.refBadge} style={{ background: nodeColor, color: '#fff', borderColor: nodeColor }}>{ref.name}</span>
@@ -335,5 +337,6 @@ export const CommitGraph = memo(CommitGraphImpl, (prev, next) => (
   prev.selectedHash === next.selectedHash &&
   prev.currentBranch === next.currentBranch &&
   prev.compareFrom === next.compareFrom &&
+  prev.headOnRemote === next.headOnRemote &&
   prev.repoPath === next.repoPath
 ));
