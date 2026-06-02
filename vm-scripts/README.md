@@ -13,11 +13,12 @@
 | `vm-setup.sh` | Один раз на свежей Ubuntu | Ставит Guest Additions, group vboxsf, git, Node.js 22, библиотеки для Electron. После — `sudo reboot` |
 | `project-setup.sh` | Один раз / при пересоздании | Копирует проект из общей папки в `~/gitbor`, ставит зависимости (root + renderer), правит chrome-sandbox |
 | `dev.sh` | Каждый запуск в dev | Чинит sandbox (если нужно) и поднимает `npm run dev` |
-| `release-linux.sh` | После правок на Windows, для релиза | Синкает код Win→VM, ставит зависимости, собирает AppImage+deb, кладёт в `linux-release/` (видно на Windows) |
-| `copy-release.sh` | Если собрал вручную | Просто копирует готовые артефакты из `~/gitbor/release` в общую папку |
+| `release-linux.sh` | После правок на Windows, для релиза | Синкает код Win→VM, ставит зависимости, чистит старьё, собирает AppImage+deb+rpm, кладёт в `linux-release/` (видно на Windows) |
 | `install-appimage.sh` | Поставить AppImage с ярлыком | Кладёт AppImage в `~/Applications`, создаёт иконку и ярлык в меню (без админа). Авто-апдейт заменяет файл на месте |
 | `install-deb.sh` | Поставить как обычный юзер (Ubuntu/Debian) | Сносит старую установку (AppImage + deb), ставит свежий `.deb` через apt. Иконка и меню — автоматом. Авто-апдейта нет |
 | `uninstall-clean.sh` | Полностью снести GitBor | Удаляет deb, AppImage, ярлыки, иконки, конфиг (`~/.config/GitBor`), кэш, остатки в `/opt`. Для чистой переустановки |
+| `run-gitbor-vm.sh` | Запуск установленного GitBor в этой VM | Костыль для VirtualBox без 3D: форсит X11 + software-rendering. На реальном железе не нужен |
+| `fix-desktop-vm.sh` | Если ярлык в VM не запускается / нет иконки | Костыль для VM: правит `.desktop` (X11+disable-gpu, абсолютный путь иконки). На реальном железе не нужен |
 
 ## Команды
 

@@ -47,6 +47,7 @@ export function getBranchMenuItems(
       action: () => showPrompt({
         title: tpl(loc.contextMenu.rename, { name: branch.name }),
         defaultValue: branch.name,
+        placeholder: 'branch-name',
         onConfirm: (newName) => {
           if (newName && newName !== branch.name) {
             extras.onRename?.(branch.name, newName);

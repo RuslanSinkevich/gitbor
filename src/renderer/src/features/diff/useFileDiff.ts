@@ -41,7 +41,8 @@ export function useFileDiff(
     postCommand({ type: 'getFileDiff', file, hash, ignoreWhitespace: ignoreWs || undefined, fullContext: fullContext || undefined });
 
     const unsub = onMainEvent((msg) => {
-      if (msg.type === 'fileDiff' && msg.file === file && msg.hash === hash) {
+      if (msg.type === 'fileDiff' && msg.file === file && msg.hash === hash
+          && (msg.fullContext ?? false) === fullContext) {
         setDiffs(msg.data);
         setLoading(false);
       }

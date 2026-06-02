@@ -33,10 +33,10 @@ export const ipcHandlersState: HandlerTable = {
   getFileDiff: async (cmd, ctx) => {
     try {
       const diffs = await ctx.ch.getFileDiff(cmd.file, cmd.hash, cmd.ignoreWhitespace, cmd.fullContext);
-      ctx.send({ type: 'fileDiff', data: diffs, file: cmd.file, hash: cmd.hash });
+      ctx.send({ type: 'fileDiff', data: diffs, file: cmd.file, hash: cmd.hash, fullContext: cmd.fullContext });
     } catch (diffErr) {
       mainLogger.error(`getFileDiff: ${diffErr instanceof Error ? (diffErr.stack ?? diffErr.message) : String(diffErr)}`);
-      ctx.send({ type: 'fileDiff', data: [], file: cmd.file, hash: cmd.hash });
+      ctx.send({ type: 'fileDiff', data: [], file: cmd.file, hash: cmd.hash, fullContext: cmd.fullContext });
       ctx.send({ type: 'error', message: diffErr instanceof Error ? diffErr.message : String(diffErr) });
     }
   },

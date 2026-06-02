@@ -143,6 +143,16 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
               className="sg-input"
               value={value}
               onChange={e => setValue(e.target.value)}
+              onPaste={prompt.placeholder === 'branch-name' ? (e) => {
+                const text = e.clipboardData.getData('text');
+                if (!text) return;
+                e.preventDefault();
+                const clean = text.replace(/\s+/g, '-').replace(/[~^:?*[\]\\"'«»]/g, '');
+                const el = e.currentTarget;
+                const a = el.selectionStart ?? value.length;
+                const b = el.selectionEnd ?? value.length;
+                setValue(value.slice(0, a) + clean + value.slice(b));
+              } : undefined}
               placeholder={prompt.placeholder}
               onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
               style={{ width: '100%' }}

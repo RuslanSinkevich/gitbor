@@ -117,6 +117,7 @@ export function Sidebar({
       title: loc.sidebar.moveBranch ?? 'Move branch',
       label: (loc.sidebar.moveBranchPrompt ?? 'New name for {old}:').replace('{old}', oldName),
       defaultValue: newName,
+      placeholder: 'branch-name',
       onConfirm: (finalName) => {
         if (finalName && finalName !== oldName) {
           branchPrefs?.renameBranch(oldName, finalName);

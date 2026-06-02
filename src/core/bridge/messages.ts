@@ -229,7 +229,7 @@ export type MainEvent =
   | { type: 'stateUpdate'; data: Partial<AppState> }
   | { type: 'commitDetails'; data: CommitDetail; hash: string }
   | { type: 'graphData'; data: CommitGraphData; repoPath: string }
-  | { type: 'fileDiff'; data: FileDiff[]; file: string; hash: string }
+  | { type: 'fileDiff'; data: FileDiff[]; file: string; hash: string; fullContext?: boolean }
   | { type: 'fileBlame'; data: BlameResult; file: string }
   | { type: 'fileHistory'; data: FileHistoryResult; file: string }
   | { type: 'submodules'; data: Submodule[] }
