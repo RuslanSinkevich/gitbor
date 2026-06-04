@@ -40,6 +40,17 @@ export const ipcHandlersState: HandlerTable = {
       ctx.send({ type: 'error', message: diffErr instanceof Error ? diffErr.message : String(diffErr) });
     }
   },
+  getFileText: async (cmd, ctx) => {
+    // Возвращаем результат через invoke (string | null), а не через event:
+    // markdown preview всегда привязан к одной активной модалке, поэтому
+    // request/response естественнее, чем broadcast.
+    try {
+      return await ctx.ch.getFileText(cmd.file, cmd.hash);
+    } catch (err) {
+      mainLogger.error(`getFileText: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
+  },
   getFileBlame: async (cmd, ctx) => {
     const blame = await ctx.ch.getFileBlame(cmd.file, cmd.hash);
     ctx.send({ type: 'fileBlame', data: blame, file: cmd.file });

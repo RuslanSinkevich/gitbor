@@ -32,6 +32,7 @@ export function DiffHunkView({ hunk, hunkIndex, file, isWorkingCopy, isStaged }:
             <tr
               key={i}
               data-diff-mark={line.type === 'add' ? 'add' : line.type === 'remove' ? 'remove' : undefined}
+              data-diff-line={line.content}
               className={
                 line.type === 'add' ? s.lineAdd
                 : line.type === 'remove' ? s.lineRemove

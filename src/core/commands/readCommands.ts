@@ -5,6 +5,7 @@ import { parseBlame } from '../git/BlameParser';
 import { parseFileHistory, FILE_HISTORY_FORMAT } from '../git/FileHistoryParser';
 import { parseSubmoduleStatus, parseGitmodules } from '../git/SubmoduleParser';
 import { CommitDetail, CommitGraphData, FileDiff, BlameResult, FileHistoryResult, Submodule } from '../git/types';
+import { decodeGitText } from '../utils/textEncoding';
 import type {
   RepoStats,
   AuthorStats,
@@ -102,6 +103,17 @@ async function resolveEffectiveHash(git: GitExecutor, file: string, hash: string
   return prev ? `${prev}..${target}` : `${EMPTY_TREE}..${target}`;
 }
 
+/**
+ * Получает stdout `git diff` как байты и декодирует с эвристикой кодировок
+ * (UTF-8 → CP1251 → CP866). Прямой `git.exec` использует Node-дефолт utf-8
+ * и для файлов в legacy Windows-1251 (старые .sql, .cs) выдаёт кракозябры
+ * вместо кириллицы.
+ */
+async function runDiff(git: GitExecutor, args: string[]): Promise<string> {
+  const r = await git.execBuffer(args);
+  return decodeGitText(r.stdout);
+}
+
 async function computeFileDiff(
   git: GitExecutor, file: string, hash: string,
   ignoreWhitespace?: boolean, fullContext?: boolean,
@@ -113,8 +125,8 @@ async function computeFileDiff(
     const diffFlags = ['--no-ext-diff', '--no-textconv', '--no-color', ...wsFlag, ...ctxFlag];
 
     if (hash === 'WORKING') {
-      const result = await git.exec(['diff', ...diffFlags, '--', file]);
-      if (result.stdout.trim()) return parseDiff(result.stdout);
+      const stdout = await runDiff(git, ['diff', ...diffFlags, '--', file]);
+      if (stdout.trim()) return parseDiff(stdout);
 
       // Diff пустой. Если файл tracked — это stat-dirty (mtime тронута
       // внешним инструментом, контент идентичен). Без этой ветки UI
@@ -140,36 +152,34 @@ async function computeFileDiff(
       }
 
       const nullDev = process.platform === 'win32' ? 'NUL' : '/dev/null';
-      const untrackedResult = await git.exec(
-        ['diff', '--no-index', ...diffFlags, '--', nullDev, file]
-      );
-      return parseDiff(untrackedResult.stdout);
+      const untrackedStdout = await runDiff(git, ['diff', '--no-index', ...diffFlags, '--', nullDev, file]);
+      return parseDiff(untrackedStdout);
     }
 
     if (hash.includes('..')) {
       const [fromH, toH] = hash.split('..');
-      const result = await git.exec(['diff', ...diffFlags, fromH, toH, '--', file]);
-      return parseDiff(result.stdout);
+      const stdout = await runDiff(git, ['diff', ...diffFlags, fromH, toH, '--', file]);
+      return parseDiff(stdout);
     }
 
     if (hash === 'STAGED') {
-      const result = await git.exec(['diff', '--cached', ...diffFlags, '--', file]);
-      if (result.stdout.trim()) return parseDiff(result.stdout);
+      const stdout = await runDiff(git, ['diff', '--cached', ...diffFlags, '--', file]);
+      if (stdout.trim()) return parseDiff(stdout);
 
-      const newResult = await git.exec(['diff', '--cached', ...diffFlags, EMPTY_TREE, '--', file]);
-      return parseDiff(newResult.stdout);
+      const newStdout = await runDiff(git, ['diff', '--cached', ...diffFlags, EMPTY_TREE, '--', file]);
+      return parseDiff(newStdout);
     }
 
     const parentCheck = await git.exec(['rev-list', '--parents', '-1', hash]);
     const parentParts = parentCheck.stdout.trim().split(/\s+/);
 
     if (parentParts.length > 1) {
-      const result = await git.exec(['diff', ...diffFlags, `${hash}^`, hash, '--', file]);
-      return parseDiff(result.stdout);
+      const stdout = await runDiff(git, ['diff', ...diffFlags, `${hash}^`, hash, '--', file]);
+      return parseDiff(stdout);
     }
 
-    const result = await git.exec(['diff', ...diffFlags, EMPTY_TREE, hash, '--', file]);
-    return parseDiff(result.stdout);
+    const stdout = await runDiff(git, ['diff', ...diffFlags, EMPTY_TREE, hash, '--', file]);
+    return parseDiff(stdout);
   }
 }
 
@@ -193,6 +203,54 @@ export async function getFileDiff(
     for (const d of fallback) d.tooLargeForWhole = true;
     return fallback;
   });
+}
+
+/**
+ * Возвращает текстовое содержимое файла на указанной ревизии.
+ * Для `WORKING` читаем файл напрямую с ФС, для коммита/STAGED/диапазона —
+ * `git show <hash>:<file>`. Кодировка определяется эвристикой
+ * `decodeGitText` (UTF-8 → CP1251 → CP866), чтобы кириллица в
+ * legacy-файлах читалась корректно.
+ *
+ * Для бинарников возвращается `null` — рендереру нечего показывать.
+ */
+export async function getFileText(
+  queue: OperationQueue, git: GitExecutor, file: string, hash: string,
+): Promise<string | null> {
+  return queue.enqueueRead('getFileText', async () => {
+    if (hash === 'WORKING') {
+      const { readFile } = await import('fs/promises');
+      const { safePath } = await import('../utils/pathSecurity');
+      const repoPath = git.getCwd();
+      try {
+        const buf = await readFile(safePath(repoPath, file));
+        if (isLikelyBinary(buf)) return null;
+        return decodeGitText(buf);
+      } catch {
+        return null;
+      }
+    }
+
+    const ref = hash === 'STAGED'
+      ? `:${file}`
+      : hash.includes('..')
+        ? `${hash.split('..')[1]}:${file}`
+        : hash.startsWith('PREV:')
+          ? `${hash.slice('PREV:'.length)}:${file}`
+          : `${hash}:${file}`;
+
+    const r = await git.execBuffer(['show', ref]);
+    if (r.exitCode !== 0) return null;
+    if (isLikelyBinary(r.stdout)) return null;
+    return decodeGitText(r.stdout);
+  });
+}
+
+/** Быстрая эвристика бинарности: NUL-байт в первых 8 КБ. */
+function isLikelyBinary(buf: Buffer): boolean {
+  const limit = Math.min(buf.length, 8192);
+  for (let i = 0; i < limit; i++) if (buf[i] === 0) return true;
+  return false;
 }
 
 export async function getFileBlame(

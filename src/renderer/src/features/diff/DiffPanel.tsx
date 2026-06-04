@@ -1,10 +1,20 @@
-import { useEffect, useState, useCallback } from 'react';
+import { lazy, Suspense, useEffect, useState, useCallback } from 'react';
 import { t } from '../../i18n';
 import { postCommand } from '../../api';
 import { DiffView, type DiffMode } from './DiffView';
 import { ImageDiff, isImageFile } from './ImageDiff';
+import type { MarkdownPreviewTarget } from './MarkdownPreviewModal';
 import { useFileDiff } from './useFileDiff';
 import s from './DiffView.module.css';
+
+// Markdown-preview модалка тянет за собой UI Markdown-парсер; нужна только
+// при просмотре .md-файлов и редко. Lazy — чтобы не вздуть главный бандл.
+const MarkdownPreviewModal = lazy(() => import('./MarkdownPreviewModal').then(m => ({ default: m.MarkdownPreviewModal })));
+
+function isMarkdownFile(path: string): boolean {
+  const lower = path.toLowerCase();
+  return lower.endsWith('.md') || lower.endsWith('.markdown');
+}
 
 interface Props {
   file: string;
@@ -49,12 +59,18 @@ export function DiffPanel({ file, hash, onExpand }: Props) {
   }, [readOnly]);
 
   const isImage = isImageFile(file);
+  const isMarkdown = isMarkdownFile(file);
   const needsFullContext = mode === 'whole';
   const { diffs, loading, error } = useFileDiff(file, hash, ignoreWs, needsFullContext, !isImage);
 
   const handleToggleWs = useCallback(() => {
     setIgnoreWs((prev) => !prev);
   }, []);
+
+  const [mdPreview, setMdPreview] = useState<MarkdownPreviewTarget | null>(null);
+  const handlePreviewMarkdown = useCallback(() => {
+    setMdPreview({ file, hash });
+  }, [file, hash]);
 
   if (isImage) {
     return <ImageDiff file={file} hash={hash} />;
@@ -95,8 +111,14 @@ export function DiffPanel({ file, hash, onExpand }: Props) {
           ignoreWs={ignoreWs} onToggleWs={handleToggleWs}
           mode={mode} onModeChange={handleModeChange}
           onExpand={onExpand ? () => onExpand(file, hash) : undefined}
+          onPreviewMarkdown={isMarkdown ? handlePreviewMarkdown : undefined}
         />
       ))}
+      {mdPreview && (
+        <Suspense fallback={null}>
+          <MarkdownPreviewModal target={mdPreview} onClose={() => setMdPreview(null)} />
+        </Suspense>
+      )}
     </>
   );
 }

@@ -49,9 +49,14 @@ const analyzeOut = path.resolve(__dirname, '../../docs/audit', `bundle-${today}.
 // diff + сводка строк (+N/−M) в тулбаре. Canvas-миникарта и обёртка вынесены
 // в lazy-чанк; в главный попал минимальный eager-glue (lazy()/Suspense) и
 // подсчёт строк в DiffView. Пороги подняты gzip 132 → 133, raw 431 → 432 KB.
+// 2026-06-03: ПКМ «Копировать» на diff (`useDiffCopyMenu` + локальный
+// SgContextMenu) и кнопка «Просмотр Markdown» в diff-тулбаре. Сама модалка
+// (Markdown-парсер) уехала в lazy-chunk (`Markdown-*.js`, ~3 KB), но
+// eager-обёртки + `data-diff-line` атрибуты + новые i18n-строки прибавили
+// ~3 KB в главный chunk. Пороги: gzip 133 → 136, raw 432 → 440 KB.
 // При GITBOR_BUNDLE_GATE_OFF=1 чек отключается (для локальных экспериментов).
-const BUNDLE_MAX_RAW_BYTES = 432 * 1024;
-const BUNDLE_MAX_GZIP_BYTES = 133 * 1024;
+const BUNDLE_MAX_RAW_BYTES = 440 * 1024;
+const BUNDLE_MAX_GZIP_BYTES = 136 * 1024;
 const BUNDLE_GATE_DISABLED = process.env.GITBOR_BUNDLE_GATE_OFF === '1';
 
 function bundleSizeGatePlugin(): Plugin {

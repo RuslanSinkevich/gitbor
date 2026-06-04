@@ -61,6 +61,9 @@
 - Переключатель "Без пробелов" (Ignore Whitespace)
 - Цвета diff подстроены под тему — полупрозрачная заливка строк (светлый текст в тёмной теме, тёмный — в светлой); без кричащих ярких блоков в тёмной теме
 - Поддержка: working copy diff, staged diff, commit diff, untracked files, root commits
+- **ПКМ → «Копировать»**: правый клик на diff-содержимом открывает контекстное меню с пунктом **Копировать** — либо текущее выделение (`window.getSelection()`), либо строка под курсором (строки помечены `data-diff-line`, работает в inline / split / whole-file). Меню локальное для diff-фичи, не конфликтует с глобальным контекстным меню `App`
+- **Просмотр Markdown** для `.md` / `.markdown`: в тулбаре diff (и в `CompareModal`) появляется кнопка с Markdown-иконкой; клик открывает модалку с нормальным рендером файла (не diff). Содержимое подтягивается одним IPC `getFileText` — для `WORKING` читаем рабочую копию через `fs.readFile`, для коммита / `STAGED` / диапазона `a..b` / `PREV:hash` — `git show <hash>:<file>`. Модалка lazy-загружается (Markdown-парсер уезжает в отдельный chunk)
+- **Кодировки legacy-файлов** — stdout `git diff` забирается как `Buffer` (через `GitExecutor.execBuffer`) и декодируется эвристикой `decodeGitText`: BOM (UTF-8 / UTF-16 LE/BE) → строгий UTF-8 → CP1251 (Windows Cyrillic) → CP866 (DOS Cyrillic). Кириллические комментарии в `.sql` / `.cs` / `.pas`-файлах со старой Windows читаются нормально, а не превращаются в кракозябры (` ` и компания). Та же эвристика применяется к `getFileText` для модалки markdown-preview
 
 ## Разрешение merge-конфликтов
 

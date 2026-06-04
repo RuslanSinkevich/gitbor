@@ -287,7 +287,7 @@ gitbor/
 - **Боковая панель** — ветки, теги, stash, remotes; checkout, merge, rename, delete; current branch — зелёная точка; hover-действия per-branch (pin / solo / hide / note), Solo + Hide-фильтры графа и per-repo заметки по ветке
 - **Локальные изменения** — дерево файлов, stage/unstage/discard по файлу и по hunk
 - **Контекстное меню по папкам** — stage / unstage / discard / delete применяется ко всем файлам внутри (Staged/Unstaged)
-- **Просмотр diff** — inline + split, ignore whitespace, hover-кнопки stage/discard/unstage поверх hunk-блока (как в Fork); без префиксов `+`/`−` в тексте строк (только цвет)
+- **Просмотр diff** — inline + split, ignore whitespace, hover-кнопки stage/discard/unstage поверх hunk-блока (как в Fork); без префиксов `+`/`−` в тексте строк (только цвет); ПКМ → «Копировать» (выделение или строка под курсором); кнопка «Просмотр Markdown» в тулбаре для `.md`-файлов; legacy-кодировки (CP1251/CP866) декодируются эвристикой, кириллица в старых `.sql`-файлах читается нормально
 - **Разрешение merge-конфликтов** — двухколоночный редактор, авто-переход, предсказание
 - **История файла и Git blame** — построчные аннотации, история по файлу
 - **Интерактивный rebase** — pick/reword/edit/squash/fixup/drop, баннер прогресса

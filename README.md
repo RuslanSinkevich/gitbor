@@ -280,7 +280,7 @@ gitbor/
 - **Branch/Tag/Stash sidebar** — tree view, checkout, merge, rename, delete; current branch marked with green dot; per-branch hover-actions (pin / solo / hide / note), Solo + Hide graph filters and per-repo branch notes
 - **Local changes** — tree view, stage/unstage/discard per file and per hunk
 - **Folder context menu** — stage / unstage / discard / delete applied to all files inside (Staged/Unstaged sections)
-- **Diff viewer** — inline + split, ignore whitespace, hover-overlay stage/discard/unstage on hunk block (Fork-style); no `+`/`−` text prefix in line content (color-only)
+- **Diff viewer** — inline + split, ignore whitespace, hover-overlay stage/discard/unstage on hunk block (Fork-style); no `+`/`−` text prefix in line content (color-only); right-click → Copy (selection or hovered line); Markdown preview button for `.md` files; legacy encodings (CP1251/CP866) decoded via heuristic so Cyrillic comments in old `.sql` files render readably
 - **Merge conflict resolution** — two-column editor, auto-advance, conflict prediction
 - **File history & Git blame** — per-file commit history, line-by-line annotations
 - **Interactive rebase** — pick/reword/edit/squash/fixup/drop, progress banner

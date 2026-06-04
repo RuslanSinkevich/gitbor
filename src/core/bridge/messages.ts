@@ -39,6 +39,13 @@ type RendererCommandCore =
   | { type: 'getCommitDetails'; hash: string }
   | { type: 'getGraphData'; maxCount: number }
   | { type: 'getFileDiff'; file: string; hash: string; ignoreWhitespace?: boolean; fullContext?: boolean }
+  /**
+   * Возвращает текстовое содержимое файла на нужной ревизии. Renderer
+   * получает строку через `invokeCommand` (а не через отдельный event).
+   * Кодировка определяется heuristic'ой `decodeGitText` — кириллица в
+   * legacy CP1251 файлах не превращается в кракозябры.
+   */
+  | { type: 'getFileText'; file: string; hash: string }
   | { type: 'getFileBlame'; file: string; hash?: string }
   | { type: 'getFileHistory'; file: string }
   | { type: 'addRemote'; name: string; url: string }

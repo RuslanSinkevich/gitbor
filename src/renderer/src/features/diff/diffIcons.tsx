@@ -57,3 +57,13 @@ export const ExpandIcon = () => (
     <path d="M10 13.25h2.75V10.5" />
   </svg>
 );
+
+/* Глиф markdown-preview: характерная буква «M» в скруглённой рамке —
+   универсальный значок документации/превью без зависимости от шрифта. */
+export const MarkdownIcon = () => (
+  <svg {...base}>
+    <rect x="2.25" y="3" width="11.5" height="10" rx="1.5" />
+    <path d="M5 11V6l2 2.5L9 6v5" />
+    <path d="M11.25 7v3l1 1 1-1" />
+  </svg>
+);

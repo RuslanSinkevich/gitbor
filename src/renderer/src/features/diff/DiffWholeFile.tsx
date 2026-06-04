@@ -119,6 +119,7 @@ export function DiffWholeFile({ hunks }: Props) {
             <div
               key={rowIndex}
               className={`${s.wholeLaneRow} ${cellClass(cell)}`}
+              data-diff-line={cell.type === 'empty' ? undefined : cell.content}
               style={{ top: rowIndex * ROW_HEIGHT, height: ROW_HEIGHT }}
             >
               <span className={s.wholeLineNo}>{cell.lineNo ?? ''}</span>

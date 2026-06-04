@@ -61,6 +61,9 @@
 - Ignore Whitespace toggle
 - Theme-aware diff colors — translucent line backgrounds tuned per theme (light text in dark mode, dark text in light mode); no harsh bright blocks in dark mode
 - Supports: working copy diff, staged diff, commit diff, untracked files, root commits
+- **Right-click → Copy**: ПКМ on diff content opens a context menu with **Copy** — either current text selection (`window.getSelection()`) or the hovered line (rows tagged with `data-diff-line`, works in inline/split/whole-file). Local to the diff feature, doesn't conflict with the global App-level context menu
+- **Markdown preview** for `.md` / `.markdown` files: a Markdown-icon button appears in the diff toolbar (and inside `CompareModal`); clicking opens a modal with the file rendered as rich text (not a diff). Content is fetched via `getFileText` IPC — for `WORKING` reads the working copy via `fs.readFile`, for any commit / `STAGED` / `a..b` / `PREV:hash` ref uses `git show <hash>:<file>`. The modal is lazy-loaded (Markdown parser ships as a separate chunk)
+- **Legacy file encodings** — `git diff` output is captured as a `Buffer` (via `GitExecutor.execBuffer`) and decoded with `decodeGitText` heuristics: BOM (UTF-8 / UTF-16 LE / BE) → strict UTF-8 → CP1251 (Windows Cyrillic) → CP866 (DOS Cyrillic). Cyrillic comments in `.sql` / `.cs` / `.pas` files saved on legacy Windows render as readable text instead of mojibake (` ` and friends). Same heuristic applies to `getFileText` for the Markdown preview
 
 ### Merge Conflict Resolution
 

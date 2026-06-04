@@ -1,13 +1,22 @@
-import { useState, useCallback } from 'react';
+import { lazy, Suspense, useState, useCallback } from 'react';
 import { t } from '../../i18n';
 import { SgDialog } from '../../ui/SgDialog';
 import { SgIconButton } from '../../ui/SgIconButton';
 import { DiffWholeFile } from './DiffWholeFile';
 import { DiffSideBySide } from './DiffSideBySide';
 import { ImageDiff, isImageFile } from './ImageDiff';
+import type { MarkdownPreviewTarget } from './MarkdownPreviewModal';
 import { useFileDiff } from './useFileDiff';
-import { WhitespaceIcon } from './diffIcons';
+import { useDiffCopyMenu } from './useDiffCopyMenu';
+import { WhitespaceIcon, MarkdownIcon } from './diffIcons';
 import s from './DiffView.module.css';
+
+const MarkdownPreviewModal = lazy(() => import('./MarkdownPreviewModal').then(m => ({ default: m.MarkdownPreviewModal })));
+
+function isMarkdownFile(path: string): boolean {
+  const lower = path.toLowerCase();
+  return lower.endsWith('.md') || lower.endsWith('.markdown');
+}
 
 export interface CompareTarget {
   file: string;
@@ -27,14 +36,17 @@ interface Props {
 export function CompareModal({ target, onClose }: Props) {
   const loc = t();
   const [ignoreWs, setIgnoreWs] = useState(false);
+  const [mdPreview, setMdPreview] = useState<MarkdownPreviewTarget | null>(null);
 
   const file = target?.file ?? '';
   const hash = target?.hash ?? '';
   const open = target !== null;
   const isImage = open && isImageFile(file);
+  const isMarkdown = open && isMarkdownFile(file);
   const { diffs, loading, error } = useFileDiff(file, hash, ignoreWs, true, open && !isImage);
 
   const toggleWs = useCallback(() => setIgnoreWs((p) => !p), []);
+  const { onContextMenu, menuNode } = useDiffCopyMenu();
 
   const firstDiff = diffs?.[0];
   const title = file ? file.split('/').pop() || file : loc.diff.compareTitle;
@@ -56,39 +68,59 @@ export function CompareModal({ target, onClose }: Props) {
     body = <div className={s.empty}>{loc.diff.noChanges}</div>;
   } else if (firstDiff.tooLargeForWhole) {
     body = (
-      <div className={s.modalDiff}>
+      <div className={s.modalDiff} onContextMenu={onContextMenu}>
+        {menuNode}
         <div className={s.wholeBanner}>{loc.diff.tooLargeForWhole}</div>
         <DiffSideBySide hunks={firstDiff.hunks} file={file} />
       </div>
     );
   } else {
     body = (
-      <div className={s.modalDiff}>
+      <div className={s.modalDiff} onContextMenu={onContextMenu}>
+        {menuNode}
         <DiffWholeFile hunks={firstDiff.hunks} />
       </div>
     );
   }
 
   return (
-    <SgDialog
-      open={open}
-      title={title}
-      onClose={onClose}
-      size="fullscreen"
-      noPadding
-      headerExtra={
-        <SgIconButton
-          size="sm"
-          tooltip={loc.diff.ignoreWhitespace}
-          aria-pressed={ignoreWs}
-          className={ignoreWs ? s.iconBtnActive : ''}
-          onClick={toggleWs}
-        >
-          <WhitespaceIcon />
-        </SgIconButton>
-      }
-    >
-      {body}
-    </SgDialog>
+    <>
+      <SgDialog
+        open={open}
+        title={title}
+        onClose={onClose}
+        size="fullscreen"
+        noPadding
+        headerExtra={
+          <>
+            {isMarkdown && (
+              <SgIconButton
+                size="sm"
+                tooltip={loc.diff.previewMarkdown}
+                onClick={() => setMdPreview({ file, hash })}
+              >
+                <MarkdownIcon />
+              </SgIconButton>
+            )}
+            <SgIconButton
+              size="sm"
+              tooltip={loc.diff.ignoreWhitespace}
+              aria-pressed={ignoreWs}
+              className={ignoreWs ? s.iconBtnActive : ''}
+              onClick={toggleWs}
+            >
+              <WhitespaceIcon />
+            </SgIconButton>
+          </>
+        }
+      >
+        {body}
+      </SgDialog>
+      {mdPreview && (
+        <Suspense fallback={null}>
+          <MarkdownPreviewModal target={mdPreview} onClose={() => setMdPreview(null)} />
+        </Suspense>
+      )}
+    </>
   );
 }

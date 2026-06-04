@@ -147,6 +147,79 @@ export class GitExecutor {
     });
   }
 
+  /**
+   * Тот же `exec`, но stdout/stderr возвращаются как `Buffer` — без
+   * декодирования в UTF-8. Нужно для команд, где исходный файл может
+   * быть в legacy-кодировке (CP1251 в старых .sql/.pas), а
+   * `execFile`'s default-utf8 превратил бы кириллицу в кракозябры
+   * (см. `decodeGitText` в utils/textEncoding).
+   */
+  async execBuffer(args: string[], options?: GitExecOptions): Promise<{
+    stdout: Buffer; stderr: Buffer; exitCode: number; duration: number;
+  }> {
+    const cwd = options?.cwd ?? this.defaultCwd;
+    const timeout = GitExecutor.resolveTimeout(args, options?.timeout);
+    const startTime = Date.now();
+
+    const fullArgs = ['-c', 'core.quotePath=false', ...args];
+
+    mainLogger.debug(`git exec(buffer): ${this.sanitizeArgs(args)}  [cwd: ${cwd}]`);
+
+    return new Promise((resolve, reject) => {
+      const proc = spawn('git', fullArgs, {
+        cwd,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: options?.env ? { ...process.env, ...options.env } : undefined,
+      });
+      this.activeProcesses.add(proc);
+
+      const stdoutChunks: Buffer[] = [];
+      const stderrChunks: Buffer[] = [];
+      proc.stdout?.on('data', (chunk: Buffer) => { stdoutChunks.push(chunk); });
+      proc.stderr?.on('data', (chunk: Buffer) => { stderrChunks.push(chunk); });
+
+      const timer = setTimeout(() => {
+        proc.kill('SIGTERM');
+      }, timeout);
+
+      proc.on('close', (code, signal) => {
+        clearTimeout(timer);
+        this.activeProcesses.delete(proc);
+        const duration = Date.now() - startTime;
+        const stdout = Buffer.concat(stdoutChunks);
+        const stderr = Buffer.concat(stderrChunks);
+        const stderrStr = stderr.toString('utf8');
+
+        if (signal === 'SIGTERM') {
+          const gitError = new GitError(
+            `Git process was killed (timeout ${timeout}ms)`,
+            args.join(' '), -1, stderrStr,
+          );
+          mainLogger.warn(`git killed(buffer): timeout after ${duration}ms`);
+          reject(gitError);
+          return;
+        }
+
+        const exitCode = code ?? 1;
+        mainLogger.debug(`git done(buffer): exit=${exitCode} duration=${duration}ms`);
+        this.reportToActivity(args, cwd, stdout.toString('utf8'), stderrStr, exitCode, duration, startTime);
+        if (exitCode !== 0) GitExecutor.notifyStderr(stderrStr);
+        resolve({ stdout, stderr, exitCode, duration });
+      });
+
+      proc.on('error', (err) => {
+        clearTimeout(timer);
+        this.activeProcesses.delete(proc);
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+          reject(new GitError('Git is not installed or not in PATH', args.join(' '), -1, ''));
+        } else {
+          reject(err);
+        }
+      });
+    });
+  }
+
   private reportToActivity(
     args: string[],
     cwd: string,

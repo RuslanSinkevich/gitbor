@@ -36,7 +36,9 @@ function bigDiff(lines: number, path = 'f.txt'): string {
 
 /** Args самого первого вызова git diff (не log/ls-files/rev-list). */
 function firstDiffCall(git: MockGit): string[] {
-  const call = git.exec.mock.calls.find((c) => (c[0] as string[])[0] === 'diff');
+  // Diff читается через execBuffer (см. runDiff в readCommands) — там нужны
+  // байты, чтобы корректно декодировать legacy-кодировки (cp1251/cp866).
+  const call = git.execBuffer.mock.calls.find((c) => (c[0] as string[])[0] === 'diff');
   return (call?.[0] as string[]) ?? [];
 }
 

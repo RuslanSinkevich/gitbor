@@ -73,6 +73,7 @@ function SidePaneTable({ lines, highlightClass }: SidePaneTableProps) {
           <tr
             key={i}
             data-diff-mark={line.type === 'add' ? 'add' : line.type === 'remove' ? 'remove' : undefined}
+            data-diff-line={line.type === 'empty' ? undefined : line.content}
             className={
               line.type === 'add' || line.type === 'remove' ? highlightClass
               : line.type === 'empty' ? s.lineEmpty

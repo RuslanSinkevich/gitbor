@@ -4,6 +4,7 @@ import { t } from '../../i18n';
 import { SgIconButton } from '../../ui/SgIconButton';
 import { DiffHunkView } from './DiffHunkView';
 import { DiffSideBySide } from './DiffSideBySide';
+import { useDiffCopyMenu } from './useDiffCopyMenu';
 
 // Полоса-обзор изменений (overview ruler) для inline/split — некритичный chrome,
 // грузим отдельным чанком. До загрузки контент уже виден в обычном скроллере
@@ -23,7 +24,7 @@ function MinimapScroll({ version, children }: { version: string; children: React
     </Suspense>
   );
 }
-import { InlineIcon, SplitIcon, WholeFileIcon, WhitespaceIcon, ExpandIcon } from './diffIcons';
+import { InlineIcon, SplitIcon, WholeFileIcon, WhitespaceIcon, ExpandIcon, MarkdownIcon } from './diffIcons';
 import s from './DiffView.module.css';
 
 // Whole-file вид + миникарта нужны по требованию (режим «весь файл» /
@@ -43,6 +44,11 @@ interface Props {
   onModeChange: (mode: DiffMode) => void;
   /** Открыть текущий файл в полноэкранной модалке. Скрыто, если не задано. */
   onExpand?: () => void;
+  /**
+   * Открыть рендер Markdown-файла в отдельной модалке. Кнопка появляется
+   * в тулбаре только когда `onPreviewMarkdown` задан (т.е. файл .md/.markdown).
+   */
+  onPreviewMarkdown?: () => void;
 }
 
 const STATUS_CLS: Record<string, string> = {
@@ -53,10 +59,14 @@ const STATUS_CLS: Record<string, string> = {
   copied: s.statusRenamed,
 };
 
-export function DiffView({ diff, file, hash, ignoreWs, onToggleWs, mode, onModeChange, onExpand }: Props) {
+export function DiffView({ diff, file, hash, ignoreWs, onToggleWs, mode, onModeChange, onExpand, onPreviewMarkdown }: Props) {
   const loc = t();
   const isWorkingCopy = hash === 'WORKING';
   const isStaged = hash === 'STAGED';
+
+  // ПКМ-меню «Копировать»: либо текущее выделение, либо строка под курсором.
+  // Меню локальное — не дёргает host-level useContextMenu из App.
+  const { onContextMenu, menuNode } = useDiffCopyMenu(s.toolbar);
   const statusLabel =
     diff.status === 'added' ? loc.diff.statusAdded
     : diff.status === 'deleted' ? loc.diff.statusDeleted
@@ -78,7 +88,8 @@ export function DiffView({ diff, file, hash, ignoreWs, onToggleWs, mode, onModeC
   }, [diff.hunks]);
 
   return (
-    <div className={s.root}>
+    <div className={s.root} onContextMenu={onContextMenu}>
+      {menuNode}
       <div className={s.toolbar}>
         <span className={`${s.fileStatus} ${STATUS_CLS[diff.status] || ''}`}>
           {statusLabel}
@@ -134,6 +145,11 @@ export function DiffView({ diff, file, hash, ignoreWs, onToggleWs, mode, onModeC
             <WholeFileIcon />
           </SgIconButton>
         </div>
+        {onPreviewMarkdown && (
+          <SgIconButton size="sm" tooltip={loc.diff.previewMarkdown} onClick={onPreviewMarkdown}>
+            <MarkdownIcon />
+          </SgIconButton>
+        )}
         {onExpand && (
           <SgIconButton size="sm" tooltip={loc.diff.expand} onClick={onExpand}>
             <ExpandIcon />
