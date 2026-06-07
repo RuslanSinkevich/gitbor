@@ -156,6 +156,7 @@ type RendererCommandCore =
 
   // LFS
   | { type: 'getLfsStatus' }
+  | { type: 'getLfsActive' }
   | { type: 'lfsTrack'; pattern: string }
   | { type: 'lfsUntrack'; pattern: string }
 
@@ -300,6 +301,7 @@ export type MainEvent =
   | { type: 'sshKeys'; data: import('../ssh/SshKeyManager').SshKeyInfo[] }
   | { type: 'publicKey'; name: string; content: string }
   | { type: 'lfsStatus'; data: import('../git/LfsManager').LfsStatus }
+  | { type: 'lfsActive'; active: boolean }
   | { type: 'worktrees'; data: import('../git/WorktreeManager').WorktreeInfo[] }
   | { type: 'hooks'; data: import('../git/HooksManager').HookInfo[] }
   | { type: 'reflog'; data: ReflogEntry[] }

@@ -8,6 +8,36 @@ import type { RequestApplyStash } from '../stash';
 
 type Loc = ReturnType<typeof import('../../i18n').t>;
 
+/** Короткое имя ветки/рефа — последний сегмент после `/` (для компактных
+ *  пунктов меню). Полное имя кладём в `title` (тултип). */
+function leaf(name: string): string {
+  const i = name.lastIndexOf('/');
+  return i >= 0 ? name.slice(i + 1) : name;
+}
+
+/**
+ * Открыть диалог Track для remote-ветки: создать локальную ветку с tracking
+ * и переключиться на неё. Общий код для контекстного меню и двойного клика
+ * по remote-ветке в сайдбаре. Имя remote — первый сегмент (git-имена remote
+ * не содержат `/`), дефолт локального имени — путь без `<remote>/`.
+ */
+export function promptTrackRemote(branch: Branch, loc: Loc, showPrompt: ShowPrompt): void {
+  const slash = branch.name.indexOf('/');
+  const remoteName = slash > 0 ? branch.name.slice(0, slash) : '';
+  const remoteBranch = slash > 0 ? branch.name.slice(slash + 1) : branch.name;
+  if (!remoteName) return;
+  showPrompt({
+    title: tpl(loc.contextMenu.trackRemoteTitle, { branch: branch.name }),
+    label: loc.contextMenu.trackRemotePrompt,
+    defaultValue: remoteBranch,
+    placeholder: 'branch-name',
+    onConfirm: (localName) => {
+      const name = localName.trim();
+      if (name) postCommand({ type: 'trackRemoteBranch', remote: remoteName, remoteBranch, localName: name });
+    },
+  });
+}
+
 /**
  * Колбэки для Fork-style фич веток (pin / solo / hide / info).
  * Опциональные — старые вызывающие места работают без них (фичи просто
@@ -32,43 +62,36 @@ export function getBranchMenuItems(
   requestCheckout: RequestCheckout, onMerge?: (source: string) => void,
   extras: BranchExtrasMenu = {},
 ): SgContextMenuItem[] {
+  const short = leaf(branch.name);
+  const shortCurrent = leaf(currentBranch);
   const items: SgContextMenuItem[] = [];
   if (!branch.isCurrent) {
-    items.push({ label: tpl(loc.contextMenu.checkout, { branch: branch.name }), action: () => requestCheckout(branch.name) });
+    items.push({
+      label: tpl(loc.contextMenu.checkout, { branch: short }),
+      title: tpl(loc.contextMenu.checkout, { branch: branch.name }),
+      action: () => requestCheckout(branch.name),
+    });
     items.push({ divider: true });
     items.push({
-      label: tpl(loc.contextMenu.mergeInto, { source: branch.name, target: currentBranch }),
+      label: tpl(loc.contextMenu.mergeInto, { source: short, target: shortCurrent }),
+      title: tpl(loc.contextMenu.mergeInto, { source: branch.name, target: currentBranch }),
       action: () => onMerge ? onMerge(branch.name) : postCommand({ type: 'merge', branch: branch.name }),
     });
   }
   // Track Remote Branch (как в Fork): только для remote-веток. Создаёт
   // локальную ветку с tracking на эту remote и переключается на неё.
-  // Дефолт локального имени — путь без `<remote>/` (имя remote — первый
-  // сегмент: git-имена remote не содержат `/`).
   if (branch.isRemote) {
-    const slash = branch.name.indexOf('/');
-    const remoteName = slash > 0 ? branch.name.slice(0, slash) : '';
-    const remoteBranch = slash > 0 ? branch.name.slice(slash + 1) : branch.name;
     items.push({ divider: true });
     items.push({
       label: loc.contextMenu.trackRemote,
-      action: () => showPrompt({
-        title: tpl(loc.contextMenu.trackRemoteTitle, { branch: branch.name }),
-        label: loc.contextMenu.trackRemotePrompt,
-        defaultValue: remoteBranch,
-        placeholder: 'branch-name',
-        onConfirm: (localName) => {
-          const name = localName.trim();
-          if (name && remoteName) {
-            postCommand({ type: 'trackRemoteBranch', remote: remoteName, remoteBranch, localName: name });
-          }
-        },
-      }),
+      title: tpl(loc.contextMenu.trackRemoteTitle, { branch: branch.name }),
+      action: () => promptTrackRemote(branch, loc, showPrompt),
     });
   }
   if (!branch.isRemote) {
     items.push({
-      label: tpl(loc.contextMenu.rename, { name: branch.name }),
+      label: tpl(loc.contextMenu.rename, { name: short }),
+      title: tpl(loc.contextMenu.rename, { name: branch.name }),
       action: () => showPrompt({
         title: tpl(loc.contextMenu.rename, { name: branch.name }),
         defaultValue: branch.name,
@@ -83,7 +106,8 @@ export function getBranchMenuItems(
     });
     if (!branch.isCurrent) {
       items.push({
-        label: tpl(loc.contextMenu.delete, { name: branch.name }),
+        label: tpl(loc.contextMenu.delete, { name: short }),
+        title: tpl(loc.contextMenu.delete, { name: branch.name }),
         danger: true,
         action: () => showPrompt({
           kind: 'confirm',
@@ -98,7 +122,8 @@ export function getBranchMenuItems(
   }
   items.push({ divider: true });
   items.push({
-    label: tpl(loc.contextMenu.newBranch, { ref: branch.name }),
+    label: tpl(loc.contextMenu.newBranch, { ref: short }),
+    title: tpl(loc.contextMenu.newBranch, { ref: branch.name }),
     action: () => showPrompt({
       title: tpl(loc.contextMenu.newBranch, { ref: branch.name }),
       placeholder: 'branch-name',
@@ -106,7 +131,8 @@ export function getBranchMenuItems(
     }),
   });
   items.push({
-    label: tpl(loc.contextMenu.newTag, { ref: branch.name }),
+    label: tpl(loc.contextMenu.newTag, { ref: short }),
+    title: tpl(loc.contextMenu.newTag, { ref: branch.name }),
     action: () => showPrompt({
       title: tpl(loc.contextMenu.newTag, { ref: branch.name }),
       placeholder: 'v1.0.0',

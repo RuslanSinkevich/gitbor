@@ -79,9 +79,16 @@ interface Props {
   onCompareTo?: (from: string, to: string) => void;
   /** HEAD совпадает с upstream (ahead === 0) — uncommit запрещён. */
   headOnRemote?: boolean;
+  /**
+   * Счётчик «запроса фокуса»: инкрементится на каждый клик по ветке (даже по
+   * уже выбранной). Меняется → доскроллить к `selectedHash`, даже если сам
+   * hash не изменился. Без него повторный клик по той же ветке после прокрутки
+   * графа не давал реакции (selectedHash тот же → эффект ниже не срабатывал).
+   */
+  focusNonce?: number;
 }
 
-function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, currentBranch, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, compareFrom, onCompareFrom, onCompareTo, headOnRemote = false }: Props) {
+function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, currentBranch, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, compareFrom, onCompareFrom, onCompareTo, headOnRemote = false, focusNonce }: Props) {
   const loc = t();
   const graphWidth = LEFT_PAD * 2 + (maxColumns + 1) * COL_WIDTH + 12;
   const totalHeight = commits.length * ROW_HEIGHT;
@@ -116,14 +123,20 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
   const isHead = useCallback((commit: Commit) => commit.refs.some(r => r.type === 'head'), []);
 
   const prevSelectedRef = useRef<string | null>(null);
+  const prevFocusRef = useRef<number | undefined>(focusNonce);
   useEffect(() => {
-    if (selectedHash && selectedHash !== prevSelectedRef.current) {
+    const focusRequested = focusNonce !== prevFocusRef.current;
+    prevFocusRef.current = focusNonce;
+    // Скроллим при смене выбранного коммита ИЛИ при явном запросе фокуса
+    // (повторный клик по той же ветке). Простая смена commits (fetch/refresh)
+    // при том же selectedHash и без focus-запроса скролл не дёргает.
+    if (selectedHash && (selectedHash !== prevSelectedRef.current || focusRequested)) {
       const idx = commits.findIndex(c => hashMatch(c.hash, selectedHash));
       if (idx >= 0) scrollToRow(idx);
       else if (onLoadMore) onLoadMore();
     }
     prevSelectedRef.current = selectedHash;
-  }, [selectedHash, commits, scrollToRow, hashMatch, onLoadMore]);
+  }, [selectedHash, focusNonce, commits, scrollToRow, hashMatch, onLoadMore]);
 
   const allBranchPaths = useMemo(() => getOrComputeBranchPaths(graphNodes), [graphNodes]);
   const allMergePaths = useMemo(() => getMergeLinkPaths(mergeLinks), [mergeLinks]);
@@ -301,6 +314,7 @@ export const CommitGraph = memo(CommitGraphImpl, (prev, next) => (
   prev.maxColumns === next.maxColumns &&
   prev.mergeLinks === next.mergeLinks &&
   prev.selectedHash === next.selectedHash &&
+  prev.focusNonce === next.focusNonce &&
   prev.currentBranch === next.currentBranch &&
   prev.compareFrom === next.compareFrom &&
   prev.headOnRemote === next.headOnRemote &&

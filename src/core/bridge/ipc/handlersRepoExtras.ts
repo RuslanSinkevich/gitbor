@@ -20,6 +20,20 @@ export const ipcHandlersRepoExtras: HandlerTable = {
     ctx.send({ type: 'lfsStatus', data });
   },
 
+  // Лёгкий признак «репо использует LFS» — для контекстного показа пункта
+  // меню. Читаем только `.gitattributes` (без git lfs subprocess), ищем
+  // `filter=lfs`. Дёшево, без сканирования дерева как `lfs ls-files`.
+  getLfsActive: async (_cmd, ctx) => {
+    const { readFile } = await import('fs/promises');
+    const { join } = await import('path');
+    try {
+      const content = await readFile(join(ctx.ch.getRepoPath(), '.gitattributes'), 'utf-8');
+      ctx.send({ type: 'lfsActive', active: /filter=lfs/.test(content) });
+    } catch {
+      ctx.send({ type: 'lfsActive', active: false });
+    }
+  },
+
   getWorktrees: async (_cmd, ctx) => {
     const data = await ctx.ch.getWorktrees();
     ctx.send({ type: 'worktrees', data });

@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import type { Branch } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { SgTooltip } from '../../ui/SgTooltip';
-import { getBranchMenuItems } from './sidebarMenuItems';
+import { getBranchMenuItems, promptTrackRemote } from './sidebarMenuItems';
 import type { ShowPrompt } from '../graph/commitMenuItems';
 import type { RequestCheckout } from '../checkout';
 import {
@@ -231,7 +231,13 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
           draggable={!branch.isRemote}
           onDragStart={handleDragStart}
           onClick={() => { onSelectBranch?.(branch.name); onSelectRef?.(branch.hash); }}
-          onDoubleClick={() => !branch.isCurrent && requestCheckout(branch.name)}
+          onDoubleClick={() => {
+            if (branch.isCurrent) return;
+            // Remote-ветка: не делаем checkout (это detached HEAD), а
+            // открываем Track-диалог — забрать ветку к себе + переключиться.
+            if (branch.isRemote) promptTrackRemote(branch, loc, showPrompt);
+            else requestCheckout(branch.name);
+          }}
           onContextMenu={(e) => {
             e.preventDefault();
             onContextMenu(e, getBranchMenuItems(branch, currentBranch, loc, showPrompt, requestCheckout, onMerge, prefs ? {

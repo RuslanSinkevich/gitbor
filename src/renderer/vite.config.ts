@@ -59,8 +59,12 @@ const analyzeOut = path.resolve(__dirname, '../../docs/audit', `bundle-${today}.
 // файла (View/Compare). Eager-код в графе/сайдбаре/useSyncActions + i18n
 // прибавили ~4 KB в главный chunk (диалоги credential/settings остались
 // lazy). Пороги: gzip 136 → 138, raw 440 → 446 KB.
+// 2026-06-07: фокус графа по повторному клику (focusNonce), Track по двойному
+// клику, контекстный LFS (getLfsActive), submenu в MenuBar, короткие имена в
+// контекстном меню веток. Eager-код прибавил ~0.7 KB raw в главный chunk
+// (gzip почти не изменился). Порог raw 446 → 448 KB, gzip остаётся 138.
 // При GITBOR_BUNDLE_GATE_OFF=1 чек отключается (для локальных экспериментов).
-const BUNDLE_MAX_RAW_BYTES = 446 * 1024;
+const BUNDLE_MAX_RAW_BYTES = 448 * 1024;
 const BUNDLE_MAX_GZIP_BYTES = 138 * 1024;
 const BUNDLE_GATE_DISABLED = process.env.GITBOR_BUNDLE_GATE_OFF === '1';
 

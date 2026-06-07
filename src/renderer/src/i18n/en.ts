@@ -55,6 +55,7 @@ export const en = {
     gitignore: '.gitignore...',
     statistics: 'Statistics...',
     aiSettings: 'AI Settings...',
+    more: 'More',
     docs: 'Documentation',
     about: 'About GitBor',
   },
@@ -592,6 +593,8 @@ export const en = {
     credSshHint: 'This repository uses an SSH remote. There is no HTTPS password to update — manage your SSH keys instead.',
     credOpenSsh: 'SSH Keys…',
     credNoRemote: 'No remote configured for this repository.',
+    sshSection: 'SSH keys',
+    sshSectionHint: 'Manage SSH keys used for git over SSH (global, ~/.ssh).',
   },
   sshKeys: {
     title: 'Configure SSH Keys',

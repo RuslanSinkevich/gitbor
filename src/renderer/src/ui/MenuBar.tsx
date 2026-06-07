@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import styles from './MenuBar.module.css';
 
 interface MenuItem {
@@ -7,6 +7,8 @@ interface MenuItem {
   action?: () => void;
   type?: 'separator';
   disabled?: boolean;
+  /** Если задано — пункт раскрывает дочернее меню справа; `action` игнорируется. */
+  submenu?: MenuItem[];
 }
 
 export interface MenuGroup {
@@ -59,12 +61,6 @@ export function MenuBar({ menus }: Props) {
     }
   }
 
-  function handleItemClick(item: MenuItem) {
-    if (item.disabled || item.type === 'separator') return;
-    close();
-    item.action?.();
-  }
-
   return (
     <div className={styles.bar} ref={barRef}>
       {menus.map((menu, idx) => (
@@ -78,27 +74,93 @@ export function MenuBar({ menus }: Props) {
           </button>
           {openIndex === idx && (
             <div className={styles.dropdown}>
-              {menu.items.map((item, i) =>
-                item.type === 'separator' ? (
-                  <div key={i} className={styles.separator} />
-                ) : (
-                  <button
-                    key={i}
-                    className={`${styles.menuItem} ${item.disabled ? styles.menuItemDisabled : ''}`}
-                    onClick={() => handleItemClick(item)}
-                    disabled={item.disabled}
-                  >
-                    <span className={styles.menuItemLabel}>{item.label}</span>
-                    {item.accelerator && (
-                      <span className={styles.menuItemAccel}>{item.accelerator}</span>
-                    )}
-                  </button>
-                )
-              )}
+              <DropdownItems items={menu.items} onClose={close} />
             </div>
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+interface DropdownItemsProps {
+  items: MenuItem[];
+  onClose: () => void;
+}
+
+function DropdownItems({ items, onClose }: DropdownItemsProps) {
+  const [openSubIdx, setOpenSubIdx] = useState<number | null>(null);
+
+  function handleItemClick(item: MenuItem) {
+    if (item.disabled || item.type === 'separator') return;
+    onClose();
+    item.action?.();
+  }
+
+  return (
+    <>
+      {items.map((item, i) =>
+        item.type === 'separator' ? (
+          <div key={i} className={styles.separator} />
+        ) : item.submenu && item.submenu.length > 0 ? (
+          <SubmenuItem
+            key={i}
+            item={item}
+            open={openSubIdx === i}
+            onOpen={() => setOpenSubIdx(i)}
+            onClose={onClose}
+          />
+        ) : (
+          <button
+            key={i}
+            className={`${styles.menuItem} ${item.disabled ? styles.menuItemDisabled : ''}`}
+            onClick={() => handleItemClick(item)}
+            onMouseEnter={() => setOpenSubIdx(null)}
+            disabled={item.disabled}
+          >
+            <span className={styles.menuItemLabel}>{item.label}</span>
+            {item.accelerator && (
+              <span className={styles.menuItemAccel}>{item.accelerator}</span>
+            )}
+          </button>
+        )
+      )}
+    </>
+  );
+}
+
+interface SubmenuItemProps {
+  item: MenuItem;
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+}
+
+function SubmenuItem({ item, open, onOpen, onClose }: SubmenuItemProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [flipLeft, setFlipLeft] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!open || !ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    // Если справа не хватает места под флай-аут — раскрываем влево.
+    setFlipLeft(rect.right + 224 > window.innerWidth);
+  }, [open]);
+
+  return (
+    <div ref={ref} className={styles.submenuRoot} onMouseEnter={onOpen}>
+      <button
+        className={styles.menuItem}
+        onClick={(e) => { e.stopPropagation(); onOpen(); }}
+      >
+        <span className={styles.menuItemLabel}>{item.label}</span>
+        <span className={styles.submenuArrow}>▸</span>
+      </button>
+      {open && (
+        <div className={`${styles.dropdown} ${styles.submenuDropdown} ${flipLeft ? styles.submenuDropdownLeft : ''}`}>
+          <DropdownItems items={item.submenu!} onClose={onClose} />
+        </div>
+      )}
     </div>
   );
 }

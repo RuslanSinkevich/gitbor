@@ -98,6 +98,13 @@ export function App() {
   const [mergeEditorFile, setMergeEditorFile] = useState<string | null>(null);
   const [rebaseOnto, setRebaseOnto] = useState<string | null>(null);
   const [compareFromHash, setCompareFromHash] = useState<string | null>(null);
+  /* Счётчик запросов фокуса графа: бампается на каждый клик по ветке/рефу,
+     даже если выбран тот же commit. CommitGraph по его смене доскроллит к
+     выбранному (иначе повторный клик по той же ветке не реагировал). */
+  const [graphFocusNonce, setGraphFocusNonce] = useState(0);
+  /* Репо использует LFS (есть filter=lfs в .gitattributes) — для контекстного
+     показа пункта «Git LFS…» в меню. Пересчитывается при смене репо. */
+  const [usesLfs, setUsesLfs] = useState(false);
   const [page, setPage] = useState<Page>('app');
   const [lang, setLangState] = useState(getLang);
   /* Branch info dialog: текущая выбранная ветка показывается через SgDialog,
@@ -283,6 +290,13 @@ export function App() {
   useKeyboardShortcuts(handleMenuAction, tabActions);
 
   const restoreLastRepoAttempted = useRef(false);
+  // Целевой активный таб, прочитанный ОДИН раз при маунте — до того, как
+  // восстановление списка успеет перезаписать `sg-last-active-repo`. Во время
+  // восстановления табы открываются по одному, каждый на миг становится
+  // активным → save-эффект иначе затёр бы сохранённое значение последним
+  // загруженным репо. Поэтому фиксируем цель здесь и не сохраняем до конца
+  // восстановления (см. гейт `restoreActiveTabDone` в save-эффекте).
+  const targetActiveRepoRef = useRef<string | null>(null);
 
   // Восстанавливаем СПИСОК открытых табов. Запускаем один раз — открываем
   // каждый сохранённый путь через `openRepo`, main сам сложит их в openRepos.
@@ -294,6 +308,7 @@ export function App() {
 
     const openPaths = loadOpenRepos();
     const last = loadLastActiveRepo();
+    targetActiveRepoRef.current = last;
 
     if (openPaths.length > 0) {
       for (const p of openPaths) {
@@ -314,6 +329,11 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    // Не сохраняем активный репо, пока идёт восстановление табов: иначе
+    // промежуточные смены repoPath (каждый открывающийся таб становится
+    // активным) затрут сохранённую цель. После `restoreActiveTabDone`
+    // сохраняем нормально на каждую пользовательскую смену таба.
+    if (!restoreActiveTabDone.current) return;
     if (state.repoPath && state.repoName) {
       saveLastActiveRepo(state.repoPath);
       addRecentRepo(state.repoName, state.repoPath);
@@ -326,6 +346,15 @@ export function App() {
     if (!restoreLastRepoAttempted.current) return;
     saveOpenRepos(state.openRepos.map(r => r.path));
   }, [state.openRepos]);
+
+  // Контекстный признак LFS: при смене репо сбрасываем и перезапрашиваем.
+  useEffect(() => {
+    setUsesLfs(false);
+    if (state.repoPath) postCommand({ type: 'getLfsActive' });
+  }, [state.repoPath]);
+  useEffect(() => onMainEvent((msg) => {
+    if (msg.type === 'lfsActive') setUsesLfs(msg.active);
+  }), []);
 
   // Restore активного таба по сохранённому path. Сравниваем по path
   // (sameRepoPath нормализует слэши/регистр) — индекс между сессиями
@@ -341,7 +370,9 @@ export function App() {
   useEffect(() => {
     if (restoreActiveTabDone.current) return;
     if (state.openRepos.length === 0) return;
-    const last = loadLastActiveRepo();
+    // Цель прочитана при маунте (targetActiveRepoRef) — НЕ читаем localStorage
+    // снова, он уже мог быть перезаписан промежуточными сменами активного.
+    const last = targetActiveRepoRef.current;
     if (!last) {
       restoreActiveTabDone.current = true;
       return;
@@ -481,6 +512,7 @@ export function App() {
 
   const handleSelectRef = useCallback((hash: string) => {
     setViewMode('commits'); setRightPanel('diff'); closeDiff(); selectCommit(hash);
+    setGraphFocusNonce(n => n + 1);
   }, [selectCommit, closeDiff]);
 
   const handleCompareTo = useCallback((fromHash: string, toHash: string) => {
@@ -665,6 +697,7 @@ export function App() {
         theme={theme} toggleTheme={toggleTheme}
         onMenuAction={handleMenuAction}
         onOpenRepo={() => postCommand({ type: 'openRepoDialog' })}
+        usesLfs={usesLfs}
       />
 
       {page === 'ui-kit' && (
@@ -768,6 +801,7 @@ export function App() {
                         compareFrom={compareFromHash}
                         onCompareFrom={setCompareFromHash}
                         onCompareTo={handleCompareTo}
+                        focusNonce={graphFocusNonce}
                         soloBranch={branchPrefsState.soloBranch}
                         hidden={branchPrefsState.hidden}
                         onClearSolo={() => branchPrefsState.setSoloBranch(null)}

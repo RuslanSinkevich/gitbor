@@ -5,6 +5,9 @@ export type SgContextMenuItem =
   | { header: true; label: string; action?: () => void; divider?: undefined; shortcut?: undefined; disabled?: undefined; danger?: undefined; submenu?: undefined }
   | {
       label: string;
+      /** Текст нативного тултипа при наведении. Если не задан — берётся `label`.
+          Нужен, когда в `label` показываем короткое имя, а полное — в тултип. */
+      title?: string;
       shortcut?: string;
       disabled?: boolean;
       danger?: boolean;
@@ -113,7 +116,7 @@ function MenuItems({ items, onClose }: MenuItemsProps) {
                 onClose();
               }
             }}
-            title={item.label}
+            title={item.title ?? item.label}
           >
             <span className="sg-context-menu-item-label">{item.label}</span>
             {item.shortcut && <span className="sg-context-menu-shortcut">{item.shortcut}</span>}

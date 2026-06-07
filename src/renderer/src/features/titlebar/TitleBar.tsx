@@ -17,9 +17,11 @@ interface Props {
   toggleTheme: () => void;
   onMenuAction: (action: string) => void;
   onOpenRepo: () => void;
+  /** Репо использует LFS — показывать пункт «Git LFS…» (иначе скрыт). */
+  usesLfs?: boolean;
 }
 
-export function TitleBar({ loc, page, setPage, lang, toggleLang, theme, toggleTheme, onMenuAction, onOpenRepo }: Props) {
+export function TitleBar({ loc, page, setPage, lang, toggleLang, theme, toggleTheme, onMenuAction, onOpenRepo, usesLfs = false }: Props) {
   const menus: MenuGroup[] = [
     {
       label: loc.menu.file,
@@ -27,8 +29,6 @@ export function TitleBar({ loc, page, setPage, lang, toggleLang, theme, toggleTh
         { label: loc.menu.openRepo, accelerator: 'Ctrl+O', action: onOpenRepo },
         { type: 'separator', label: '' },
         { label: loc.menu.closeRepo, accelerator: 'Ctrl+W', action: () => onMenuAction('closeRepo') },
-        { type: 'separator', label: '' },
-        { label: loc.menu.sshKeys, action: () => onMenuAction('sshKeys') },
         { type: 'separator', label: '' },
         { label: loc.menu.exit, action: () => window.close() },
       ],
@@ -63,20 +63,27 @@ export function TitleBar({ loc, page, setPage, lang, toggleLang, theme, toggleTh
         { label: loc.menu.stash, accelerator: 'Ctrl+Shift+S', action: () => onMenuAction('stash') },
         { label: loc.menu.stashPop, accelerator: 'Ctrl+Shift+A', action: () => onMenuAction('stashPop') },
         { type: 'separator', label: '' },
-        { label: loc.menu.reflog, action: () => onMenuAction('reflog') },
-        { label: loc.menu.bisect, action: () => onMenuAction('bisect') },
-        { label: loc.menu.hooks, action: () => onMenuAction('hooks') },
-        { label: loc.menu.worktrees, action: () => onMenuAction('worktrees') },
-        { label: loc.menu.lfs, action: () => onMenuAction('lfs') },
-        { label: loc.menu.gitignore, action: () => onMenuAction('gitignore') },
-        { type: 'separator', label: '' },
-        { label: loc.menu.statistics, action: () => onMenuAction('repoStats') },
-        { type: 'separator', label: '' },
         { label: loc.menu.openInExplorer, accelerator: 'Ctrl+Alt+O', action: () => onMenuAction('openInExplorer') },
         { label: loc.menu.openInTerminal, accelerator: 'Ctrl+Alt+T', action: () => onMenuAction('openInTerminal') },
         { type: 'separator', label: '' },
         { label: loc.menu.repoSettings, action: () => onMenuAction('repoSettings') },
         { label: loc.menu.aiSettings, action: () => onMenuAction('aiSettings') },
+        { type: 'separator', label: '' },
+        {
+          // «Ещё» — редкие/продвинутые инструменты. Свёрнуты в подменю, чтобы
+          // первый уровень содержал только ежедневный workflow.
+          label: loc.menu.more,
+          submenu: [
+            { label: loc.menu.reflog, action: () => onMenuAction('reflog') },
+            { label: loc.menu.worktrees, action: () => onMenuAction('worktrees') },
+            { label: loc.menu.gitignore, action: () => onMenuAction('gitignore') },
+            // Git LFS — только если репо реально использует LFS (контекстно).
+            ...(usesLfs ? [{ label: loc.menu.lfs, action: () => onMenuAction('lfs') }] : []),
+            { label: loc.menu.hooks, action: () => onMenuAction('hooks') },
+            { label: loc.menu.bisect, action: () => onMenuAction('bisect') },
+            { label: loc.menu.statistics, action: () => onMenuAction('repoStats') },
+          ],
+        },
       ],
     },
     {

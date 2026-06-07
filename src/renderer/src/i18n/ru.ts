@@ -57,6 +57,7 @@ export const ru: LocaleMap = {
     gitignore: '.gitignore...',
     statistics: 'Статистика...',
     aiSettings: 'Настройки AI...',
+    more: 'Ещё',
     docs: 'Документация',
     about: 'О программе GitBor',
   },
@@ -595,6 +596,8 @@ export const ru: LocaleMap = {
     credSshHint: 'Репозиторий использует SSH-remote. HTTPS-пароля для обновления нет — управляйте SSH-ключами.',
     credOpenSsh: 'SSH-ключи…',
     credNoRemote: 'Для репозитория не настроен remote.',
+    sshSection: 'SSH-ключи',
+    sshSectionHint: 'Управление SSH-ключами для git по SSH (глобально, ~/.ssh).',
   },
   sshKeys: {
     title: 'Настройка SSH-ключей',

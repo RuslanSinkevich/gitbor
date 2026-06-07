@@ -95,3 +95,34 @@
 .menuItem:hover .menuItemAccel {
   color: rgba(255, 255, 255, 0.7);
 }
+
+.submenuRoot {
+  position: relative;
+}
+
+.submenuArrow {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-left: auto;
+  padding-left: 8px;
+}
+
+.menuItem:hover .submenuArrow {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Флай-аут вложенного меню: справа от родительского пункта (или слева, если
+   у правого края не хватает места — класс .submenuDropdownLeft). */
+.submenuDropdown {
+  top: -5px;
+  left: 100%;
+  margin-left: 1px;
+  border-radius: var(--sg-radius-sm);
+}
+
+.submenuDropdownLeft {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  margin-right: 1px;
+}

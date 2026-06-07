@@ -30,6 +30,8 @@ interface Props {
   compareFrom?: string | null;
   onCompareFrom?: (hash: string) => void;
   onCompareTo?: (from: string, to: string) => void;
+  /** Счётчик запроса фокуса графа (бампается на клик по ветке) — см. CommitGraph. */
+  focusNonce?: number;
   /**
    * Solo/Hide фильтр из useBranchPrefs. Если оба не заданы — useGraphFilter
    * проксирует исходный список коммитов и server-side layout. Передаются
@@ -51,7 +53,7 @@ export function CommitsView({
   state, commitDetail, diffTarget, rightPanel, setRightPanel,
   selectCommit, openDiff, openFileHistory, openFileBlame,
   showContextMenu, showPrompt, requestCheckout, setRebaseOnto,
-  compareFrom, onCompareFrom, onCompareTo,
+  compareFrom, onCompareFrom, onCompareTo, focusNonce,
   soloBranch, hidden, onClearSolo, onClearAllHidden,
   onOpenAiSettings, onExpandDiff,
 }: Props) {
@@ -152,6 +154,7 @@ export function CommitsView({
           compareFrom={compareFrom}
           onCompareFrom={onCompareFrom}
           onCompareTo={onCompareTo}
+          focusNonce={focusNonce}
           headOnRemote={state.branches.some(b => b.isCurrent && b.upstream) && state.ahead === 0}
         />
       )}

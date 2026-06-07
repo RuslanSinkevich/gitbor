@@ -207,15 +207,22 @@ export function RepoSettingsDialog({ onClose, onOpenSshKeys }: Props) {
           ) : (
             <div className={s.fields}>
               <p className={s.credHint}>{loc.credSshHint}</p>
-              {onOpenSshKeys && (
-                <div className={s.credActions}>
-                  <button className="sg-button sg-button--ghost sg-button--sm" onClick={onOpenSshKeys}>
-                    {loc.credOpenSsh}
-                  </button>
-                </div>
-              )}
             </div>
           )}
+        </>
+      )}
+
+      {onOpenSshKeys && (
+        <>
+          <h3 className={`${s.section} ${s.sectionTop}`}>{loc.sshSection}</h3>
+          <div className={s.fields}>
+            <p className={s.credHint}>{loc.sshSectionHint}</p>
+            <div className={s.credActions}>
+              <button className="sg-button sg-button--ghost sg-button--sm" onClick={onOpenSshKeys}>
+                {loc.credOpenSsh}
+              </button>
+            </div>
+          </div>
         </>
       )}
     </SgDialog>

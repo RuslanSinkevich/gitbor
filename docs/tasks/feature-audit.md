@@ -129,6 +129,34 @@ Repository
 ```
 Statistics уходит в «Ещё» (не вырезаем). SSH keys переезжает в Repository Settings.
 
+### 3.1. Проработка задачи «меню» (что конкретно делать)
+
+**Главное ограничение:** верхний `MenuBar` (`src/renderer/src/ui/MenuBar.tsx`) сейчас НЕ поддерживает вложенные подменю — `MenuItem` это плоский `{ label, accelerator, action, type:'separator', disabled }`. Чтобы сделать «Ещё ▶», нужно сначала научить `MenuBar` флай-аут подменю (в контекстном меню `SgContextMenu` это уже есть — можно подсмотреть логику `SubmenuItem`).
+
+**Шаги:**
+
+1. **Расширить `MenuBar`:**
+   - В `MenuItem` добавить `submenu?: MenuItem[]`.
+   - В рендере дропдауна: если у пункта есть `submenu` — рендерить его как раскрывающийся вправо флай-аут (hover/click), с позиционированием и flip у края экрана (по образцу `SgContextMenu.SubmenuItem`).
+   - Закрытие родительского меню после клика по пункту подменю.
+
+2. **Перестроить меню Repository в `TitleBar.tsx`** (массив `menus`, группа `loc.menu.repository`):
+   - Первый уровень: Refresh · (—) · Fetch · Pull · Push · (—) · Stash · Stash Pop · (—) · Open in Explorer · Open in Terminal · (—) · Repository Settings… · AI Settings… · (—) · **Ещё ▶**.
+   - В подменю «Ещё»: Reflog · Worktrees · .gitignore · (Git LFS — см. п.4) · Git Hooks · Bisect · Statistics.
+   - Убрать из первого уровня: reflog, bisect, hooks, worktrees, lfs, gitignore, statistics.
+
+3. **i18n:** добавить ключ `loc.menu.more` (RU «Ещё», EN «More»). Проверить тест полноты i18n (en/ru синхронны).
+
+4. **LFS — контекстный пункт:** показывать «Git LFS…» в подменю, только если в активном репо реально используется LFS. Нужен флаг в state (например `state.usesLfs`) — проверить, отдаёт ли backend такой признак (`LfsManager`); если нет — добавить лёгкую проверку (`.gitattributes` содержит `filter=lfs` или `git lfs ls-files` непустой) и прокинуть в state. Если флаг false — пункт не рендерим.
+
+5. **SSH keys:** убрать пункт из меню File (`TitleBar.tsx`), перенести точкой входа в `RepoSettingsDialog` (там уже есть `onOpenSshKeys`). Сам пункт `sshKeys` в `useMenuActions` оставить — его теперь дёргает кнопка в настройках.
+
+6. **Не трогаем:** горячие клавиши Fetch/Pull/Push/Stash остаются (они и так на первом уровне). Reflog/Bisect и т.п. без акселераторов — ок.
+
+**Файлы:** `ui/MenuBar.tsx`, `ui/MenuBar.module.css` (стили флай-аута), `features/titlebar/TitleBar.tsx`, `i18n/en.ts` + `ru.ts`, возможно `types.ts` + state-слой (флаг LFS).
+
+**Риск/проверка:** клавиатурная навигация и закрытие по клику вне меню не должны сломаться; проверить, что подменю не уезжает за край окна.
+
 ---
 
 ## 4. Принятые решения (план на следующий стрим)
@@ -137,7 +165,7 @@ Statistics уходит в «Ещё» (не вырезаем). SSH keys пере
 
 | Фича | Решение | Что делаем |
 |------|---------|------------|
-| AI-хелперы (explain commit, smart stash naming, reflog explainer, conflict helper, semantic search) | **FLAG** | Спрятать за флаг «Экспериментальные AI» в AI Settings, **выкл по умолчанию**. AI commit message остаётся всегда |
+| AI-хелперы (explain commit, smart stash naming, reflog explainer, conflict helper, semantic search) | **KEEP** | Оставляем как есть (решение человека — нравится) |
 | Статистика репозитория | **DEMOTE** | Не вырезаем (уже сделано), убираем с первого уровня меню в подменю «Ещё» |
 | Git Bisect | **DEMOTE** | В подменю «Ещё» |
 | Git Hooks | **DEMOTE** | В подменю «Ещё» |
@@ -145,16 +173,22 @@ Statistics уходит в «Ещё» (не вырезаем). SSH keys пере
 | Branch notes | **KEEP** | Оставляем как есть |
 | SSH keys | **MOVE** | Перенести из меню File в Repository Settings (рядом с credentials) |
 
+### Выполнено (2026-06-07)
+Весь чек-лист ниже реализован за стрим: фиксы 1.1/1.2/1.3, сворачивание меню
+Repository в подменю «Ещё» (с новым submenu-движком в `MenuBar`), контекстный
+LFS (`getLfsActive` по `.gitattributes`), перенос SSH keys в Repository Settings,
+короткие имена веток в контекстном меню. Сборка: 856 тестов зелёные, прод-сборка
+Windows (Setup + Portable) собрана и подписана. Bundle-gate raw 446 → 448 KB.
+
 ### Итоговый чек-лист следующего стрима
 1. Фикс 1.1 — двойной клик по remote-ветке → Track-модалка.
 2. Фикс 1.2 — корневое восстановление активного таба (читать last-active один раз, не сохранять до конца восстановления).
 3. Фикс 1.3 — scroll-nonce для повторного фокуса в графе.
-4. Свернуть меню Repository: вынести Reflog / Worktrees / .gitignore / Statistics / Bisect / Hooks в подменю «Ещё».
-5. LFS — контекстный пункт (по наличию LFS в репо).
+4. Меню (детали в §3.1): сначала научить `MenuBar` вложенным подменю, затем свернуть Repository — вынести Reflog / Worktrees / .gitignore / Statistics / Bisect / Hooks в подменю «Ещё». i18n ключ `menu.more`.
+5. LFS — контекстный пункт (по наличию LFS в репо; нужен флаг в state).
 6. SSH keys → в Repository Settings.
-7. AI-хелперы за флаг «экспериментальные» (выкл по умолчанию).
-8. Контекстное меню веток: показывать **короткое** имя ветки (последний сегмент после `/`), полное — в тултип при наведении. Добавить `title?` в `SgContextMenuItem`, рендерить `title={item.title ?? item.label}`. «Копировать имя» оставить с полным именем.
-9. Прогон тестов + полная прод-сборка.
+7. Контекстное меню веток: показывать **короткое** имя ветки (последний сегмент после `/`), полное — в тултип при наведении. Добавить `title?` в `SgContextMenuItem`, рендерить `title={item.title ?? item.label}`. «Копировать имя» оставить с полным именем.
+8. Прогон тестов + полная прод-сборка.
 
 ---
 

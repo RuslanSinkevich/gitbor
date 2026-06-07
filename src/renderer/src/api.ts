@@ -39,7 +39,7 @@ const NON_RETRYABLE_TYPES = new Set<string>([
   'getGitActivity', 'clearGitActivity',
   'openDiff', 'openMergeEditor', 'openFile', 'switchView',
   'openInExplorer', 'openInTerminal',
-  'getRepoSettings', 'listSshKeys', 'getPublicKey', 'getLfsStatus',
+  'getRepoSettings', 'listSshKeys', 'getPublicKey', 'getLfsStatus', 'getLfsActive',
   'getWorktrees', 'getHooks', 'getReflog',
   'getBisectStatus', 'getGitignore',
   'getCommitDiff',
