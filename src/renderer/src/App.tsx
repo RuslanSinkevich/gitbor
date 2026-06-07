@@ -13,6 +13,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useDialogs } from './hooks/useDialogs';
 import { useAutoFetch } from './hooks/useAutoFetch';
 import { useSyncActions } from './hooks/useSyncActions';
+import { isPushDefaultMismatch } from './hooks/pushDestination';
 import { useAppUpdater } from './hooks/useAppUpdater';
 import { TitleBar } from './features/titlebar';
 import { CommitsView, ChangesView, type RightPanel } from './features/layout';
@@ -126,7 +127,7 @@ export function App() {
   const [showRepoManager, setShowRepoManager] = useState(false);
   const dlg = useDialogs();
   const loc = t();
-  const { runPull, runPush, syncDialogs } = useSyncActions(state, loc);
+  const { runPull, runPush, openPushDialog, syncDialogs } = useSyncActions(state, loc);
 
   // SafetyDialog: подписан на lastOpResult по errorClass; решает,
   // открывать ли модал. useOperationToasts глушит дублирующие toast'ы.
@@ -158,14 +159,28 @@ export function App() {
     });
   }, [lastOpResult, safety]);
 
+  // Push провалился с fatal про расхождение имени локальной ветки и upstream
+  // (push.default=simple). Вместо «неизвестной ошибки» снова открываем диалог
+  // Push, где юзер явно выбирает remote + целевую ветку. Toast при этом
+  // подавлен через willShowModal выше.
+  useEffect(() => {
+    if (!lastOpResult || lastOpResult.success) return;
+    if (lastOpResult.operation !== 'push') return;
+    if (!isPushDefaultMismatch(lastOpResult.error)) return;
+    openPushDialog();
+  }, [lastOpResult, openPushDialog]);
+
   useOperationToasts(
     lastOpResult, clearLastOpResult, addToast, lastCommandRef,
     () => dlg.setShowGitActivity(true),
     {
       // Подавляем toast если эту же ошибку покажет SafetyDialog —
-      // иначе модалка и toast дублируют один stderr.
-      willShowModal: ({ errorClass, severity, source }) =>
-        safety.shouldOpenModal({ errorClass, severity, source }),
+      // иначе модалка и toast дублируют один stderr. Также глушим generic-
+      // toast при mismatch upstream у push: его обрабатывает повторный
+      // диалог Push (см. эффект ниже).
+      willShowModal: ({ errorClass, severity, source, operation, error }) =>
+        safety.shouldOpenModal({ errorClass, severity, source }) ||
+        (operation === 'push' && isPushDefaultMismatch(error)),
     },
   );
 
@@ -312,25 +327,35 @@ export function App() {
     saveOpenRepos(state.openRepos.map(r => r.path));
   }, [state.openRepos]);
 
-  // Restore активного таба по сохранённому path. Запускается один раз
-  // когда openRepos впервые становится непустым (либо сразу после старта
-  // если main отдал список, либо после рендер-side openRepo). Сравниваем
-  // по path (sameRepoPath нормализует слэши/регистр) — индекс между
-  // сессиями нестабилен (порядок открытия/закрытия меняется).
-  const restoreActiveTabAttempted = useRef(false);
+  // Restore активного таба по сохранённому path. Сравниваем по path
+  // (sameRepoPath нормализует слэши/регистр) — индекс между сессиями
+  // нестабилен (порядок открытия/закрытия меняется).
+  //
+  // Табы восстанавливаются асинхронно: openRepo на каждый путь резолвится
+  // отдельно, openRepos растёт по одному, и main делает активным последний
+  // открытый. Поэтому НЕ восстанавливаем на первое ненулевое openRepos
+  // (там целевого репо может ещё не быть, а поздний openRepo потом украдёт
+  // фокус). Вместо этого debounce: ждём, пока список перестанет меняться,
+  // и тогда один раз переключаемся на сохранённый активный.
+  const restoreActiveTabDone = useRef(false);
   useEffect(() => {
-    if (restoreActiveTabAttempted.current) return;
+    if (restoreActiveTabDone.current) return;
     if (state.openRepos.length === 0) return;
     const last = loadLastActiveRepo();
     if (!last) {
-      restoreActiveTabAttempted.current = true;
+      restoreActiveTabDone.current = true;
       return;
     }
-    const idx = findRepoIndexByPath(state.openRepos, last);
-    if (idx >= 0 && idx !== state.activeRepoIndex) {
-      switchRepoFast(idx);
-    }
-    restoreActiveTabAttempted.current = true;
+    // Каждое изменение openRepos сбрасывает таймер (cleanup). Таймер
+    // срабатывает только когда список стабилен — значит все табы догрузились.
+    const timer = setTimeout(() => {
+      const idx = findRepoIndexByPath(state.openRepos, last);
+      if (idx >= 0 && idx !== state.activeRepoIndex) {
+        switchRepoFast(idx);
+      }
+      restoreActiveTabDone.current = true;
+    }, 400);
+    return () => clearTimeout(timer);
   }, [state.openRepos, state.activeRepoIndex, switchRepoFast]);
 
   /**

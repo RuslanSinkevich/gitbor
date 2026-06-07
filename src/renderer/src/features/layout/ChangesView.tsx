@@ -115,6 +115,7 @@ export function ChangesView({
                   selectCommit={selectCommit}
                   openDiff={openDiff}
                   onExpandDiff={onExpandDiff}
+                  showContextMenu={showContextMenu}
                 />
               ) : (
                 <div className={s.emptyDiff}>{loc.details.selectCommit}</div>

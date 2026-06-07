@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import type { FileHistoryResult, FileHistoryEntry } from '../../types';
 import { postCommand, onMainEvent } from '../../api';
 import { t } from '../../i18n';
+import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import s from './FileHistory.module.css';
 
 interface Props {
   file: string;
   onSelectEntry?: (entry: FileHistoryEntry) => void;
   onOpenDiff?: (file: string, hash: string) => void;
+  /** App-level контекстное меню (ПКМ по строке журнала). */
+  onContextMenu?: (e: React.MouseEvent, items: SgContextMenuItem[]) => void;
 }
 
 function formatDate(ts: number): string {
@@ -25,11 +28,42 @@ function statusCls(status: string): string {
   }
 }
 
-export function FileHistory({ file, onSelectEntry, onOpenDiff }: Props) {
+export function FileHistory({ file, onSelectEntry, onOpenDiff, onContextMenu }: Props) {
   const loc = t();
   const [history, setHistory] = useState<FileHistoryResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedHash, setSelectedHash] = useState<string | null>(null);
+
+  /**
+   * ПКМ по строке коммита (журнал в стиле VS). Действия:
+   *  - «Просмотр изменений» — diff файла в этом коммите (hash^..hash);
+   *  - «Сравнить с предыдущим» — diff между предыдущей ревизией ФАЙЛА и
+   *    этим коммитом (`PREV:<hash>` резолвится бэкендом в prev..hash);
+   *  - «Сравнить с…» — выбрать любой коммит НИЖЕ в списке (старее) и
+   *    показать diff `старее..этот` для файла (`<old>..<hash>`).
+   * Сравнение идёт по текущему пути файла; для линейной истории совпадает
+   * с «предыдущим в графе». Rename-цепочки `--follow` не учитываем (опц.).
+   */
+  const buildMenu = (entry: FileHistoryEntry, index: number): SgContextMenuItem[] => {
+    const older = history ? history.entries.slice(index + 1) : [];
+    const items: SgContextMenuItem[] = [
+      { label: loc.fileHistory.view, action: () => { setSelectedHash(entry.hash); onOpenDiff?.(file, entry.hash); } },
+      { label: loc.fileHistory.compareWithPrevious, action: () => { setSelectedHash(entry.hash); onOpenDiff?.(file, `PREV:${entry.hash}`); } },
+      { divider: true },
+    ];
+    if (older.length === 0) {
+      items.push({ label: loc.fileHistory.compareWith, disabled: true });
+    } else {
+      items.push({
+        label: loc.fileHistory.compareWith,
+        submenu: older.map((o) => ({
+          label: `${o.shortHash}  ${o.subject}`.slice(0, 80),
+          action: () => { setSelectedHash(entry.hash); onOpenDiff?.(file, `${o.hash}..${entry.hash}`); },
+        })),
+      });
+    }
+    return items;
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -59,7 +93,7 @@ export function FileHistory({ file, onSelectEntry, onOpenDiff }: Props) {
         </span>
       </div>
       <div className={s.list}>
-        {history.entries.map(entry => (
+        {history.entries.map((entry, index) => (
           <div
             key={entry.hash}
             className={`${s.entry} ${selectedHash === entry.hash ? s.entrySelected : ''}`}
@@ -68,6 +102,7 @@ export function FileHistory({ file, onSelectEntry, onOpenDiff }: Props) {
               onSelectEntry?.(entry);
               onOpenDiff?.(file, entry.hash);
             }}
+            onContextMenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(e, buildMenu(entry, index)); } : undefined}
           >
             <span className={`${s.entryStatus} ${statusCls(entry.status)}`}>{entry.status}</span>
             <span className={s.entryHash}>{entry.shortHash}</span>

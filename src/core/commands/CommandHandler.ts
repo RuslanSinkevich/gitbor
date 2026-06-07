@@ -75,6 +75,9 @@ export class CommandHandler {
   stash(message?: string): Promise<OperationResult> { return Write.stash(this.queue, this.git, this.state, message); }
   stashPop(): Promise<OperationResult> { return Write.stashPop(this.queue, this.git, this.state); }
   createBranch(name: string, from: string): Promise<OperationResult> { return Write.createBranch(this.queue, this.git, this.state, name, from); }
+  trackRemoteBranch(remote: string, remoteBranch: string, localName: string): Promise<OperationResult> {
+    return Write.trackRemoteBranch(this.queue, this.git, this.safety, this.state, remote, remoteBranch, localName);
+  }
   renameBranch(oldName: string, newName: string): Promise<OperationResult> { return Write.renameBranch(this.queue, this.git, this.state, oldName, newName); }
   deleteBranch(branch: string, force?: boolean): Promise<OperationResult> { return Write.deleteBranch(this.queue, this.git, this.state, branch, force); }
   createTag(name: string, ref: string, message?: string): Promise<OperationResult> { return Write.createTag(this.queue, this.git, this.state, name, ref, message); }

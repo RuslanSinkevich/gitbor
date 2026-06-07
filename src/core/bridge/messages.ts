@@ -77,6 +77,7 @@ type RendererCommandCore =
 
   // Branch operations
   | { type: 'createBranch'; name: string; from: string }
+  | { type: 'trackRemoteBranch'; remote: string; remoteBranch: string; localName: string }
   | { type: 'renameBranch'; oldName: string; newName: string }
   | { type: 'deleteBranch'; branch: string; force?: boolean }
 
@@ -141,6 +142,11 @@ type RendererCommandCore =
   // Repo settings
   | { type: 'getRepoSettings' }
   | { type: 'setRepoSettings'; useGlobal: boolean; name: string; email: string }
+
+  // Remote HTTPS credentials (git credential helper)
+  | { type: 'getCredentialInfo' }
+  | { type: 'updateCredentials'; username: string; password: string }
+  | { type: 'clearCredentials' }
 
   // SSH keys
   | { type: 'listSshKeys' }
@@ -289,6 +295,8 @@ export type MainEvent =
   | { type: 'showView'; view: 'changes' | 'commits' }
   | { type: 'stashDiff'; data: FileDiff[]; index: string }
   | { type: 'repoSettings'; data: import('../git/GitConfig').RepoSettings }
+  | { type: 'credentialInfo'; data: { target: import('../git/CredentialHelper').CredentialTarget | null; helperConfigured: boolean } }
+  | { type: 'credentialUpdated'; success: boolean; cleared?: boolean; error?: string }
   | { type: 'sshKeys'; data: import('../ssh/SshKeyManager').SshKeyInfo[] }
   | { type: 'publicKey'; name: string; content: string }
   | { type: 'lfsStatus'; data: import('../git/LfsManager').LfsStatus }

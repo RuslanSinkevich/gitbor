@@ -128,3 +128,35 @@
   padding: 12px 24px;
   border-top: 1px solid var(--sg-border);
 }
+
+.sectionTop {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--sg-border);
+}
+
+.credHint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--sg-foreground-muted);
+}
+
+.credWarn {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--sg-status-icon-modified, #b8860b);
+}
+
+.credStatus {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--sg-primary);
+}
+
+.credActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}

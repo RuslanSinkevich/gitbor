@@ -45,6 +45,8 @@ export interface UseOperationToastsOptions {
     errorClass?: GitErrorClass;
     severity: ErrorSeverity;
     source: OperationSource;
+    operation: string;
+    error?: string;
   }) => boolean;
 }
 
@@ -94,7 +96,7 @@ export function useOperationToasts(
 
     // Если SafetyDialog (или другой источник) уже возьмёт эту ошибку —
     // toast подавляем, иначе получится дубль модалка+toast.
-    if (options?.willShowModal?.({ errorClass, severity, source })) return;
+    if (options?.willShowModal?.({ errorClass, severity, source, operation, error })) return;
 
     const silentError = SILENT_OPS.includes(operation);
     if (silentError && severity === 'info') return;

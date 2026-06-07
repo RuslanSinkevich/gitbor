@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CommitGraph, CommitDetails } from '../graph';
 import { useCommitExplainer } from '../ai';
 import { RightPanelContent, type RightPanel } from './RightPanelContent';
@@ -64,6 +64,14 @@ export function CommitsView({
      только на «Изменения»/«Дерево файлов». */
   const [detailTab, setDetailTab] = useState<'commit' | 'changes' | 'tree'>('commit');
   const showDiffPane = !!diffTarget && detailTab !== 'commit';
+
+  /* Режим сравнения (hash вида `<from>..<to>`) не имеет данных коммита —
+     вкладка «Коммит» для него пустая, а правая панель диффа на ней скрыта.
+     Переключаемся на «Изменения», чтобы сразу показать список файлов и дифф. */
+  const isCompareRange = commitDetail?.hash.includes('..') ?? false;
+  useEffect(() => {
+    if (isCompareRange) setDetailTab('changes');
+  }, [isCompareRange, commitDetail?.hash]);
 
   /* Стрим Commit Explainer-а держим здесь, а не в CommitDetails: при
      переключении вкладок detailPane перемещается в дереве (split ↔ no-split)
@@ -188,6 +196,7 @@ export function CommitsView({
                 selectCommit={selectCommit}
                 openDiff={openDiff}
                 onExpandDiff={onExpandDiff}
+                showContextMenu={showContextMenu}
               />
             </div>
           }

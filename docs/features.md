@@ -127,6 +127,18 @@
 - **Privacy gate** — `allowCloudCodeShare` (default `false` for new installs) blocks calls to **foreign** providers (OpenAI / Anthropic / Groq). Local / corporate / no-VPN / Russian providers are always allowed and bypass the gate by design
 - **Config v3** — old `ai-config.json` (v2) is migrated on load: `commitLanguage` becomes `aiResponseLanguage`, `features.commitMessage=true`, `aiEnabled=true`, `allowCloudCodeShare=false` (no implicit cloud opt-in)
 
+### AI Helpers
+
+Beyond commit messages, the same provider / privacy settings power five extra helpers. Each is a separate `AiFeatureId` (`explainCommit` / `stashName` / `explainReflog` / `analyzeConflict` / `semanticSearch`), can be toggled off in the **Features** tab, and can point at its own model override. All prompts live in `src/core/ai/prompts.ts` (English by default; response language appended via `resolvePrompt`).
+
+- **Commit Explainer** — **Explain** button in the Commit Details panel. The model returns a fixed three-section summary (`What changed` / `Why` / `Watch out for`), high-level, not a line-by-line walkthrough. Useful for reviewing PRs, old releases and merge commits.
+- **Smart Stash Naming** — **Suggest** button next to the name field in the stash dialog; proposes a 3-7 word lowercase name from the uncommitted diff. The field stays editable; Suggest only seeds it. Re-click to regenerate.
+- **Reflog Explainer** — **Explain reflog** button in the Reflog dialog. Turns raw reflog lines into a plain `Timeline` / `Lost commits` / `Recovery` story, grouping low-level actions and flagging strandable commits with the exact recovery command.
+- **Conflict Helper** — **Explain conflict** button in the merge editor toolbar. Explains the selected hunk in four sections (`Ours` / `Theirs` / `Risk` / `What to check`) — it does **not** auto-resolve; the choice stays with the user.
+- **Semantic Search (MVP)** — the commit-graph search (Ctrl+F) understands an `ai:` prefix. The query + a recent slice of history (subject + body) is sent to the model, which reranks commits by meaning (`SEMANTIC_SEARCH_SYSTEM_PROMPT`). No embeddings yet — only the most recent N commits are considered; full-history indexed search is on the roadmap.
+
+Common behavior: streaming where it makes sense, a second click on the active button cancels the inflight request, provider errors surface inline without blocking the UI, and the **Debug** tab always shows the exact request/response. Foreign providers (OpenAI / Anthropic / Groq) stay blocked unless the Privacy switch is on.
+
 ### Interactive Rebase
 
 - Rebase editor with pick/reword/edit/squash/fixup/drop actions

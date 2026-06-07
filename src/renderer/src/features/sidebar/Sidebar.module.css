@@ -176,6 +176,18 @@
   font-weight: 700;
 }
 
+/* Выбранная (кликнутая) ветка — фокус в дереве, отдельно от checked-out
+   (зелёная точка + bold) и от hover. Лёгкая подложка + акцентная полоса
+   слева, видна всегда, не только при наведении. */
+.itemSelected {
+  background: color-mix(in srgb, var(--sg-primary) 16%, transparent);
+  box-shadow: inset 2px 0 0 var(--sg-primary);
+}
+
+.itemSelected:hover {
+  background: color-mix(in srgb, var(--sg-primary) 24%, transparent);
+}
+
 .itemLabel {
   display: inline-flex;
   align-items: center;

@@ -69,6 +69,20 @@ export class CredentialHelper {
     return parseHttpsRemoteUrl(raw);
   }
 
+  /**
+   * Настроен ли вообще `credential.helper`. Без него `git credential
+   * approve/reject` — no-op: пароль не сохранится в хранилище ОС, и при
+   * следующем push git снова спросит. UI должен честно предупредить.
+   */
+  async hasCredentialHelper(): Promise<boolean> {
+    const r = await this.git.exec(['config', '--get-all', 'credential.helper']);
+    if (r.exitCode !== 0) return false;
+    return r.stdout
+      .split('\n')
+      .map((l) => l.trim())
+      .some((l) => l.length > 0);
+  }
+
   async clearCredentials(target: CredentialTarget): Promise<void> {
     await this.runCredential('reject', target);
     if (target.path) {

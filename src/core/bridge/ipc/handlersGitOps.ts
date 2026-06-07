@@ -21,6 +21,7 @@ export const ipcHandlersGitOps: HandlerTable = {
     ctx.ch.startMerge(cmd.branch, { noCommit: false, squash: false, ffOnly: false, noFf: false }),
   ),
   createBranch: op('createBranch', (cmd, ctx) => ctx.ch.createBranch(cmd.name, cmd.from)),
+  trackRemoteBranch: op('checkout', (cmd, ctx) => ctx.ch.trackRemoteBranch(cmd.remote, cmd.remoteBranch, cmd.localName)),
   cherryPick: op('cherry-pick', (cmd, ctx) => ctx.ch.cherryPick(cmd.hash, cmd.mainline)),
   revert: op('revert', (cmd, ctx) => ctx.ch.revert(cmd.hash, cmd.mainline)),
   resetTo: op('reset', (cmd, ctx) => ctx.ch.resetTo(cmd.hash, cmd.mode)),

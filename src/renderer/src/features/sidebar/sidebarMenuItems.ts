@@ -41,6 +41,31 @@ export function getBranchMenuItems(
       action: () => onMerge ? onMerge(branch.name) : postCommand({ type: 'merge', branch: branch.name }),
     });
   }
+  // Track Remote Branch (как в Fork): только для remote-веток. Создаёт
+  // локальную ветку с tracking на эту remote и переключается на неё.
+  // Дефолт локального имени — путь без `<remote>/` (имя remote — первый
+  // сегмент: git-имена remote не содержат `/`).
+  if (branch.isRemote) {
+    const slash = branch.name.indexOf('/');
+    const remoteName = slash > 0 ? branch.name.slice(0, slash) : '';
+    const remoteBranch = slash > 0 ? branch.name.slice(slash + 1) : branch.name;
+    items.push({ divider: true });
+    items.push({
+      label: loc.contextMenu.trackRemote,
+      action: () => showPrompt({
+        title: tpl(loc.contextMenu.trackRemoteTitle, { branch: branch.name }),
+        label: loc.contextMenu.trackRemotePrompt,
+        defaultValue: remoteBranch,
+        placeholder: 'branch-name',
+        onConfirm: (localName) => {
+          const name = localName.trim();
+          if (name && remoteName) {
+            postCommand({ type: 'trackRemoteBranch', remote: remoteName, remoteBranch, localName: name });
+          }
+        },
+      }),
+    });
+  }
   if (!branch.isRemote) {
     items.push({
       label: tpl(loc.contextMenu.rename, { name: branch.name }),

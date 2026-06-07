@@ -140,9 +140,13 @@ interface BranchTreeItemProps {
   onBranchMove?: (oldName: string, newName: string) => void;
   /** Per-repo prefs для pin/solo/hide/info; не задано — фичи не показываются (актуально для remote-веток). */
   prefs?: BranchPrefsAPI;
+  /** Имя выбранной (кликнутой) ветки — для подсветки «в фокусе», отдельно от checked-out. */
+  selectedBranch?: string | null;
+  /** Отметить ветку как выбранную при клике. */
+  onSelectBranch?: (name: string) => void;
 }
 
-export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout, folderExpand, onBranchMove, prefs }: BranchTreeItemProps) {
+export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout, folderExpand, onBranchMove, prefs, selectedBranch, onSelectBranch }: BranchTreeItemProps) {
   const [expandedInternal, setExpandedInternal] = useState(() => node.branch?.isCurrent ? true : depth < 1);
   const expanded = folderExpand ? folderExpand.isExpanded(node.fullPath) : expandedInternal;
   const toggleExpanded = folderExpand
@@ -203,7 +207,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
             {node.children.map(child => (
               <BranchTreeItem key={child.fullPath} node={child} depth={depth + 1} nested
                 currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu}
-                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} prefs={prefs} />
+                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} prefs={prefs} selectedBranch={selectedBranch} onSelectBranch={onSelectBranch} />
             ))}
           </div>
         )}
@@ -219,13 +223,14 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
     const isPinned = prefs?.pinned.has(branch.name) ?? false;
     const isHidden = prefs?.hidden.has(branch.name) ?? false;
     const isSolo = prefs?.soloBranch === branch.name;
+    const isSelected = selectedBranch != null && selectedBranch === branch.name;
 
     return (
       <>
-        <div className={`${s.item} ${rowItem} ${branch.isCurrent ? s.itemCurrent : ''} ${isHidden ? s.itemHiddenInGraph : ''}`}
+        <div className={`${s.item} ${rowItem} ${branch.isCurrent ? s.itemCurrent : ''} ${isSelected ? s.itemSelected : ''} ${isHidden ? s.itemHiddenInGraph : ''}`}
           draggable={!branch.isRemote}
           onDragStart={handleDragStart}
-          onClick={() => onSelectRef?.(branch.hash)}
+          onClick={() => { onSelectBranch?.(branch.name); onSelectRef?.(branch.hash); }}
           onDoubleClick={() => !branch.isCurrent && requestCheckout(branch.name)}
           onContextMenu={(e) => {
             e.preventDefault();
@@ -269,7 +274,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
             {node.children.map(child => (
               <BranchTreeItem key={child.fullPath} node={child} depth={depth + 1} nested
                 currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu}
-                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} prefs={prefs} />
+                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} prefs={prefs} selectedBranch={selectedBranch} onSelectBranch={onSelectBranch} />
             ))}
           </div>
         )}

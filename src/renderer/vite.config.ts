@@ -54,9 +54,14 @@ const analyzeOut = path.resolve(__dirname, '../../docs/audit', `bundle-${today}.
 // (Markdown-парсер) уехала в lazy-chunk (`Markdown-*.js`, ~3 KB), но
 // eager-обёртки + `data-diff-line` атрибуты + новые i18n-строки прибавили
 // ~3 KB в главный chunk. Пороги: gzip 133 → 136, raw 432 → 440 KB.
+// 2026-06-06: выделение выбранной ветки в сайдбаре, повторный диалог Push при
+// mismatch upstream, Track Remote Branch (меню + диалог), ПКМ-журнал истории
+// файла (View/Compare). Eager-код в графе/сайдбаре/useSyncActions + i18n
+// прибавили ~4 KB в главный chunk (диалоги credential/settings остались
+// lazy). Пороги: gzip 136 → 138, raw 440 → 446 KB.
 // При GITBOR_BUNDLE_GATE_OFF=1 чек отключается (для локальных экспериментов).
-const BUNDLE_MAX_RAW_BYTES = 440 * 1024;
-const BUNDLE_MAX_GZIP_BYTES = 136 * 1024;
+const BUNDLE_MAX_RAW_BYTES = 446 * 1024;
+const BUNDLE_MAX_GZIP_BYTES = 138 * 1024;
 const BUNDLE_GATE_DISABLED = process.env.GITBOR_BUNDLE_GATE_OFF === '1';
 
 function bundleSizeGatePlugin(): Plugin {

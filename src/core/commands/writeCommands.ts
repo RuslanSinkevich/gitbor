@@ -308,6 +308,55 @@ export async function createBranch(queue: OperationQueue, git: GitExecutor, stat
   return gitExecSimple(queue, git, state, 'createBranch', ['branch', name, from]);
 }
 
+/**
+ * Track Remote Branch (как в Fork): создать ЛОКАЛЬНУЮ ветку `localName` с
+ * upstream на `<remote>/<remoteBranch>` и переключиться на неё.
+ *
+ * `git checkout -b <local> --track <remote>/<branch>` — атомарно создаёт
+ * ветку, ставит tracking и делает checkout. Переключение ветки трогает
+ * рабочую копию, поэтому идём через SafetyNet (auto-stash) + preflight, как
+ * обычный checkout, и репортим под opName 'checkout' — refresh/тосты/stale-
+ * diff в рендерере уже завязаны на это имя.
+ *
+ * Если локальная ветка с таким именем уже есть, git вернёт «already exists».
+ * В этом случае просто переключаемся на существующую ветку (а не падаем с
+ * ошибкой) — это самое дружелюбное поведение для UX «перенести к себе».
+ */
+export async function trackRemoteBranch(
+  queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager,
+  remote: string, remoteBranch: string, localName: string,
+): Promise<OperationResult> {
+  const remoteRef = `${remote}/${remoteBranch}`;
+  return gitWrite(queue, state, 'checkout', async (timing) => {
+    const preStart = Date.now();
+    const blocked = await runPreflight(git, 'checkout');
+    timing.preflightMs = Date.now() - preStart;
+    if (blocked) return blocked;
+
+    const execStart = Date.now();
+    const result = await safety.wrapDestructive(
+      'checkout',
+      { branch: localName },
+      async () => {
+        const r = await git.exec(['checkout', '-b', localName, '--track', remoteRef]);
+        if (r.exitCode !== 0) {
+          if (/already exists/i.test(r.stderr)) {
+            const r2 = await git.exec(['checkout', localName]);
+            if (r2.exitCode !== 0) {
+              throw new GitError(`Track failed: ${r2.stderr}`, 'checkout', r2.exitCode, r2.stderr);
+            }
+            return;
+          }
+          throw new GitError(`Track failed: ${r.stderr}`, 'checkout', r.exitCode, r.stderr);
+        }
+      },
+      { allowedErrorClasses: allowedClassesFor('checkout') },
+    );
+    timing.execMs = Date.now() - execStart;
+    return result;
+  });
+}
+
 export async function renameBranch(queue: OperationQueue, git: GitExecutor, state: StateManager, oldName: string, newName: string): Promise<OperationResult> {
   return gitExecSimple(queue, git, state, 'renameBranch', ['branch', '-m', oldName, newName]);
 }

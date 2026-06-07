@@ -69,6 +69,12 @@ export function Sidebar({
     });
   }, []);
 
+  // Выбранная (кликнутая) ветка — фокус в сайдбаре, отдельно от checked-out.
+  // Локальный стейт: переживает переключение панелей changes/commits (Sidebar
+  // не размонтируется), сбрасывается при смене репозитория.
+  const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
+  useEffect(() => { setSelectedBranch(null); }, [repoPath]);
+
   const [branchFoldersExpanded, setBranchFoldersExpanded] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
@@ -164,7 +170,7 @@ export function Sidebar({
       <SidebarSection title={loc.sidebar.branches} count={filteredLocal.length} expanded={sections.branches} onToggle={() => toggleSection('branches')}>
         {filteredLocal.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noBranches}</div>}
         {localTree.map(node => (
-          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandLocal} onBranchMove={handleBranchMove} prefs={branchPrefs} />
+          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandLocal} onBranchMove={handleBranchMove} prefs={branchPrefs} selectedBranch={selectedBranch} onSelectBranch={setSelectedBranch} />
         ))}
       </SidebarSection>
 
@@ -173,7 +179,7 @@ export function Sidebar({
         {remoteEntries.map(({ remote, remoteTree, remoteBranchSig }) => (
           <RemoteFolder key={remote.name} repoPath={repoPath} remote={remote} tree={remoteTree} remoteBranchSig={remoteBranchSig}
             currentBranch={currentBranch}
-            loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} />
+            loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} selectedBranch={selectedBranch} onSelectBranch={setSelectedBranch} />
         ))}
       </SidebarSection>
 
@@ -264,10 +270,11 @@ function StashItem({ stash, loc, active, autoBadge, onSelect, onApply, onContext
 }
 
 
-function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout }: {
+function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout, selectedBranch, onSelectBranch }: {
   repoPath: string;
   remote: Remote; tree: ReturnType<typeof buildBranchTree>; remoteBranchSig: string; currentBranch: string;
   loc: ReturnType<typeof t>; onContextMenu: Props['onContextMenu']; onSelectRef?: (hash: string) => void; onMerge?: (source: string) => void; showPrompt: ShowPrompt; requestCheckout: RequestCheckout;
+  selectedBranch?: string | null; onSelectBranch?: (name: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [innerFolders, setInnerFolders] = useState<Set<string>>(() => {
@@ -308,7 +315,7 @@ function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, 
         <div className={s.treeChildren}>
           {tree.map(node => (
             <BranchTreeItem key={node.fullPath} node={node} depth={0} nested currentBranch={currentBranch} loc={loc}
-              onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandRemote} />
+              onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandRemote} selectedBranch={selectedBranch} onSelectBranch={onSelectBranch} />
           ))}
         </div>
       )}

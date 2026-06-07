@@ -266,6 +266,48 @@ export const ipcHandlersRepoExtras: HandlerTable = {
     }
   },
 
+  getCredentialInfo: async (_cmd, ctx) => {
+    const { CredentialHelper } = await import('../../git/CredentialHelper');
+    const helper = new CredentialHelper(ctx.sm.getGit());
+    try {
+      const target = await helper.getCredentialTarget();
+      const helperConfigured = await helper.hasCredentialHelper();
+      ctx.send({ type: 'credentialInfo', data: { target, helperConfigured } });
+    } catch {
+      ctx.send({ type: 'credentialInfo', data: { target: null, helperConfigured: false } });
+    }
+  },
+  updateCredentials: async (cmd, ctx) => {
+    const { CredentialHelper } = await import('../../git/CredentialHelper');
+    const helper = new CredentialHelper(ctx.sm.getGit());
+    try {
+      const target = await helper.getCredentialTarget();
+      if (!target) {
+        ctx.send({ type: 'credentialUpdated', success: false, error: 'No HTTPS remote' });
+        return;
+      }
+      await helper.storeCredentials(target, cmd.username, cmd.password);
+      ctx.send({ type: 'credentialUpdated', success: true });
+    } catch (err) {
+      ctx.send({ type: 'credentialUpdated', success: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+  clearCredentials: async (_cmd, ctx) => {
+    const { CredentialHelper } = await import('../../git/CredentialHelper');
+    const helper = new CredentialHelper(ctx.sm.getGit());
+    try {
+      const target = await helper.getCredentialTarget();
+      if (!target) {
+        ctx.send({ type: 'credentialUpdated', success: false, error: 'No HTTPS remote' });
+        return;
+      }
+      await helper.clearCredentials(target);
+      ctx.send({ type: 'credentialUpdated', success: true, cleared: true });
+    } catch (err) {
+      ctx.send({ type: 'credentialUpdated', success: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
   listSshKeys: async (_cmd, ctx) => {
     const { listSshKeys } = await import('../../ssh/SshKeyManager');
     const keys = await listSshKeys();

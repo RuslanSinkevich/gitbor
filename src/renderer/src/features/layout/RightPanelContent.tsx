@@ -1,6 +1,7 @@
 import { DiffPanel } from '../diff';
 import { FileHistory } from '../file-history';
 import { BlameView } from '../blame';
+import type { ShowContextMenuFn } from '../../hooks/useContextMenu';
 
 export type RightPanel = 'diff' | 'history' | 'blame';
 
@@ -11,11 +12,18 @@ interface Props {
   selectCommit: (hash: string) => void;
   openDiff: (file: string, hash: string) => void;
   onExpandDiff?: (file: string, hash: string) => void;
+  showContextMenu?: ShowContextMenuFn;
 }
 
-export function RightPanelContent({ rightPanel, setRightPanel, diffTarget, selectCommit, openDiff, onExpandDiff }: Props) {
+export function RightPanelContent({ rightPanel, setRightPanel, diffTarget, selectCommit, openDiff, onExpandDiff, showContextMenu }: Props) {
   if (rightPanel === 'history') {
-    return <FileHistory file={diffTarget.file} onOpenDiff={(f, h) => { openDiff(f, h); setRightPanel('diff'); }} />;
+    return (
+      <FileHistory
+        file={diffTarget.file}
+        onOpenDiff={(f, h) => { openDiff(f, h); setRightPanel('diff'); }}
+        onContextMenu={showContextMenu}
+      />
+    );
   }
   if (rightPanel === 'blame') {
     return <BlameView file={diffTarget.file} hash={diffTarget.hash} onSelectCommit={selectCommit} />;

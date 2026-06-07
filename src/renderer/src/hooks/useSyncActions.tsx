@@ -5,6 +5,7 @@ import { SgSelect } from '../ui/SgSelect';
 import { SgCheckbox } from '../ui/SgCheckbox';
 import type { AppState } from '../types';
 import type { t } from '../i18n';
+import { canPushDirectly, upstreamBranchShort } from './pushDestination';
 
 interface PullDialogState {
   rebase: boolean;
@@ -22,6 +23,9 @@ interface PushDialogState {
 interface UseSyncActionsResult {
   runPull: (rebase?: boolean) => void;
   runPush: (force?: boolean) => void;
+  /** Принудительно открыть диалог Push (минуя plain-push). Для повторного
+      показа после fatal про mismatch upstream. */
+  openPushDialog: (force?: boolean) => void;
   syncDialogs: React.ReactNode;
 }
 
@@ -47,11 +51,19 @@ export function useSyncActions(state: AppState, loc: ReturnType<typeof t>): UseS
 
   const pushBranchOptions = useCallback((remote: string) => {
     const options = remoteBranchOptions(remote);
+    const extra: { value: string; label: string }[] = [];
     const currentName = state.currentBranch || '';
-    if (!currentName) return options;
-    if (options.some((o) => o.value === currentName)) return options;
-    return [{ value: currentName, label: currentName }, ...options];
-  }, [remoteBranchOptions, state.currentBranch]);
+    const currentLocal = state.branches.find((b) => b.isCurrent && !b.isRemote);
+    const upstreamShort = upstreamBranchShort(currentLocal?.upstream, remote);
+    if (upstreamShort && !options.some((o) => o.value === upstreamShort)) {
+      extra.push({ value: upstreamShort, label: `${remote}/${upstreamShort}` });
+    }
+    if (currentName && !options.some((o) => o.value === currentName) && currentName !== upstreamShort) {
+      extra.push({ value: currentName, label: currentName });
+    }
+    if (extra.length === 0) return options;
+    return [...extra, ...options];
+  }, [remoteBranchOptions, state.branches, state.currentBranch]);
 
   const pickDefaultBranchForRemote = useCallback((remote: string) => {
     const options = remoteBranchOptions(remote);
@@ -131,8 +143,9 @@ export function useSyncActions(state: AppState, loc: ReturnType<typeof t>): UseS
     const currentLocal = state.branches.find((b) => b.isCurrent && !b.isRemote);
     const currentName = state.currentBranch || '';
 
-    if (currentLocal?.upstream?.startsWith(`${remote}/`)) {
-      const upstreamShort = currentLocal.upstream.slice(remote.length + 1);
+    const upstreamShort = upstreamBranchShort(currentLocal?.upstream, remote);
+    if (upstreamShort) {
+      if (upstreamShort !== currentName) return upstreamShort;
       if (options.some((o) => o.value === upstreamShort)) return upstreamShort;
     }
 
@@ -153,17 +166,20 @@ export function useSyncActions(state: AppState, loc: ReturnType<typeof t>): UseS
     setPullDialog({ rebase: !!rebase, autostash: false, remote: defaultRemote, branch: defaultBranch });
   }, [state.branches, state.currentBranch, pickDefaultRemote, pickDefaultBranchForRemote]);
 
-  const runPush = useCallback((force?: boolean) => {
-    const hasUpstream = state.branches.some((b) => b.isCurrent && !!b.upstream);
-    if (hasUpstream) {
-      postCommand({ type: 'push', force });
-      return;
-    }
-
+  const openPushDialog = useCallback((force?: boolean) => {
     const defaultRemote = pickDefaultRemote();
     const defaultBranch = pickDefaultBranchForPush(defaultRemote) || state.currentBranch || '';
     setPushDialog({ force: !!force, remote: defaultRemote, branch: defaultBranch });
-  }, [state.branches, state.currentBranch, pickDefaultRemote, pickDefaultBranchForPush]);
+  }, [state.currentBranch, pickDefaultRemote, pickDefaultBranchForPush]);
+
+  const runPush = useCallback((force?: boolean) => {
+    const currentLocal = state.branches.find((b) => b.isCurrent && !b.isRemote);
+    if (canPushDirectly(state.currentBranch || '', currentLocal?.upstream)) {
+      postCommand({ type: 'push', force });
+      return;
+    }
+    openPushDialog(force);
+  }, [state.branches, state.currentBranch, openPushDialog]);
 
   const syncDialogs = (
     <>
@@ -283,5 +299,5 @@ export function useSyncActions(state: AppState, loc: ReturnType<typeof t>): UseS
     </>
   );
 
-  return { runPull, runPush, syncDialogs };
+  return { runPull, runPush, openPushDialog, syncDialogs };
 }

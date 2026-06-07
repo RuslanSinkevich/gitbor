@@ -105,7 +105,12 @@ export function AppDialogs(props: AppDialogsProps) {
 
         {dlg.showAbout && <AboutDialog onClose={() => dlg.setShowAbout(false)} loc={loc} onSayThanks={onSayThanks} />}
         {dlg.showSshKeys && <SshKeysDialog onClose={() => dlg.setShowSshKeys(false)} />}
-        {dlg.showRepoSettings && <RepoSettingsDialog onClose={() => dlg.setShowRepoSettings(false)} />}
+        {dlg.showRepoSettings && (
+          <RepoSettingsDialog
+            onClose={() => dlg.setShowRepoSettings(false)}
+            onOpenSshKeys={() => { dlg.setShowRepoSettings(false); dlg.setShowSshKeys(true); }}
+          />
+        )}
         {dlg.showReflog && <ReflogDialog onClose={() => dlg.setShowReflog(false)} showPrompt={showPrompt} />}
         {dlg.showBisect && <BisectDialog onClose={() => dlg.setShowBisect(false)} />}
         {dlg.showHooks && <HooksDialog onClose={() => dlg.setShowHooks(false)} />}
