@@ -121,6 +121,7 @@ export function LocalChanges({
     { divider: true },
     { label: loc.contextMenu.resolveOurs, action: () => postCommand({ type: 'resolveWithOurs', file: file.path }) },
     { label: loc.contextMenu.resolveTheirs, action: () => postCommand({ type: 'resolveWithTheirs', file: file.path }) },
+    { label: loc.contextMenu.markResolved, action: () => postCommand({ type: 'stageResolvedConflict', file: file.path }) },
     { divider: true },
     { label: loc.contextMenu.copyPath, action: () => copyToClipboard(file.path) },
     { label: loc.contextMenu.copyFileName, action: () => copyToClipboard(fileName(file.path)) },

@@ -37,6 +37,9 @@ function makeCtx(opts: {
     getMergeState: vi.fn(async () => ({
       inProgress: false, sourceBranch: '', targetBranch: '', conflictedFiles: [],
     })),
+    getMergeStateForRepo: vi.fn(async () => ({
+      inProgress: false, sourceBranch: '', targetBranch: '', conflictedFiles: [],
+    })),
     ...opts.ch,
   };
   const ctx = {

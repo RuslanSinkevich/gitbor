@@ -87,6 +87,28 @@
   gap: 10px;
 }
 
+.clearMessage {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sg-foreground-muted);
+  background: var(--sg-surface);
+  border: 1px solid var(--sg-border);
+  border-radius: var(--sg-radius-sm);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.clearMessage:hover {
+  color: var(--sg-danger);
+  border-color: color-mix(in srgb, var(--sg-danger) 45%, var(--sg-border));
+  background: color-mix(in srgb, var(--sg-danger) 10%, var(--sg-surface));
+}
+
 .errorBanner {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

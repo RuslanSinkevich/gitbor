@@ -132,26 +132,29 @@ export const ipcHandlersGitOps: HandlerTable = {
       preflightIssues: result.preflightIssues,
       journalEntryId: result.journalEntryId,
     });
-    const mergeState = await ctx.ch.getMergeState();
-    if (mergeState.inProgress) ctx.send({ type: 'mergeState', data: mergeState });
+    const mergeState = repoPath ? await ctx.ch.getMergeStateForRepo(repoPath) : await ctx.ch.getMergeState();
+    if (mergeState.inProgress) ctx.send({ type: 'mergeState', data: mergeState, repoPath });
   },
 
   resolveWithOurs: mergeStateAfter((cmd, ctx) => ctx.ch.resolveWithOurs(cmd.file)),
   resolveWithTheirs: mergeStateAfter((cmd, ctx) => ctx.ch.resolveWithTheirs(cmd.file)),
+  stageResolvedConflict: mergeStateAfter((cmd, ctx) => ctx.ch.stageResolvedConflict(cmd.file)),
   resolveConflictRaw: mergeStateAfter((cmd, ctx) => ctx.ch.resolveConflictRaw(cmd.file, cmd.content)),
   getMergeState: mergeStateAfter(async () => {}),
 
   completeMerge: async (cmd, ctx) => {
+    const repoPath = ctx.sm.getState().repoPath || null;
     const result = await ctx.ch.completeMerge(cmd.message);
     if (result.success) {
-      ctx.send({ type: 'mergeCompleted' });
+      ctx.send({ type: 'mergeCompleted', repoPath });
     } else {
       ctx.send({ type: 'error', message: result.error || 'Complete merge failed' });
     }
   },
   abortMerge: async (_cmd, ctx) => {
+    const repoPath = ctx.sm.getState().repoPath || null;
     await ctx.ch.abortMerge();
-    ctx.send({ type: 'mergeAborted' });
+    ctx.send({ type: 'mergeAborted', repoPath });
   },
 
   getConflictContent: async (cmd, ctx) => {

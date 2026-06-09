@@ -177,6 +177,7 @@ export const en = {
     aiGenerating: 'Generating...',
     aiCancel: 'Cancel',
     dismissAiError: 'Dismiss error',
+    clearCommitMessage: 'Clear commit message',
   },
   compare: {
     vsPrevious: 'Changes vs the previous commit',
@@ -262,6 +263,7 @@ export const en = {
   mergeEditor: {
     loading: 'Loading conflict...',
     noConflicts: 'No conflicts in this file',
+    noConflictsHint: 'There are no conflict markers, but Git still marks this file as unresolved. Mark it as resolved to remove it from the conflict list.',
     merge: 'Merge',
     resolve: 'Save & Resolve',
     resolving: 'Resolving...',
@@ -282,6 +284,7 @@ export const en = {
     acceptAllOurs: 'Accept All Ours',
     acceptAllTheirs: 'Accept All Theirs',
     allResolved: 'All conflicts resolved',
+    markResolved: 'Mark as resolved',
     close: 'Close',
   },
   support: {
@@ -300,6 +303,10 @@ export const en = {
     incoming: 'incoming',
     choose: 'Choose',
     mergeManually: 'Resolve manually',
+    deleted: 'deleted',
+    modified: 'modified',
+    deleteFile: 'Delete file',
+    selectSingleSide: 'Select one version',
   },
   mergeDialog: {
     title: 'Merge Branch',
@@ -389,6 +396,7 @@ export const en = {
     openMergeEditor: 'Open in Merge Editor',
     resolveOurs: 'Accept Ours',
     resolveTheirs: 'Accept Theirs',
+    markResolved: 'Mark as Resolved',
     checkoutCommit: 'Checkout Commit...',
     rebaseToHere: "Rebase '{branch}' to Here...",
     interactiveRebaseToHere: "Interactively Rebase '{branch}' to Here...",

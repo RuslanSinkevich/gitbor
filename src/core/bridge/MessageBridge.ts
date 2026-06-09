@@ -17,10 +17,12 @@ export class MessageBridge {
   private boundOnWindowFocus: (() => void) | null = null;
   /**
    * Последний активный путь, на котором мы посылали `mergeState`.
-   * Используется чтобы не дёргать `getMergeState()` на каждое
-   * `stateUpdate` — только при смене репо.
+   * Используется вместе с `lastMergeConflictSignature`, чтобы не дёргать
+   * `getMergeState()` на каждое `stateUpdate`.
    */
   private lastMergeStateRepo: string | null = null;
+  private lastMergeConflictSignature: string | null = null;
+  private lastMergeStateInProgress = false;
   /**
    * Per-repo дедуп отправленного графа. Без него switchRepo A→B→A шлёт
    * весь graphData для каждого репо на каждое переключение (в MainProcess
@@ -62,6 +64,8 @@ export class MessageBridge {
       const repoPath = state.repoPath;
       if (!repoPath) {
         this.lastMergeStateRepo = null;
+        this.lastMergeConflictSignature = null;
+        this.lastMergeStateInProgress = false;
         return;
       }
 
@@ -76,14 +80,23 @@ export class MessageBridge {
         }
       }
 
-      // Шлём mergeState на смену активного репо: иначе при открытии
-      // репо с уже идущим merge/UU юзер не видит баннера, пока сам
-      // не запустит pull/merge. Один запрос на смену, не на каждое
-      // обновление.
-      if (this.lastMergeStateRepo !== repoPath) {
+      // Шлём mergeState на смену активного репо и при изменении списка UU:
+      // внешние клиенты могут resolve/add/abort без команд Gitbor, и тогда
+      // обычный stateUpdate обновляет список файлов, но conflict UI иначе
+      // остаётся на старом mergeState.
+      const conflictSignature = this.buildConflictSignature(state);
+      const mergeRepoChanged = this.lastMergeStateRepo !== repoPath;
+      const conflictsChanged = this.lastMergeConflictSignature !== conflictSignature;
+      const shouldRefreshMergeState =
+        mergeRepoChanged ||
+        (conflictsChanged && (this.lastMergeStateInProgress || state.conflicts.length > 0));
+      if (shouldRefreshMergeState) {
         this.lastMergeStateRepo = repoPath;
-        this.commandHandler.getMergeState().then(ms => {
-          this.send({ type: 'mergeState', data: ms });
+        this.lastMergeConflictSignature = conflictSignature;
+        this.commandHandler.getMergeStateForRepo(repoPath).then(ms => {
+          if (this.stateManager.getState().repoPath === repoPath) {
+            this.send({ type: 'mergeState', data: ms, repoPath });
+          }
         }).catch(() => { /* best-effort, отдельный getMergeState() ниже от renderer всё равно сработает */ });
       }
 
@@ -131,9 +144,19 @@ export class MessageBridge {
   }
 
   send(event: MainEvent): void {
+    if (event.type === 'mergeState') {
+      this.lastMergeStateInProgress = event.data.inProgress;
+    } else if (event.type === 'mergeCompleted' || event.type === 'mergeAborted') {
+      this.lastMergeStateInProgress = false;
+      this.lastMergeConflictSignature = null;
+    }
     if (this.window && !this.window.isDestroyed()) {
       this.window.webContents.send('gitbor:event', event);
     }
+  }
+
+  private buildConflictSignature(state: ReturnType<StateManager['getState']>): string {
+    return [...state.conflicts].sort().join('\x00');
   }
 
   /**

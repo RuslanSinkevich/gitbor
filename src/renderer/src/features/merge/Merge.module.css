@@ -106,6 +106,12 @@
 .mergeColBranch { font-family: var(--sg-font-mono); color: var(--sg-primary); }
 .mergeColBody { flex: 1; overflow-y: auto; font-family: var(--sg-font-mono); font-size: 12px; line-height: 1.5; }
 
+/* ─── Колонка-обзор изменений (overview ruler) справа от ours/theirs ─── */
+/* Пустой .mergeColHeader-спейсер сверху держит миникарту вровень с телом
+   колонок, чтобы рамка вьюпорта совпадала с видимой областью скролла. */
+.mergeMinimapCol { display: flex; flex-direction: column; flex: 0 0 14px; }
+.mergeMinimapBody { flex: 1; display: flex; min-height: 0; }
+
 /* ─── Blocks ─── */
 .mergeBlock { padding: 0 8px; cursor: default; }
 .mergeBlockConflict { cursor: pointer; position: relative; transition: background var(--sg-transition); }

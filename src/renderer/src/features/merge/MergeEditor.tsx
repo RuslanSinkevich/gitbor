@@ -1,10 +1,12 @@
-import { forwardRef, useCallback } from 'react';
+import { forwardRef, useCallback, useEffect, type RefObject } from 'react';
 import type { ConflictBlock } from '../../types';
 import { t, tpl } from '../../i18n';
+import { postCommand } from '../../api';
 import { useConflictResolution, mkKey, type LineKey } from './useConflictResolution';
 import { useAiConfig } from '../ai/useAiConfig';
 import { useAiStream } from '../ai/useAiStream';
 import { AiIcon, AiSections } from '../ai';
+import { DiffMinimap } from '../diff/DiffMinimap';
 import s from './Merge.module.css';
 
 interface Props {
@@ -32,11 +34,38 @@ export function MergeEditor({ file, sourceBranch, targetBranch, onResolved, onCa
     aiStream.start((requestId) => ({ type: 'aiAnalyzeConflict', requestId, file }));
   }, [aiStream, file]);
 
+  const handleMarkResolved = useCallback(() => {
+    postCommand({ type: 'stageResolvedConflict', file });
+    onResolved?.();
+  }, [file, onResolved]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCancel?.();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onCancel]);
+
   if (cr.loading) {
-    return <ModalShell><div className={s.mergeLoading}>{me.loading}</div></ModalShell>;
+    return <ModalShell file={file} label={me.merge} closeLabel={me.close} onCancel={onCancel}><div className={s.mergeLoading}>{me.loading}</div></ModalShell>;
   }
   if (!cr.content || !cr.content.hasConflicts) {
-    return <ModalShell><div className={s.mergeLoading}>{me.noConflicts}</div></ModalShell>;
+    return (
+      <ModalShell
+        file={file}
+        label={me.merge}
+        closeLabel={me.close}
+        primaryLabel={me.markResolved}
+        onPrimary={handleMarkResolved}
+        onCancel={onCancel}
+      >
+        <div className={s.mergeLoading}>
+          <p>{me.noConflicts}</p>
+          <p>{me.noConflictsHint}</p>
+        </div>
+      </ModalShell>
+    );
   }
 
   return (
@@ -131,6 +160,18 @@ export function MergeEditor({ file, sourceBranch, targetBranch, onResolved, onCa
               if (idx >= 0) cr.setActiveConflict(idx);
             }}
           />
+          <div className={s.mergeMinimapCol}>
+            <div className={s.mergeColHeader} />
+            <div className={s.mergeMinimapBody}>
+              <DiffMinimap
+                marks={cr.conflictMarks}
+                scrollTop={cr.scrollMetrics.top}
+                viewport={cr.scrollMetrics.viewport}
+                content={cr.scrollMetrics.content}
+                onSeek={cr.seek}
+              />
+            </div>
+          </div>
         </div>
 
         <ResultPane
@@ -141,6 +182,7 @@ export function MergeEditor({ file, sourceBranch, targetBranch, onResolved, onCa
           resolving={cr.resolving}
           onResolve={cr.handleResolve}
           onCancel={onCancel}
+          resultRef={cr.resultRef}
           me={me}
         />
       </div>
@@ -150,10 +192,41 @@ export function MergeEditor({ file, sourceBranch, targetBranch, onResolved, onCa
 
 /* ─── Sub-components ─── */
 
-function ModalShell({ children }: { children: React.ReactNode }) {
+function ModalShell({ children, file, label, closeLabel, primaryLabel, onPrimary, onCancel }: {
+  children: React.ReactNode;
+  file: string;
+  label: string;
+  closeLabel: string;
+  primaryLabel?: string;
+  onPrimary?: () => void;
+  onCancel?: () => void;
+}) {
   return (
     <div className={s.meOverlay}>
-      <div className={s.meModal}>{children}</div>
+      <div className={s.meModal}>
+        <div className={s.mergeToolbar}>
+          <span className={s.mergeToolbarLabel}>{label}</span>
+          <span className={s.mergeToolbarFile}>{file}</span>
+          <button
+            type="button"
+            className={s.meClose}
+            onClick={onCancel}
+            title={closeLabel}
+            aria-label={closeLabel}
+            style={{ marginLeft: 'auto' }}
+          >
+            ×
+          </button>
+        </div>
+        {children}
+        <div className={s.mergeFooter}>
+          <span className={s.mergeFooterStatus} />
+          <button className={s.btnSecondary} onClick={onCancel}>{closeLabel}</button>
+          {primaryLabel && onPrimary && (
+            <button className={s.btnPrimary} onClick={onPrimary}>{primaryLabel}</button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -257,10 +330,11 @@ function SideColumn({ blocks, side, selected, activeConflict, onToggleLine, onTo
   );
 }
 
-function ResultPane({ resultLines, resolvedConflicts, conflictCount, allResolved, resolving, onResolve, onCancel, me }: {
+function ResultPane({ resultLines, resolvedConflicts, conflictCount, allResolved, resolving, onResolve, onCancel, resultRef, me }: {
   resultLines: { text: string; source: 'clean' | 'ours' | 'theirs' }[];
   resolvedConflicts: number; conflictCount: number; allResolved: boolean; resolving: boolean;
-  onResolve: () => void; onCancel?: () => void; me: ReturnType<typeof t>['mergeEditor'];
+  onResolve: () => void; onCancel?: () => void; resultRef: RefObject<HTMLDivElement>;
+  me: ReturnType<typeof t>['mergeEditor'];
 }) {
   return (
     <>
@@ -271,7 +345,7 @@ function ResultPane({ resultLines, resolvedConflicts, conflictCount, allResolved
             {tpl(me.conflictsResolved, { resolved: resolvedConflicts, total: conflictCount })}
           </span>
         </div>
-        <div className={s.mergeResultBody}>
+        <div className={s.mergeResultBody} ref={resultRef}>
           {resultLines.map((rl, i) => (
             <div key={i} className={`${s.mergeLine} ${rl.source === 'ours' ? s.mergeResultLineOurs : rl.source === 'theirs' ? s.mergeResultLineTheirs : ''}`}>
               <span className={s.mergeLineNo}>{i + 1}</span>{rl.text}

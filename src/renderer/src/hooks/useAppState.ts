@@ -30,7 +30,7 @@ export function useAppState() {
   const runningOps = useRunningOps();
 
   const [commitDetail, setCommitDetail] = useState<CommitDetail | null>(null);
-  const [mergeState, setMergeState] = useState<MergeState | null>(null);
+  const [mergeStates, setMergeStates] = useState<Map<string, MergeState>>(() => new Map());
   const [error, setError] = useState<string | null>(null);
   const [rebaseProgress, setRebaseProgress] = useState<RebaseProgress | null>(null);
   const [recoveryIssues, setRecoveryIssues] = useState<readonly RecoveryIssue[]>([]);
@@ -55,12 +55,21 @@ export function useAppState() {
     setCommitDetail(null);
     setPendingOpenDiff(null);
     setPendingOpenMergeEditor(null);
-    setMergeState(null);
     setRebaseProgress(null);
     setError(null);
     runningOps.clearLastResult();
     setViewOverride(null);
   }, [runningOps]);
+
+  const setMergeStateForRepo = useCallback((repoPath: string | null | undefined, value: MergeState | null): void => {
+    if (!repoPath) return;
+    setMergeStates(prev => {
+      const out = new Map(prev);
+      if (value?.inProgress) out.set(repoPath, value);
+      else out.delete(repoPath);
+      return out;
+    });
+  }, []);
 
   // Ref для использования внутри onMainEvent listener (он создаётся один раз
   // через useEffect и не должен пересоздаваться при изменениях resetTransientState).
@@ -78,7 +87,7 @@ export function useAppState() {
     endOperation: runningOps.endOperation,
     removeRunningOpsByRepo: runningOps.removeRepo,
     setCommitDetail,
-    setMergeState,
+    setMergeState: setMergeStateForRepo,
     setError,
     setRebaseProgress,
     setRecoveryIssues,
@@ -121,6 +130,20 @@ export function useAppState() {
       activeRepoIndex: meta.activeRepoIndex,
     };
   }, [repoSlices, runningOps]);
+
+  const mergeState = useMemo(() => {
+    const activeRepo = repoSlices.meta.openRepos[repoSlices.meta.activeRepoIndex];
+    if (!activeRepo) return null;
+    const candidate = mergeStates.get(activeRepo.path) ?? null;
+    if (!candidate?.inProgress) return candidate;
+    const activeSlice = repoSlices.slices.get(activeRepo.path);
+    const conflictedPaths = candidate.conflictFiles
+      .filter(f => f.status === 'conflicted')
+      .map(f => f.path);
+    if (conflictedPaths.length === 0) return candidate;
+    const activeConflicts = new Set(activeSlice?.conflicts ?? []);
+    return conflictedPaths.some(path => activeConflicts.has(path)) ? candidate : null;
+  }, [mergeStates, repoSlices.meta.openRepos, repoSlices.meta.activeRepoIndex, repoSlices.slices]);
 
   const selectCommit = useCallback((hash: string | null) => {
     const activeRepoPath = state.repoPath;

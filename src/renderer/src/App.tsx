@@ -14,28 +14,25 @@ import { useDialogs } from './hooks/useDialogs';
 import { useAutoFetch } from './hooks/useAutoFetch';
 import { useSyncActions } from './hooks/useSyncActions';
 import { isPushDefaultMismatch } from './hooks/pushDestination';
+import { useRestoreRepoTabs } from './hooks/useRestoreRepoTabs';
+import { useFolderDropOpenRepos } from './hooks/useFolderDropOpenRepos';
 import { useAppUpdater } from './hooks/useAppUpdater';
 import { TitleBar } from './features/titlebar';
-import { CommitsView, ChangesView, type RightPanel } from './features/layout';
-import { MergeBanner, shouldShowMergeBanner } from './features/merge';
-import { Toolbar } from './features/toolbar';
-import { Sidebar, BranchStatus, BranchInfoDialog } from './features/sidebar';
+import type { RightPanel } from './features/layout';
+import { BranchInfoDialog } from './features/sidebar';
 import { useBranchPrefs } from './hooks/useBranchPrefs';
 import type { Branch } from './types';
-import { RepoTabs } from './features/repo-tabs';
-import { RepoManager, addRecentRepo, loadLastActiveRepo, saveLastActiveRepo, clearLastActiveRepo, removeRecentRepo, findRepoIndexByPath, loadOpenRepos, saveOpenRepos } from './features/repo-manager';
 import { useSupportPrompt } from './features/support';
-import { SgSplitPane } from './ui/SgSplitPane';
 import { usePromptDialog } from './ui/SgPromptDialog';
 import { AppDialogs } from './AppDialogs';
-import { postCommand, onMainEvent, invokeCommand, onRetryableCommand } from './api';
-import { t, tpl, setLang, getLang } from './i18n';
+import { postCommand, onMainEvent, onRetryableCommand } from './api';
+import { t, setLang, getLang } from './i18n';
 // UiShowcase — dev-only страница UI-Kit, рендерится только при page === 'ui-kit'.
 // Lazy-load экономит ~десятки кБ из основного бандла (showcase секции импортят
 // демо-данные графа, токены, кучу sg-компонентов разом).
 const UiShowcase = lazy(() => import('./pages/UiShowcase').then(m => ({ default: m.UiShowcase })));
 const SupportDialog = lazy(() => import('./features/support').then(m => ({ default: m.SupportDialog })));
-import { buildStorageKey } from './shared/uiPersist';
+const AppWorkspace = lazy(() => import('./features/app-shell/AppWorkspace').then(m => ({ default: m.AppWorkspace })));
 import s from './App.module.css';
 
 type Page = 'app' | 'ui-kit';
@@ -289,63 +286,13 @@ export function App() {
 
   useKeyboardShortcuts(handleMenuAction, tabActions);
 
-  const restoreLastRepoAttempted = useRef(false);
-  // Целевой активный таб, прочитанный ОДИН раз при маунте — до того, как
-  // восстановление списка успеет перезаписать `sg-last-active-repo`. Во время
-  // восстановления табы открываются по одному, каждый на миг становится
-  // активным → save-эффект иначе затёр бы сохранённое значение последним
-  // загруженным репо. Поэтому фиксируем цель здесь и не сохраняем до конца
-  // восстановления (см. гейт `restoreActiveTabDone` в save-эффекте).
-  const targetActiveRepoRef = useRef<string | null>(null);
-
-  // Восстанавливаем СПИСОК открытых табов. Запускаем один раз — открываем
-  // каждый сохранённый путь через `openRepo`, main сам сложит их в openRepos.
-  // Last active восстанавливаем как fallback (если openRepos пуст, для старых
-  // юзеров без OPEN_REPOS_KEY в localStorage).
-  useEffect(() => {
-    if (restoreLastRepoAttempted.current) return;
-    restoreLastRepoAttempted.current = true;
-
-    const openPaths = loadOpenRepos();
-    const last = loadLastActiveRepo();
-    targetActiveRepoRef.current = last;
-
-    if (openPaths.length > 0) {
-      for (const p of openPaths) {
-        void invokeCommand({ type: 'openRepo', path: p }).catch(() => {
-          // tихо игнорим: репо удалили/переименовали — следующий saveOpenRepos
-          // перепишет список без него (после рендера на актуальном state.openRepos).
-        });
-      }
-      return;
-    }
-
-    if (last && !state.repoPath) {
-      void invokeCommand({ type: 'openRepo', path: last }).catch(() => {
-        clearLastActiveRepo();
-        removeRecentRepo(last);
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    // Не сохраняем активный репо, пока идёт восстановление табов: иначе
-    // промежуточные смены repoPath (каждый открывающийся таб становится
-    // активным) затрут сохранённую цель. После `restoreActiveTabDone`
-    // сохраняем нормально на каждую пользовательскую смену таба.
-    if (!restoreActiveTabDone.current) return;
-    if (state.repoPath && state.repoName) {
-      saveLastActiveRepo(state.repoPath);
-      addRecentRepo(state.repoName, state.repoPath);
-    }
-  }, [state.repoPath, state.repoName]);
-
-  // Пишем актуальный openRepos в localStorage на каждое изменение.
-  // Дешёво (массив строк, <50 элементов), синхронно при close/open табов.
-  useEffect(() => {
-    if (!restoreLastRepoAttempted.current) return;
-    saveOpenRepos(state.openRepos.map(r => r.path));
-  }, [state.openRepos]);
+  const { isRestoringTabs } = useRestoreRepoTabs({
+    repoPath: state.repoPath,
+    repoName: state.repoName,
+    openRepos: state.openRepos,
+    activeRepoIndex: state.activeRepoIndex,
+    switchRepoFast,
+  });
 
   // Контекстный признак LFS: при смене репо сбрасываем и перезапрашиваем.
   useEffect(() => {
@@ -355,39 +302,6 @@ export function App() {
   useEffect(() => onMainEvent((msg) => {
     if (msg.type === 'lfsActive') setUsesLfs(msg.active);
   }), []);
-
-  // Restore активного таба по сохранённому path. Сравниваем по path
-  // (sameRepoPath нормализует слэши/регистр) — индекс между сессиями
-  // нестабилен (порядок открытия/закрытия меняется).
-  //
-  // Табы восстанавливаются асинхронно: openRepo на каждый путь резолвится
-  // отдельно, openRepos растёт по одному, и main делает активным последний
-  // открытый. Поэтому НЕ восстанавливаем на первое ненулевое openRepos
-  // (там целевого репо может ещё не быть, а поздний openRepo потом украдёт
-  // фокус). Вместо этого debounce: ждём, пока список перестанет меняться,
-  // и тогда один раз переключаемся на сохранённый активный.
-  const restoreActiveTabDone = useRef(false);
-  useEffect(() => {
-    if (restoreActiveTabDone.current) return;
-    if (state.openRepos.length === 0) return;
-    // Цель прочитана при маунте (targetActiveRepoRef) — НЕ читаем localStorage
-    // снова, он уже мог быть перезаписан промежуточными сменами активного.
-    const last = targetActiveRepoRef.current;
-    if (!last) {
-      restoreActiveTabDone.current = true;
-      return;
-    }
-    // Каждое изменение openRepos сбрасывает таймер (cleanup). Таймер
-    // срабатывает только когда список стабилен — значит все табы догрузились.
-    const timer = setTimeout(() => {
-      const idx = findRepoIndexByPath(state.openRepos, last);
-      if (idx >= 0 && idx !== state.activeRepoIndex) {
-        switchRepoFast(idx);
-      }
-      restoreActiveTabDone.current = true;
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [state.openRepos, state.activeRepoIndex, switchRepoFast]);
 
   /**
    * Унифицированный reset локального UI-state'а при смене активного репо.
@@ -467,13 +381,24 @@ export function App() {
   useEffect(() => {
     const wasInProgress = prevMergeRef.current;
     const isNow = !!mergeState?.inProgress;
+    const firstConflicted = mergeState?.conflictFiles.find(f => f.status === 'conflicted') ?? null;
     if (isNow && !wasInProgress) {
-      const first = mergeState!.conflictFiles.find(f => f.status === 'conflicted');
-      if (first) { setViewMode('changes'); setConflictFile(first.path); }
+      if (firstConflicted) { setViewMode('changes'); setConflictFile(firstConflicted.path); }
+    } else if (isNow && conflictFile) {
+      const stillConflicted = mergeState!.conflictFiles.some(
+        f => f.status === 'conflicted' && f.path === conflictFile,
+      );
+      if (!stillConflicted) {
+        setConflictFile(firstConflicted?.path ?? null);
+        setMergeEditorFile(null);
+        closeDiff();
+      }
+    } else if (isNow && firstConflicted) {
+      setConflictFile(firstConflicted.path);
     }
     if (!isNow && wasInProgress) { setConflictFile(null); setMergeEditorFile(null); closeDiff(); }
     prevMergeRef.current = isNow;
-  }, [mergeState, closeDiff]);
+  }, [mergeState, conflictFile, closeDiff]);
 
   const toggleLang = useCallback(() => {
     const next = lang === 'en' ? 'ru' : 'en';
@@ -492,6 +417,7 @@ export function App() {
     const unsub = onMainEvent((msg) => {
       if (done) return;
       if (msg.type === 'mergeState') {
+        if (msg.repoPath !== state.repoPath) return;
         done = true;
         unsub();
         if (safety) clearTimeout(safety);
@@ -508,7 +434,7 @@ export function App() {
       unsub();
     }, 3000);
     postCommand({ type: 'getMergeState' });
-  }, []);
+  }, [state.repoPath]);
 
   const handleSelectRef = useCallback((hash: string) => {
     setViewMode('commits'); setRightPanel('diff'); closeDiff(); selectCommit(hash);
@@ -622,66 +548,16 @@ export function App() {
     setShowRepoManager(true);
   }, []);
 
-  // Drag&drop: дроп папок из ОС → openRepo на каждую. Папка определяется
-  // через `webkitGetAsEntry().isDirectory` (надёжнее чем по File.size,
-  // который у директорий часто 0, но и у пустых файлов тоже).
-  // Файл (не папка) → toast-подсказка вместо openRepo, иначе main падал
-  // бы на `git rev-parse` любого случайного файла.
-  const [isDraggingFolder, setIsDraggingFolder] = useState(false);
-  const dragDepthRef = useRef(0);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
-    e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-  }, []);
-
-  // dragenter/dragleave фолят при движении внутри детей: enter/leave
-  // стреляются КАЖДЫЙ раз при пересечении границы вложенного элемента.
-  // Считаем глубину как счётчик, чтобы overlay не моргал.
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
-    e.preventDefault();
-    dragDepthRef.current += 1;
-    if (dragDepthRef.current === 1) setIsDraggingFolder(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
-    e.preventDefault();
-    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-    if (dragDepthRef.current === 0) setIsDraggingFolder(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    dragDepthRef.current = 0;
-    setIsDraggingFolder(false);
-
-    const items = e.dataTransfer ? Array.from(e.dataTransfer.items) : [];
-    const folderPaths: string[] = [];
-    let droppedFiles = 0;
-    for (const item of items) {
-      if (item.kind !== 'file') continue;
-      const entry = item.webkitGetAsEntry?.();
-      const file = item.getAsFile();
-      // Electron-specific: у File из ОС-перетаскивания есть .path (абсолютный).
-      const fsPath = (file as (File & { path?: string }) | null)?.path;
-      if (entry?.isDirectory && fsPath) {
-        folderPaths.push(fsPath);
-      } else {
-        droppedFiles += 1;
-      }
-    }
-
-    if (folderPaths.length === 0) {
-      if (droppedFiles > 0) addToast(loc.repoTabs.dnd.onlyFolders, 'info');
-      return;
-    }
-    for (const p of folderPaths) {
-      postCommand({ type: 'openRepo', path: p });
-    }
-  }, [addToast, loc.repoTabs.dnd.onlyFolders]);
+  const {
+    isDraggingFolder,
+    handleDragOver,
+    handleDragEnter,
+    handleDragLeave,
+    handleDrop,
+  } = useFolderDropOpenRepos({
+    addToast,
+    onlyFoldersMessage: loc.repoTabs.dnd.onlyFolders,
+  });
 
   return (
     <div
@@ -707,144 +583,59 @@ export function App() {
       )}
 
       {page === 'app' && (
-        <>
-          <RepoTabs
-            repos={state.openRepos}
-            activeIndex={state.activeRepoIndex}
-            hasChanges={localChangesCount > 0}
-            onSwitch={handleSwitchRepo}
-            managerActive={repoManagerVisible}
-            onShowManager={handleShowRepoManager}
+        <Suspense fallback={<div className={s.lazyFallback}>{loc.app.loading}</div>}>
+          <AppWorkspace
+            loc={loc}
+            isRestoringTabs={isRestoringTabs}
+            state={state}
+            hasRepo={hasRepo}
+            localChangesCount={localChangesCount}
+            repoManagerVisible={repoManagerVisible}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            rightPanel={rightPanel}
+            setRightPanel={setRightPanel}
+            commitDetail={commitDetail}
+            diffTarget={diffTarget}
+            mergeState={mergeState}
+            rebaseProgress={rebaseProgress}
+            conflictFile={conflictFile}
+            setConflictFile={setConflictFile}
+            setMergeEditorFile={setMergeEditorFile}
+            setRebaseOnto={setRebaseOnto}
+            compareFromHash={compareFromHash}
+            setCompareFromHash={setCompareFromHash}
+            graphFocusNonce={graphFocusNonce}
+            soloBranch={branchPrefsState.soloBranch}
+            hiddenBranches={branchPrefsState.hidden}
+            branchPrefs={branchPrefsAPI}
+            onClearSolo={() => branchPrefsState.setSoloBranch(null)}
+            onClearAllHidden={branchPrefsState.clearAllHidden}
+            onSwitchRepo={handleSwitchRepo}
+            onShowRepoManager={handleShowRepoManager}
             onContextMenu={showContextMenu}
+            onPull={runPull}
+            onPush={runPush}
+            onStash={promptStash}
+            onOpenActivity={() => dlg.setShowGitActivity(true)}
+            onSelectCommit={selectCommit}
+            onSelectRef={handleSelectRef}
+            onMerge={handleOpenMergeDialog}
+            showPrompt={showPrompt}
+            requestCheckout={requestCheckout}
+            requestApplyStash={requestApplyStash}
+            openDiff={openDiff}
+            closeDiff={closeDiff}
+            openFileHistory={openFileHistory}
+            openFileBlame={openFileBlame}
+            onOpenMergeEditor={handleOpenMergeEditor}
+            onConflictResolved={handleConflictResolved}
+            onCompareTo={handleCompareTo}
+            onOpenAiSettings={() => dlg.setShowAiSettings(true)}
+            onOpenGitignoreDialog={() => dlg.setShowGitignore(true)}
+            onExpandDiff={(f, h) => dlg.setCompareTarget({ file: f, hash: h })}
           />
-
-          {hasRepo && !repoManagerVisible && (
-            <Toolbar
-              isOperationRunning={state.isOperationRunning}
-              hasUpstream={state.branches.some(b => b.isCurrent && b.upstream)}
-              ahead={state.ahead}
-              behind={state.behind}
-              onPull={runPull}
-              onPush={runPush}
-              onStash={promptStash}
-              onOpenActivity={() => dlg.setShowGitActivity(true)}
-              repoPath={state.repoPath}
-              mergeState={mergeState}
-              showPrompt={showPrompt}
-            />
-          )}
-
-          {!repoManagerVisible && shouldShowMergeBanner(mergeState) && (
-            <MergeBanner mergeState={mergeState!} showPrompt={showPrompt} />
-          )}
-
-          {!repoManagerVisible && rebaseProgress?.inProgress && (
-            <div className={s.rebaseBanner}>
-              <span className={s.rebaseBannerIcon}>⟳</span>
-              <span className={s.rebaseBannerText}>
-                {tpl(loc.rebaseEditor.progress, { current: rebaseProgress.currentStep, total: rebaseProgress.totalSteps })}
-              </span>
-              <button className={s.rebaseBannerBtn} onClick={() => postCommand({ type: 'continueRebase' })}>
-                {loc.rebaseEditor.continue}
-              </button>
-              <button className={s.rebaseBannerBtn} onClick={() => postCommand({ type: 'skipRebase' })}>
-                {loc.rebaseEditor.skip}
-              </button>
-              <button className={s.rebaseBannerAbort} onClick={() => postCommand({ type: 'abortRebase' })}>
-                {loc.rebaseEditor.abort}
-              </button>
-            </div>
-          )}
-
-          <main className={s.main}>
-            {repoManagerVisible ? (
-              <RepoManager state={state} />
-            ) : (
-              // key={state.repoPath} — финальная страховка для всех локальных
-              // state-ов внутри Sidebar/CommitsView/ChangesView/DiffPanel/
-              // BlameView/FileHistory/CommitDetails: при смене репо subtree
-              // полностью пересоздаётся, никаких остатков от прошлого контекста.
-              <SgSplitPane
-                key={state.repoPath}
-                defaultSize={240}
-                minOpposite={360}
-                storageKey={buildStorageKey('sg-layout:sidebar-width')}
-                left={
-                  <aside className={s.sidebar}>
-                    <Sidebar
-                      repoPath={state.repoPath}
-                      currentBranch={state.currentBranch} branches={state.branches}
-                      remotes={state.remotes} tags={state.tags} stashes={state.stashes}
-                      ahead={state.ahead} behind={state.behind}
-                      localChangesCount={localChangesCount}
-                      activeView={viewMode}
-                      onContextMenu={showContextMenu} onSwitchView={setViewMode}
-                      onSelectRef={handleSelectRef} onMerge={handleOpenMergeDialog}
-                      showPrompt={showPrompt} requestCheckout={requestCheckout}
-                      requestApplyStash={requestApplyStash}
-                      selectedRefHash={state.selectedCommitHash}
-                      branchPrefs={branchPrefsAPI}
-                    />
-                  </aside>
-                }
-                right={
-                  <section className={s.content}>
-                    {viewMode === 'commits' ? (
-                      <CommitsView
-                        state={state} commitDetail={commitDetail} diffTarget={diffTarget}
-                        rightPanel={rightPanel} setRightPanel={setRightPanel}
-                        selectCommit={selectCommit} openDiff={openDiff}
-                        openFileHistory={openFileHistory} openFileBlame={openFileBlame}
-                        showContextMenu={showContextMenu} showPrompt={showPrompt}
-                        requestCheckout={requestCheckout}
-                        setRebaseOnto={setRebaseOnto}
-                        compareFrom={compareFromHash}
-                        onCompareFrom={setCompareFromHash}
-                        onCompareTo={handleCompareTo}
-                        focusNonce={graphFocusNonce}
-                        soloBranch={branchPrefsState.soloBranch}
-                        hidden={branchPrefsState.hidden}
-                        onClearSolo={() => branchPrefsState.setSoloBranch(null)}
-                        onClearAllHidden={branchPrefsState.clearAllHidden}
-                        onOpenAiSettings={() => dlg.setShowAiSettings(true)}
-                        onExpandDiff={(f, h) => dlg.setCompareTarget({ file: f, hash: h })}
-                      />
-                    ) : (
-                      <ChangesView
-                        state={state} mergeState={mergeState} diffTarget={diffTarget}
-                        rightPanel={rightPanel} setRightPanel={setRightPanel}
-                        conflictFile={conflictFile} setConflictFile={setConflictFile}
-                        setMergeEditorFile={setMergeEditorFile}
-                        showContextMenu={showContextMenu} openDiff={openDiff} closeDiff={closeDiff}
-                        openFileHistory={openFileHistory} openFileBlame={openFileBlame}
-                        handleOpenMergeEditor={handleOpenMergeEditor}
-                        handleConflictResolved={handleConflictResolved}
-                        selectCommit={selectCommit} showPrompt={showPrompt} loc={loc}
-                        onOpenAiSettings={() => dlg.setShowAiSettings(true)}
-                        onOpenGitignoreDialog={() => dlg.setShowGitignore(true)}
-                        onExpandDiff={(f, h) => dlg.setCompareTarget({ file: f, hash: h })}
-                      />
-                    )}
-                  </section>
-                }
-              />
-            )}
-          </main>
-
-          <footer className={s.statusbar}>
-            {hasRepo && !repoManagerVisible ? (
-              <BranchStatus
-                currentBranch={state.currentBranch} ahead={state.ahead} behind={state.behind}
-                localChangesCount={localChangesCount}
-                isOperationRunning={state.isOperationRunning} currentOperation={state.currentOperation}
-                onPull={() => runPull(false)}
-                onPush={() => runPush(false)}
-              />
-            ) : (
-              <span>{loc.statusbar.noRepo}</span>
-            )}
-          </footer>
-        </>
+        </Suspense>
       )}
 
       <AppDialogs

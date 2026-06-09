@@ -66,8 +66,21 @@ describe('ConflictManager', () => {
   describe('resolveWithOurs', () => {
     it('uses -- before file path in both checkout and add', async () => {
       const git = makeMockGit();
+      const dir = mkdtempSync(join(tmpdir(), 'gitbor-conflict-'));
+      git.getCwd.mockReturnValue(dir);
+      git.exec.mockImplementation(async (args) => {
+        if (args[0] === 'checkout') {
+          mkdirSync(join(dir, 'src'), { recursive: true });
+          writeFileSync(join(dir, 'src/conflict.ts'), 'resolved');
+        }
+        return { stdout: '', stderr: '', exitCode: 0, duration: 5 };
+      });
       const cm = new ConflictManager(asGit(git));
-      await cm.resolveWithOurs('src/conflict.ts');
+      try {
+        await cm.resolveWithOurs('src/conflict.ts');
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
 
       const checkoutCall = git.exec.mock.calls[0][0];
       expect(checkoutCall).toEqual(['checkout', '--ours', '--', 'src/conflict.ts']);
@@ -75,13 +88,40 @@ describe('ConflictManager', () => {
       const addCall = git.exec.mock.calls[1][0];
       expect(addCall).toEqual(['add', '--', 'src/conflict.ts']);
     });
+
+    it('uses git rm when chosen side deleted the file', async () => {
+      const git = makeMockGit();
+      const dir = mkdtempSync(join(tmpdir(), 'gitbor-conflict-'));
+      git.getCwd.mockReturnValue(dir);
+      const cm = new ConflictManager(asGit(git));
+      try {
+        await cm.resolveWithOurs('src/deleted.ts');
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+
+      expect(git.exec.mock.calls[0][0]).toEqual(['checkout', '--ours', '--', 'src/deleted.ts']);
+      expect(git.exec.mock.calls[1][0]).toEqual(['rm', '-f', '--', 'src/deleted.ts']);
+    });
   });
 
   describe('resolveWithTheirs', () => {
     it('uses -- before file path', async () => {
       const git = makeMockGit();
+      const dir = mkdtempSync(join(tmpdir(), 'gitbor-conflict-'));
+      git.getCwd.mockReturnValue(dir);
+      git.exec.mockImplementation(async (args) => {
+        if (args[0] === 'checkout') {
+          writeFileSync(join(dir, '-dangerous-file'), 'resolved');
+        }
+        return { stdout: '', stderr: '', exitCode: 0, duration: 5 };
+      });
       const cm = new ConflictManager(asGit(git));
-      await cm.resolveWithTheirs('-dangerous-file');
+      try {
+        await cm.resolveWithTheirs('-dangerous-file');
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
 
       const checkoutCall = git.exec.mock.calls[0][0];
       expect(checkoutCall).toEqual(['checkout', '--theirs', '--', '-dangerous-file']);

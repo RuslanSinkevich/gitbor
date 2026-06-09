@@ -7,7 +7,7 @@ export async function handleReady(ctx: HandlerContext): Promise<void> {
   ctx.send({ type: 'config', lang: app.getLocale() });
   ctx.send({ type: 'fullState', data: state });
   if (state.repoPath) {
-    const ms = await ctx.ch.getMergeState();
-    if (ms.inProgress) ctx.send({ type: 'mergeState', data: ms });
+    const ms = await ctx.ch.getMergeStateForRepo(state.repoPath);
+    if (ms.inProgress) ctx.send({ type: 'mergeState', data: ms, repoPath: state.repoPath });
   }
 }

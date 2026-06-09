@@ -116,6 +116,7 @@ type RendererCommandCore =
   | { type: 'startMerge'; source: string; options: MergeOptions }
   | { type: 'resolveWithOurs'; file: string }
   | { type: 'resolveWithTheirs'; file: string }
+  | { type: 'stageResolvedConflict'; file: string }
   | { type: 'completeMerge'; message?: string }
   | { type: 'abortMerge' }
   | { type: 'getConflictContent'; file: string }
@@ -286,9 +287,9 @@ export type MainEvent =
     }
   | { type: 'config'; lang: string }
   | { type: 'recoveryRequired'; issues: readonly RecoveryIssue[] }
-  | { type: 'mergeState'; data: MergeState }
-  | { type: 'mergeCompleted' }
-  | { type: 'mergeAborted' }
+  | { type: 'mergeState'; data: MergeState; repoPath: string | null }
+  | { type: 'mergeCompleted'; repoPath: string | null }
+  | { type: 'mergeAborted'; repoPath: string | null }
   | { type: 'conflictContent'; data: ConflictContent }
   | { type: 'predictedConflicts'; files: string[] }
   | { type: 'openDiff'; file: string; hash: string; repoPath: string }

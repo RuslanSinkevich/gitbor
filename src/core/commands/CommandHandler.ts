@@ -32,6 +32,7 @@ export class CommandHandler {
   private get git(): GitExecutor { return this.state.getActiveServices().git; }
   private get queue(): OperationQueue { return this.state.getActiveServices().queue; }
   private get safety(): SafetyNet { return this.state.getActiveServices().safety; }
+  private servicesFor(repoPath: string) { return this.state.getRegistry().acquire(repoPath); }
 
   // Менеджеры — stateless обёртки над активным `git`. Создаются на запрос,
   // тривиальная цена; зато всегда привязаны к актуальному репо.
@@ -287,30 +288,61 @@ export class CommandHandler {
   }
 
   async resolveWithOurs(file: string): Promise<void> {
-    await this.queue.enqueueWrite('resolveOurs', async () => { await this.conflicts.resolveWithOurs(file); await this.state.refreshStatusAndNotify(); });
+    const repoPath = this.state.getState().repoPath;
+    const services = this.servicesFor(repoPath);
+    await services.queue.enqueueWrite('resolveOurs', async () => {
+      await new ConflictManager(services.git).resolveWithOurs(file);
+      await this.state.refreshStatusAndNotify(repoPath);
+    });
   }
 
   async resolveWithTheirs(file: string): Promise<void> {
-    await this.queue.enqueueWrite('resolveTheirs', async () => { await this.conflicts.resolveWithTheirs(file); await this.state.refreshStatusAndNotify(); });
+    const repoPath = this.state.getState().repoPath;
+    const services = this.servicesFor(repoPath);
+    await services.queue.enqueueWrite('resolveTheirs', async () => {
+      await new ConflictManager(services.git).resolveWithTheirs(file);
+      await this.state.refreshStatusAndNotify(repoPath);
+    });
+  }
+
+  async stageResolvedConflict(file: string): Promise<void> {
+    const repoPath = this.state.getState().repoPath;
+    const services = this.servicesFor(repoPath);
+    await services.queue.enqueueWrite('stageResolvedConflict', async () => {
+      await new ConflictManager(services.git).stageResolved(file);
+      await this.state.refreshStatusAndNotify(repoPath);
+    });
   }
 
   async completeMerge(message?: string): Promise<OperationResult> {
-    return this.queue.enqueueWrite('completeMerge', async () => {
-      const blocked = await Write.runPreflight(this.git, 'completeMerge');
+    const repoPath = this.state.getState().repoPath;
+    const services = this.servicesFor(repoPath);
+    return services.queue.enqueueWrite('completeMerge', async () => {
+      const blocked = await Write.runPreflight(services.git, 'completeMerge');
       if (blocked) return blocked;
-      const r = await this.conflicts.completeMerge(message);
-      if (r.success) await this.state.refreshAll();
-      else await this.state.refreshStatusAndNotify();
+      const r = await new ConflictManager(services.git).completeMerge(message);
+      if (r.success) await this.state.refreshAll(repoPath);
+      else await this.state.refreshStatusAndNotify(repoPath);
       return r;
     });
   }
 
   async abortMerge(): Promise<void> {
-    await this.queue.enqueueWrite('abortMerge', async () => { await this.conflicts.abortMerge(); await this.state.refreshAll(); });
+    const repoPath = this.state.getState().repoPath;
+    const services = this.servicesFor(repoPath);
+    await services.queue.enqueueWrite('abortMerge', async () => {
+      await new ConflictManager(services.git).abortMerge();
+      await this.state.refreshAll(repoPath);
+    });
   }
 
   getMergeState(): Promise<MergeState> {
     return this.queue.enqueueRead('getMergeState', () => this.conflicts.getMergeState());
+  }
+
+  getMergeStateForRepo(repoPath: string): Promise<MergeState> {
+    const services = this.servicesFor(repoPath);
+    return services.queue.enqueueRead('getMergeState', () => new ConflictManager(services.git).getMergeState());
   }
 
   getConflictContent(file: string): Promise<ConflictContent> {

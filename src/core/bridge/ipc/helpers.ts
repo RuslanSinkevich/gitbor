@@ -118,8 +118,10 @@ export function opWithPostMerge<K extends RendererCommand['type']>(
       source: result.source,
       hookOutput: result.hookOutput,
     });
-    const ms = await ctx.ch.getMergeState();
-    ctx.send({ type: 'mergeState', data: ms });
+    if (repoPath) {
+      const ms = await ctx.ch.getMergeStateForRepo(repoPath);
+      ctx.send({ type: 'mergeState', data: ms, repoPath });
+    }
   };
 }
 
@@ -137,8 +139,11 @@ export function mergeStateAfter<K extends RendererCommand['type']>(
   fn: (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<void>,
 ): (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<void> {
   return async (cmd, ctx) => {
+    const repoPath = ctx.sm.getState().repoPath || null;
     await fn(cmd, ctx);
-    const ms = await ctx.ch.getMergeState();
-    ctx.send({ type: 'mergeState', data: ms });
+    if (repoPath) {
+      const ms = await ctx.ch.getMergeStateForRepo(repoPath);
+      ctx.send({ type: 'mergeState', data: ms, repoPath });
+    }
   };
 }

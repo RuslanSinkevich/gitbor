@@ -3,6 +3,7 @@ import { t } from '../../i18n';
 import type { DiffHunk } from '../../types';
 import { buildSideRows, buildChangeMarks, type SideCell } from './diffRows';
 import { DiffMinimap } from './DiffMinimap';
+import { renderInlineDiff } from './inlineDiff';
 import s from './DiffView.module.css';
 
 interface Props {
@@ -38,9 +39,8 @@ function sideMaxLen(rows: { left: SideCell; right: SideCell }[]): { left: number
  * Fork). Строки виртуализированы — в DOM живут только видимые + overscan, поэтому
  * файлы на десятки тысяч строк скроллятся без фриза.
  *
- * Каждая панель (оригинал/изменённый) — отдельный скроллер: вертикаль
- * синхронизируется между панелями (и миникартой), а горизонталь у каждой своя
- * (длинные строки видно целиком, не ломая авто-середину 50/50). Нативные
+ * Каждая панель (оригинал/изменённый) — отдельный скроллер: вертикаль и
+ * горизонталь синхронизируются между панелями (и миникартой по вертикали). Нативные
  * вертикальные скроллбары спрятаны — позицию показывает overview-ruler справа.
  */
 export function DiffWholeFile({ hunks }: Props) {
@@ -71,6 +71,7 @@ export function DiffWholeFile({ hunks }: Props) {
     const b = (src === 'left' ? rightRef : leftRef).current;
     if (!a) return;
     if (b && b.scrollTop !== a.scrollTop) b.scrollTop = a.scrollTop;
+    if (b && b.scrollLeft !== a.scrollLeft) b.scrollLeft = a.scrollLeft;
     applyMetrics(a.scrollTop, a.clientHeight);
   }, [applyMetrics]);
 
@@ -115,6 +116,7 @@ export function DiffWholeFile({ hunks }: Props) {
         {visible.map((row, i) => {
           const rowIndex = range.start + i;
           const cell = side === 'left' ? row.left : row.right;
+          const opposite = side === 'left' ? row.right : row.left;
           return (
             <div
               key={rowIndex}
@@ -123,7 +125,11 @@ export function DiffWholeFile({ hunks }: Props) {
               style={{ top: rowIndex * ROW_HEIGHT, height: ROW_HEIGHT }}
             >
               <span className={s.wholeLineNo}>{cell.lineNo ?? ''}</span>
-              <span className={s.wholeContent}>{cell.type !== 'empty' ? cell.content : ''}</span>
+              <span className={s.wholeContent}>
+                {cell.type === 'add' || cell.type === 'remove'
+                  ? renderInlineDiff(cell.content, cell.type, opposite.type === 'add' || opposite.type === 'remove' ? opposite.content : undefined)
+                  : cell.type !== 'empty' ? cell.content : ''}
+              </span>
             </div>
           );
         })}

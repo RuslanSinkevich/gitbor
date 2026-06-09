@@ -125,6 +125,14 @@ export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings, m
     setAiError(localizeAiError(kind, message).full);
   }, []);
 
+  const hasMessageText = subject.length > 0 || description.length > 0;
+  const clearMessage = useCallback(() => {
+    setSubject('');
+    setDescription('');
+    setAiError(null);
+    descRef.current?.focus();
+  }, []);
+
   return (
     <div className={s.root}>
       {aiError && (
@@ -176,6 +184,17 @@ export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings, m
             onError={handleAiError}
             onOpenSettings={onOpenAiSettings}
           />
+          {hasMessageText && (
+            <button
+              type="button"
+              className={s.clearMessage}
+              aria-label={loc.changes.clearCommitMessage}
+              title={loc.changes.clearCommitMessage}
+              onClick={clearMessage}
+            >
+              ✕
+            </button>
+          )}
         </div>
         <button className={s.button} disabled={!canCommit || submitting} onClick={doCommit}>
           <span className="sg-button-content">

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import type { ConflictContent } from '../../types';
+import type { ChangeMark } from '../diff/diffRows';
 import { postCommand, onMainEvent } from '../../api';
 import { t } from '../../i18n';
 
@@ -24,6 +25,9 @@ export function useConflictResolution(file: string, onResolved?: () => void) {
 
   const oursRef = useRef<HTMLDivElement>(null);
   const theirsRef = useRef<HTMLDivElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+  const syncingScroll = useRef(false);
+  const [scrollMetrics, setScrollMetrics] = useState({ top: 0, viewport: 0, content: 0 });
 
   useEffect(() => {
     setLoading(true);
@@ -113,6 +117,101 @@ export function useConflictResolution(file: string, onResolved?: () => void) {
     userNavigated.current = false;
   }, [activeConflict, content, conflicts]);
 
+  /* Синхронный вертикальный скролл трёх зон (ours / theirs / result).
+     Высоты колонок различаются (конфликт «ours» и «theirs» имеют разное число
+     строк, а результат — вообще иной набор), поэтому синхронизируем не по
+     scrollTop напрямую, а по доле прокрутки (ratio). Метрики для миникарты
+     берём из колонки «ours». Флаг syncingScroll гасит обратную волну событий. */
+  const updateMetrics = useCallback(() => {
+    const a = oursRef.current;
+    if (!a) return;
+    setScrollMetrics({ top: a.scrollTop, viewport: a.clientHeight, content: a.scrollHeight });
+  }, []);
+
+  useEffect(() => {
+    if (loading || !content) return;
+    const panes = [oursRef.current, theirsRef.current, resultRef.current]
+      .filter((p): p is HTMLDivElement => p != null);
+    if (panes.length === 0) return;
+
+    const syncFrom = (src: HTMLDivElement) => {
+      if (syncingScroll.current) return;
+      syncingScroll.current = true;
+      const srcMax = src.scrollHeight - src.clientHeight;
+      const ratio = srcMax > 0 ? src.scrollTop / srcMax : 0;
+      for (const p of panes) {
+        if (p === src) continue;
+        const max = p.scrollHeight - p.clientHeight;
+        const target = ratio * max;
+        if (Math.abs(p.scrollTop - target) > 1) p.scrollTop = target;
+      }
+      requestAnimationFrame(() => { syncingScroll.current = false; });
+    };
+
+    const handlers = panes.map((p) => {
+      const handler = () => { syncFrom(p); updateMetrics(); };
+      p.addEventListener('scroll', handler, { passive: true });
+      return [p, handler] as const;
+    });
+
+    updateMetrics();
+    const ro = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => updateMetrics())
+      : null;
+    if (oursRef.current) ro?.observe(oursRef.current);
+
+    return () => {
+      for (const [p, handler] of handlers) p.removeEventListener('scroll', handler);
+      ro?.disconnect();
+    };
+  }, [loading, content, updateMetrics]);
+
+  /* Метки конфликтов для миникарты-обзора. Раскладка строк совпадает с колонкой
+     «ours» (clean-блоки + строки «ours» конфликта), т.к. метрики скролла берём
+     из неё. Разрешённый конфликт → зелёный (add), неразрешённый → красный
+     (remove): полоса справа показывает прогресс разбора. */
+  const conflictMarks = useMemo<ChangeMark[]>(() => {
+    if (!content) return [];
+    const segments: { start: number; len: number; bi: number; isConflict: boolean }[] = [];
+    let total = 0;
+    content.blocks.forEach((block, bi) => {
+      const len = block.type === 'clean'
+        ? block.content.split('\n').length
+        : (block.ours ? block.ours.split('\n').length : 0) || 1;
+      segments.push({ start: total, len, bi, isConflict: block.type === 'conflict' });
+      total += len;
+    });
+    if (total === 0) return [];
+    const marks: ChangeMark[] = [];
+    for (const seg of segments) {
+      if (!seg.isConflict) continue;
+      const block = content.blocks[seg.bi];
+      const oursLines = (block.ours || '').split('\n');
+      const theirsLines = (block.theirs || '').split('\n');
+      const resolved =
+        oursLines.some((_, li) => selected.has(mkKey(seg.bi, 'ours', li))) ||
+        theirsLines.some((_, li) => selected.has(mkKey(seg.bi, 'theirs', li)));
+      for (let i = 0; i < seg.len; i++) {
+        marks.push({ ratio: (seg.start + i) / total, type: resolved ? 'add' : 'remove' });
+      }
+    }
+    return marks;
+  }, [content, selected]);
+
+  /* Перемотка всех трёх зон к доле ratio (клик/драг по миникарте).
+     Центрируем вьюпорт на точке клика — как в DiffWholeFile. */
+  const seek = useCallback((ratioTop: number) => {
+    syncingScroll.current = true;
+    const panes = [oursRef.current, theirsRef.current, resultRef.current]
+      .filter((p): p is HTMLDivElement => p != null);
+    for (const p of panes) {
+      const max = Math.max(0, p.scrollHeight - p.clientHeight);
+      p.scrollTop = Math.min(max, Math.max(0, ratioTop * p.scrollHeight - p.clientHeight / 2));
+    }
+    updateMetrics();
+    requestAnimationFrame(() => { syncingScroll.current = false; });
+  }, [updateMetrics]);
+
   useEffect(() => {
     if (!resolving) return;
     const unsub = onMainEvent((msg) => {
@@ -171,6 +270,7 @@ export function useConflictResolution(file: string, onResolved?: () => void) {
     content, loading, resolving, selected, activeConflict, setActiveConflict: setActiveConflictManual,
     conflicts, conflictCount, resolvedConflicts, allResolved,
     toggleLine, toggleBlock, navigateConflict, handleResolve, resultLines,
-    oursRef, theirsRef,
+    oursRef, theirsRef, resultRef,
+    conflictMarks, scrollMetrics, seek,
   };
 }

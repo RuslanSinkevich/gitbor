@@ -18,6 +18,9 @@
 .cpBranchIcon { font-size: 16px; color: var(--sg-foreground-muted); }
 .cpCardBranch { font-family: var(--sg-font-mono); font-size: 13px; font-weight: 600; color: var(--sg-foreground); }
 .cpCardTag { font-size: 10px; padding: 1px 6px; border-radius: 3px; background: var(--sg-surface-hover); color: var(--sg-foreground-muted); font-weight: 500; margin-left: auto; }
+.cpChangeTag { font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 600; white-space: nowrap; }
+.cpChangeDeleted { background: color-mix(in srgb, var(--sg-danger) 14%, transparent); color: var(--sg-danger); }
+.cpChangeModified { background: color-mix(in srgb, var(--sg-warning) 16%, transparent); color: var(--sg-warning); }
 .cpVs { font-size: 12px; font-weight: 600; color: var(--sg-foreground-muted); flex-shrink: 0; }
 
 .cpActionBtn { padding: 8px 28px; font-size: 13px; font-family: inherit; font-weight: 600; background: var(--sg-primary); color: #fff; border: none; border-radius: var(--sg-radius-sm); cursor: pointer; transition: opacity var(--sg-transition); animation: cpFadeIn 0.15s ease; }

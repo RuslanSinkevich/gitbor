@@ -179,6 +179,7 @@ export const ru: LocaleMap = {
     aiGenerating: 'Генерация...',
     aiCancel: 'Отмена',
     dismissAiError: 'Скрыть ошибку',
+    clearCommitMessage: 'Очистить сообщение коммита',
   },
   compare: {
     vsPrevious: 'Изменения относительно предыдущего коммита',
@@ -265,6 +266,7 @@ export const ru: LocaleMap = {
   mergeEditor: {
     loading: 'Загрузка конфликта...',
     noConflicts: 'Нет конфликтов в этом файле',
+    noConflictsHint: 'Маркеров конфликта нет, но Git всё ещё считает файл неразрешённым. Пометьте его как разрешённый, чтобы убрать из списка конфликтов.',
     merge: 'Слияние',
     resolve: 'Сохранить и разрешить',
     resolving: 'Разрешение...',
@@ -285,6 +287,7 @@ export const ru: LocaleMap = {
     acceptAllOurs: 'Всё — нашу',
     acceptAllTheirs: 'Всё — их',
     allResolved: 'Все конфликты разрешены',
+    markResolved: 'Пометить как разрешённый',
     close: 'Закрыть',
   },
   support: {
@@ -303,6 +306,10 @@ export const ru: LocaleMap = {
     incoming: 'входящая',
     choose: 'Выбрать',
     mergeManually: 'Разрешить вручную',
+    deleted: 'удалён',
+    modified: 'изменён',
+    deleteFile: 'Удалить файл',
+    selectSingleSide: 'Выберите одну версию',
   },
   mergeDialog: {
     title: 'Слияние веток',
@@ -392,6 +399,7 @@ export const ru: LocaleMap = {
     openMergeEditor: 'Открыть в редакторе слияния',
     resolveOurs: 'Принять нашу версию (Ours)',
     resolveTheirs: 'Принять их версию (Theirs)',
+    markResolved: 'Пометить как разрешённый',
     checkoutCommit: 'Переключиться на коммит...',
     rebaseToHere: "Перебазировать «{branch}» сюда...",
     interactiveRebaseToHere: "Интерактивно перебазировать «{branch}» сюда...",

@@ -7,6 +7,7 @@ import type { AppState } from '../../src/core/git/types';
 /** Минимальный mock `CommandHandler` для bridge/helpers-тестов. */
 export interface MockCommandHandler {
   getMergeState: Mock<CommandHandler['getMergeState']>;
+  getMergeStateForRepo: Mock<CommandHandler['getMergeStateForRepo']>;
 }
 
 /** Минимальный mock `StateManager` для bridge-контекста. */
@@ -40,6 +41,7 @@ export function makeMockBridgeContext(initialRepoPath: string): MockBridgeContex
 
   const ch: MockCommandHandler = {
     getMergeState: vi.fn(async () => EMPTY_MERGE_STATE),
+    getMergeStateForRepo: vi.fn(async () => EMPTY_MERGE_STATE),
   };
   const sm: MockBridgeState = {
     getState: vi.fn(() => ({ repoPath })),

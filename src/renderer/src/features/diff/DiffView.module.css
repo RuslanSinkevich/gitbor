@@ -103,11 +103,23 @@
   flex: 1;
   min-width: 0;
   overflow: auto;
-  scrollbar-width: none;
 }
 
-.diffScroll::-webkit-scrollbar {
+.diffScroll::-webkit-scrollbar:vertical {
   display: none;
+}
+
+.diffScroll::-webkit-scrollbar:horizontal {
+  height: 10px;
+}
+
+.diffScroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--sg-foreground-muted) 35%, transparent);
+  border-radius: 5px;
+}
+
+.diffScroll::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* Hunk block — обёртка для одного блока изменений (header + строки diff).
@@ -205,9 +217,10 @@
 }
 
 .diffTable {
-  width: 100%;
+  min-width: 100%;
+  width: max-content;
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 .lineNo {
@@ -224,7 +237,7 @@
 .lineContent {
   padding: 0 8px;
   white-space: pre;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .lineAdd {
@@ -251,6 +264,20 @@
 .lineAdd .lineContent,
 .lineRemove .lineContent {
   color: var(--sg-diff-text, inherit);
+}
+
+.inlineAddChange,
+.inlineRemoveChange {
+  border-radius: 2px;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, currentColor 35%, transparent);
+}
+
+.inlineAddChange {
+  background: color-mix(in srgb, #2ea043 42%, transparent);
+}
+
+.inlineRemoveChange {
+  background: color-mix(in srgb, #f85149 42%, transparent);
 }
 
 .binary {
@@ -317,7 +344,7 @@
 }
 
 .hunkBlockSplitCol {
-  overflow-x: auto;
+  overflow-x: hidden;
   border-right: 1px solid var(--sg-border);
 }
 
@@ -325,12 +352,44 @@
   border-right: none;
 }
 
+.splitHorizontalScrollbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  height: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--sg-background);
+}
+
+.splitHorizontalScrollbarHidden {
+  height: 0;
+  overflow: hidden;
+}
+
+.splitHorizontalScrollbarContent {
+  height: 1px;
+}
+
+.splitHorizontalScrollbar::-webkit-scrollbar:horizontal {
+  height: 10px;
+}
+
+.splitHorizontalScrollbar::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--sg-foreground-muted) 35%, transparent);
+  border-radius: 5px;
+}
+
+.splitHorizontalScrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 /* Whole-file side-by-side (виртуализированный весь файл).
    Структура: .wholeRoot (колонка) = шапка Original/Modified + .wholeWrap.
    .wholeWrap (строка) = .wholePanes (две независимые скролл-панели) + миникарта.
-   Каждая .wholePane скроллится сама: вертикаль синхронизируется между панелями
-   из JS, горизонталь у каждой своя. Вертикальный нативный скроллбар спрятан
-   (справа единый overview-ruler), горизонтальный — виден у низа панели. */
+   Каждая .wholePane скроллится сама: вертикаль и горизонталь синхронизируются
+   между панелями из JS. Вертикальный нативный скроллбар спрятан (справа единый
+   overview-ruler), горизонтальный — виден у низа панели. */
 .wholeRoot {
   flex: 1;
   display: flex;

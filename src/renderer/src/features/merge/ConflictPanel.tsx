@@ -39,6 +39,10 @@ export function ConflictPanel({ file, mergeState, onOpenEditor, onResolved }: Pr
 
   const bothSelected = oursSelected && theirsSelected;
   const oneSelected = (oursSelected || theirsSelected) && !bothSelected;
+  const conflictInfo = mergeState.conflictFiles.find(f => f.path === file);
+  const oursDeleted = conflictInfo?.oursModified === false;
+  const theirsDeleted = conflictInfo?.theirsModified === false;
+  const canMergeManually = !oursDeleted && !theirsDeleted;
 
   const handleChoose = useCallback(() => {
     if (resolving) return;
@@ -52,6 +56,11 @@ export function ConflictPanel({ file, mergeState, onOpenEditor, onResolved }: Pr
 
   const oursLabel = mergeState.targetBranch || loc.mergeEditor.ours;
   const theirsLabel = mergeState.sourceBranch || loc.mergeEditor.theirs;
+  const actionLabel = oursSelected && oursDeleted
+    ? cp.deleteFile
+    : theirsSelected && theirsDeleted
+      ? cp.deleteFile
+      : `${cp.choose} ${oursSelected ? oursLabel : theirsLabel}`;
 
   return (
     <div className={s.conflictPanel}>
@@ -73,6 +82,9 @@ export function ConflictPanel({ file, mergeState, onOpenEditor, onResolved }: Pr
           <div className={s.cpCardBadge}>
             <span className={s.cpBranchIcon}>⑂</span>
             <span className={s.cpCardBranch}>{oursLabel}</span>
+            <span className={`${s.cpChangeTag} ${oursDeleted ? s.cpChangeDeleted : s.cpChangeModified}`}>
+              {oursDeleted ? cp.deleted : cp.modified}
+            </span>
             <span className={s.cpCardTag}>{cp.current}</span>
           </div>
         </div>
@@ -86,6 +98,9 @@ export function ConflictPanel({ file, mergeState, onOpenEditor, onResolved }: Pr
           <div className={s.cpCardBadge}>
             <span className={s.cpBranchIcon}>⑂</span>
             <span className={s.cpCardBranch}>{theirsLabel}</span>
+            <span className={`${s.cpChangeTag} ${theirsDeleted ? s.cpChangeDeleted : s.cpChangeModified}`}>
+              {theirsDeleted ? cp.deleted : cp.modified}
+            </span>
             <span className={s.cpCardTag}>{cp.incoming}</span>
           </div>
         </div>
@@ -93,13 +108,19 @@ export function ConflictPanel({ file, mergeState, onOpenEditor, onResolved }: Pr
 
       {oneSelected && (
         <button className={s.cpActionBtn} onClick={handleChoose} disabled={resolving}>
-          {resolving ? '...' : `${cp.choose} ${oursSelected ? oursLabel : theirsLabel}`}
+          {resolving ? '...' : actionLabel}
         </button>
       )}
 
-      {bothSelected && (
+      {bothSelected && canMergeManually && (
         <button className={s.cpActionBtn} onClick={() => onOpenEditor(file)}>
           {cp.mergeManually}
+        </button>
+      )}
+
+      {bothSelected && !canMergeManually && (
+        <button className={s.cpActionBtn} disabled>
+          {cp.selectSingleSide}
         </button>
       )}
     </div>

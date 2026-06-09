@@ -8,6 +8,12 @@ export interface CredentialTarget {
   suggestedUsername: string;
 }
 
+interface RemoteUrl {
+  name: string;
+  url: string;
+  direction: 'fetch' | 'push';
+}
+
 /** Разбор URL remote для git credential protocol (HTTPS). */
 export function parseHttpsRemoteUrl(raw: string): CredentialTarget | null {
   const trimmed = raw.trim();
@@ -15,13 +21,7 @@ export function parseHttpsRemoteUrl(raw: string): CredentialTarget | null {
 
   let url: URL;
   try {
-    if (trimmed.startsWith('git@')) {
-      const m = trimmed.match(/^git@([^:]+):(.+)$/);
-      if (!m) return null;
-      url = new URL(`https://${m[1]}/${m[2]}`);
-    } else {
-      url = new URL(trimmed);
-    }
+    url = new URL(trimmed);
   } catch {
     return null;
   }
@@ -64,9 +64,35 @@ export class CredentialHelper {
   }
 
   async getCredentialTarget(): Promise<CredentialTarget | null> {
+    const remoteUrls = await this.getRemoteUrls();
+    const httpsRemote = remoteUrls
+      .map((remote, index) => ({ remote, index, target: parseHttpsRemoteUrl(remote.url) }))
+      .filter((entry): entry is { remote: RemoteUrl; index: number; target: CredentialTarget } => entry.target != null)
+      .sort((a, b) => this.remotePriority(a.remote, a.index) - this.remotePriority(b.remote, b.index))[0];
+    if (httpsRemote) return httpsRemote.target;
+
     const raw = await this.getPushRemoteUrl();
-    if (!raw || raw.startsWith('git@')) return null;
-    return parseHttpsRemoteUrl(raw);
+    return raw ? parseHttpsRemoteUrl(raw) : null;
+  }
+
+  private async getRemoteUrls(): Promise<RemoteUrl[]> {
+    const r = await this.git.exec(['remote', '-v']);
+    if (r.exitCode !== 0 || !r.stdout.trim()) return [];
+    const remotes: RemoteUrl[] = [];
+    for (const rawLine of r.stdout.split('\n')) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      const match = line.match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/);
+      if (!match) continue;
+      remotes.push({ name: match[1], url: match[2], direction: match[3] as 'fetch' | 'push' });
+    }
+    return remotes;
+  }
+
+  private remotePriority(remote: RemoteUrl, index: number): number {
+    const origin = remote.name === 'origin' ? 0 : 100;
+    const direction = remote.direction === 'fetch' ? 0 : 10;
+    return origin + direction + index / 1000;
   }
 
   /**

@@ -74,7 +74,7 @@ export interface StateSubscriptionDeps {
   removeRunningOpsByRepo(repoPath: string): void;
   // transient
   setCommitDetail(updater: (prev: CommitDetail | null) => CommitDetail | null): void;
-  setMergeState(value: MergeState | null): void;
+  setMergeState(repoPath: string | null | undefined, value: MergeState | null): void;
   setError(value: string | null): void;
   setRebaseProgress(value: RebaseProgress | null): void;
   setRecoveryIssues(value: readonly RecoveryIssue[]): void;
@@ -217,11 +217,11 @@ export function useStateSubscription(deps: StateSubscriptionDeps): void {
           setLang(msg.lang);
           break;
         case 'mergeState':
-          d.setMergeState(msg.data);
+          d.setMergeState(msg.repoPath, msg.data);
           break;
         case 'mergeCompleted':
         case 'mergeAborted':
-          d.setMergeState(null);
+          d.setMergeState(msg.repoPath, null);
           break;
         case 'showView':
           d.setViewOverride(msg.view);
@@ -249,6 +249,7 @@ export function useStateSubscription(deps: StateSubscriptionDeps): void {
           if (msg.path === d.lastRoutedRepoPathRef.current) {
             d.resetActiveTransient();
           }
+          d.setMergeState(msg.path, null);
           break;
         }
         case 'error':

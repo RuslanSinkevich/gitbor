@@ -67,13 +67,20 @@ export class ConflictManager {
   async getConflictFiles(): Promise<ConflictFile[]> {
     const statusResult = await this.git.exec(['status', '--porcelain=v1']);
     const allFiles = GitParser.parseStatus(statusResult.stdout);
+    const unmergedDetails = this.parseUnmergedStatus(statusResult.stdout);
 
     const conflictPaths = new Set(allFiles.filter(f => f.status === 'U').map(f => f.path));
     const stagedPaths = new Set(allFiles.filter(f => f.staged && f.status === 'M').map(f => f.path));
 
     const result: ConflictFile[] = [];
     for (const path of conflictPaths) {
-      result.push({ path, status: 'conflicted', oursModified: true, theirsModified: true });
+      const detail = unmergedDetails.get(path);
+      result.push({
+        path,
+        status: 'conflicted',
+        oursModified: detail?.oursModified ?? true,
+        theirsModified: detail?.theirsModified ?? true,
+      });
     }
     for (const path of stagedPaths) {
       if (!conflictPaths.has(path)) {
@@ -151,13 +158,11 @@ export class ConflictManager {
   }
 
   async resolveWithOurs(file: string): Promise<void> {
-    await this.git.exec(['checkout', '--ours', '--', file]);
-    await this.git.exec(['add', '--', file]);
+    await this.checkoutSideAndStage('ours', file);
   }
 
   async resolveWithTheirs(file: string): Promise<void> {
-    await this.git.exec(['checkout', '--theirs', '--', file]);
-    await this.git.exec(['add', '--', file]);
+    await this.checkoutSideAndStage('theirs', file);
   }
 
   async stageResolved(file: string): Promise<void> {
@@ -243,6 +248,39 @@ export class ConflictManager {
       return result.stdout.trim().split('\n');
     } catch {
       return [];
+    }
+  }
+
+  private parseUnmergedStatus(stdout: string): Map<string, Pick<ConflictFile, 'oursModified' | 'theirsModified'>> {
+    const result = new Map<string, Pick<ConflictFile, 'oursModified' | 'theirsModified'>>();
+    for (const rawLine of stdout.split('\n')) {
+      const line = rawLine.replace(/\r$/, '');
+      if (line.length < 4 || line[2] !== ' ') continue;
+      const x = line[0];
+      const y = line[1];
+      const isUnmerged = x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D');
+      if (!isUnmerged) continue;
+      const path = GitParser.unquoteGitPath(line.slice(3));
+      result.set(path, {
+        oursModified: this.sideHasFile(x, y),
+        theirsModified: this.sideHasFile(y, x),
+      });
+    }
+    return result;
+  }
+
+  private sideHasFile(side: string, other: string): boolean {
+    if (side === 'D') return false;
+    if (side === 'U') return other === 'U';
+    return true;
+  }
+
+  private async checkoutSideAndStage(side: 'ours' | 'theirs', file: string): Promise<void> {
+    await this.git.exec(['checkout', `--${side}`, '--', file]);
+    if (existsSync(join(this.git.getCwd(), file))) {
+      await this.git.exec(['add', '--', file]);
+    } else {
+      await this.git.exec(['rm', '-f', '--', file]);
     }
   }
 }
