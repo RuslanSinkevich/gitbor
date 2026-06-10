@@ -28,6 +28,8 @@ interface PromptConfirmOptions {
   kind: 'confirm';
   title: string;
   message?: string;
+  /** Опциональный список под сообщением (напр. «что нового» в обновлении). */
+  bullets?: string[];
   confirmLabel?: string;
   danger?: boolean;
   onConfirm: () => void;
@@ -43,6 +45,7 @@ interface PromptState {
   defaultValue: string;
   placeholder: string;
   message: string;
+  bullets: string[];
   confirmLabel: string;
   danger: boolean;
   allowEmpty: boolean;
@@ -61,6 +64,7 @@ export function usePromptDialog() {
         defaultValue: '',
         placeholder: '',
         message: opts.message ?? '',
+        bullets: opts.bullets ?? [],
         confirmLabel: opts.confirmLabel ?? '',
         danger: opts.danger ?? false,
         allowEmpty: true,
@@ -75,6 +79,7 @@ export function usePromptDialog() {
       defaultValue: opts.defaultValue ?? '',
       placeholder: opts.placeholder ?? '',
       message: opts.message ?? '',
+      bullets: [],
       confirmLabel: opts.confirmLabel ?? '',
       danger: opts.danger ?? false,
       allowEmpty: opts.allowEmpty ?? false,
@@ -129,9 +134,20 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
       confirmDisabled={disabled}
     >
       {prompt.kind === 'confirm'
-        ? (prompt.message && (
-            <p style={{ margin: 0, fontSize: 13, color: 'var(--sg-foreground-muted)' }}>{prompt.message}</p>
-          ))
+        ? (
+            <>
+              {prompt.message && (
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--sg-foreground-muted)' }}>{prompt.message}</p>
+              )}
+              {prompt.bullets.length > 0 && (
+                <ul style={{ margin: '10px 0 0', paddingLeft: 18, fontSize: 13, color: 'var(--sg-foreground-muted)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {prompt.bullets.map((b, i) => (
+                    <li key={i}>{b}</li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )
         : (
           <>
             {prompt.message && (

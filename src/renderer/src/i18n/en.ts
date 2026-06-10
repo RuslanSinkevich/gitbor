@@ -137,6 +137,7 @@ export const en = {
     noSearchResults: 'No results',
     loadMore: 'Load more commits ({loaded} loaded)',
     remoteOnlyHint: 'Fetched from remote, not in any local branch yet',
+    currentBranchHint: 'Current branch',
     gpg: {
       signed: '✓ Signed',
       untrusted: '✓ Untrusted',

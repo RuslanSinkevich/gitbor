@@ -4,6 +4,45 @@ import { mainLogger } from '../core/utils/Logger';
 import type { MainEvent } from '../core/bridge/messages';
 
 const STARTUP_CHECK_DELAY_MS = 8_000;
+const NOTES_FETCH_TIMEOUT_MS = 4_000;
+
+type ReleaseNotes = { ru: string[]; en: string[] };
+
+/**
+ * Краткие заметки «что нового» из changelog сайта. Источник истины — сайт
+ * (`/api/v1/changelog?version=...`), оттуда же питается страница changelog.
+ * Тянем в main, т.к. renderer заблокирован CSP. Best-effort: при любой ошибке
+ * возвращаем undefined — модалка покажется без списка.
+ */
+async function fetchReleaseNotes(version: string): Promise<ReleaseNotes | undefined> {
+  const base = process.env.GITBOR_WEB_BASE_URL ?? 'https://gitbor.ru';
+  const url = `${base}/api/v1/changelog?version=${encodeURIComponent(version)}`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), NOTES_FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return undefined;
+    const data: unknown = await res.json();
+    const release = (data as { release?: unknown } | null)?.release;
+    if (!release || typeof release !== 'object') return undefined;
+    const notes = (release as { notes?: unknown }).notes;
+    if (!notes || typeof notes !== 'object') return undefined;
+    const pick = (v: unknown): string[] =>
+      Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+    const ru = pick((notes as Record<string, unknown>).ru);
+    const en = pick((notes as Record<string, unknown>).en);
+    if (ru.length === 0 && en.length === 0) return undefined;
+    return { ru, en };
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export type AppUpdateManualResult = Extract<
   MainEvent,
@@ -74,7 +113,9 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
       mainLogger.debug(`appUpdater: downloaded same version ${info.version}, ignoring`);
       return;
     }
-    notify({ type: 'appUpdateReady', version: info.version });
+    void fetchReleaseNotes(info.version).then((notes) => {
+      notify({ type: 'appUpdateReady', version: info.version, ...(notes ? { notes } : {}) });
+    });
   });
 
   setTimeout(() => {

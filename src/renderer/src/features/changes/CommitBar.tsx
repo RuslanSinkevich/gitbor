@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { t } from '../../i18n';
-import { postCommand } from '../../api';
+import { postCommand, onMainEvent } from '../../api';
 import { AiGenerateButton, localizeAiError } from '../ai';
 import type { MergeState } from '../../types';
 import s from './CommitBar.module.css';
@@ -83,6 +83,22 @@ export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings, m
     return () => window.clearTimeout(id);
   }, [aiError]);
 
+  // Очистка полей темы/описания строго после УСПЕШНОГО коммита. Слушаем
+  // operationEnd: при провале (hook/lock/empty) текст остаётся, чтобы юзер
+  // не вводил его заново.
+  useEffect(() => {
+    return onMainEvent((event) => {
+      if (event.type !== 'operationEnd' || event.operation !== 'commit') return;
+      setSubmitting(false);
+      if (event.success) {
+        setSubject('');
+        setDescription('');
+        setAmend(false);
+        setAiError(null);
+      }
+    });
+  }, []);
+
   function doCommit() {
     if (!canCommit) return;
     const subj = subject.trim();
@@ -90,10 +106,10 @@ export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings, m
     const msg = desc ? `${subj}\n\n${desc}` : subj;
     setAiError(null);
     setSubmitting(true);
+    // Поля НЕ чистим здесь: при провале коммита (hook отклонил, lock и т.п.)
+    // юзер должен сохранить введённый текст. Очистка — только по успешному
+    // operationEnd для 'commit' (см. effect ниже).
     postCommand({ type: 'commit', message: msg, amend: amend || undefined });
-    setSubject('');
-    setDescription('');
-    setAmend(false);
   }
 
   function onKeyDown(e: React.KeyboardEvent) {

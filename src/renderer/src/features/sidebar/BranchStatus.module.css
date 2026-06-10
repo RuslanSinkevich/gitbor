@@ -4,7 +4,7 @@
   justify-content: space-between;
   padding: 8px 12px;
   background: var(--sg-surface);
-  border-bottom: 1px solid var(--sg-border);
+  border-top: 1px solid var(--sg-border);
   gap: 8px;
   flex-shrink: 0;
 }

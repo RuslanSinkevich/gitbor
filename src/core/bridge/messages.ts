@@ -318,7 +318,16 @@ export type MainEvent =
   | { type: 'gitActivityUpdated'; entry: GitActivityEntry }
   | { type: 'gitActivityCleared' }
   | { type: 'repoClosed'; path: string }
-  | { type: 'appUpdateReady'; version: string }
+  | {
+      type: 'appUpdateReady';
+      version: string;
+      /**
+       * Краткие заметки «что нового» из changelog сайта, по локалям.
+       * Тянутся main-процессом (renderer заблокирован CSP). Опциональны:
+       * если сайт недоступен или релиза нет — модалка просто без списка.
+       */
+      notes?: { ru: string[]; en: string[] };
+    }
   | {
       type: 'appUpdateManualResult';
       result: 'nsis-only' | 'available' | 'up-to-date' | 'error';

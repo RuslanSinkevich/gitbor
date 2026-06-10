@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { CommitGraph, CommitDetails } from '../graph';
 import { useCommitExplainer } from '../ai';
 import { RightPanelContent, type RightPanel } from './RightPanelContent';
@@ -80,6 +80,11 @@ export function CommitsView({
      и CommitDetails ремаунтится — локальный useAiStream отменял бы запрос. */
   const explainer = useCommitExplainer(commitDetail?.hash ?? '', onOpenAiSettings ?? (() => {}));
 
+  /* Стабильный список имён remote'ов для слияния плашек локальной/remote
+     ветки в графе. Без useMemo новый массив на каждый рендер ломал бы
+     React.memo CommitGraph. */
+  const remoteNames = useMemo(() => state.remotes.map(r => r.name), [state.remotes]);
+
   const filtered = useGraphFilter(state.commits, state.branches, soloBranch, hidden);
   /* Если фильтр активен — используем результат фильтра (включая layout).
      Иначе — server-side layout из state.graphLayout (он шире, mergeLinks
@@ -145,6 +150,7 @@ export function CommitsView({
           selectedHash={state.selectedCommitHash}
           onSelect={selectCommit}
           currentBranch={state.currentBranch}
+          remoteNames={remoteNames}
           repoPath={state.repoPath}
           onContextMenu={showContextMenu}
           showPrompt={showPrompt}

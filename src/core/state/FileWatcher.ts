@@ -250,6 +250,25 @@ export class FileWatcher {
     }
   }
 
+  /**
+   * Идёт ли сейчас write-операция (commit/stage/merge/...) на активном репо.
+   * Read'ы в OperationQueue ходят ПАРАЛЛЕЛЬНО с write'ом, поэтому
+   * watcher-driven refresh, выстреливший в середине коммита, читает git
+   * status на полуразобранном индексе и показывает промежуточное состояние
+   * («Не подготовлено» мигает и тут же исчезает). Сама write-операция
+   * делает свой refresh по завершении — watcher-refresh в это время лишний
+   * и вреден. Поэтому при активном write мы откладываем refresh.
+   */
+  private isActiveRepoWriting(): boolean {
+    const repo = this.activeRepoPath;
+    if (!repo) return false;
+    try {
+      return this.stateManager.getRegistry().acquire(repo).queue.isWriteRunning();
+    } catch {
+      return false;
+    }
+  }
+
   private scheduleGitRefresh(): void {
     if (this.paused) {
       // Запомним, что были события, чтобы на resume однократно догнать состояние.
@@ -259,6 +278,12 @@ export class FileWatcher {
     if (this.gitDebounce) clearTimeout(this.gitDebounce);
     this.gitDebounce = setTimeout(() => {
       this.gitDebounce = null;
+      // Идёт write — переарм debounce и ждём его завершения, иначе словим
+      // мигание промежуточного status'а во время коммита/стейджа.
+      if (this.isActiveRepoWriting()) {
+        this.scheduleGitRefresh();
+        return;
+      }
       this.stateManager.invalidateGraphCache();
       this.stateManager.refreshAll().catch((err) => {
         mainLogger.error(`FileWatcher: refreshAll failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -274,6 +299,10 @@ export class FileWatcher {
     if (this.worktreeDebounce) clearTimeout(this.worktreeDebounce);
     this.worktreeDebounce = setTimeout(() => {
       this.worktreeDebounce = null;
+      if (this.isActiveRepoWriting()) {
+        this.scheduleStatusRefresh();
+        return;
+      }
       this.stateManager.refreshStatusAndNotify().catch((err) => {
         mainLogger.error(`FileWatcher: refreshStatus failed: ${err instanceof Error ? err.message : String(err)}`);
       });

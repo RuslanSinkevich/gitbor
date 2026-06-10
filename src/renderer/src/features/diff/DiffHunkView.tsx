@@ -1,6 +1,5 @@
 import type { DiffHunk } from '../../types';
 import { HunkActionsOverlay } from './HunkActionsOverlay';
-import { renderInlineDiff } from './inlineDiff';
 import s from './DiffView.module.css';
 
 interface Props {
@@ -16,35 +15,12 @@ interface Props {
  * Stage/Discard/Unstage. Header `@@ -52,8 +52,9 @@ …` остаётся видимым
  * как ориентир в потоке, но без фона и sticky — diff читается ближе к
  * чистому коду (Fork-style).
+ *
+ * Пословной подсветки (word-level) тут нет намеренно: фона строки
+ * (lineAdd/lineRemove) достаточно, а вторая подсветка поверх него в этом
+ * режиме читается как «двойная». Word-level остаётся только в split/whole.
  */
 export function DiffHunkView({ hunk, hunkIndex, file, isWorkingCopy, isStaged }: Props) {
-  const pairedContent = new Map<number, string>();
-  const removes: number[] = [];
-  const adds: number[] = [];
-  const flushPairs = () => {
-    const max = Math.min(removes.length, adds.length);
-    for (let i = 0; i < max; i++) {
-      const removeIndex = removes[i];
-      const addIndex = adds[i];
-      pairedContent.set(removeIndex, hunk.lines[addIndex].content);
-      pairedContent.set(addIndex, hunk.lines[removeIndex].content);
-    }
-    removes.length = 0;
-    adds.length = 0;
-  };
-
-  for (let i = 0; i < hunk.lines.length; i++) {
-    const line = hunk.lines[i];
-    if (line.type === 'context') {
-      flushPairs();
-    } else if (line.type === 'remove') {
-      removes.push(i);
-    } else {
-      adds.push(i);
-    }
-  }
-  flushPairs();
-
   return (
     <div className={s.hunkBlock} tabIndex={-1}>
       <div className={s.hunkHeaderCompact}>{hunk.header}</div>
@@ -73,9 +49,7 @@ export function DiffHunkView({ hunk, hunkIndex, file, isWorkingCopy, isStaged }:
                   уже однозначно показывает тип строки, дублирующий символ
                   отвлекает и съедает горизонтальное пространство. */}
               <td className={s.lineContent}>
-                {line.type === 'add' || line.type === 'remove'
-                  ? renderInlineDiff(line.content, line.type, pairedContent.get(i))
-                  : line.content}
+                {line.content}
               </td>
             </tr>
           ))}

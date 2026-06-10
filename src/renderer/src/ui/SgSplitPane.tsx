@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { loadStoredNumber, saveStoredNumber } from '../shared/uiPersist';
 
-const HANDLE_PX = 4;
+const HANDLE_PX = 1;
 
 interface SgSplitPaneProps {
   left: ReactNode;

@@ -14,6 +14,7 @@ export function GraphPreviewSection() {
         selectedHash={selectedHash}
         onSelect={setSelectedHash}
         currentBranch="main"
+        remoteNames={['origin']}
         onContextMenu={(e) => { e.preventDefault(); }}
         showPrompt={() => {}}
         requestCheckout={() => {}}

@@ -210,19 +210,30 @@ export function App() {
   }, [lastOpResult, closeDiff]);
 
   /**
-   * После успешного коммита авто-выбираем новый HEAD (tip текущей ветки) —
-   * «авто-клик» по коммиту в графе. `commit` через `opWithPostMerge` шлёт
-   * обновление веток/графа ДО `operationEnd`, события идут по одному IPC-
-   * каналу по порядку, поэтому к моменту смены `lastOpResult` на `commit`
-   * `state.branches` уже содержит свежий tip. Граф сам проскроллится к
-   * выбранному (эффект scrollToRow в CommitGraph). Вид не переключаем —
-   * фокус срабатывает, когда пользователь откроет вкладку коммитов.
+   * После успешного коммита/пуша авто-фокусируем tip текущей ветки в графе —
+   * «авто-клик» по коммиту. Для `commit` tip новый (появился коммит); для
+   * `push` tip тот же, но на нём появляется свежая remote-плашка
+   * (`origin/<branch>`) — это и есть «новая запись», на которую нужно встать.
+   *
+   * `commit` через `opWithPostMerge` шлёт обновление веток ДО `operationEnd`
+   * по одному IPC-каналу по порядку, поэтому к смене `lastOpResult` tip уже
+   * свежий. Бампаем `graphFocusNonce`, а не только selectCommit: после push
+   * выбранным мог уже быть tip — без bump'а граф не доскроллит к нему.
+   *
+   * Ref-гард по идентичности `lastOpResult` (новый объект на каждый
+   * operationEnd) защищает от повторной отработки, когда смена
+   * selectedCommitHash перезапускает эффект с тем же результатом.
    */
+  const focusedOpRef = useRef<typeof lastOpResult>(null);
   useEffect(() => {
     if (!lastOpResult || !lastOpResult.success) return;
-    if (lastOpResult.operation !== 'commit') return;
-    const tip = state.branches.find(b => b.isCurrent)?.hash;
-    if (tip && tip !== state.selectedCommitHash) selectCommit(tip);
+    if (lastOpResult.operation !== 'commit' && lastOpResult.operation !== 'push') return;
+    if (focusedOpRef.current === lastOpResult) return;
+    focusedOpRef.current = lastOpResult;
+    const tip = state.branches.find(b => b.isCurrent && !b.isRemote)?.hash;
+    if (!tip) return;
+    if (tip !== state.selectedCommitHash) selectCommit(tip);
+    setGraphFocusNonce(n => n + 1);
   }, [lastOpResult, state.branches, state.selectedCommitHash, selectCommit]);
 
   useAutoFetch(

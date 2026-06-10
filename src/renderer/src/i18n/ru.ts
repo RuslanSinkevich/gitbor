@@ -139,6 +139,7 @@ export const ru: LocaleMap = {
     noSearchResults: 'Нет результатов',
     loadMore: 'Загрузить ещё ({loaded} загружено)',
     remoteOnlyHint: 'Загружен с remote, ещё не в локальной ветке',
+    currentBranchHint: 'Текущая ветка',
     gpg: {
       signed: '✓ Подписан',
       untrusted: '✓ Не доверен',

@@ -188,16 +188,48 @@
 }
 
 .refBadge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 1px 7px;
   border-radius: 3px;
   font-size: 10px;
   font-weight: 500;
   white-space: nowrap;
   flex-shrink: 0;
-  max-width: 160px;
+  max-width: 180px;
+  overflow: hidden;
+}
+
+.refBadgeLabel {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/*
+ * Активная (checked-out) ветка: как в Fork — плашка с явным контрастным
+ * контуром, чтобы сразу было видно, где сейчас стоит HEAD.
+ */
+.refBadgeCurrent {
+  font-weight: 700;
+  box-shadow:
+    0 0 0 1px var(--sg-background),
+    0 0 0 2.5px color-mix(in srgb, var(--sg-foreground) 75%, transparent);
+}
+
+/*
+ * Маленькая точка справа на плашке — индикатор того, что ветка есть и
+ * локально, и на remote (в синхроне, «с одного места»). Полупрозрачный
+ * белый поверх цветного фона плашки.
+ */
+.refBadgeSync {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  flex-shrink: 0;
 }
 
 .rowDimmed {

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { postCommand, onMainEvent } from '../api';
-import { t, tpl } from '../i18n';
+import { t, tpl, getLang } from '../i18n';
 import type { ShowPromptFn } from '../ui/SgPromptDialog';
 import type { MainEvent } from '../types';
 
@@ -52,10 +52,12 @@ export function useAppUpdater(showPrompt: ShowPromptFn): void {
     return onMainEvent((msg) => {
       if (msg.type === 'appUpdateReady') {
         const loc = t();
+        const bullets = msg.notes ? (getLang() === 'en' ? msg.notes.en : msg.notes.ru) : [];
         showPrompt({
           kind: 'confirm',
           title: loc.appUpdater.title,
           message: tpl(loc.appUpdater.restartMessage, { version: msg.version }),
+          bullets,
           confirmLabel: loc.appUpdater.restartConfirm,
           onConfirm: () => {
             void postCommand({ type: 'appUpdateInstall' });
