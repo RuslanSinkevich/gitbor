@@ -36,7 +36,7 @@ describe('AiService.isConfigured', () => {
     expect(new AiService({ baseUrl: 'http://x/v1', apiKey: '', model: 'm' }).isConfigured()).toBe(true);
   });
 
-  it('true for qwen-web with token and model', () => {
+  it('false for qwen-web because chat.qwen.ai mode is disabled', () => {
     expect(
       new AiService({
         mode: 'qwen-web',
@@ -45,7 +45,7 @@ describe('AiService.isConfigured', () => {
         qwenWebToken: 't',
         model: 'qwen3-max',
       }).isConfigured(),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('false for qwen-web without token', () => {

@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { postCommand } from '../api';
 import { t } from '../i18n';
 import type { AppState } from '../types';
+import { AI_ENABLED } from '@core/buildFlags';
 
 interface Deps {
   state: AppState;
@@ -63,7 +64,7 @@ export function useMenuActions({
       case 'lfs': setShowLfs(true); break;
       case 'gitignore': setShowGitignore(true); break;
       case 'repoStats': setShowRepoStats(true); break;
-      case 'aiSettings': setShowAiSettings(true); break;
+      case 'aiSettings': if (AI_ENABLED) setShowAiSettings(true); break;
       case 'closeRepo':
         if (state.openRepos.length > 0) {
           postCommand({ type: 'closeRepo', index: state.activeRepoIndex });

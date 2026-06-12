@@ -8,6 +8,7 @@ import {
   parseRemotes,
   parseStatus,
   parseFileChanges,
+  parseTreePaths,
   unquoteGitPath,
 } from '../../src/core/git/GitParser';
 
@@ -46,6 +47,34 @@ describe('parseRefs', () => {
     expect(refs[0]).toEqual({ name: 'main', type: 'head' });
     expect(refs[1]).toEqual({ name: 'origin/main', type: 'remote' });
     expect(refs[2]).toEqual({ name: 'v2.0', type: 'tag' });
+  });
+
+  // ─── --decorate=full: полностью-квалифицированные refs ───
+
+  it('классифицирует локальную ветку со слэшами как branch (refs/heads/)', () => {
+    expect(parseRefs('refs/heads/feature/SinkevichRN/NRGIND-42277')).toEqual([
+      { name: 'feature/SinkevichRN/NRGIND-42277', type: 'branch' },
+    ]);
+  });
+
+  it('классифицирует refs/remotes/ как remote и отбрасывает remote HEAD', () => {
+    expect(parseRefs('refs/remotes/ConsumerCRM-techpris/feature/x, refs/remotes/origin/HEAD')).toEqual([
+      { name: 'ConsumerCRM-techpris/feature/x', type: 'remote' },
+    ]);
+  });
+
+  it('снимает refs/tags/ и refs/heads/ префиксы у HEAD и tag', () => {
+    expect(parseRefs('HEAD -> refs/heads/feature/x')).toEqual([{ name: 'feature/x', type: 'head' }]);
+    expect(parseRefs('tag: refs/tags/v1.0')).toEqual([{ name: 'v1.0', type: 'tag' }]);
+  });
+
+  it('парсит набор full-refs', () => {
+    const refs = parseRefs('HEAD -> refs/heads/main, refs/remotes/origin/main, tag: refs/tags/v2.0');
+    expect(refs).toEqual([
+      { name: 'main', type: 'head' },
+      { name: 'origin/main', type: 'remote' },
+      { name: 'v2.0', type: 'tag' },
+    ]);
   });
 });
 
@@ -274,6 +303,15 @@ describe('parseStatus', () => {
     expect(result).toHaveLength(1);
     expect(result[0].path).toBe('database/crm-database/dbo/Stored Procedures/sp_Search.sql');
   });
+
+  it('parses staged rename with quoted old path and unstaged deletion', () => {
+    const input = 'RD "release-no-ai-fresh/win-unpacked/GitBor No AI.exe" -> release-fresh/win-unpacked/GitBor.exe\n';
+    const result = parseStatus(input);
+    expect(result).toEqual([
+      { path: 'release-fresh/win-unpacked/GitBor.exe', status: 'R', staged: true },
+      { path: 'release-fresh/win-unpacked/GitBor.exe', status: 'D', staged: false },
+    ]);
+  });
 });
 
 describe('unquoteGitPath', () => {
@@ -327,5 +365,25 @@ describe('parseFileChanges', () => {
     const input = 'R100\t"old name.ts"\t"new name.ts"';
     const changes = parseFileChanges(input);
     expect(changes[0]).toEqual({ status: 'R', path: 'new name.ts', oldPath: 'old name.ts' });
+  });
+});
+
+describe('parseTreePaths', () => {
+  it('returns empty for empty input', () => {
+    expect(parseTreePaths('')).toEqual([]);
+  });
+
+  it('splits NUL-separated ls-tree output', () => {
+    const input = ['src/app.ts', 'src/util/helper.ts', 'README.md'].join(NUL) + NUL;
+    expect(parseTreePaths(input)).toEqual(['src/app.ts', 'src/util/helper.ts', 'README.md']);
+  });
+
+  it('keeps paths with spaces and cyrillic verbatim (no quoting from -z)', () => {
+    const input = ['database/Stored Procedures/sp.sql', 'docs/Документ.md'].join(NUL) + NUL;
+    expect(parseTreePaths(input)).toEqual(['database/Stored Procedures/sp.sql', 'docs/Документ.md']);
+  });
+
+  it('drops empty trailing segments', () => {
+    expect(parseTreePaths('a.ts' + NUL + NUL + 'b.ts' + NUL)).toEqual(['a.ts', 'b.ts']);
   });
 });

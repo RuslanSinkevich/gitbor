@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useState, useRef } from 'react
 import { t } from '../../i18n';
 import { postCommand, onMainEvent } from '../../api';
 import { AiGenerateButton, localizeAiError } from '../ai';
+import { AI_ENABLED } from '@core/buildFlags';
+import { isConventionalCommitSubject } from '@core/git/commitMessageFormat';
 import type { MergeState } from '../../types';
 import s from './CommitBar.module.css';
 
@@ -10,18 +12,20 @@ const DESC_MAX_PX = 260;
 const AI_ERROR_AUTO_DISMISS_MS = 20_000;
 
 interface Props {
+  repoPath: string;
   stagedCount: number;
   isOperationRunning: boolean;
   onOpenAiSettings: () => void;
   mergeState?: MergeState | null;
 }
 
-export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings, mergeState }: Props) {
+export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiSettings, mergeState }: Props) {
   const loc = t();
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [amend, setAmend] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [conventionalCommits, setConventionalCommits] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
   const prefilledRef = useRef(false);
@@ -52,7 +56,17 @@ export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings, m
     prefilledRef.current = true;
   }, [mergeState, subject, description, amend]);
 
+  useEffect(() => {
+    setConventionalCommits(false);
+    if (repoPath) postCommand({ type: 'getConventionalCommits' });
+  }, [repoPath]);
+
+  useEffect(() => onMainEvent((event) => {
+    if (event.type === 'conventionalCommits') setConventionalCommits(event.active);
+  }), []);
+
   const canCommit = (subject.trim().length > 0 || amend) && stagedCount > 0 && !isOperationRunning;
+  const subjectPlaceholder = conventionalCommits ? loc.changes.commitSubjectConventional : loc.changes.commitSubject;
 
   // Авто-рост description: высота по scrollHeight, с ограничением сверху.
   // Делаем в layout-фазе, чтобы не было визуального «прыжка» при вставке
@@ -102,6 +116,10 @@ export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings, m
   function doCommit() {
     if (!canCommit) return;
     const subj = subject.trim();
+    if (conventionalCommits && !amend && !isConventionalCommitSubject(subj)) {
+      setAiError(loc.changes.commitFormatError);
+      return;
+    }
     const desc = description.trim();
     const msg = desc ? `${subj}\n\n${desc}` : subj;
     setAiError(null);
@@ -171,7 +189,7 @@ export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings, m
         <input
           className={s.subject}
           type="text"
-          placeholder={loc.changes.commitSubject}
+          placeholder={subjectPlaceholder}
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           onKeyDown={onSubjectKeyDown}
@@ -192,14 +210,16 @@ export function CommitBar({ stagedCount, isOperationRunning, onOpenAiSettings, m
             <input type="checkbox" checked={amend} onChange={(e) => setAmend(e.target.checked)} />
             <span>{loc.changes.amend}</span>
           </label>
-          <AiGenerateButton
-            stagedCount={stagedCount}
-            disabled={isOperationRunning}
-            onChunk={applyAiText}
-            onDone={applyAiText}
-            onError={handleAiError}
-            onOpenSettings={onOpenAiSettings}
-          />
+          {AI_ENABLED && (
+            <AiGenerateButton
+              stagedCount={stagedCount}
+              disabled={isOperationRunning}
+              onChunk={applyAiText}
+              onDone={applyAiText}
+              onError={handleAiError}
+              onOpenSettings={onOpenAiSettings}
+            />
+          )}
           {hasMessageText && (
             <button
               type="button"

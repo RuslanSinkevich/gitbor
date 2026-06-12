@@ -34,6 +34,12 @@ export const ipcHandlersRepoExtras: HandlerTable = {
     }
   },
 
+  getConventionalCommits: async (_cmd, ctx) => {
+    const { detectConventionalCommits } = await import('../../git/CommitMessageRules');
+    const active = await detectConventionalCommits(ctx.ch.getRepoPath());
+    ctx.send({ type: 'conventionalCommits', active });
+  },
+
   getWorktrees: async (_cmd, ctx) => {
     const data = await ctx.ch.getWorktrees();
     ctx.send({ type: 'worktrees', data });

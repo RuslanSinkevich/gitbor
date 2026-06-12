@@ -54,6 +54,8 @@ export interface AiProviderConfig {
   apiKey: string;
   /** Токен сессии https://chat.qwen.ai (только при mode=qwen-web). */
   qwenWebToken?: string;
+  /** Cookie из браузерной сессии chat.qwen.ai; нужен когда Aliyun WAF режет API-запросы. */
+  qwenWebCookie?: string;
   /** Идентификатор модели (например `gpt-4o-mini`, `llama3.1:8b`). */
   model: string;
   /**

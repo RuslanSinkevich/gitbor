@@ -67,6 +67,10 @@ interface FileTreeItemProps {
   activePath?: string;
   activeSection?: 'unstaged' | 'staged' | 'conflict';
   focusedPath?: string | null;
+  /** Снимок дерева коммита: показываем структуру без статус-иконок (нет diff-статуса). */
+  plain?: boolean;
+  /** Начальное состояние папок: changes раскрыты, полный snapshot стартует закрытым. */
+  defaultExpanded?: boolean;
   onClickFile: (file: FileStatus) => void;
   onClickFolder?: (folderPath: string) => void;
   onDoubleClickFile?: (file: FileStatus) => void;
@@ -76,10 +80,10 @@ interface FileTreeItemProps {
 }
 
 export function FileTreeItem({
-  node, depth, section, activePath, activeSection, focusedPath,
+  node, depth, section, activePath, activeSection, focusedPath, plain, defaultExpanded = true,
   onClickFile, onClickFolder, onDoubleClickFile, onDoubleClickFolder, onContextMenu, onContextMenuFolder,
 }: FileTreeItemProps) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const isDir = node.children.length > 0 && !node.file;
   const paddingLeft = 12 + depth * 16;
   const isActive = activePath === node.path && activeSection === section;
@@ -101,7 +105,7 @@ export function FileTreeItem({
           </span>
         </div>
         {expanded && node.children.map(child => (
-          <FileTreeItem key={child.path} node={child} depth={depth + 1} section={section} activePath={activePath} activeSection={activeSection} focusedPath={focusedPath}
+          <FileTreeItem key={child.path} node={child} depth={depth + 1} section={section} activePath={activePath} activeSection={activeSection} focusedPath={focusedPath} plain={plain} defaultExpanded={defaultExpanded}
             onClickFile={onClickFile} onClickFolder={onClickFolder} onDoubleClickFile={onDoubleClickFile}
             onDoubleClickFolder={onDoubleClickFolder} onContextMenu={onContextMenu} onContextMenuFolder={onContextMenuFolder} />
         ))}
@@ -128,9 +132,11 @@ export function FileTreeItem({
             папок на одном уровне депта оказываются на разных x-координатах,
             и файлы визуально «торчат» влево от папок-сиблингов. */}
         <span className={s.treeArrowPlaceholder} aria-hidden="true" />
-        <span className={`${s.statusIcon} ${statusCls(file.status)}`}>
-          {isStatDirty ? '·' : statusIcon(file.status)}
-        </span>
+        {!plain && (
+          <span className={`${s.statusIcon} ${statusCls(file.status)}`}>
+            {isStatDirty ? '·' : statusIcon(file.status)}
+          </span>
+        )}
         <span className={s.fileName}>{node.name}</span>
       </div>
     );

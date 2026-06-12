@@ -31,6 +31,7 @@ interface PersistedConfig {
   baseUrl: string;
   apiKeyEncrypted: string;
   qwenWebTokenEncrypted?: string;
+  qwenWebCookieEncrypted?: string;
   model: string;
   /** v2-only: оставлено для миграции, в v3 не пишется. */
   commitLanguage?: CommitLanguage;
@@ -102,21 +103,7 @@ export class AiConfigStore {
       allowCloudCodeShare: p.allowCloudCodeShare === true,
     } as const;
 
-    if (mode === 'qwen-web') {
-      if (!p.model) return null;
-      const token = this.decode(p.qwenWebTokenEncrypted ?? '');
-      if (!token) return null;
-      return {
-        mode: 'qwen-web',
-        baseUrl: 'https://chat.qwen.ai',
-        apiKey: '',
-        qwenWebToken: token,
-        model: p.model,
-        commitLanguage: normalizeLanguage(p.commitLanguage),
-        timeoutMs: p.timeoutMs,
-        ...sharedV3,
-      };
-    }
+    if (mode === 'qwen-web') return null;
 
     if (!p.baseUrl || !p.model) return null;
     return {
@@ -153,6 +140,7 @@ export class AiConfigStore {
         baseUrl: '',
         apiKeyEncrypted: '',
         qwenWebTokenEncrypted: this.encode(cfg.qwenWebToken || ''),
+        qwenWebCookieEncrypted: this.encode(cfg.qwenWebCookie || ''),
         model: cfg.model,
         timeoutMs: cfg.timeoutMs,
         ...v3Common,
@@ -167,6 +155,7 @@ export class AiConfigStore {
       baseUrl: cfg.baseUrl,
       apiKeyEncrypted: this.encode(cfg.apiKey || ''),
       qwenWebTokenEncrypted: '',
+      qwenWebCookieEncrypted: '',
       model: cfg.model,
       headers: cfg.headers,
       timeoutMs: cfg.timeoutMs,
@@ -188,6 +177,7 @@ export class AiConfigStore {
       baseUrl: '',
       apiKeyEncrypted: '',
       qwenWebTokenEncrypted: '',
+      qwenWebCookieEncrypted: '',
       model: '',
       ...V3_DEFAULTS,
     };

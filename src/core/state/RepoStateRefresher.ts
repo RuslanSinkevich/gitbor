@@ -381,7 +381,7 @@ export class RepoStateRefresher {
         return;
       }
 
-      const logArgs = ['log', '--all', '--date-order', `--format=${GIT_LOG_FORMAT}`];
+      const logArgs = ['log', '--all', '--date-order', '--decorate=full', `--format=${GIT_LOG_FORMAT}`];
       logArgs.push(`--max-count=${effectiveLimit}`);
 
       // Большие монорепо (vscode, chromium) с лимитом 50k коммитов могут не

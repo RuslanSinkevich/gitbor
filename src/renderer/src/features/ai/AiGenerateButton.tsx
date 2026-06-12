@@ -8,7 +8,7 @@ import s from './AiGenerateButton.module.css';
 interface Props {
   stagedCount: number;
   disabled?: boolean;
-  /** Колбек пишет потоковый текст в subject (первая строка) + description (остальное). */
+  /** Оставлено для совместимости с текущим API; commit generation больше не стримит сырой текст в UI. */
   onChunk: (textSoFar: string) => void;
   onDone: (fullText: string) => void;
   /**

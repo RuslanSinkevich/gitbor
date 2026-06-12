@@ -8,6 +8,7 @@ import { ReflogTable } from './ReflogTable';
 import { useAiConfig } from '../ai/useAiConfig';
 import { useAiStream } from '../ai/useAiStream';
 import { AiIcon, AiSections } from '../ai';
+import { AI_ENABLED } from '@core/buildFlags';
 import s from './ReflogDialog.module.css';
 
 interface Props {
@@ -39,7 +40,7 @@ export function ReflogDialog({ onClose, showPrompt }: Props) {
   /* AI-кнопка видна только если фича включена в Settings. UI-gate, финальная
      проверка в main (см. AiHandlers.runFeature). */
   const aiAvailable =
-    aiLoaded && !!config &&
+    AI_ENABLED && aiLoaded && !!config &&
     config.aiEnabled !== false &&
     config.features?.explainReflog !== false;
 

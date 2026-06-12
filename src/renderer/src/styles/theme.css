@@ -67,8 +67,6 @@
   --sg-badge-bg: #3c3c3c;
 
   --sg-titlebar-bg: #323233;
-  --sg-statusbar-bg: var(--sg-surface);
-  --sg-statusbar-fg: var(--sg-foreground);
 
   --sg-sidebar-bg: #252526;
 
@@ -164,8 +162,6 @@
   --sg-badge-bg: #e4e7ea;
 
   --sg-titlebar-bg: #ececee;
-  --sg-statusbar-bg: var(--sg-surface);
-  --sg-statusbar-fg: var(--sg-foreground);
 
   --sg-sidebar-bg: #f3f4f6;
 

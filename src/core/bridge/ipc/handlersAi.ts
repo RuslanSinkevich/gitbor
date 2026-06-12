@@ -89,9 +89,10 @@ export const ipcHandlersAi: HandlerTable = {
       return;
     }
     try {
-      const { text, finishReason } = await ctx.ai.generateCommitMessage(requestId, diff, (delta) => {
-        ctx.send({ type: 'aiChunk', requestId, delta });
-      });
+      // Commit message generation is post-processed before display. Do not
+      // stream raw model chunks here: corporate/Qwen gateways may expose
+      // visible reasoning before the final cleaned Conventional Commit block.
+      const { text, finishReason } = await ctx.ai.generateCommitMessage(requestId, diff, () => {});
       ctx.send({ type: 'aiDone', requestId, text, finishReason });
     } catch (err) {
       const kind = err instanceof AiError ? err.kind : 'error';

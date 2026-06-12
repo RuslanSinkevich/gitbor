@@ -6,7 +6,7 @@ import type { AppState } from '../types';
  * открытого репо в `slices: Map<repoPath, RepoSlice>`. На свитче вкладки
  * UI мгновенно показывает срез нового репо (либо пустой, если кэш ещё не
  * наполнен), без «подмигивания» данными предыдущего. Главное преимущество:
- * `Sidebar`/`BranchStatus`/`Toolbar` и пр. перестают читать чужие
+ * `Sidebar`/`Toolbar` и пр. перестают читать чужие
  * branches/staged/ahead до прихода `stateUpdate` от main.
  */
 export type RepoSlice = Pick<

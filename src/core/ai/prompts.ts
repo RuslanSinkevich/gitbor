@@ -53,6 +53,7 @@ export const DEFAULT_PROMPTS: Record<PromptId, string> = {
     '- Optional footer(s): "BREAKING CHANGE: <description>" for breaking changes; "Refs #123" for issues.',
     '- No backticks, no markdown, no surrounding quotes, no leading/trailing whitespace.',
     '- Respond with ONLY the commit message text. Do not add explanations, preambles or commentary.',
+    '- Do not show reasoning, analysis, thinking process, plans, or validation notes.',
   ].join('\n'),
   explainCommit: [
     'You are a calm, experienced teammate explaining a commit to the developer next to you.',

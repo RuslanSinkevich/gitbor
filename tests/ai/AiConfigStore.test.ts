@@ -104,7 +104,7 @@ describe('AiConfigStore.save / load roundtrip', () => {
     expect(loaded?.timeoutMs).toBe(120_000);
   });
 
-  it('persists qwen-web token separately from apiKey', async () => {
+  it('does not load disabled qwen-web configs', async () => {
     const store = new AiConfigStore(dir, makeCrypto(true));
     await store.save({
       mode: 'qwen-web',
@@ -116,16 +116,7 @@ describe('AiConfigStore.save / load roundtrip', () => {
     const raw = readFileSync(join(dir, 'ai-config.json'), 'utf-8');
     expect(raw).not.toContain('web-tok');
     const loaded = store.load();
-    expect(loaded).toEqual({
-      mode: 'qwen-web',
-      baseUrl: 'https://chat.qwen.ai',
-      apiKey: '',
-      qwenWebToken: 'web-tok',
-      model: 'qwen3-max',
-      commitLanguage: 'auto',
-      timeoutMs: undefined,
-      ...V3_LOADED_DEFAULTS,
-    });
+    expect(loaded).toBeNull();
   });
 
   it('uses atomic write (no .tmp-* files left on success)', async () => {

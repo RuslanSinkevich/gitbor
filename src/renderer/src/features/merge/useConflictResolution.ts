@@ -192,7 +192,7 @@ export function useConflictResolution(file: string, onResolved?: () => void) {
         oursLines.some((_, li) => selected.has(mkKey(seg.bi, 'ours', li))) ||
         theirsLines.some((_, li) => selected.has(mkKey(seg.bi, 'theirs', li)));
       for (let i = 0; i < seg.len; i++) {
-        marks.push({ ratio: (seg.start + i) / total, type: resolved ? 'add' : 'remove' });
+        marks.push({ ratio: (seg.start + i) / total, heightRatio: 1 / total, type: resolved ? 'add' : 'remove' });
       }
     }
     return marks;

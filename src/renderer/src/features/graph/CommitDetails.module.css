@@ -17,6 +17,7 @@
 /* Tabs */
 .tabs {
   display: flex;
+  border-top: 1px solid var(--sg-border);
   border-bottom: 1px solid var(--sg-border);
   flex-shrink: 0;
   background: var(--sg-surface-raised);
@@ -132,10 +133,17 @@
 
 .parents {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .parentLink {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--sg-primary) 10%, transparent);
   font-family: var(--sg-font-mono);
   font-size: 11px;
   color: var(--sg-primary);
@@ -148,9 +156,26 @@
   text-decoration: underline;
 }
 
-/* Changes tab (flat list) */
+/* Changes tab (changed-files tree) */
 .changesTab {
   padding: 8px;
+}
+
+/* Сводка изменённых файлов на вкладке «Коммит» — отделена тонкой линией
+   от метаданных, заголовок приглушён. */
+.summaryFiles {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--sg-border);
+}
+
+.summaryHeader {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--sg-foreground-muted);
+  margin-bottom: 6px;
 }
 
 .fileListItem {

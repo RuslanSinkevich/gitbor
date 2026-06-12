@@ -645,7 +645,7 @@ npm run test:coverage    # Vitest с v8 coverage
 ### Анализ бандла
 
 ```bash
-npm run analyze          # Сборка с rollup-plugin-visualizer → docs/audit/bundle-<today>.html
+npm run analyze          # Сборка с rollup-plugin-visualizer → bundle-analysis/bundle-<today>.html
 ```
 
 Выставляет `GITBOR_ANALYZE=1`, после чего `vite.config.ts` подключает treemap визуализатора (gzip + brotli размеры, `open: false`).

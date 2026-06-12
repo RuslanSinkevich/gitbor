@@ -47,7 +47,7 @@ describe('AiHandlers.getConfig', () => {
     expect(h.getConfig()?.apiKey).toBe('');
   });
 
-  it('masks qwenWebToken in getConfig for qwen-web mode', () => {
+  it('does not expose disabled qwen-web config to UI', () => {
     const h = new AiHandlers(
       makeService({
         mode: 'qwen-web',
@@ -59,31 +59,22 @@ describe('AiHandlers.getConfig', () => {
       makeStore() as never,
     );
     const cfg = h.getConfig();
-    expect(cfg?.mode).toBe('qwen-web');
-    expect(cfg?.qwenWebToken).toBe('••••••••');
-    expect(cfg?.apiKey).toBe('');
+    expect(cfg).toBeNull();
   });
 });
 
 describe('AiHandlers.setConfig', () => {
-  it('preserves qwenWebToken when UI sends masked bullets', async () => {
-    const service = makeService({
-      mode: 'qwen-web',
-      baseUrl: 'https://chat.qwen.ai',
-      apiKey: '',
-      qwenWebToken: 'tok-old',
-      model: 'qwen3-max',
-    });
+  it('rejects disabled qwen-web config', async () => {
+    const service = makeService(null);
     const h = new AiHandlers(service, makeStore() as never);
-    await h.setConfig({
+    await expect(h.setConfig({
       mode: 'qwen-web',
       baseUrl: 'https://chat.qwen.ai',
       apiKey: '',
-      qwenWebToken: '••••••••',
-      model: 'qwen3-coder-plus',
-    });
-    expect(service.getConfig()?.qwenWebToken).toBe('tok-old');
-    expect(service.getConfig()?.model).toBe('qwen3-coder-plus');
+      qwenWebToken: 'tok',
+      model: 'qwen3-max',
+    })).rejects.toMatchObject({ kind: 'config' });
+    expect(service.getConfig()).toBeNull();
   });
 
   it('null clears both service and store', async () => {

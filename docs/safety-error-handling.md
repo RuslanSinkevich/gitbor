@@ -125,4 +125,4 @@ Write-операции, добавляющие 1 коммит сверху (`com
 - `refreshGraph(50000)` — fire-and-forget, графа догрузится фоном.
 
 На монорепо (vscode / chromium) экономит 3-8 секунд между `git commit`
-и отзывчивым UI. Детали — `docs/performance/refresh-investigation.md`.
+и отзывчивым UI.

@@ -45,7 +45,11 @@ export function DiffScrollMinimap({ version, children }: Props) {
       const type = MARK_TYPES[n.dataset.diffMark ?? ''];
       if (!type) return;
       const top = n.getBoundingClientRect().top - base;
-      next.push({ ratio: Math.min(1, Math.max(0, top / fullH)), type });
+      next.push({
+        ratio: Math.min(1, Math.max(0, top / fullH)),
+        heightRatio: Math.min(1, Math.max(0, n.offsetHeight / fullH)),
+        type,
+      });
     });
     setMarks(next);
   }, []);

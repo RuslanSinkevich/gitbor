@@ -19,6 +19,16 @@ interface Props {
 const FALLBACK_ADD = '#2ea043';
 const FALLBACK_DEL = '#f85149';
 
+function getLineStep(marks: ChangeMark[]): number {
+  const sorted = [...marks].sort((a, b) => a.ratio - b.ratio);
+  let step = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const diff = sorted[i].ratio - sorted[i - 1].ratio;
+    if (diff > 0 && diff < step) step = diff;
+  }
+  return step === 1 ? 0 : step;
+}
+
 /**
  * Fork-style полоса-обзор изменений справа от diff. Метки add/remove/modify
  * рисуются на canvas (один проход на смену rows, не на каждый скролл), поверх
@@ -54,12 +64,33 @@ export function DiffMinimap({ marks, scrollTop, viewport, content, onSeek }: Pro
       remove: delColor,
       modify: addColor,
     };
-    // Высота метки = доля одной строки, но не тоньше 2px — чтобы единичные
-    // изменения были заметны на длинном файле (как overview-ruler в VS).
-    const markH = Math.max(2, Math.min(4, h / Math.max(1, marks.length || 1)));
-    for (const m of marks) {
-      ctx.fillStyle = colorByType[m.type];
-      ctx.fillRect(0, m.ratio * h, w, markH);
+    const sortedMarks = [...marks].sort((a, b) => a.ratio - b.ratio);
+    const lineStep = getLineStep(sortedMarks);
+    // Одна метка = одна строка. На коротких файлах строка может занимать много
+    // пикселей в minimap, поэтому соседние строки надо сливать в диапазон, а не
+    // рисовать фиксированные 2px штрихи.
+    const markH = Math.max(2, lineStep > 0 ? lineStep * h : 2);
+
+    for (let i = 0; i < sortedMarks.length; i++) {
+      const start = sortedMarks[i];
+      const startHeight = start.heightRatio || lineStep || (2 / Math.max(1, h));
+      let endRatio = start.ratio + startHeight;
+      while (
+        i + 1 < sortedMarks.length &&
+        sortedMarks[i + 1].type === start.type &&
+        sortedMarks[i + 1].ratio <= endRatio + Math.max(lineStep, startHeight) * 0.5
+      ) {
+        i++;
+        endRatio = Math.max(
+          endRatio,
+          sortedMarks[i].ratio + (sortedMarks[i].heightRatio || lineStep || startHeight),
+        );
+      }
+
+      ctx.fillStyle = colorByType[start.type];
+      const y = start.ratio * h;
+      const height = Math.max(markH, endRatio * h - y);
+      ctx.fillRect(0, y, w, height);
     }
   }, [marks]);
 

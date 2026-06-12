@@ -9,7 +9,7 @@ import type { RequestCheckout } from '../checkout';
 import type { RequestApplyStash } from '../stash';
 import { RepoManager } from '../repo-manager';
 import { RepoTabs } from '../repo-tabs';
-import { BranchStatus, Sidebar } from '../sidebar';
+import { Sidebar } from '../sidebar';
 import { MergeBanner, shouldShowMergeBanner } from '../merge';
 import { Toolbar } from '../toolbar';
 import { ChangesView, CommitsView, type RightPanel } from '../layout';
@@ -269,22 +269,6 @@ export function AppWorkspace({
         )}
       </main>
 
-      <footer className={s.statusbar}>
-        {hasRepo && !repoManagerVisible ? (
-          <BranchStatus
-            currentBranch={state.currentBranch}
-            ahead={state.ahead}
-            behind={state.behind}
-            localChangesCount={localChangesCount}
-            isOperationRunning={state.isOperationRunning}
-            currentOperation={state.currentOperation}
-            onPull={() => onPull(false)}
-            onPush={() => onPush(false)}
-          />
-        ) : (
-          <span>{loc.statusbar.noRepo}</span>
-        )}
-      </footer>
     </>
   );
 }

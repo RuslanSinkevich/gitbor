@@ -39,6 +39,7 @@ export function useRestoreRepoTabs({
   const restoreActiveTabDone = useRef(false);
   const targetActiveRepoRef = useRef<string | null>(null);
   const [isRestoringTabs, setIsRestoringTabs] = useState(false);
+  const [openReposRestoreDone, setOpenReposRestoreDone] = useState(false);
 
   useEffect(() => {
     if (restoreLastRepoAttempted.current) return;
@@ -50,14 +51,22 @@ export function useRestoreRepoTabs({
 
     if (openPaths.length > 0) {
       if (last && openPaths.length > 1) setIsRestoringTabs(true);
-      for (const p of openPaths) {
-        void invokeCommand({ type: 'openRepo', path: p }).catch(() => {
-          // Репо удалили/переименовали — следующий saveOpenRepos перепишет список.
-        });
-      }
-      return;
+      let cancelled = false;
+      void (async () => {
+        for (const p of openPaths) {
+          if (cancelled) return;
+          try {
+            await invokeCommand({ type: 'openRepo', path: p });
+          } catch {
+            // Репо удалили/переименовали — следующий saveOpenRepos перепишет список.
+          }
+        }
+        if (!cancelled) setOpenReposRestoreDone(true);
+      })();
+      return () => { cancelled = true; };
     }
 
+    setOpenReposRestoreDone(true);
     if (last && !repoPath) {
       void invokeCommand({ type: 'openRepo', path: last }).catch(() => {
         clearLastActiveRepo();
@@ -76,11 +85,13 @@ export function useRestoreRepoTabs({
 
   useEffect(() => {
     if (!restoreLastRepoAttempted.current) return;
+    if (!openReposRestoreDone) return;
     saveOpenRepos(openRepos.map(r => r.path));
-  }, [openRepos]);
+  }, [openRepos, openReposRestoreDone]);
 
   useEffect(() => {
     if (restoreActiveTabDone.current) return;
+    if (!openReposRestoreDone) return;
     if (openRepos.length === 0) return;
 
     const last = targetActiveRepoRef.current;
@@ -99,7 +110,7 @@ export function useRestoreRepoTabs({
       setIsRestoringTabs(false);
     }, 400);
     return () => clearTimeout(timer);
-  }, [openRepos, activeRepoIndex, switchRepoFast]);
+  }, [openRepos, activeRepoIndex, switchRepoFast, openReposRestoreDone]);
 
   return { isRestoringTabs };
 }

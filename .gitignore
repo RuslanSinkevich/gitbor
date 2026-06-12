@@ -34,7 +34,7 @@ npm-debug.log*
 
 # Electron
 out/
-release/
+release*/
 
 # Test artifacts
 tests/**/__atomic_test__/
@@ -45,7 +45,9 @@ coverage/
 resources/git/
 
 COMMIT_TMP.txt
-docs/audit/.commit-msg-tmp
+
+# Bundle analyzer output (npm run analyze)
+bundle-analysis/
 
 # Playwright
 tests-e2e/_report/

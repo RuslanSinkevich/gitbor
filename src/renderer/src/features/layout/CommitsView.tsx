@@ -61,11 +61,11 @@ export function CommitsView({
   const graphHeightKey = buildStorageKey('sg-layout:commits-graph-height', state.repoPath);
   const detailWidthKey = buildStorageKey('sg-layout:commits-detail-width', state.repoPath);
 
-  /* Активная вкладка деталей коммита. На вкладке «Коммит» правая панель
-     диффа не нужна (там нет выбора конкретного файла) — показываем её
-     только на «Изменения»/«Дерево файлов». */
+  /* Активная вкладка деталей коммита. Полноценный diff живёт только на
+     «Изменения»: на «Коммит» (summary) и «Дерево файлов» (snapshot) клик по
+     файлу переключает на «Изменения», поэтому правую панель показываем там. */
   const [detailTab, setDetailTab] = useState<'commit' | 'changes' | 'tree'>('commit');
-  const showDiffPane = !!diffTarget && detailTab !== 'commit';
+  const showDiffPane = !!diffTarget && detailTab === 'changes';
 
   /* Режим сравнения (hash вида `<from>..<to>`) не имеет данных коммита —
      вкладка «Коммит» для него пустая, а правая панель диффа на ней скрыта.

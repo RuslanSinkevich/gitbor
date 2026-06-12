@@ -33,10 +33,10 @@ function cspPlugin(): Plugin {
 }
 
 // GITBOR_ANALYZE=1 — добавляем rollup-plugin-visualizer и кладём отчёт
-// в docs/audit/bundle-<today>.html. Используется через `npm run analyze`.
+// в bundle-analysis/bundle-<today>.html (gitignored). Через `npm run analyze`.
 const ANALYZE = process.env.GITBOR_ANALYZE === '1';
 const today = new Date().toISOString().slice(0, 10);
-const analyzeOut = path.resolve(__dirname, '../../docs/audit', `bundle-${today}.html`);
+const analyzeOut = path.resolve(__dirname, '../../bundle-analysis', `bundle-${today}.html`);
 
 // Bundle size regression gate. baseline 2026-05-28 (после Solo/Hide + AI
 // settings redesign + Tier-2 фич): главный chunk ~392 KB raw / ~123 KB gzip.

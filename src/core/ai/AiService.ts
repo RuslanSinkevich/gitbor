@@ -1,9 +1,9 @@
 import { buildCommitSystemPrompt, buildCommitUserPrompt, resolvePrompt } from './prompts';
 import type { AiProvider } from './providers/base';
 import { OpenAiCompatibleProvider } from './providers/OpenAiCompatibleProvider';
-import { QwenWebProvider } from './providers/QwenWebProvider';
 import { AiError, type AiCompletionResult, type AiDebugSnapshot, type AiFeatureId, type AiProviderConfig } from './types';
 import { mainLogger } from '../utils/Logger';
+import { isConventionalCommitSubject } from '../git/commitMessageFormat';
 
 interface RunPromptOptions {
   systemPrompt: string;
@@ -54,7 +54,7 @@ export class AiService {
     if (!c?.model?.trim()) return false;
     const mode = c.mode ?? 'openai-compatible';
     if (mode === 'qwen-web') {
-      return !!(c.qwenWebToken || '').trim();
+      return false;
     }
     return !!c.baseUrl?.trim();
   }
@@ -120,7 +120,7 @@ export class AiService {
     if (!this.config) throw new AiError('AI provider is not configured', 'config');
     const mode = this.config.mode ?? 'openai-compatible';
     if (mode === 'qwen-web') {
-      return new QwenWebProvider(this.config);
+      throw new AiError('Qwen Web (chat.qwen.ai) is disabled because Aliyun WAF blocks non-browser requests. Use Qwen API or Qwen Corporate instead.', 'config');
     }
     return new OpenAiCompatibleProvider(this.config);
   }
@@ -161,7 +161,10 @@ export class AiService {
     if (!override) return this.ensureProvider();
     const cfg = { ...this.config, model: override };
     const mode = cfg.mode ?? 'openai-compatible';
-    return mode === 'qwen-web' ? new QwenWebProvider(cfg) : new OpenAiCompatibleProvider(cfg);
+    if (mode === 'qwen-web') {
+      throw new AiError('Qwen Web (chat.qwen.ai) is disabled because Aliyun WAF blocks non-browser requests. Use Qwen API or Qwen Corporate instead.', 'config');
+    }
+    return new OpenAiCompatibleProvider(cfg);
   }
 }
 
@@ -179,5 +182,16 @@ function postProcessCommit(raw: string, stripThink = false): string {
   s = s.trim();
   s = s.replace(/^```[\w-]*\s*\n?/, '').replace(/\n?```\s*$/, '');
   s = s.replace(/^["'«]+/, '').replace(/["'»]+$/, '');
+  s = extractCommitMessageBlock(s);
   return s.trim();
+}
+
+function extractCommitMessageBlock(raw: string): string {
+  const lines = raw.split(/\r?\n/);
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (isConventionalCommitSubject(lines[i])) start = i;
+  }
+  if (start === -1) return raw;
+  return lines.slice(start).join('\n').trim();
 }

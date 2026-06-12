@@ -2,10 +2,8 @@
 
 > English version: [docs/cross-platform-checklist.md](../cross-platform-checklist.md)
 
-> Live-документ актуального состояния. Закрытые пункты переехали в исторические
-> отчёты `docs/audit/cross-platform-2026-05-09-3.md` и `cross-platform-2026-05-10.md`.
-> Здесь — только открытые задачи и то, что нужно проверить руками после первого
-> запуска на macOS / Linux.
+> Live-документ актуального состояния. Здесь — только открытые задачи и то, что
+> нужно проверить руками после первого запуска на macOS / Linux.
 
 ## Открытые пункты по платформам
 
@@ -17,11 +15,11 @@
 | Linux | Snap / Flatpak target в `package.json/build.linux.target` | средний |
 | Linux | Реальный дизайн-логотип `resources/icon.png` (см. выше) | средний |
 | Windows | Microsoft Store Tile icons | низкий — только для Store-публикации |
-| Cross | Bundled portable git для Windows (MinGit ~30 МБ + Settings UI выбора git + GPL-2 attribution в About) | низкий — продуктовое решение, не техническое. Подробнее: `docs/audit/cross-platform-2026-05-10.md`, §7 |
+| Cross | Bundled portable git для Windows (MinGit ~30 МБ + Settings UI выбора git + GPL-2 attribution в About) | низкий — продуктовое решение, не техническое |
 
 ## Что вне scope
 
-- **Apple Developer ID** — реальная подпись + нотаризация требует платной учётки, не настраиваем. `mac.identity: null` + `mac.notarize: false` явно. Подробнее: `docs/audit/cross-platform-2026-05-09-3.md`.
+- **Apple Developer ID** — реальная подпись + нотаризация требует платной учётки, не настраиваем. `mac.identity: null` + `mac.notarize: false` явно.
 - **Bundled git** — GitBor использует системный git (`PATH`-lookup в `GitExecutor`). На Windows нужен Git for Windows, на macOS — Xcode CLT или brew, на Linux — пакет менеджера. `checkGitAvailable` + `showGitNotFoundMessage` ловят отсутствие git на старте.
 - **Cross-build из CI** — релизы macOS / Linux собираются на соответствующих runner'ах. Подписанный macOS-билд с Windows-runner невозможен (нужен `codesign` из Xcode).
 
@@ -36,9 +34,3 @@
 7. `FileWatcher` на репо с >1000 файлов в верхнем уровне на macOS (FSEvents → `fs.watch` fallback в chokidar 4).
 8. На macOS — поведение `mkdirSync({ mode: 0o700 })` для `~/.ssh/` (ACL применяется как ожидается).
 9. На Linux — `safeStorage` через `secret-service`: проверить, что AI-секреты пишутся (а не фолбэк на `plain:`) при наличии KWallet / gnome-keyring.
-
-## Связанные исторические отчёты
-
-- `docs/audit/cross-platform-2026-05-09-3.md` — стрим 3 (переключение на Wayland, `pathSecurity` на darwin, hardened runtime + entitlements, i18n `LongPathSuggester`).
-- `docs/audit/cross-platform-2026-05-10.md` — стрим 4 (placeholder-иконки, NSIS `LongPathsEnabled`, метаданные deb, workflow `release-pack`, `repoPathGuard /Applications`).
-- `docs/audit/hardening-2026-05-09-2.md` — `LongPathSuggester` на Windows.

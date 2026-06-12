@@ -17,6 +17,7 @@ interface Props {
   baseUrl: string;
   apiKey: string;
   qwenWebToken: string;
+  qwenWebCookie: string;
   model: string;
   systemInUser: boolean;
   stripThinkTags: boolean;
@@ -32,6 +33,7 @@ interface Props {
   onBaseUrlChange: (v: string) => void;
   onApiKeyChange: (v: string) => void;
   onQwenWebTokenChange: (v: string) => void;
+  onQwenWebCookieChange: (v: string) => void;
   onModelChange: (v: string) => void;
   /** Послать `aiTestConnection` с текущим payload — состояние крутилки/результата живёт в Dialog. */
   onTest: () => void;
@@ -57,11 +59,11 @@ export function ConnectionSection(props: Props) {
   const loc = t().ai;
   const grouped = useMemo(() => getPresetsByGroup(), []);
   const presetId = useMemo(
-    () => detectPreset(props.mode, props.baseUrl, props.model, {
+    () => detectPreset(props.mode, props.baseUrl, {
       systemInUser: props.systemInUser,
       stripThinkTags: props.stripThinkTags,
     }),
-    [props.mode, props.baseUrl, props.model, props.systemInUser, props.stripThinkTags],
+    [props.mode, props.baseUrl, props.systemInUser, props.stripThinkTags],
   );
 
   const handlePreset = useCallback((id: string) => {
@@ -155,6 +157,20 @@ export function ConnectionSection(props: Props) {
               spellCheck={false}
             />
             <span className={s.hint}>{loc.qwenWebTokenHint}</span>
+          </label>
+
+          <label className={s.field}>
+            <span className={s.label}>{loc.qwenWebCookie}</span>
+            <input
+              className="sg-input"
+              type="password"
+              value={props.qwenWebCookie}
+              onChange={(e) => props.onQwenWebCookieChange(e.target.value)}
+              placeholder={loc.qwenWebCookiePlaceholder}
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <span className={s.hint}>{loc.qwenWebCookieHint}</span>
           </label>
 
           <p className={s.hint}>{loc.qwenWebHowto}</p>

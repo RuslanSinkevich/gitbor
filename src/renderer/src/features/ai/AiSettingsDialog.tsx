@@ -64,6 +64,7 @@ export function AiSettingsDialog({ onClose }: Props) {
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [qwenWebToken, setQwenWebToken] = useState('');
+  const [qwenWebCookie, setQwenWebCookie] = useState('');
   const [model, setModel] = useState('');
 
   const [responseLanguage, setResponseLanguage] = useState<AiResponseLanguage>('auto');
@@ -104,6 +105,7 @@ export function AiSettingsDialog({ onClose }: Props) {
         baseUrl: 'https://chat.qwen.ai',
         apiKey: '',
         qwenWebToken,
+        qwenWebCookie: qwenWebCookie.trim() || undefined,
         ...common,
       };
     }
@@ -117,7 +119,7 @@ export function AiSettingsDialog({ onClose }: Props) {
       ...common,
     };
   }, [
-    mode, baseUrl, apiKey, qwenWebToken, model,
+    mode, baseUrl, apiKey, qwenWebToken, qwenWebCookie, model,
     responseLanguage, prompts, features, modelOverrides,
     aiEnabled, allowCloudCodeShare,
     systemInUser, qwenDisableThinking, stripThinkTags, debugLogging,
@@ -133,6 +135,7 @@ export function AiSettingsDialog({ onClose }: Props) {
         setBaseUrl(msg.config?.baseUrl ?? '');
         setApiKey(msg.config?.apiKey ?? '');
         setQwenWebToken(msg.config?.qwenWebToken ?? '');
+        setQwenWebCookie(msg.config?.qwenWebCookie ?? '');
         setModel(msg.config?.model ?? '');
         setResponseLanguage(msg.config?.aiResponseLanguage ?? msg.config?.commitLanguage ?? 'auto');
         setPrompts(msg.config?.prompts ?? {});
@@ -174,6 +177,7 @@ export function AiSettingsDialog({ onClose }: Props) {
       setModel('');
       setApiKey('');
       setQwenWebToken('');
+      setQwenWebCookie('');
       setSystemInUser(false);
       setQwenDisableThinking(false);
       setStripThinkTags(false);
@@ -186,10 +190,12 @@ export function AiSettingsDialog({ onClose }: Props) {
       setModel(preset.model);
       setApiKey('');
       setQwenWebToken('');
+      setQwenWebCookie('');
     } else {
       setBaseUrl(preset.baseUrl);
       setModel(preset.model);
       setQwenWebToken('');
+      setQwenWebCookie('');
       if (!preset.needsKey) setApiKey('');
     }
     setSystemInUser(preset.defaults?.systemInUser === true);
@@ -222,6 +228,7 @@ export function AiSettingsDialog({ onClose }: Props) {
     setBaseUrl('');
     setApiKey('');
     setQwenWebToken('');
+    setQwenWebCookie('');
     setModel('');
     setResponseLanguage('auto');
     setPrompts({});
@@ -281,6 +288,7 @@ export function AiSettingsDialog({ onClose }: Props) {
             baseUrl={baseUrl}
             apiKey={apiKey}
             qwenWebToken={qwenWebToken}
+            qwenWebCookie={qwenWebCookie}
             model={model}
             systemInUser={systemInUser}
             stripThinkTags={stripThinkTags}
@@ -292,6 +300,7 @@ export function AiSettingsDialog({ onClose }: Props) {
             onBaseUrlChange={(v) => { setBaseUrl(v); setTest({ status: 'idle' }); }}
             onApiKeyChange={(v) => { setApiKey(v); setTest({ status: 'idle' }); }}
             onQwenWebTokenChange={(v) => { setQwenWebToken(v); setTest({ status: 'idle' }); }}
+            onQwenWebCookieChange={(v) => { setQwenWebCookie(v); setTest({ status: 'idle' }); }}
             onModelChange={(v) => { setModel(v); setTest({ status: 'idle' }); }}
             onTest={handleTest}
             testLabel={loc.test}
@@ -351,7 +360,7 @@ export function AiSettingsDialog({ onClose }: Props) {
         );
     }
   }, [
-    activeTab, mode, baseUrl, apiKey, qwenWebToken, model,
+    activeTab, mode, baseUrl, apiKey, qwenWebToken, qwenWebCookie, model,
     systemInUser, stripThinkTags, qwenDisableThinking, debugLogging,
     allowCloudCodeShare, prompts, features, modelOverrides,
     responseLanguage, aiEnabled, debugBusy, debugSnapshot, test,

@@ -1,11 +1,12 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { t } from '../../i18n';
-import { postCommand, copyToClipboard } from '../../api';
+import { postCommand, copyToClipboard, invokeCommand } from '../../api';
 import type { CommitDetail, FileChange, FileStatus } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { AuthorAvatar } from '../../ui/AuthorAvatar';
 import { CommitExplainerButton, CommitExplainerOutput, type CommitExplainerState } from '../ai';
 import { buildFileTree, FileTreeItem } from '../changes/FileTree';
+import { AI_ENABLED } from '@core/buildFlags';
 import s from './CommitDetails.module.css';
 
 type Tab = 'commit' | 'changes' | 'tree';
@@ -61,15 +62,46 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
   const loc = t();
   const [tabInternal, setTabInternal] = useState<Tab>('commit');
   const tab = activeTab ?? tabInternal;
-  const setTab = (next: Tab) => {
+  const setTab = useCallback((next: Tab) => {
     setTabInternal(next);
     onTabChange?.(next);
-  };
-  /* Дерево строим тем же builder'ом, что и staged/unstaged в LocalChanges,
-     и рендерим тем же FileTreeItem — чтобы вид совпадал во всех трёх местах.
-     FileChange → FileStatus: добавляем staged:false (в дереве коммита оно
-     не используется, нужно только для совместимости типа). */
+  }, [onTabChange]);
+  /* File Tree — полный снимок дерева репозитория на коммите (git ls-tree),
+     а НЕ только изменённые файлы. Тянем пути по invoke лениво (при открытии
+     вкладки) и кешируем по hash, чтобы не дёргать git при каждом ре-рендере
+     и переключении вкладок. */
+  const [treePaths, setTreePaths] = useState<string[]>([]);
+  const [treeLoading, setTreeLoading] = useState(false);
+  const treeCache = useRef<Map<string, string[]>>(new Map());
+
+  useEffect(() => {
+    if (tab !== 'tree' || !detail) return;
+    const hash = detail.hash;
+    // Снимок дерева для диапазона сравнения (`a..b`) не определён — пропускаем.
+    if (hash.includes('..')) { setTreePaths([]); return; }
+    const cached = treeCache.current.get(hash);
+    if (cached) { setTreePaths(cached); return; }
+    let cancelled = false;
+    setTreeLoading(true);
+    invokeCommand({ type: 'getCommitTree', hash })
+      .then((res) => {
+        const paths = Array.isArray(res) ? (res as string[]) : [];
+        treeCache.current.set(hash, paths);
+        if (!cancelled) setTreePaths(paths);
+      })
+      .catch(() => { if (!cancelled) setTreePaths([]); })
+      .finally(() => { if (!cancelled) setTreeLoading(false); });
+    return () => { cancelled = true; };
+  }, [tab, detail]);
+
   const tree = useMemo(() => {
+    if (treePaths.length === 0) return [];
+    // Снимок дерева: статус diff'а тут не имеет смысла — рендерим plain.
+    const asStatus: FileStatus[] = treePaths.map((path) => ({ path, status: 'M', staged: false }));
+    return buildFileTree(asStatus);
+  }, [treePaths]);
+
+  const changedTree = useMemo(() => {
     if (!detail) return [];
     const asStatus: FileStatus[] = detail.files.map((f) => ({
       path: f.path,
@@ -78,10 +110,18 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
     }));
     return buildFileTree(asStatus);
   }, [detail]);
+
+  /* Клик по файлу в summary (вкладка «Коммит») или в дереве: переключаем на
+     «Изменения» — единственное место с полноценным diff — и открываем файл. */
+  const openInChanges = useCallback((path: string, hash: string) => {
+    setTab('changes');
+    if (onOpenDiff) onOpenDiff(path, hash);
+    else postCommand({ type: 'openDiff', file: path, hash });
+  }, [onOpenDiff, setTab]);
   const isCompareRange = detail?.hash.includes('..') ?? false;
   /* Кнопку держим в строке табов (видна при любой высоте панели), результат
      рендерим под subject. Сам стрим живёт в CommitsView (см. проп explainer). */
-  const showExplainer = !isCompareRange && !!onOpenAiSettings && !!detail;
+  const showExplainer = AI_ENABLED && !isCompareRange && !!onOpenAiSettings && !!detail;
 
   const getFileMenuItems = useCallback((file: FileChange, commitHash: string): SgContextMenuItem[] => {
     const loc2 = t();
@@ -182,21 +222,45 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
                 </div>
               )}
             </div>
+
+            {/* Компактная сводка изменённых файлов. Клик открывает файл во
+                вкладке «Изменения» — полноценный diff живёт только там. */}
+            <div className={s.summaryFiles}>
+              <div className={s.summaryHeader}>
+                {loc.details.changes} ({detail.files.length})
+              </div>
+              {detail.files.map(file => (
+                <div
+                  key={file.path}
+                  className={`${s.fileListItem} ${activePath === file.path ? s.fileListItemActive : ''}`}
+                  onClick={() => openInChanges(file.path, detail.hash)}
+                  onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, getFileMenuItems(file, detail.hash)); }}
+                >
+                  <span className={`${s.fileStatus} ${statusCls(file.status)}`}>{statusIcon(file.status)}</span>
+                  <span className={s.filePath}>{file.path}</span>
+                </div>
+              ))}
+              {detail.files.length === 0 && (
+                <div className={s.emptyFiles}>{loc.details.noChangedFiles}</div>
+              )}
+            </div>
           </div>
         )}
 
         {tab === 'changes' && (
           <div className={s.changesTab}>
-            {detail.files.map(file => (
-              <div
-                key={file.path}
-                className={`${s.fileListItem} ${activePath === file.path ? s.fileListItemActive : ''}`}
-                onClick={() => onOpenDiff ? onOpenDiff(file.path, detail.hash) : postCommand({ type: 'openDiff', file: file.path, hash: detail.hash })}
-                onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, getFileMenuItems(file, detail.hash)); }}
-              >
-                <span className={`${s.fileStatus} ${statusCls(file.status)}`}>{statusIcon(file.status)}</span>
-                <span className={s.filePath}>{file.path}</span>
-              </div>
+            {changedTree.map(node => (
+              <FileTreeItem
+                key={`${detail.hash}:changes:${node.path}`}
+                node={node}
+                depth={0}
+                section="unstaged"
+                activePath={activePath}
+                activeSection="unstaged"
+                defaultExpanded
+                onClickFile={(file) => openInChanges(file.path, detail.hash)}
+                onContextMenu={(e, file) => onContextMenu?.(e, getFileMenuItems(file, detail.hash))}
+              />
             ))}
             {detail.files.length === 0 && (
               <div className={s.emptyFiles}>{loc.details.noChangedFiles}</div>
@@ -206,15 +270,23 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
 
         {tab === 'tree' && (
           <div className={s.treeTab}>
+            {treeLoading && tree.length === 0 && (
+              <div className={s.emptyFiles}>{loc.details.loadingTree}</div>
+            )}
+            {!treeLoading && tree.length === 0 && (
+              <div className={s.emptyFiles}>{loc.details.emptyTree}</div>
+            )}
             {tree.map(node => (
               <FileTreeItem
-                key={node.path}
+                key={`${detail.hash}:tree:${node.path}`}
                 node={node}
                 depth={0}
                 section="unstaged"
                 activePath={activePath}
                 activeSection="unstaged"
-                onClickFile={(file) => onOpenDiff ? onOpenDiff(file.path, detail.hash) : postCommand({ type: 'openDiff', file: file.path, hash: detail.hash })}
+                plain
+                defaultExpanded={false}
+                onClickFile={(file) => openInChanges(file.path, detail.hash)}
                 onContextMenu={(e, file) => onContextMenu?.(e, getFileMenuItems(file, detail.hash))}
               />
             ))}

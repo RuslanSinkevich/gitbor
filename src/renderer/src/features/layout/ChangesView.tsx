@@ -122,6 +122,7 @@ export function ChangesView({
               )}
             </div>
             <CommitBar
+              repoPath={state.repoPath}
               stagedCount={state.stagedFiles.length}
               isOperationRunning={state.isOperationRunning}
               onOpenAiSettings={onOpenAiSettings}

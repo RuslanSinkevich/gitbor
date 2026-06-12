@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { Commit, MainEvent } from '../../types';
 import { onMainEvent, postCommand } from '../../api';
+import { AI_ENABLED } from '@core/buildFlags';
 
 export type SemanticSearchState =
   | { status: 'idle' }
@@ -43,7 +44,7 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
   /* Триггер запроса для AI-режима с debounce. Очищение текста и переход
      в обычный режим сбрасывают semantic в idle. */
   useEffect(() => {
-    if (!aiMode) {
+    if (!AI_ENABLED || !aiMode) {
       setSemantic({ status: 'idle' });
       return;
     }
@@ -61,7 +62,7 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
 
   const searchMatches = useMemo(() => {
     if (!searchQuery.trim()) return [];
-    if (aiMode) {
+    if (AI_ENABLED && aiMode) {
       if (semantic.status !== 'done') return [];
       const hashes = new Set(semantic.hashes);
       const out: number[] = [];
@@ -114,6 +115,7 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
   useEffect(() => { setSearchMatchIdx(0); }, [searchQuery, aiMode]);
 
   const toggleAiMode = useCallback(() => {
+    if (!AI_ENABLED) return;
     setAiMode((v) => !v);
     setSemantic({ status: 'idle' });
   }, []);

@@ -101,7 +101,7 @@ describe('i18n structure', () => {
       'app', 'menu', 'toolbar', 'submodules', 'sidebar', 'graph', 'details',
       'changes', 'diff', 'fileHistory', 'blame', 'rebaseEditor', 'mergeEditor',
       'conflictPanel', 'mergeDialog', 'mergeBanner', 'conflictDialog',
-      'contextMenu', 'merge', 'dialog', 'statusbar', 'recovery', 'repoManager',
+      'contextMenu', 'merge', 'dialog', 'recovery', 'repoManager',
       'operations', 'repoSettings', 'sshKeys', 'showcase',
       'lfs', 'worktrees', 'hooks', 'bisect', 'reflog',
     ];

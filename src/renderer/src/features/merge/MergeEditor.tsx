@@ -7,6 +7,7 @@ import { useAiConfig } from '../ai/useAiConfig';
 import { useAiStream } from '../ai/useAiStream';
 import { AiIcon, AiSections } from '../ai';
 import { DiffMinimap } from '../diff/DiffMinimap';
+import { AI_ENABLED } from '@core/buildFlags';
 import s from './Merge.module.css';
 
 interface Props {
@@ -26,7 +27,7 @@ export function MergeEditor({ file, sourceBranch, targetBranch, onResolved, onCa
   const aiStream = useAiStream();
 
   const aiAvailable =
-    aiLoaded && !!config &&
+    AI_ENABLED && aiLoaded && !!config &&
     config.aiEnabled !== false &&
     config.features?.analyzeConflict !== false;
 

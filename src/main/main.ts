@@ -21,6 +21,7 @@ import { configureMainLogger, mainLogger } from '../core/utils/Logger';
 import { setupGracefulShutdown } from './gracefulShutdown';
 import { computeAiOrigins } from './cspOrigins';
 import { setupAppUpdater } from './AppUpdater';
+import { AI_ENABLED } from '../core/buildFlags';
 
 let mainWindow: BrowserWindow | null = null;
 let messageBridge: MessageBridge | null = null;
@@ -260,16 +261,18 @@ async function initServices(): Promise<{ aborted: boolean }> {
   stateManager = new StateManager(repoRegistry);
   commandHandler = new CommandHandler(stateManager);
 
-  const aiStore = new AiConfigStore(app.getPath('userData'), {
-    isEncryptionAvailable: () => {
-      try { return safeStorage.isEncryptionAvailable(); } catch { return false; }
-    },
-    encryptString: (plain) => safeStorage.encryptString(plain),
-    decryptString: (buf) => safeStorage.decryptString(buf),
-  });
-  aiService = new AiService(aiStore.load());
-  const aiDebug = new AiDebugStore(app.getPath('userData'));
-  const aiHandlers = new AiHandlers(aiService, aiStore, aiDebug);
+  const aiStore = AI_ENABLED
+    ? new AiConfigStore(app.getPath('userData'), {
+      isEncryptionAvailable: () => {
+        try { return safeStorage.isEncryptionAvailable(); } catch { return false; }
+      },
+      encryptString: (plain) => safeStorage.encryptString(plain),
+      decryptString: (buf) => safeStorage.decryptString(buf),
+    })
+    : null;
+  aiService = aiStore ? new AiService(aiStore.load()) : null;
+  const aiDebug = AI_ENABLED ? new AiDebugStore(app.getPath('userData')) : undefined;
+  const aiHandlers = aiStore && aiService ? new AiHandlers(aiService, aiStore, aiDebug) : null;
 
   messageBridge = new MessageBridge(commandHandler, stateManager, aiHandlers);
 

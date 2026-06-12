@@ -5,6 +5,7 @@ import { postCommand, onMainEvent } from '../../api';
 import type { MainEvent } from '../../types';
 import { useAiConfig } from '../ai/useAiConfig';
 import { AiIcon } from '../ai';
+import { AI_ENABLED } from '@core/buildFlags';
 
 interface Props {
   onClose: () => void;
@@ -52,7 +53,7 @@ export function StashCreateDialog({ onClose, onSubmit }: Props) {
   }, [busy, value]);
 
   const aiAvailable =
-    loaded && !!config &&
+    AI_ENABLED && loaded && !!config &&
     config.aiEnabled !== false &&
     config.features?.stashName !== false;
 

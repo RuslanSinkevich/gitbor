@@ -87,14 +87,7 @@ export class AiHandlers {
     const cfg = this.service.getConfig();
     if (!cfg) return null;
     const mode: AiConnectionMode = cfg.mode ?? 'openai-compatible';
-    if (mode === 'qwen-web') {
-      return {
-        ...cfg,
-        baseUrl: cfg.baseUrl || 'https://chat.qwen.ai',
-        apiKey: '',
-        qwenWebToken: cfg.qwenWebToken ? '••••••••' : '',
-      };
-    }
+    if (mode === 'qwen-web') return null;
     return {
       ...cfg,
       apiKey: cfg.apiKey ? '••••••••' : '',
@@ -108,6 +101,9 @@ export class AiHandlers {
       this.service.setConfig(null);
       await this.store.clear();
       return;
+    }
+    if ((cfg.mode ?? 'openai-compatible') === 'qwen-web') {
+      throw new AiError('Qwen Web (chat.qwen.ai) is disabled. Use Qwen API or Qwen Corporate instead.', 'config');
     }
     const merged = this.mergeSecrets(cfg);
     this.service.setConfig(merged);

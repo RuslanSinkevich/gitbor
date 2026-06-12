@@ -48,6 +48,7 @@ export class CommandHandler {
   // ─── Read ───
   getGraphData(maxCount: number): Promise<CommitGraphData> { return Read.getGraphData(this.queue, this.state, maxCount); }
   getCommitDetails(hash: string): Promise<CommitDetail> { return Read.getCommitDetails(this.queue, this.git, hash); }
+  getCommitTree(hash: string): Promise<string[]> { return Read.getCommitTree(this.queue, this.git, hash); }
   getFileDiff(file: string, hash: string, ignoreWhitespace?: boolean, fullContext?: boolean): Promise<FileDiff[]> { return Read.getFileDiff(this.queue, this.git, file, hash, ignoreWhitespace, fullContext); }
   getFileText(file: string, hash: string): Promise<string | null> { return Read.getFileText(this.queue, this.git, file, hash); }
   getFileBlame(file: string, hash?: string): Promise<BlameResult> { return Read.getFileBlame(this.queue, this.git, file, hash); }

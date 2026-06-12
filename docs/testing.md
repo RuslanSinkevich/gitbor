@@ -588,7 +588,7 @@ Configuration in `vitest.config.ts` under `test.coverage`.
 ### Bundle analyzer
 
 ```bash
-npm run analyze          # Builds with rollup-plugin-visualizer → docs/audit/bundle-<today>.html
+npm run analyze          # Builds with rollup-plugin-visualizer → bundle-analysis/bundle-<today>.html
 ```
 
 Sets `GITBOR_ANALYZE=1` so `vite.config.ts` enables the visualizer treemap (gzip + brotli sizes, `open: false`).

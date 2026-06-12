@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { onMainEvent, postCommand } from '../../api';
 import type { MainEvent, RendererCommand } from '../../types';
+import { AI_ENABLED } from '@core/buildFlags';
 
 interface AiStreamState {
   text: string;
@@ -56,12 +57,14 @@ export function useAiStream() {
      (закрытие диалога / переключение коммита). */
   useEffect(() => () => {
     if (requestIdRef.current) {
+      if (!AI_ENABLED) return;
       postCommand({ type: 'aiCancelGenerate', requestId: requestIdRef.current });
       requestIdRef.current = null;
     }
   }, []);
 
   const start = useCallback((makeCommand: (requestId: string) => RendererCommand) => {
+    if (!AI_ENABLED) return;
     /* Если уже что-то в работе — отменяем; повторный клик == «перегенерировать». */
     if (requestIdRef.current) {
       postCommand({ type: 'aiCancelGenerate', requestId: requestIdRef.current });
@@ -74,6 +77,7 @@ export function useAiStream() {
 
   const cancel = useCallback(() => {
     if (!requestIdRef.current) return;
+    if (!AI_ENABLED) return;
     postCommand({ type: 'aiCancelGenerate', requestId: requestIdRef.current });
     requestIdRef.current = null;
     setState((prev) => ({ ...prev, busy: false }));

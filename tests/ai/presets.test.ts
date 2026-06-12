@@ -11,65 +11,54 @@ import {
 describe('detectPreset', () => {
   describe('openai-compatible mode', () => {
     it('matches OpenAI baseUrl exactly', () => {
-      expect(detectPreset('openai-compatible', 'https://api.openai.com/v1', 'gpt-4o-mini')).toBe('openai');
+      expect(detectPreset('openai-compatible', 'https://api.openai.com/v1')).toBe('openai');
     });
 
     it('matches Ollama localhost baseUrl', () => {
-      expect(detectPreset('openai-compatible', 'http://localhost:11434/v1', 'llama3.1:8b')).toBe('ollama');
+      expect(detectPreset('openai-compatible', 'http://localhost:11434/v1')).toBe('ollama');
     });
 
     it('matches LM Studio localhost baseUrl', () => {
-      expect(detectPreset('openai-compatible', 'http://localhost:1234/v1', 'local-model')).toBe('lmstudio');
+      expect(detectPreset('openai-compatible', 'http://localhost:1234/v1')).toBe('lmstudio');
     });
 
     it('matches DeepSeek baseUrl', () => {
-      expect(detectPreset('openai-compatible', 'https://api.deepseek.com/v1', 'deepseek-chat')).toBe('deepseek');
+      expect(detectPreset('openai-compatible', 'https://api.deepseek.com/v1')).toBe('deepseek');
     });
 
     it('matches Groq baseUrl', () => {
-      expect(detectPreset('openai-compatible', 'https://api.groq.com/openai/v1', 'llama-3.1-8b-instant')).toBe('groq');
+      expect(detectPreset('openai-compatible', 'https://api.groq.com/openai/v1')).toBe('groq');
     });
 
     it('returns custom for unknown baseUrl', () => {
-      expect(detectPreset('openai-compatible', 'https://my.gateway.example.com/v1', 'whatever')).toBe('custom');
+      expect(detectPreset('openai-compatible', 'https://my.gateway.example.com/v1')).toBe('custom');
     });
 
     it('normalizes single trailing slash and matches', () => {
-      expect(detectPreset('openai-compatible', 'https://api.openai.com/v1/', 'gpt-4o-mini')).toBe('openai');
+      expect(detectPreset('openai-compatible', 'https://api.openai.com/v1/')).toBe('openai');
     });
 
     it('normalizes multiple trailing slashes and matches', () => {
-      expect(detectPreset('openai-compatible', 'https://api.openai.com/v1///', 'gpt-4o-mini')).toBe('openai');
+      expect(detectPreset('openai-compatible', 'https://api.openai.com/v1///')).toBe('openai');
     });
 
     it('normalizes leading/trailing whitespace and matches', () => {
-      expect(detectPreset('openai-compatible', '   https://api.openai.com/v1   ', 'gpt-4o-mini')).toBe('openai');
+      expect(detectPreset('openai-compatible', '   https://api.openai.com/v1   ')).toBe('openai');
     });
 
     it('does not confuse model when baseUrl matches (model is irrelevant for openai-compatible)', () => {
-      expect(detectPreset('openai-compatible', 'https://api.openai.com/v1', 'totally-different-model')).toBe('openai');
+      expect(detectPreset('openai-compatible', 'https://api.openai.com/v1')).toBe('openai');
     });
 
     it('returns custom for empty baseUrl', () => {
-      expect(detectPreset('openai-compatible', '', 'gpt-4o-mini')).toBe('custom');
+      expect(detectPreset('openai-compatible', '')).toBe('custom');
     });
   });
 
   describe('qwen-web mode', () => {
-    it('matches qwen-web preset when model is qwen3-max', () => {
-      expect(detectPreset('qwen-web', '', 'qwen3-max')).toBe('qwen-web');
-    });
-
-    it('returns custom for qwen-web with non-default model', () => {
-      expect(detectPreset('qwen-web', '', 'qwen3-coder-plus')).toBe('custom');
-    });
-
-    it('ignores baseUrl for qwen-web detection', () => {
-      expect(detectPreset('qwen-web', 'https://example.com/v1', 'qwen3-max')).toBe('qwen-web');
-    });
-
-    it('handles whitespace around model id', () => {
-      expect(detectPreset('qwen-web', '', '  qwen3-max  ')).toBe('qwen-web');
+    it('always returns custom because Qwen Web is disabled', () => {
+      expect(detectPreset('qwen-web', '')).toBe('custom');
+      expect(detectPreset('qwen-web', 'https://example.com/v1')).toBe('custom');
     });
   });
 });
@@ -80,10 +69,9 @@ describe('AI_PRESETS sanity', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('exposes the qwen-web preset', () => {
+  it('does not expose the disabled qwen-web preset', () => {
     const qwen = AI_PRESETS.find((p) => p.mode === 'qwen-web');
-    expect(qwen).toBeDefined();
-    expect(qwen?.id).toBe('qwen-web');
+    expect(qwen).toBeUndefined();
   });
 
   it('all openai-compatible presets have non-empty baseUrl, except corporate ones (user fills baseUrl)', () => {
@@ -128,7 +116,6 @@ describe('isForeignPreset / isForeignByConnection', () => {
     expect(isForeignPreset('ollama')).toBe(false);
     expect(isForeignPreset('lmstudio')).toBe(false);
     expect(isForeignPreset('qwen-corporate')).toBe(false);
-    expect(isForeignPreset('qwen-web')).toBe(false);
     expect(isForeignPreset('qwen-api')).toBe(false);
     expect(isForeignPreset('deepseek')).toBe(false);
     expect(isForeignPreset('yandexgpt')).toBe(false);

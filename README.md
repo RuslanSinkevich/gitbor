@@ -257,8 +257,7 @@ gitbor/
 │   ├── features.md                # Feature list
 │   ├── contributing.md            # Contributing guide
 │   ├── testing.md                 # Testing (Vitest + Playwright)
-│   ├── cross-platform-checklist.md # Cross-platform audit
-│   ├── audit/                     # Per-stream audit reports + bundle analyzer output
+│   ├── cross-platform-checklist.md # Cross-platform checklist
 │   └── ru/                        # Russian translations
 │
 ├── .github/workflows/             # ci.yml (push, 3 OS, Node 20) + pr.yml (PR, Win, Node 22, +e2e)
@@ -395,7 +394,6 @@ Two-sided system: both main and renderer log only in dev mode; production consol
 | [Contributing](docs/contributing.md) | Code style, conventions, PR checklist |
 | [Testing](docs/testing.md) | Vitest setup, test structure, manual feature testing |
 | [Safety & Error Handling](docs/safety-error-handling.md) | `GitErrorClass`, `SafetyDialog`, preflight, journal |
-| [Refresh Performance](docs/performance/refresh-investigation.md) | Why `git commit` was slow on monorepos; `deferHeavy` opt |
 
 Russian translations: [`docs/ru/`](docs/ru/)
 

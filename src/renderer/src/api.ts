@@ -32,14 +32,14 @@ export interface PostCommandHooks {
  */
 const NON_RETRYABLE_TYPES = new Set<string>([
   'ready', 'getState', 'refreshAll',
-  'getCommitDetails', 'getGraphData', 'getFileDiff', 'getFileText', 'getFileBlame', 'getFileHistory',
+  'getCommitDetails', 'getCommitTree', 'getGraphData', 'getFileDiff', 'getFileText', 'getFileBlame', 'getFileHistory',
   'getSubmodules', 'submoduleUpdate', 'submoduleInit',
   'getRebaseTodo', 'getMergeState', 'getConflictContent',
   'getRepoSummary', 'getRepoStats', 'getDayCommits', 'getAuthorCodeStats',
   'getGitActivity', 'clearGitActivity',
   'openDiff', 'openMergeEditor', 'openFile', 'switchView',
   'openInExplorer', 'openInTerminal',
-  'getRepoSettings', 'listSshKeys', 'getPublicKey', 'getLfsStatus', 'getLfsActive',
+  'getRepoSettings', 'listSshKeys', 'getPublicKey', 'getLfsStatus', 'getLfsActive', 'getConventionalCommits',
   'getWorktrees', 'getHooks', 'getReflog',
   'getBisectStatus', 'getGitignore',
   'getCommitDiff',

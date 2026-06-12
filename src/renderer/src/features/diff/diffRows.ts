@@ -95,6 +95,8 @@ export function rowChange(row: SideRow): RowChange {
 export interface ChangeMark {
   /** Позиция ряда в диапазоне [0..1) относительно всего файла. */
   ratio: number;
+  /** Высота изменённого ряда/DOM-блока в долях полного контента. */
+  heightRatio?: number;
   type: Exclude<RowChange, 'none'>;
 }
 
@@ -105,7 +107,7 @@ export function buildChangeMarks(rows: SideRow[]): ChangeMark[] {
   const marks: ChangeMark[] = [];
   for (let i = 0; i < total; i++) {
     const c = rowChange(rows[i]);
-    if (c !== 'none') marks.push({ ratio: i / total, type: c });
+    if (c !== 'none') marks.push({ ratio: i / total, heightRatio: 1 / total, type: c });
   }
   return marks;
 }

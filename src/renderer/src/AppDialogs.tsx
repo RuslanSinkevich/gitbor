@@ -8,6 +8,7 @@ import type { useContextMenu } from './hooks/useContextMenu';
 import type { usePromptDialog } from './ui/SgPromptDialog';
 import type { useToasts } from './hooks/useToasts';
 import type { UseSafetyDialog } from './hooks/useSafetyDialog';
+import { AI_ENABLED } from '@core/buildFlags';
 import s from './App.module.css';
 
 // Тяжёлые модалки/редакторы — отложенная загрузка. Пока пользователь не
@@ -119,7 +120,7 @@ export function AppDialogs(props: AppDialogsProps) {
         {dlg.showGitignore && <GitignoreDialog onClose={() => dlg.setShowGitignore(false)} />}
         {dlg.showRepoStats && <StatisticsDialog onClose={() => dlg.setShowRepoStats(false)} />}
         {dlg.showGitActivity && <GitActivityDialog onClose={() => dlg.setShowGitActivity(false)} repoPath={repoPath} />}
-        {dlg.showAiSettings && <AiSettingsDialog onClose={() => dlg.setShowAiSettings(false)} />}
+        {AI_ENABLED && dlg.showAiSettings && <AiSettingsDialog onClose={() => dlg.setShowAiSettings(false)} />}
         {dlg.compareTarget && <CompareModal target={dlg.compareTarget} onClose={() => dlg.setCompareTarget(null)} />}
 
         {safety?.current && (

@@ -26,6 +26,16 @@ export const ipcHandlersState: HandlerTable = {
     const detail = await ctx.ch.getCommitDetails(cmd.hash);
     ctx.send({ type: 'commitDetails', data: detail, hash: cmd.hash });
   },
+  getCommitTree: async (cmd, ctx) => {
+    // Запрос-ответ через invoke (string[]): дерево привязано к активной
+    // вкладке деталей, broadcast-событие тут лишнее.
+    try {
+      return await ctx.ch.getCommitTree(cmd.hash);
+    } catch (err) {
+      mainLogger.error(`getCommitTree: ${err instanceof Error ? err.message : String(err)}`);
+      return [];
+    }
+  },
   getGraphData: async (cmd, ctx) => {
     const data = await ctx.ch.getGraphData(cmd.maxCount);
     ctx.send({ type: 'graphData', data, repoPath: ctx.sm.getState().repoPath });

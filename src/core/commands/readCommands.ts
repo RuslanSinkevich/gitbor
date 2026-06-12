@@ -37,7 +37,7 @@ export async function getCommitDetails(
   queue: OperationQueue, git: GitExecutor, hash: string,
 ): Promise<CommitDetail> {
   return queue.enqueueRead('getCommitDetails', async () => {
-    const showResult = await git.exec(['show', '--format=' + COMMIT_DETAIL_FORMAT, '--no-patch', hash]);
+    const showResult = await git.exec(['show', '--decorate=full', '--format=' + COMMIT_DETAIL_FORMAT, '--no-patch', hash]);
     const parts = showResult.stdout.trim().split('\x00');
     const refs = parts[8] ? GitParser.parseRefs(parts[8]) : [];
 
@@ -69,6 +69,20 @@ export async function getCommitDetails(
       body: parts[10] || '',
       files,
     };
+  });
+}
+
+/**
+ * Полный снимок дерева репозитория на коммите: рекурсивный список путей
+ * файлов через `git ls-tree`. `-z` гарантирует пути без C-quoting (важно
+ * для кириллицы/пробелов), декодируем теми же эвристиками, что и diff.
+ */
+export async function getCommitTree(
+  queue: OperationQueue, git: GitExecutor, hash: string,
+): Promise<string[]> {
+  return queue.enqueueRead('getCommitTree', async () => {
+    const r = await git.execBuffer(['ls-tree', '-r', '--name-only', '-z', hash]);
+    return GitParser.parseTreePaths(decodeGitText(r.stdout));
   });
 }
 

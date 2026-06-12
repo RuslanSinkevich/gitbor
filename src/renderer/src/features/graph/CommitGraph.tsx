@@ -2,12 +2,14 @@ import { memo, useRef, useEffect, useCallback, useMemo, type KeyboardEvent as Re
 import { t } from '../../i18n';
 import type { Commit, GraphNode, MergeLink } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
-import { ROW_HEIGHT, COL_WIDTH, LEFT_PAD, NODE_RADIUS, MERGE_RADIUS, DESC_PAD, colX, rowY, formatCommitDate } from './graphConstants';
+import { ROW_HEIGHT, COL_WIDTH, LEFT_PAD, NODE_RADIUS, MERGE_RADIUS, DESC_PAD, colX, formatCommitDate } from './graphConstants';
 import { getCommitMenuItems, type ShowPrompt, type OnRebase } from './commitMenuItems';
 import type { RequestCheckout } from '../checkout';
 import { groupBranchPaths, getNodeCircles, getMergeLinkPaths, type BranchPathData, type NodeCircle } from './branchPaths';
 import { buildRefBadges } from './refBadges';
+import { RefCloudIcon, RefCheckIcon } from './refBadgeIcons';
 import { GpgBadge } from './GpgBadge';
+import { AI_ENABLED } from '@core/buildFlags';
 import { useVirtualScroll } from './useVirtualScroll';
 import { useGraphSearch } from './useGraphSearch';
 import { AuthorAvatar } from '../../ui/AuthorAvatar';
@@ -152,21 +154,6 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
 
   const rowMeta = useMemo(() => getOrComputeRowMeta(graphNodes, commits.length), [graphNodes, commits.length]);
 
-  /*
-   * Активная ветка (HEAD): подсвечиваем её узел в графе кольцом — как в Fork,
-   * где сразу видно, где сейчас стоит checkout. Ищем коммит с ref-ом 'head',
-   * берём его дорожку из graphNodes.
-   */
-  const headNode = useMemo(() => {
-    const headIdx = commits.findIndex(c => c.refs.some(r => r.type === 'head'));
-    if (headIdx < 0) return null;
-    const node = graphNodes.find(n => n.commitIndex === headIdx);
-    if (!node) return null;
-    return { cx: colX(node.column), cy: rowY(headIdx), color: node.color };
-  }, [commits, graphNodes]);
-
-  const headRingVisible = headNode != null;
-
   const svgTop = visibleRange.start * ROW_HEIGHT;
   const svgBottom = visibleRange.end * ROW_HEIGHT;
   const svgHeight = svgBottom - svgTop;
@@ -208,16 +195,18 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
               if (e.key === 'Escape') { search.setSearchVisible(false); search.setSearchQuery(''); }
             }}
           />
-          <button
-            type="button"
-            className={`${s.searchAiToggle} ${search.aiMode ? s.searchAiToggleActive : ''}`}
-            onClick={search.toggleAiMode}
-            title={search.aiMode ? loc.aiTier2.semanticSearchOff : loc.aiTier2.semanticSearchOn}
-            aria-label={search.aiMode ? loc.aiTier2.semanticSearchOff : loc.aiTier2.semanticSearchOn}
-            aria-pressed={search.aiMode}
-          >
-            <SemanticSearchIcon />
-          </button>
+          {AI_ENABLED && (
+            <button
+              type="button"
+              className={`${s.searchAiToggle} ${search.aiMode ? s.searchAiToggleActive : ''}`}
+              onClick={search.toggleAiMode}
+              title={search.aiMode ? loc.aiTier2.semanticSearchOff : loc.aiTier2.semanticSearchOn}
+              aria-label={search.aiMode ? loc.aiTier2.semanticSearchOff : loc.aiTier2.semanticSearchOn}
+              aria-pressed={search.aiMode}
+            >
+              <SemanticSearchIcon />
+            </button>
+          )}
           {search.aiMode && search.semantic.status === 'busy' && (
             <span className={s.searchCount}>{loc.aiTier2.semanticSearchBusy}</span>
           )}
@@ -265,9 +254,6 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
                 ? <polygon key={`n${i}`} points={`${nc.cx},${nc.cy - MERGE_RADIUS} ${nc.cx + MERGE_RADIUS},${nc.cy} ${nc.cx},${nc.cy + MERGE_RADIUS} ${nc.cx - MERGE_RADIUS},${nc.cy}`} fill={nc.color} stroke={bgColor} strokeWidth={2} opacity={nc.dimmed ? 0.45 : 1} />
                 : <circle key={`n${i}`} cx={nc.cx} cy={nc.cy} r={NODE_RADIUS} fill={nc.color} stroke={bgColor} strokeWidth={2} opacity={nc.dimmed ? 0.45 : 1} />
             ))}
-            {headRingVisible && headNode.cy >= svgTop - margin && headNode.cy <= svgBottom + margin && (
-              <circle cx={headNode.cx} cy={headNode.cy} r={NODE_RADIUS + 3} fill="none" stroke={headNode.color} strokeWidth={2} opacity={0.95} />
-            )}
           </svg>
 
           {visibleCommits.map((commit, vi) => {
@@ -289,9 +275,12 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
                 onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getCommitMenuItems(commit, currentBranch, showPrompt, requestCheckout, onRebase, compareFrom, onCompareFrom, onCompareTo, headOnRemote)); }}>
                 <div className={s.rowDesc} style={{ paddingLeft: descLeft }}>
                   {buildRefBadges(commit.refs, remoteNames, currentBranch).map((badge) => {
-                    const tip = badge.isCurrent
-                      ? `${badge.fullNames.join('\n')}\n(${loc.graph.currentBranchHint})`
-                      : badge.fullNames.join('\n');
+                    const tipLines = [badge.fullName];
+                    for (const rf of badge.fullNames.filter(fn => fn !== badge.fullName)) {
+                      tipLines.push(`⬆ ${rf}`);
+                    }
+                    if (badge.isCurrent) tipLines.push(`(${loc.graph.currentBranchHint})`);
+                    const tip = tipLines.join('\n');
                     return (
                       <span
                         key={badge.key}
@@ -299,9 +288,23 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
                         style={{ background: nodeColor, color: '#fff', borderColor: nodeColor }}
                         title={tip}
                       >
+                        {badge.isCurrent && (
+                          <span className={s.refBadgeIcon} aria-hidden="true"><RefCheckIcon /></span>
+                        )}
+                        {(badge.kind === 'remote' || badge.remotes.length > 0) && !badge.hasLocal && (
+                          <>
+                            <span className={s.refBadgeIcon} aria-hidden="true"><RefCloudIcon /></span>
+                            <span className={s.refBadgeDivider} aria-hidden="true" />
+                          </>
+                        )}
                         <span className={s.refBadgeLabel}>{badge.label}</span>
                         {badge.hasLocal && badge.remotes.length > 0 && (
-                          <span className={s.refBadgeSync} title={badge.remotes.join(', ')} aria-hidden="true" />
+                          <>
+                            <span className={s.refBadgeDivider} aria-hidden="true" />
+                            <span className={s.refBadgeIcon} title={badge.remotes.join(', ')} aria-hidden="true">
+                              <RefCloudIcon />
+                            </span>
+                          </>
                         )}
                       </span>
                     );

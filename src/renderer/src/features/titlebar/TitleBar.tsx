@@ -1,6 +1,7 @@
 import { SgButton } from '../../ui';
 import { MenuBar, type MenuGroup } from '../../ui/MenuBar';
 import type { t } from '../../i18n';
+import { AI_ENABLED } from '@core/buildFlags';
 import s from './TitleBar.module.css';
 
 const isDev = import.meta.env.DEV;
@@ -67,7 +68,7 @@ export function TitleBar({ loc, page, setPage, lang, toggleLang, theme, toggleTh
         { label: loc.menu.openInTerminal, accelerator: 'Ctrl+Alt+T', action: () => onMenuAction('openInTerminal') },
         { type: 'separator', label: '' },
         { label: loc.menu.repoSettings, action: () => onMenuAction('repoSettings') },
-        { label: loc.menu.aiSettings, action: () => onMenuAction('aiSettings') },
+        ...(AI_ENABLED ? [{ label: loc.menu.aiSettings, action: () => onMenuAction('aiSettings') }] : []),
         { type: 'separator', label: '' },
         {
           // «Ещё» — редкие/продвинутые инструменты. Свёрнуты в подменю, чтобы

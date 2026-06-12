@@ -107,6 +107,11 @@ export function App() {
   /* Branch info dialog: текущая выбранная ветка показывается через SgDialog,
      данные из стейта + getCommitDetails. setOpenInfoBranch(null) — закрыть. */
   const [openInfoBranch, setOpenInfoBranch] = useState<Branch | null>(null);
+  const pendingGraphFocusRef = useRef<{
+    op: typeof lastOpResult;
+    repoPath: string;
+    commitsAtEnd: typeof state.commits;
+  } | null>(null);
   const branchPrefsState = useBranchPrefs(state.repoPath);
   /* Стабильный объект-фасад для Sidebar/BranchTree. useMemo — чтобы не
      ломать React.memo / identity-зависимые useMemo внутри (поля self-bind
@@ -210,14 +215,18 @@ export function App() {
   }, [lastOpResult, closeDiff]);
 
   /**
-   * После успешного коммита/пуша авто-фокусируем tip текущей ветки в графе —
-   * «авто-клик» по коммиту. Для `commit` tip новый (появился коммит); для
+   * После успешного commit/push/pull авто-фокусируем tip текущей ветки в графе —
+   * «авто-клик» по коммиту. Для `commit`/`pull` tip может стать новым; для
    * `push` tip тот же, но на нём появляется свежая remote-плашка
    * (`origin/<branch>`) — это и есть «новая запись», на которую нужно встать.
    *
-   * `commit` через `opWithPostMerge` шлёт обновление веток ДО `operationEnd`
-   * по одному IPC-каналу по порядку, поэтому к смене `lastOpResult` tip уже
-   * свежий. Бампаем `graphFocusNonce`, а не только selectCommit: после push
+   * `commit`/`push`/`pull` при `deferHeavy` завершают операцию после быстрого refresh
+   * веток/status, а сам граф догружается следующим stateUpdate. Поэтому нельзя
+   * фокусироваться прямо на `operationEnd`: в renderer ещё может лежать старый
+   * `commits[]`, и граф уедет к прежнему tip. Ставим pending-запрос и выполняем
+   * его только после смены `state.commits`.
+   *
+   * Бампаем `graphFocusNonce`, а не только selectCommit: после push/pull
    * выбранным мог уже быть tip — без bump'а граф не доскроллит к нему.
    *
    * Ref-гард по идентичности `lastOpResult` (новый объект на каждый
@@ -226,15 +235,34 @@ export function App() {
    */
   const focusedOpRef = useRef<typeof lastOpResult>(null);
   useEffect(() => {
-    if (!lastOpResult || !lastOpResult.success) return;
-    if (lastOpResult.operation !== 'commit' && lastOpResult.operation !== 'push') return;
-    if (focusedOpRef.current === lastOpResult) return;
-    focusedOpRef.current = lastOpResult;
+    if (
+      lastOpResult?.success
+      && (lastOpResult.operation === 'commit' || lastOpResult.operation === 'push' || lastOpResult.operation === 'pull')
+      && focusedOpRef.current !== lastOpResult
+    ) {
+      focusedOpRef.current = lastOpResult;
+      pendingGraphFocusRef.current = {
+        op: lastOpResult,
+        repoPath: state.repoPath,
+        commitsAtEnd: state.commits,
+      };
+    }
+
+    const pending = pendingGraphFocusRef.current;
+    if (!pending) return;
+    if (pending.repoPath !== state.repoPath) {
+      pendingGraphFocusRef.current = null;
+      return;
+    }
+    if (state.commits === pending.commitsAtEnd) return;
     const tip = state.branches.find(b => b.isCurrent && !b.isRemote)?.hash;
     if (!tip) return;
+    const tipInGraph = state.commits.some(c => c.hash === tip || c.hash.startsWith(tip) || tip.startsWith(c.hash));
+    if (!tipInGraph) return;
     if (tip !== state.selectedCommitHash) selectCommit(tip);
     setGraphFocusNonce(n => n + 1);
-  }, [lastOpResult, state.branches, state.selectedCommitHash, selectCommit]);
+    pendingGraphFocusRef.current = null;
+  }, [lastOpResult, state.repoPath, state.commits, state.branches, state.selectedCommitHash, selectCommit]);
 
   useAutoFetch(
     state.repoPath,

@@ -10,8 +10,7 @@ import type { AiConnectionMode } from '../../types';
  *                    custom OpenAI-compatible). В крупных компаниях
  *                    разработчик часто вообще не имеет выбора кроме
  *                    внутреннего LLM-gateway.
- *   3. no-vpn      — доступно из РФ без VPN (Qwen Web, Qwen API,
- *                    DeepSeek).
+ *   3. no-vpn      — доступно из РФ без VPN (Qwen API, DeepSeek).
  *   4. russian     — российские провайдеры (YandexGPT). GigaChat —
  *                    backlog: требует отдельного OAuth-flow, не
  *                    укладывается в OpenAI-compatible.
@@ -28,7 +27,6 @@ type AiPresetLabelKey =
   | 'presetLlamaCpp'
   | 'presetDeepseek'
   | 'presetGroq'
-  | 'presetQwenWeb'
   | 'presetQwenApi'
   | 'presetQwenCorporate'
   | 'presetYandexGpt'
@@ -69,7 +67,6 @@ export const AI_PRESETS: AiPreset[] = [
   { id: 'custom-corporate',  group: 'corporate', labelKey: 'presetCustomCorporate',  mode: 'openai-compatible', baseUrl: '', model: '', needsKey: true },
 
   // ── 3. no-vpn ──
-  { id: 'qwen-web',   group: 'no-vpn', labelKey: 'presetQwenWeb',  mode: 'qwen-web',            baseUrl: '',                                model: 'qwen3-max',           needsKey: true },
   { id: 'qwen-api',   group: 'no-vpn', labelKey: 'presetQwenApi',  mode: 'openai-compatible',   baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus', needsKey: true },
   { id: 'deepseek',   group: 'no-vpn', labelKey: 'presetDeepseek', mode: 'openai-compatible',   baseUrl: 'https://api.deepseek.com/v1',     model: 'deepseek-chat',       needsKey: true },
 
@@ -143,12 +140,9 @@ function extractHost(url: string): string | null {
 export function detectPreset(
   mode: AiConnectionMode,
   baseUrl: string,
-  model: string,
   flags?: { systemInUser?: boolean; stripThinkTags?: boolean },
 ): string {
   if (mode === 'qwen-web') {
-    const p = AI_PRESETS.find((x) => x.mode === 'qwen-web');
-    if (p && model.trim() === p.model) return p.id;
     return 'custom';
   }
   const normalized = baseUrl.trim().replace(/\/+$/, '');

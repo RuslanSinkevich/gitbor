@@ -12,7 +12,7 @@ describe('buildRefBadges', () => {
     ];
     const badges = buildRefBadges(refs, remotes, 'main');
     expect(badges).toHaveLength(1);
-    expect(badges[0].label).toBe('feature/x');
+    expect(badges[0].label).toBe('x');
     expect(badges[0].hasLocal).toBe(true);
     expect(badges[0].remotes).toEqual(['origin']);
     expect(badges[0].fullNames).toContain('feature/x');
@@ -32,15 +32,28 @@ describe('buildRefBadges', () => {
     expect(badges[0].remotes.sort()).toEqual(['origin', 'tfs']);
   });
 
-  it('remote-only ветка остаётся отдельной плашкой с полным именем', () => {
+  it('remote-only ветка показывает короткий хвост, полный путь — в fullNames', () => {
     const refs: RefInfo[] = [
       { name: 'origin/release', type: 'remote' },
     ];
     const badges = buildRefBadges(refs, remotes, 'main');
     expect(badges).toHaveLength(1);
     expect(badges[0].kind).toBe('remote');
-    expect(badges[0].label).toBe('origin/release');
+    expect(badges[0].label).toBe('release');
     expect(badges[0].hasLocal).toBe(false);
+    expect(badges[0].fullNames).toEqual(['origin/release']);
+  });
+
+  it('remote-only компактится даже когда список remote ещё не загружен', () => {
+    const refs: RefInfo[] = [
+      { name: 'ConsumerCRM-techpris/feature/SinkevichRN/NRGIND-42277', type: 'remote' },
+    ];
+    const badges = buildRefBadges(refs, [], 'main');
+    expect(badges).toHaveLength(1);
+    expect(badges[0].kind).toBe('remote');
+    expect(badges[0].label).toBe('NRGIND-42277');
+    expect(badges[0].remotes).toEqual(['ConsumerCRM-techpris']);
+    expect(badges[0].fullNames).toEqual(['ConsumerCRM-techpris/feature/SinkevichRN/NRGIND-42277']);
   });
 
   it('теги не сливаются с ветками', () => {
@@ -62,8 +75,47 @@ describe('buildRefBadges', () => {
     ];
     const badges = buildRefBadges(refs, remotes, 'main');
     expect(badges).toHaveLength(1);
-    expect(badges[0].label).toBe('tfs/feature/login');
+    expect(badges[0].label).toBe('login');
     expect(badges[0].remotes).toEqual(['origin']);
+    expect(badges[0].fullNames).toContain('tfs/feature/login');
+  });
+
+  it('обычная ветка с длинным путём показывает последний сегмент', () => {
+    const refs: RefInfo[] = [
+      { name: 'feature/SinkevichRN/NRGIND-42277', type: 'branch' },
+    ];
+    const badges = buildRefBadges(refs, remotes, 'main');
+    expect(badges[0].label).toBe('NRGIND-42277');
+    expect(badges[0].fullName).toBe('feature/SinkevichRN/NRGIND-42277');
+    expect(badges[0].fullNames).toEqual(['feature/SinkevichRN/NRGIND-42277']);
+  });
+
+  it('fullName хранит полный путь ветки, а не remote-двойника', () => {
+    const refs: RefInfo[] = [
+      { name: 'feature/x', type: 'branch' },
+      { name: 'origin/feature/x', type: 'remote' },
+    ];
+    const badges = buildRefBadges(refs, remotes, 'main');
+    expect(badges[0].fullName).toBe('feature/x');
+    expect(badges[0].remotes).toEqual(['origin']);
+  });
+
+  it('коллизия хвостов решается наращиванием сегментов', () => {
+    const refs: RefInfo[] = [
+      { name: 'feature/SinkevichRN/task', type: 'branch' },
+      { name: 'bugfix/SedakovIV/task', type: 'branch' },
+    ];
+    const badges = buildRefBadges(refs, remotes, 'main');
+    expect(badges.map(b => b.label)).toEqual(['SinkevichRN/task', 'SedakovIV/task']);
+  });
+
+  it('не раскрывает полный путь при неразрешимой коллизии — суффикс ·N', () => {
+    const refs: RefInfo[] = [
+      { name: 'feature/team-a/task', type: 'branch' },
+      { name: 'bugfix/team-a/task', type: 'branch' },
+    ];
+    const badges = buildRefBadges(refs, remotes, 'main');
+    expect(badges.map(b => b.label)).toEqual(['task ·1', 'task ·2']);
   });
 
   it('текущая ветка идёт первой', () => {

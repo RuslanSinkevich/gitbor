@@ -7,6 +7,7 @@ import { mainLogger } from '../../utils/Logger';
 const QWEN_BASE = 'https://chat.qwen.ai';
 const CREATE_CHAT_URL = `${QWEN_BASE}/api/v2/chats/new`;
 const CHAT_COMPLETIONS_URL = `${QWEN_BASE}/api/v2/chat/completions`;
+const QWEN_WEB_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
@@ -85,8 +86,11 @@ export class QwenWebProvider implements AiProvider {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${t}`,
         Accept: 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'User-Agent': QWEN_WEB_USER_AGENT,
         Origin: QWEN_BASE,
         Referer: `${QWEN_BASE}/`,
+        ...qwenWebCookieHeader(this.config.qwenWebCookie),
       },
       body: JSON.stringify(payload),
     });
@@ -100,10 +104,21 @@ export class QwenWebProvider implements AiProvider {
       );
     }
 
-    const data = (await response.json().catch(() => ({}))) as { data?: { id?: string }; id?: string };
-    const chatId = data?.data?.id ?? data?.id;
+    const body = await safeReadText(response);
+    const data = parseJsonObject(body);
+    const chatId = extractChatId(data);
     if (!chatId) {
-      throw new AiError('Qwen Web: нет chat_id в ответе create chat', 'parse');
+      if (isAliyunWafChallenge(body)) {
+        throw new AiError(
+          'Qwen Web: chat.qwen.ai вернул Aliyun WAF challenge вместо JSON. Обновите token и Cookie из браузерной сессии chat.qwen.ai в настройках AI.',
+          'http',
+          403,
+        );
+      }
+      throw new AiError(
+        `Qwen Web: нет chat_id в ответе create chat: ${truncate(body, 500)}`,
+        'parse',
+      );
     }
     return chatId;
   }
@@ -159,8 +174,11 @@ export class QwenWebProvider implements AiProvider {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
         Accept: 'text/event-stream',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'User-Agent': QWEN_WEB_USER_AGENT,
         Origin: QWEN_BASE,
         Referer: `${QWEN_BASE}/c/${chatId}`,
+        ...qwenWebCookieHeader(this.config.qwenWebCookie),
       },
       body: JSON.stringify(payload),
     });
@@ -283,6 +301,46 @@ async function safeReadText(response: Response): Promise<string> {
 
 function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max) + '…' : s;
+}
+
+function parseJsonObject(body: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(body);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function stringField(obj: Record<string, unknown> | null | undefined, key: string): string | undefined {
+  const value = obj?.[key];
+  return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function objectField(obj: Record<string, unknown> | null | undefined, key: string): Record<string, unknown> | null {
+  const value = obj?.[key];
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function extractChatId(data: Record<string, unknown> | null): string | undefined {
+  const nested = objectField(data, 'data');
+  return stringField(nested, 'id')
+    ?? stringField(nested, 'chat_id')
+    ?? stringField(data, 'id')
+    ?? stringField(data, 'chat_id');
+}
+
+function qwenWebCookieHeader(cookie: string | undefined): Record<string, string> {
+  const trimmed = (cookie ?? '').trim();
+  return trimmed ? { Cookie: trimmed } : {};
+}
+
+function isAliyunWafChallenge(body: string): boolean {
+  return body.includes('aliyun_waf_aa') || body.includes('aliyun_waf_bb');
 }
 
 function isAbortError(err: unknown): boolean {

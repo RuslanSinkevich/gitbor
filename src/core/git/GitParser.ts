@@ -36,7 +36,32 @@ function nulFields(line: string): string[] {
   return line.replace(/\r$/, '').split(NUL);
 }
 
-// ─── Refs (from --format=%D) ───
+// ─── Refs (from --format=%D --decorate=full) ───
+
+/**
+ * Классифицирует полностью-квалифицированный ref (`refs/heads/…`,
+ * `refs/remotes/…`, `refs/tags/…`) от `--decorate=full`.
+ *
+ * Именно префикс позволяет отличить локальную ветку со слэшами
+ * (`refs/heads/feature/x`) от remote-ветки (`refs/remotes/origin/x`) БЕЗ
+ * угадывания по списку remote'ов. Угадывание по слэшу было корнем бага: любая
+ * `feature/...` метилась как remote, и подпись зависела от того, успел ли
+ * прийти список remote'ов.
+ *
+ * Возвращает `null`, если это не full-ref (короткий `%D`) — тогда вызывающий
+ * код применяет фолбэк.
+ */
+function classifyFullRef(ref: string): RefInfo | null {
+  if (ref.startsWith('refs/heads/')) return { name: ref.slice('refs/heads/'.length), type: 'branch' };
+  if (ref.startsWith('refs/remotes/')) {
+    // refs/remotes/<remote>/HEAD — символический указатель на дефолтную ветку
+    // remote'а; дублирует одноимённый бейдж, поэтому отбрасываем как шум.
+    if (ref.endsWith('/HEAD')) return null;
+    return { name: ref.slice('refs/remotes/'.length), type: 'remote' };
+  }
+  if (ref.startsWith('refs/tags/')) return { name: ref.slice('refs/tags/'.length), type: 'tag' };
+  return null;
+}
 
 export function parseRefs(refString: string): RefInfo[] {
   if (!refString.trim()) return [];
@@ -47,7 +72,9 @@ export function parseRefs(refString: string): RefInfo[] {
     if (!r) continue;
 
     if (r.startsWith('HEAD -> ')) {
-      out.push({ name: r.slice(8), type: 'head' });
+      const target = r.slice(8);
+      const full = classifyFullRef(target);
+      out.push({ name: full ? full.name : target, type: 'head' });
       continue;
     }
     if (r === 'HEAD') {
@@ -55,14 +82,20 @@ export function parseRefs(refString: string): RefInfo[] {
       continue;
     }
     if (r.startsWith('tag: ')) {
-      out.push({ name: r.slice(5), type: 'tag' });
+      const tag = r.slice(5);
+      out.push({ name: tag.startsWith('refs/tags/') ? tag.slice('refs/tags/'.length) : tag, type: 'tag' });
       continue;
     }
+
+    const full = classifyFullRef(r);
+    if (full) {
+      out.push(full);
+      continue;
+    }
+
+    // Фолбэк для короткого `%D` (без --decorate=full): слэш = remote. Оставлен
+    // для совместимости; с --decorate=full сюда локальные ветки не доходят.
     if (r.includes('/')) {
-      // refs/remotes/<remote>/HEAD — символический указатель на дефолтную
-      // ветку remote'а (origin/HEAD и т.п.). Он всегда совпадает с одноимённой
-      // remote-веткой (origin/develop) и только дублирует бейдж на коммите.
-      // Fork и другие клиенты его не показывают — отбрасываем как шум.
       if (r.endsWith('/HEAD')) continue;
       out.push({ name: r, type: 'remote' });
       continue;
@@ -189,6 +222,41 @@ const STATUS_MAP: Record<string, FileStatus['status']> = {
   M: 'M', A: 'A', D: 'D', R: 'R', U: 'U', '?': '?',
 };
 
+function splitPorcelainRenamePath(pathSpec: string): [string, string] | null {
+  let inQuote = false;
+  let escaped = false;
+
+  for (let i = 0; i < pathSpec.length; i++) {
+    const ch = pathSpec[i];
+
+    if (inQuote && escaped) {
+      escaped = false;
+      continue;
+    }
+    if (inQuote && ch === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inQuote = !inQuote;
+      continue;
+    }
+    if (!inQuote && pathSpec.startsWith(' -> ', i)) {
+      return [pathSpec.slice(0, i), pathSpec.slice(i + 4)];
+    }
+  }
+
+  return null;
+}
+
+function parseStatusPath(x: string, y: string, pathSpec: string): string {
+  if (x === 'R' || x === 'C' || y === 'R' || y === 'C') {
+    const renamed = splitPorcelainRenamePath(pathSpec);
+    if (renamed) return unquoteGitPath(renamed[1]);
+  }
+  return unquoteGitPath(pathSpec);
+}
+
 export function parseStatus(stdout: string): FileStatus[] {
   if (!stdout.trim()) return [];
 
@@ -200,7 +268,7 @@ export function parseStatus(stdout: string): FileStatus[] {
 
     const x = line[0];
     const y = line[1];
-    const filePath = unquoteGitPath(line.slice(3));
+    const filePath = parseStatusPath(x, y, line.slice(3));
 
     // UU, AA, DD, AU, UA, DU, UD — unmerged (conflict), show only as unstaged
     if (x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D')) {
@@ -242,4 +310,16 @@ export function parseFileChanges(stdout: string): FileChange[] {
     }
   }
   return result;
+}
+
+// ─── Tree snapshot (from git ls-tree -r --name-only -z) ───
+
+/**
+ * Парсит NUL-разделённый вывод `git ls-tree -r --name-only -z <hash>` в
+ * плоский список путей файлов на снимке коммита. `-z` отдаёт пути без
+ * C-quoting, поэтому достаточно разбить по NUL и отбросить пустые хвосты.
+ */
+export function parseTreePaths(stdout: string): string[] {
+  if (!stdout) return [];
+  return stdout.split(NUL).filter((p) => p.length > 0);
 }

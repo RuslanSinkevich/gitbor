@@ -260,8 +260,7 @@ gitbor/
 │   ├── features.md                # Список возможностей
 │   ├── contributing.md            # Руководство по контрибьюции
 │   ├── testing.md                 # Тестирование (Vitest + Playwright)
-│   ├── cross-platform-checklist.md # Cross-platform аудит
-│   ├── audit/                     # Отчёты аудит-стримов + bundle analyzer
+│   ├── cross-platform-checklist.md # Cross-platform чек-лист
 │   └── ru/                        # Русские переводы
 │
 ├── dist/                          # Результат сборки

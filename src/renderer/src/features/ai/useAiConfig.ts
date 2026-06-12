@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { postCommand, onMainEvent } from '../../api';
 import type { AiProviderConfig, MainEvent } from '../../types';
+import { AI_ENABLED } from '@core/buildFlags';
 
 /**
  * Хук синхронизации текущего AI-конфига с main-процессом. Запрашивает
@@ -16,6 +17,11 @@ export function useAiConfig(): {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    if (!AI_ENABLED) {
+      setConfig(null);
+      setLoaded(true);
+      return;
+    }
     postCommand({ type: 'aiGetConfig' });
     const unsub = onMainEvent((msg: MainEvent) => {
       if (msg.type === 'aiConfig') {
@@ -26,7 +32,9 @@ export function useAiConfig(): {
     return unsub;
   }, []);
 
-  const refresh = () => postCommand({ type: 'aiGetConfig' });
+  const refresh = () => {
+    if (AI_ENABLED) postCommand({ type: 'aiGetConfig' });
+  };
 
   return { config, loaded, refresh };
 }

@@ -37,6 +37,8 @@ type RendererCommandCore =
   | { type: 'refreshStatIndex' }
   | { type: 'restoreStatDirty'; file: string }
   | { type: 'getCommitDetails'; hash: string }
+  /** Полный снимок дерева файлов коммита (git ls-tree). Возврат через invoke: string[]. */
+  | { type: 'getCommitTree'; hash: string }
   | { type: 'getGraphData'; maxCount: number }
   | { type: 'getFileDiff'; file: string; hash: string; ignoreWhitespace?: boolean; fullContext?: boolean }
   /**
@@ -158,6 +160,7 @@ type RendererCommandCore =
   // LFS
   | { type: 'getLfsStatus' }
   | { type: 'getLfsActive' }
+  | { type: 'getConventionalCommits' }
   | { type: 'lfsTrack'; pattern: string }
   | { type: 'lfsUntrack'; pattern: string }
 
@@ -303,6 +306,7 @@ export type MainEvent =
   | { type: 'publicKey'; name: string; content: string }
   | { type: 'lfsStatus'; data: import('../git/LfsManager').LfsStatus }
   | { type: 'lfsActive'; active: boolean }
+  | { type: 'conventionalCommits'; active: boolean }
   | { type: 'worktrees'; data: import('../git/WorktreeManager').WorktreeInfo[] }
   | { type: 'hooks'; data: import('../git/HooksManager').HookInfo[] }
   | { type: 'reflog'; data: ReflogEntry[] }
