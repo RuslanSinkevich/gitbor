@@ -2,6 +2,7 @@ import { app } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { mainLogger } from '../core/utils/Logger';
 import type { MainEvent } from '../core/bridge/messages';
+import { BUILD_FLAVOR } from '../core/buildFlags';
 
 const STARTUP_CHECK_DELAY_MS = 8_000;
 const NOTES_FETCH_TIMEOUT_MS = 4_000;
@@ -70,7 +71,9 @@ function configurePlatformFeedUrl(): void {
     'https://storage.yandexcloud.net/gitbor/stable';
   const dir =
     process.platform === 'win32'
-      ? 'win'
+      ? BUILD_FLAVOR === 'no-ai'
+        ? 'win/no_ai'
+        : 'win'
       : process.platform === 'darwin'
         ? 'mac'
         : 'linux';
