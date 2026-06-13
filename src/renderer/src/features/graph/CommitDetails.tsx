@@ -13,10 +13,10 @@ type Tab = 'commit' | 'changes' | 'tree';
 
 function statusIcon(status: string): string {
   switch (status) {
-    case 'M': return '●';
+    case 'M': return 'M';
     case 'A': return '+';
     case 'D': return '−';
-    case 'R': return '→';
+    case 'R': return 'R';
     default: return '?';
   }
 }

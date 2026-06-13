@@ -22,8 +22,16 @@
   overflow: hidden;
 }
 
+.subjectRow {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
 .subject {
   width: 100%;
+  min-width: 0;
   padding: 5px 9px;
   font-size: 13px;
   font-family: inherit;
@@ -107,6 +115,17 @@
   color: var(--sg-danger);
   border-color: color-mix(in srgb, var(--sg-danger) 45%, var(--sg-border));
   background: color-mix(in srgb, var(--sg-danger) 10%, var(--sg-surface));
+}
+
+.formatHint {
+  padding: 5px 9px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--sg-warning) 75%, var(--sg-foreground));
+  background: color-mix(in srgb, var(--sg-warning) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sg-warning) 38%, transparent);
+  border-radius: var(--sg-radius-sm);
+  box-sizing: border-box;
 }
 
 .errorBanner {

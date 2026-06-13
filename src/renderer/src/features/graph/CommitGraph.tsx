@@ -285,7 +285,7 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
                       <span
                         key={badge.key}
                         className={`${s.refBadge} ${badge.isCurrent ? s.refBadgeCurrent : ''}`}
-                        style={{ background: nodeColor, color: '#fff', borderColor: nodeColor }}
+                        style={{ background: nodeColor, color: '#fff', ...(badge.isCurrent ? {} : { borderColor: nodeColor }) }}
                         title={tip}
                       >
                         {badge.isCurrent && (

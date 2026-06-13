@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { mainLogger } from '../core/utils/Logger';
+import { isNewerVersion } from '../core/utils/semver';
 import type { MainEvent } from '../core/bridge/messages';
 import { BUILD_FLAVOR } from '../core/buildFlags';
 
@@ -71,7 +72,7 @@ function configurePlatformFeedUrl(): void {
     'https://storage.yandexcloud.net/gitbor/stable';
   const dir =
     process.platform === 'win32'
-      ? BUILD_FLAVOR === 'no-ai'
+      ? (BUILD_FLAVOR as string) === 'no-ai'
         ? 'win/no_ai'
         : 'win'
       : process.platform === 'darwin'
@@ -112,8 +113,8 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    if (info.version === app.getVersion()) {
-      mainLogger.debug(`appUpdater: downloaded same version ${info.version}, ignoring`);
+    if (!isNewerVersion(info.version, app.getVersion())) {
+      mainLogger.debug(`appUpdater: downloaded ${info.version} is not newer than ${app.getVersion()}, ignoring`);
       return;
     }
     void fetchReleaseNotes(info.version).then((notes) => {
@@ -147,7 +148,10 @@ export async function runManualUpdateCheck(notify: (event: MainEvent) => void): 
     const result = await autoUpdater.checkForUpdates();
     const remote = result?.updateInfo?.version;
     const current = app.getVersion();
-    if (remote && remote !== current) {
+    // Только строго более новая версия считается доступной. Бакет может
+    // временно отдавать latest.yml с откатом/старой версией — тогда показывать
+    // «доступно обновление» нельзя (иначе у юзера с 0.1.17 «обновление» 0.1.16).
+    if (remote && isNewerVersion(remote, current)) {
       notify({ type: 'appUpdateManualResult', result: 'available', version: remote, current });
       return;
     }

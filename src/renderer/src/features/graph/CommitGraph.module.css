@@ -196,21 +196,18 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 10px;
+  padding: 2px 8px;
   border-radius: 3px;
   font-size: 10px;
   font-weight: 500;
   white-space: nowrap;
   flex-shrink: 0;
   max-width: 220px;
-  overflow: hidden;
 }
 
-/* Активная (checked-out) ветка — контрастное кольцо вокруг плашки.
-   Двойной box-shadow: зазор цветом поверхности + кольцо цветом текста.
-   В отличие от белого outline видно на любом фоне и в любой теме. */
+/* Активная (checked-out) ветка —  рамка вокруг плашки. */
 .refBadgeCurrent {
-  box-shadow: 0 0 0 1.5px var(--sg-surface), 0 0 0 3px var(--sg-foreground);
+  border: 1px solid rgba(0, 0, 0, 0.5);
 }
 
 .refBadgeLabel {
@@ -218,6 +215,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  margin: 0 1px;
+  font-size: 12px;
+  margin-top: -1px;
 }
 
 .refBadgeIcon {
@@ -225,7 +225,8 @@
   align-items: center;
   flex-shrink: 0;
   opacity: 0.92;
-  line-height: 0;
+  margin: 0 1px;
+  margin-top: 2px;
 }
 
 /* Тонкий вертикальный разделитель между именем и облаком-индикатором
@@ -233,8 +234,8 @@
 .refBadgeDivider {
   width: 1px;
   align-self: stretch;
-  margin: 1px 0;
-  background: rgba(255, 255, 255, 0.45);
+  margin: -2px 0;
+  background: rgba(255, 255, 255, 0.6);
   flex-shrink: 0;
 }
 

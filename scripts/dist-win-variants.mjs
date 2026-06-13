@@ -6,6 +6,9 @@ function run(command, args, env = {}) {
   const result = spawnSync(command, args, {
     stdio: 'inherit',
     env: { ...process.env, ...env },
+    // Node ≥18.20/20 на Windows запрещает spawn `.cmd` без shell (EINVAL).
+    // npm.cmd запускаем через shell; node (process.execPath) — напрямую.
+    shell: process.platform === 'win32' && /\.cmd$/i.test(command),
   });
 
   if (result.error) {

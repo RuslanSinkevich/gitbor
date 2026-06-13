@@ -3,8 +3,16 @@ import { t } from '../../i18n';
 import { postCommand, onMainEvent } from '../../api';
 import { AiGenerateButton, localizeAiError } from '../ai';
 import { AI_ENABLED } from '@core/buildFlags';
-import { isConventionalCommitSubject } from '@core/git/commitMessageFormat';
+import {
+  CONVENTIONAL_TYPES,
+  DEFAULT_CONVENTIONAL_TYPE,
+  applyConventionalType,
+  isConventionalCommitSubject,
+  parseConventionalType,
+  type ConventionalType,
+} from '@core/git/commitMessageFormat';
 import type { MergeState } from '../../types';
+import { CommitTypeSelect } from './CommitTypeSelect';
 import s from './CommitBar.module.css';
 
 const DESC_MIN_PX = 29;
@@ -68,6 +76,19 @@ export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiS
   const canCommit = (subject.trim().length > 0 || amend) && stagedCount > 0 && !isOperationRunning;
   const subjectPlaceholder = conventionalCommits ? loc.changes.commitSubjectConventional : loc.changes.commitSubject;
 
+  const currentType = parseConventionalType(subject);
+  const selectType = useCallback((type: ConventionalType) => {
+    setSubject((prev) => applyConventionalType(prev, type));
+  }, []);
+
+  // Conventional-режим: тема считается «требует префикс», когда репо
+  // включил CC, это не amend, и тема непустая, но не проходит проверку
+  // формата. Тогда показываем подсказку и селектор типа. Префикс не
+  // подставляется молча — пользователь либо выбирает тип, либо правит
+  // тему вручную, либо коммитит как есть (хук решит).
+  const needsPrefix =
+    conventionalCommits && !amend && subject.trim().length > 0 && !isConventionalCommitSubject(subject);
+
   // Авто-рост description: высота по scrollHeight, с ограничением сверху.
   // Делаем в layout-фазе, чтобы не было визуального «прыжка» при вставке
   // длинного AI-текста.
@@ -116,10 +137,6 @@ export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiS
   function doCommit() {
     if (!canCommit) return;
     const subj = subject.trim();
-    if (conventionalCommits && !amend && !isConventionalCommitSubject(subj)) {
-      setAiError(loc.changes.commitFormatError);
-      return;
-    }
     const desc = description.trim();
     const msg = desc ? `${subj}\n\n${desc}` : subj;
     setAiError(null);
@@ -185,15 +202,30 @@ export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiS
           </button>
         </div>
       )}
+      {needsPrefix && (
+        <div className={s.formatHint} role="status">
+          {loc.changes.commitFormatError}
+        </div>
+      )}
       <div className={s.fields}>
-        <input
-          className={s.subject}
-          type="text"
-          placeholder={subjectPlaceholder}
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          onKeyDown={onSubjectKeyDown}
-        />
+        <div className={s.subjectRow}>
+          {needsPrefix && (
+            <CommitTypeSelect
+              types={CONVENTIONAL_TYPES}
+              current={currentType}
+              fallback={DEFAULT_CONVENTIONAL_TYPE}
+              onSelect={selectType}
+            />
+          )}
+          <input
+            className={s.subject}
+            type="text"
+            placeholder={subjectPlaceholder}
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            onKeyDown={onSubjectKeyDown}
+          />
+        </div>
         <textarea
           ref={descRef}
           className={s.description}

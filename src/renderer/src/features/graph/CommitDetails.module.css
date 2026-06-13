@@ -109,8 +109,9 @@
 }
 
 .label {
-  width: 55px;
+  min-width: 64px;
   flex-shrink: 0;
+  white-space: nowrap;
   color: var(--sg-foreground-muted);
   font-size: 11px;
   font-weight: 600;
