@@ -5,7 +5,6 @@ import { AiGenerateButton, localizeAiError } from '../ai';
 import { AI_ENABLED } from '@core/buildFlags';
 import {
   CONVENTIONAL_TYPES,
-  DEFAULT_CONVENTIONAL_TYPE,
   applyConventionalType,
   isConventionalCommitSubject,
   parseConventionalType,
@@ -35,6 +34,7 @@ export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiS
   const [aiError, setAiError] = useState<string | null>(null);
   const [conventionalCommits, setConventionalCommits] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [formatHelpOpen, setFormatHelpOpen] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
   const prefilledRef = useRef(false);
   const prevRunningRef = useRef(false);
@@ -204,7 +204,20 @@ export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiS
       )}
       {needsPrefix && (
         <div className={s.formatHint} role="status">
-          {loc.changes.commitFormatError}
+          <div className={s.formatHintRow}>
+            <span className={s.formatHintText}>{loc.changes.commitFormatError}</span>
+            <button
+              type="button"
+              className={s.formatHintToggle}
+              onClick={() => setFormatHelpOpen((v) => !v)}
+              aria-expanded={formatHelpOpen}
+            >
+              {formatHelpOpen ? loc.changes.commitFormatHelpHide : loc.changes.commitFormatHelpShow}
+            </button>
+          </div>
+          {formatHelpOpen && (
+            <div className={s.formatHintDetails}>{loc.changes.commitFormatHelpText}</div>
+          )}
         </div>
       )}
       <div className={s.fields}>
@@ -213,7 +226,6 @@ export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiS
             <CommitTypeSelect
               types={CONVENTIONAL_TYPES}
               current={currentType}
-              fallback={DEFAULT_CONVENTIONAL_TYPE}
               onSelect={selectType}
             />
           )}

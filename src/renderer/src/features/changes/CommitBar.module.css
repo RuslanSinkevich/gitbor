@@ -128,6 +128,44 @@
   box-sizing: border-box;
 }
 
+.formatHintRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.formatHintText {
+  flex: 1;
+  min-width: 0;
+}
+
+.formatHintToggle {
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  font-size: 11px;
+  font-family: inherit;
+  color: color-mix(in srgb, var(--sg-warning) 70%, var(--sg-foreground));
+  background: none;
+  border: none;
+  border-bottom: 1px dashed currentColor;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.formatHintToggle:hover {
+  color: var(--sg-foreground);
+}
+
+.formatHintDetails {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed color-mix(in srgb, var(--sg-warning) 30%, transparent);
+  color: var(--sg-foreground-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .errorBanner {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

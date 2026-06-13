@@ -31,14 +31,26 @@
   color: var(--sg-primary);
 }
 
+.plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--sg-foreground-muted);
+  opacity: 0.85;
+}
+
 .typeText {
   color: inherit;
 }
 
 .typeTextMuted {
   color: var(--sg-foreground-muted);
-  opacity: 0.75;
-  font-style: italic;
+  font-style: normal;
 }
 
 .caret {

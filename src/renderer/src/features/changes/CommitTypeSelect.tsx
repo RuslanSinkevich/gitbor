@@ -12,8 +12,6 @@ interface Props {
   types: readonly ConventionalType[];
   /** Тип, уже присутствующий в теме (если есть). */
   current: ConventionalType | null;
-  /** Тип, показываемый в кнопке как подсказка, когда current пуст. */
-  fallback: ConventionalType;
   onSelect: (type: ConventionalType) => void;
 }
 
@@ -23,7 +21,7 @@ interface Props {
  * добавить корректный префикс. Открывает список типов вверх; высота меню
  * подстраивается под доступное место в окне.
  */
-export function CommitTypeSelect({ types, current, fallback, onSelect }: Props) {
+export function CommitTypeSelect({ types, current, onSelect }: Props) {
   const loc = t();
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
@@ -79,8 +77,8 @@ export function CommitTypeSelect({ types, current, fallback, onSelect }: Props) 
     };
   }, [open]);
 
-  const shown = current ?? fallback;
   const descMap = loc.changes.commitTypeDesc as Record<string, string>;
+  const buttonLabel = current ?? loc.changes.commitTypeButtonEmpty;
 
   return (
     <div className={s.root} ref={rootRef}>
@@ -93,13 +91,12 @@ export function CommitTypeSelect({ types, current, fallback, onSelect }: Props) 
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
-          <path
-            fill="currentColor"
-            d="M2.5 2h5.1c.4 0 .8.16 1.06.44l5 5a1.5 1.5 0 0 1 0 2.12l-3.94 3.94a1.5 1.5 0 0 1-2.12 0l-5-5A1.5 1.5 0 0 1 1.5 7.6V3a1 1 0 0 1 1-1Zm2 2.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"
-          />
-        </svg>
-        <span className={current ? s.typeText : s.typeTextMuted}>{shown}</span>
+        {!current && (
+          <span className={s.plus} aria-hidden="true">
+            +
+          </span>
+        )}
+        <span className={current ? s.typeText : s.typeTextMuted}>{buttonLabel}</span>
         <svg className={s.caret} width="9" height="9" viewBox="0 0 12 12" aria-hidden="true">
           <path fill="currentColor" d="M2 4l4 4 4-4z" />
         </svg>
