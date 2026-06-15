@@ -992,6 +992,7 @@ export const ru: LocaleMap = {
       non_fast_forward: 'Remote отклонил push',
       untracked_overwrite: 'Untracked файлы будут перезаписаны',
       preflight_blocked: 'Операция заблокирована',
+      hook_failed: 'Скрипт проекта отклонил операцию',
       unknown: 'Операция не выполнена',
     },
     descriptions: {
@@ -1008,6 +1009,7 @@ export const ru: LocaleMap = {
       non_fast_forward: 'Remote-ветка ушла вперёд. Сделайте pull или rebase перед push.',
       untracked_overwrite: 'Untracked файлы будут перезаписаны. Переместите или удалите их сначала.',
       preflight_blocked: 'Состояние репозитория не позволяет выполнить операцию. Разрешите проблемы ниже.',
+      hook_failed: 'Проект запускает свои проверки перед коммитом (стиль кода, тесты, формат сообщения и т.п.) и одна из них не прошла. Что именно — смотрите в выводе ниже.',
       unknown: 'Произошла неизвестная ошибка. Подробности в выводе git ниже.',
     },
     actionLabels: {

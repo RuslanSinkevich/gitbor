@@ -997,6 +997,7 @@ export const en = {
       non_fast_forward: 'Remote rejected push',
       untracked_overwrite: 'Untracked files would be overwritten',
       preflight_blocked: 'Operation blocked',
+      hook_failed: 'A project script rejected the operation',
       unknown: 'Operation failed',
     },
     descriptions: {
@@ -1013,6 +1014,7 @@ export const en = {
       non_fast_forward: 'The remote branch has diverged. Pull or rebase before pushing.',
       untracked_overwrite: 'Untracked files would be overwritten by this operation. Move or remove them first.',
       preflight_blocked: 'The repository state prevents this operation. Resolve the issues below first.',
+      hook_failed: 'The project runs its own checks before commit (code style, tests, message format, etc.) and one of them did not pass. See the output below for details.',
       unknown: 'An unexpected error occurred. See the git output below.',
     },
     actionLabels: {

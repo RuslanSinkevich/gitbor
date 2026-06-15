@@ -134,8 +134,31 @@ const PATTERNS: Pattern[] = [
     recoverable: false,
   },
   {
+    // Стандартное сообщение git'а при провале любого хука.
+    // Покрывает любую инфраструктуру хуков — git печатает это сам.
     class: 'hook_failed',
     re: /hook (?:declined|failed)|pre-commit hook failed|pre-push hook failed|commit-msg hook failed/i,
+    hint: 'A git hook rejected the operation. See hook output below.',
+    recoverable: true,
+  },
+  {
+    // Общий матч на любую систему хуков (husky, lefthook, simple-git-hooks,
+    // pre-commit от Yelp, кастомные shell-скрипты): нас интересует факт
+    // «упоминание имени git-хука рядом со словом failed/exited/declined/error».
+    // Имена хуков фиксированы в git, поэтому такой матч надёжен независимо
+    // от языка проекта (JS, Python, Go, Rust — любая команда может писать
+    // в stderr «pre-commit ... failed»).
+    class: 'hook_failed',
+    re: /(?:^|[\s-])(?:pre-applypatch|post-applypatch|pre-commit|prepare-commit-msg|commit-msg|post-commit|pre-rebase|post-checkout|post-merge|pre-push|pre-receive|update|post-receive|post-update|post-rewrite|sendemail-validate|fsmonitor-watchman|p4-changelist|p4-prepare-changelist|p4-post-changelist|p4-pre-submit|push-to-checkout|reference-transaction)(?:[\s-]+(?:hook|script))?\s+(?:failed|exited|declined|error)/i,
+    hint: 'A git hook rejected the operation. See hook output below.',
+    recoverable: true,
+  },
+  {
+    // Стандартный вывод pre-commit (https://pre-commit.com, Yelp): каждый
+    // фейл сопровождается строкой «hook id: ...» и/или явным «exit code: N».
+    // Сюда же попадают любые тулзы, оформляющие лог хука в таком же стиле.
+    class: 'hook_failed',
+    re: /hook id:\s+\S+/i,
     hint: 'A git hook rejected the operation. See hook output below.',
     recoverable: true,
   },

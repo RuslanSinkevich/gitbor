@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { SgDialog } from '../../ui/SgDialog';
 import { t, tpl } from '../../i18n';
+import { stripAnsi } from '../../shared/stripAnsi';
 import type {
   GitErrorClass,
   PreflightIssue,
@@ -131,7 +132,7 @@ export function SafetyDialog({ payload, onAction, onClose }: SafetyDialogProps) 
         {payload.error && payload.errorClass !== 'preflight_blocked' && (
           <div className={s.section}>
             <div className={s.title}>{loc.safety.stderrTitle}</div>
-            <div className={s.error}>{payload.error}</div>
+            <div className={s.error}>{stripAnsi(payload.error)}</div>
           </div>
         )}
 

@@ -164,6 +164,39 @@ const FIXTURES: Fixture[] = [
     expected: 'non_fast_forward',
   },
 
+  // hook_failed — фикстуры из разных систем хуков (не привязано к одному стеку)
+  {
+    name: 'husky pre-commit (JS/Node ecosystem)',
+    stderr: 'husky - pre-commit script failed (code 2)\n',
+    expected: 'hook_failed',
+  },
+  {
+    name: 'husky commit-msg (JS/Node ecosystem)',
+    stderr: '  Commit message does not follow Conventional Commits.\nhusky - commit-msg script failed (code 1)\n',
+    expected: 'hook_failed',
+  },
+  {
+    name: 'lefthook (Ruby/Go ecosystem)',
+    stderr: '\n  EXECUTE > pre-commit\n  not ok: pre-commit failed\n',
+    expected: 'hook_failed',
+  },
+  {
+    name: 'pre-commit framework (Python, Yelp)',
+    stderr:
+      'black....................................................................Failed\n- hook id: black\n- exit code: 1\n\nwould reformat src/foo.py\n',
+    expected: 'hook_failed',
+  },
+  {
+    name: 'plain shell pre-commit exit',
+    stderr: 'My custom check failed\nerror: pre-commit failed\n',
+    expected: 'hook_failed',
+  },
+  {
+    name: 'commit-msg with arbitrary tool',
+    stderr: 'invalid commit subject\ncommit-msg hook exited with code 1\n',
+    expected: 'hook_failed',
+  },
+
   // unknown
   {
     name: 'truly unknown error',
