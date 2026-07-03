@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { t, tpl } from '../../i18n';
 import { postCommand, copyToClipboard } from '../../api';
 import type { FileStatus } from '../../types';
@@ -6,9 +6,14 @@ import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { SgSplitPane } from '../../ui/SgSplitPane';
 import { buildStorageKey } from '../../shared/uiPersist';
 import type { ShowPrompt } from '../graph/commitMenuItems';
-import { buildFileTree, FileTreeItem, fileName, collectFiles, type FileTreeNode } from './FileTree';
+import { FileHistoryModal } from '../file-history';
+import { buildFileTree, fileName, collectFiles, type FileTreeNode } from './FileTree';
+import { VirtualFileTree } from './VirtualFileTree';
 import { useFileListKeyboard } from './useFileListKeyboard';
 import s from './LocalChanges.module.css';
+
+/** Порог «слишком много изменений»: сверх него секция стартует свёрнутой. */
+const COLLAPSE_THRESHOLD = 5000;
 
 /* Иконки в стиле тулбара: 14×14, viewBox 16, stroke currentColor 1.5. */
 const IconStageAll = () => (
@@ -35,6 +40,7 @@ interface Props {
   mergeInProgress?: boolean;
   onContextMenu: (e: React.MouseEvent, items: SgContextMenuItem[]) => void;
   onOpenDiff?: (file: string, hash: string) => void;
+  /** @deprecated История файла теперь открывается модалкой внутри области changes; проп игнорируется (backward-compat). */
   onFileHistory?: (file: string) => void;
   onFileBlame?: (file: string) => void;
   onOpenMergeEditor?: (file: string) => void;
@@ -46,11 +52,20 @@ interface Props {
 
 export function LocalChanges({
   repoPath,
-  stagedFiles, unstagedFiles, onContextMenu, onOpenDiff, onFileHistory, onFileBlame,
+  stagedFiles, unstagedFiles, onContextMenu, onOpenDiff, onFileBlame,
   onOpenMergeEditor, onSelectFolder, showPrompt, activePath, activeSection,
 }: Props) {
   const loc = t();
   const stagedSplitStorageKey = buildStorageKey('sg-layout:changes-staged-height', repoPath);
+
+  // История файла: модалка держит своё open/close состояние ВНУТРИ области
+  // changes (см. границы стрима), не через App. null = закрыта.
+  const [historyFile, setHistoryFile] = useState<string | null>(null);
+
+  // Модалки/состояние привязаны к репо — при смене таба сбрасываем.
+  useEffect(() => {
+    setHistoryFile(null);
+  }, [repoPath]);
 
   const conflictFiles = useMemo(() => unstagedFiles.filter(f => f.status === 'U'), [unstagedFiles]);
   const normalUnstaged = useMemo(() => unstagedFiles.filter(f => f.status !== 'U'), [unstagedFiles]);
@@ -60,12 +75,12 @@ export function LocalChanges({
     { divider: true },
     { label: loc.contextMenu.openFile, action: () => postCommand({ type: 'openFile', file: file.path }) },
     { label: loc.contextMenu.openDiff, action: () => onOpenDiff ? onOpenDiff(file.path, 'STAGED') : postCommand({ type: 'openDiff', file: file.path, hash: 'STAGED' }) },
-    { label: loc.contextMenu.fileHistory, action: () => onFileHistory?.(file.path) },
+    { label: loc.contextMenu.fileHistory, action: () => setHistoryFile(file.path) },
     { label: loc.contextMenu.blame, action: () => onFileBlame?.(file.path) },
     { divider: true },
     { label: loc.contextMenu.copyPath, action: () => copyToClipboard(file.path) },
     { label: loc.contextMenu.copyFileName, action: () => copyToClipboard(fileName(file.path)) },
-  ], [loc, onFileHistory, onFileBlame, onOpenDiff]);
+  ], [loc, onFileBlame, onOpenDiff]);
 
   const getUnstagedMenuItems = useCallback((file: FileStatus): SgContextMenuItem[] => {
     const items: SgContextMenuItem[] = [
@@ -73,9 +88,15 @@ export function LocalChanges({
       { divider: true },
       { label: loc.contextMenu.openFile, action: () => postCommand({ type: 'openFile', file: file.path }) },
       { label: loc.contextMenu.openDiff, action: () => onOpenDiff ? onOpenDiff(file.path, 'WORKING') : postCommand({ type: 'openDiff', file: file.path, hash: 'WORKING' }) },
-      { label: loc.contextMenu.fileHistory, action: () => onFileHistory?.(file.path) },
-      { label: loc.contextMenu.blame, action: () => onFileBlame?.(file.path) },
     ];
+    // История/Blame имеют смысл только для tracked-файлов. Для untracked
+    // (`?`) истории нет — пункт не показываем.
+    if (file.status !== '?') {
+      items.push(
+        { label: loc.contextMenu.fileHistory, action: () => setHistoryFile(file.path) },
+        { label: loc.contextMenu.blame, action: () => onFileBlame?.(file.path) },
+      );
+    }
     if (file.status !== '?' && file.status !== 'U') {
       items.push({ divider: true }, {
         label: loc.contextMenu.discard,
@@ -114,7 +135,7 @@ export function LocalChanges({
       { label: loc.contextMenu.copyFileName, action: () => copyToClipboard(fileName(file.path)) },
     );
     return items;
-  }, [loc, onFileHistory, onFileBlame, onOpenDiff, showPrompt]);
+  }, [loc, onFileBlame, onOpenDiff, showPrompt]);
 
   const getConflictMenuItems = useCallback((file: FileStatus): SgContextMenuItem[] => [
     { label: loc.contextMenu.openMergeEditor, action: () => onOpenMergeEditor?.(file.path) },
@@ -215,10 +236,16 @@ export function LocalChanges({
     if (files.length > 0) postCommand({ type: 'stageAll', files });
   };
   const handleUnstageAll = () => { postCommand({ type: 'unstageAll', files: stagedFiles.map(f => f.path) }); };
-  const handleDiscardAll = () => {
-    const doDiscard = () => {
-      const tracked = normalUnstaged.filter(f => f.status !== '?').map(f => f.path);
+  const untrackedUnstaged = useMemo(() => normalUnstaged.filter(f => f.status === '?'), [normalUnstaged]);
+
+  const handleDiscardAll = useCallback(() => {
+    const tracked = normalUnstaged.filter(f => f.status !== '?').map(f => f.path);
+    const untracked = untrackedUnstaged.map(f => f.path);
+    const doDiscard = (deleteUntracked: boolean) => {
       if (tracked.length > 0) postCommand({ type: 'discardFiles', files: tracked });
+      if (deleteUntracked && untracked.length > 0) {
+        postCommand({ type: 'deleteUntrackedFiles', files: untracked });
+      }
     };
     if (showPrompt) {
       showPrompt({
@@ -227,12 +254,16 @@ export function LocalChanges({
         message: loc.dialog.resetHardMessage,
         confirmLabel: loc.changes.discardAll,
         danger: true,
-        onConfirm: doDiscard,
+        checkbox: untracked.length > 0 ? {
+          label: tpl(loc.dialog.discardDeleteUntracked, { count: String(untracked.length) }),
+          warning: loc.dialog.discardDeleteUntrackedWarning,
+        } : undefined,
+        onConfirm: (checked) => doDiscard(!!checked),
       });
     } else {
-      doDiscard();
+      doDiscard(false);
     }
-  };
+  }, [normalUnstaged, untrackedUnstaged, showPrompt, loc]);
 
   const unstagedTree = useMemo(() => buildFileTree(normalUnstaged), [normalUnstaged]);
   const stagedTree = useMemo(() => buildFileTree(stagedFiles), [stagedFiles]);
@@ -325,17 +356,20 @@ export function LocalChanges({
                     )}
                   </div>
                 </div>
-                <div className={s.fileList}>
-                  {unstagedTree.map(node => (
-                    <FileTreeItem key={node.path} node={node} depth={0} section="unstaged" activePath={activePath} activeSection={activeSection} focusedPath={kb.focusedPath}
-                      onClickFile={handleUnstagedClick}
-                      onClickFolder={(folderPath) => onSelectFolder?.(folderPath, 'unstaged')}
-                      onDoubleClickFile={(file) => postCommand({ type: 'stageFile', file: file.path })}
-                      onDoubleClickFolder={(files) => postCommand({ type: 'stageAll', files: files.map(f => f.path) })}
-                      onContextMenu={(e, file) => onContextMenu(e, getUnstagedMenuItems(file))}
-                      onContextMenuFolder={(e, n) => onContextMenu(e, getUnstagedFolderMenuItems(n))} />
-                  ))}
-                </div>
+                <VirtualFileTree
+                  tree={unstagedTree}
+                  section="unstaged"
+                  scopeKey={`${repoPath}:unstaged`}
+                  collapseByDefault={normalUnstaged.length > COLLAPSE_THRESHOLD}
+                  activePath={activePath}
+                  activeSection={activeSection}
+                  focusedPath={kb.focusedPath}
+                  onClickFile={handleUnstagedClick}
+                  onClickFolder={(folderPath) => onSelectFolder?.(folderPath, 'unstaged')}
+                  onDoubleClickFile={(file) => postCommand({ type: 'stageFile', file: file.path })}
+                  onDoubleClickFolder={(files) => postCommand({ type: 'stageAll', files: files.map(f => f.path) })}
+                  onContextMenu={(e, file) => onContextMenu(e, getUnstagedMenuItems(file))}
+                  onContextMenuFolder={(e, n) => onContextMenu(e, getUnstagedFolderMenuItems(n))} />
               </div>
             </div>
           }
@@ -352,22 +386,32 @@ export function LocalChanges({
                     </div>
                   )}
                 </div>
-                <div className={s.fileList}>
-                  {stagedTree.map(node => (
-                    <FileTreeItem key={node.path} node={node} depth={0} section="staged" activePath={activePath} activeSection={activeSection} focusedPath={kb.focusedPath}
-                      onClickFile={handleStagedClick}
-                      onClickFolder={(folderPath) => onSelectFolder?.(folderPath, 'staged')}
-                      onDoubleClickFile={(file) => postCommand({ type: 'unstageFile', file: file.path })}
-                      onDoubleClickFolder={(files) => postCommand({ type: 'unstageAll', files: files.map(f => f.path) })}
-                      onContextMenu={(e, file) => onContextMenu(e, getStagedMenuItems(file))}
-                      onContextMenuFolder={(e, n) => onContextMenu(e, getStagedFolderMenuItems(n))} />
-                  ))}
-                </div>
+                <VirtualFileTree
+                  tree={stagedTree}
+                  section="staged"
+                  scopeKey={`${repoPath}:staged`}
+                  collapseByDefault={stagedFiles.length > COLLAPSE_THRESHOLD}
+                  activePath={activePath}
+                  activeSection={activeSection}
+                  focusedPath={kb.focusedPath}
+                  onClickFile={handleStagedClick}
+                  onClickFolder={(folderPath) => onSelectFolder?.(folderPath, 'staged')}
+                  onDoubleClickFile={(file) => postCommand({ type: 'unstageFile', file: file.path })}
+                  onDoubleClickFolder={(files) => postCommand({ type: 'unstageAll', files: files.map(f => f.path) })}
+                  onContextMenu={(e, file) => onContextMenu(e, getStagedMenuItems(file))}
+                  onContextMenuFolder={(e, n) => onContextMenu(e, getStagedFolderMenuItems(n))} />
               </div>
             </div>
           }
         />
       </div>
+
+      {historyFile && (
+        <FileHistoryModal
+          file={historyFile}
+          onClose={() => setHistoryFile(null)}
+        />
+      )}
     </div>
   );
 }

@@ -12,11 +12,13 @@ import {
 } from '@core/git/commitMessageFormat';
 import type { MergeState } from '../../types';
 import { CommitTypeSelect } from './CommitTypeSelect';
+import { loadCommitDraft, saveCommitDraft, clearCommitDraft } from './commitDraftPersist';
 import s from './CommitBar.module.css';
 
 const DESC_MIN_PX = 29;
 const DESC_MAX_PX = 260;
 const AI_ERROR_AUTO_DISMISS_MS = 20_000;
+const DRAFT_SAVE_DEBOUNCE_MS = 300;
 
 interface Props {
   repoPath: string;
@@ -38,6 +40,10 @@ export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiS
   const descRef = useRef<HTMLTextAreaElement>(null);
   const prefilledRef = useRef(false);
   const prevRunningRef = useRef(false);
+  // Актуальный repoPath для обработчиков с пустым deps (operationEnd),
+  // чтобы не тащить stale-замыкание.
+  const repoPathRef = useRef(repoPath);
+  repoPathRef.current = repoPath;
 
   // Спиннер на кнопке коммита держим, пока идёт операция, и снимаем, когда
   // isOperationRunning сменился с true на false (операция завершилась).
@@ -68,6 +74,28 @@ export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiS
     setConventionalCommits(false);
     if (repoPath) postCommand({ type: 'getConventionalCommits' });
   }, [repoPath]);
+
+  // Восстановление черновика per-repo при монтировании и смене репозитория.
+  // Применяем только при наличии сохранённого текста: при отсутствии черновика
+  // поля не трогаем, чтобы не затирать merge-предзаполнение. Смена вкладки репо
+  // пересоздаёт компонент (поля стартуют пустыми), так что явный сброс не нужен.
+  useEffect(() => {
+    const draft = loadCommitDraft(repoPath);
+    if (!draft) return;
+    setSubject(draft.subject);
+    setDescription(draft.description);
+  }, [repoPath]);
+
+  // Сохранение черновика per-repo с debounce. Пустой черновик стирает запись
+  // (см. saveCommitDraft). При смене repoPath таймер старого значения
+  // отменяется в cleanup до срабатывания, так что кросс-репо запись исключена.
+  useEffect(() => {
+    const repo = repoPath;
+    const id = window.setTimeout(() => {
+      saveCommitDraft(repo, { subject, description });
+    }, DRAFT_SAVE_DEBOUNCE_MS);
+    return () => window.clearTimeout(id);
+  }, [repoPath, subject, description]);
 
   useEffect(() => onMainEvent((event) => {
     if (event.type === 'conventionalCommits') setConventionalCommits(event.active);
@@ -130,6 +158,7 @@ export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiS
         setDescription('');
         setAmend(false);
         setAiError(null);
+        clearCommitDraft(repoPathRef.current);
       }
     });
   }, []);
@@ -181,6 +210,7 @@ export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiS
     setSubject('');
     setDescription('');
     setAiError(null);
+    clearCommitDraft(repoPathRef.current);
     descRef.current?.focus();
   }, []);
 

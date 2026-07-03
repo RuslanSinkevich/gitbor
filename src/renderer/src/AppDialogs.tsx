@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { SgContextMenu } from './ui/SgContextMenu';
 import { SgToastContainer } from './ui/SgToast';
 import { SgPromptDialog } from './ui/SgPromptDialog';
@@ -75,6 +75,16 @@ export function AppDialogs(props: AppDialogsProps) {
     safety,
     onSayThanks,
   } = props;
+
+  // Prompt открыт в контексте конкретного репо (discard и т.п.) — при
+  // переключении таба закрываем, иначе confirm применится к другому репо.
+  const prevRepoPathRef = useRef(repoPath);
+  useEffect(() => {
+    if (prevRepoPathRef.current !== repoPath) {
+      prevRepoPathRef.current = repoPath;
+      if (prompt) closePrompt();
+    }
+  }, [repoPath, prompt, closePrompt]);
 
   return (
     <>

@@ -3,7 +3,7 @@ import type { GitExecutor } from '@core/git/GitExecutor';
 import type { OperationQueue } from '@core/safety/OperationQueue';
 import type { SafetyNet } from '@core/safety/SafetyNet';
 import type { StateManager } from '@core/state/StateManager';
-import { makeMockGit, makeMockState, makeMockQueue, makeMockSafety } from '../_mocks';
+import { makeMockGit, makeScriptedGit, makeMockState, makeMockQueue, makeMockSafety } from '../_mocks';
 
 /**
  * Tests for writeCommands module.
@@ -242,6 +242,30 @@ describe('writeCommands', () => {
       expect(git.exec).toHaveBeenCalledWith(['stash', 'push', '-m', '  hello world  ']);
     });
 
+    it('adds -u before -m when includeUntracked=true', async () => {
+      const git = makeMockGit();
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      await Write.stash(asQueue(queue), asGit(git), asState(state), 'WIP', true);
+      expect(git.exec).toHaveBeenCalledWith(['stash', 'push', '-u', '-m', 'WIP']);
+    });
+
+    it('adds -u without -m when includeUntracked=true and no message', async () => {
+      const git = makeMockGit();
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      await Write.stash(asQueue(queue), asGit(git), asState(state), undefined, true);
+      expect(git.exec).toHaveBeenCalledWith(['stash', 'push', '-u']);
+    });
+
+    it('omits -u when includeUntracked=false', async () => {
+      const git = makeMockGit();
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      await Write.stash(asQueue(queue), asGit(git), asState(state), 'WIP', false);
+      expect(git.exec).toHaveBeenCalledWith(['stash', 'push', '-m', 'WIP']);
+    });
+
     it('returns success when git exits 0', async () => {
       const git = makeMockGit();
       const queue = makeMockQueue();
@@ -287,6 +311,68 @@ describe('writeCommands', () => {
       const state = makeMockState();
       await Write.stashDrop(asQueue(queue), asGit(git), asState(state), 'stash@{2}');
       expect(git.exec).toHaveBeenCalledWith(['stash', 'drop', 'stash@{2}']);
+    });
+  });
+
+  describe('fetchBranchFastForward', () => {
+    it('uses upstream remote and fetches with branch:branch refspec', async () => {
+      const git = makeScriptedGit({ 'config --get branch': { stdout: 'origin' } });
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const r = await Write.fetchBranchFastForward(asQueue(queue), asGit(git), asState(state), 'feature');
+      expect(git.exec).toHaveBeenCalledWith(['fetch', 'origin', 'feature:feature']);
+      expect(r.success).toBe(true);
+    });
+
+    it('falls back to the only remote when no upstream configured', async () => {
+      // Точный mock: config пустой (нет upstream), `git remote` — один remote.
+      const git = makeMockGit();
+      git.exec.mockImplementation(async (args: string[]) => {
+        const key = args.join(' ');
+        if (key.startsWith('config --get')) return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+        if (key === 'remote') return { stdout: 'upstream', stderr: '', exitCode: 0, duration: 1 };
+        return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+      });
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const r = await Write.fetchBranchFastForward(asQueue(queue), asGit(git), asState(state), 'feature');
+      expect(git.exec).toHaveBeenCalledWith(['fetch', 'upstream', 'feature:feature']);
+      expect(r.success).toBe(true);
+    });
+
+    it('prefers origin when several remotes exist and no upstream', async () => {
+      const git = makeMockGit();
+      git.exec.mockImplementation(async (args: string[]) => {
+        const key = args.join(' ');
+        if (key.startsWith('config --get')) return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+        if (key === 'remote') return { stdout: 'upstream\norigin', stderr: '', exitCode: 0, duration: 1 };
+        return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+      });
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      await Write.fetchBranchFastForward(asQueue(queue), asGit(git), asState(state), 'feature');
+      expect(git.exec).toHaveBeenCalledWith(['fetch', 'origin', 'feature:feature']);
+    });
+
+    it('returns non_fast_forward errorClass when git rejects', async () => {
+      const git = makeScriptedGit({
+        'config --get branch': { stdout: 'origin' },
+        'fetch': { exitCode: 1, stderr: '! [rejected] feature -> feature (non-fast-forward)' },
+      });
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const r = await Write.fetchBranchFastForward(asQueue(queue), asGit(git), asState(state), 'feature');
+      expect(r.success).toBe(false);
+      expect(r.errorClass).toBe('non_fast_forward');
+    });
+
+    it('fails cleanly when no remote is configured', async () => {
+      const git = makeScriptedGit({}, { stdout: '' });
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const r = await Write.fetchBranchFastForward(asQueue(queue), asGit(git), asState(state), 'feature');
+      expect(r.success).toBe(false);
+      expect(r.error).toContain('No remote');
     });
   });
 });

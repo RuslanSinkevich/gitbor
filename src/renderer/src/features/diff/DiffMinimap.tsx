@@ -66,14 +66,11 @@ export function DiffMinimap({ marks, scrollTop, viewport, content, onSeek }: Pro
     };
     const sortedMarks = [...marks].sort((a, b) => a.ratio - b.ratio);
     const lineStep = getLineStep(sortedMarks);
-    // Одна метка = одна строка. На коротких файлах строка может занимать много
-    // пикселей в minimap, поэтому соседние строки надо сливать в диапазон, а не
-    // рисовать фиксированные 2px штрихи.
-    const markH = Math.max(2, lineStep > 0 ? lineStep * h : 2);
 
     for (let i = 0; i < sortedMarks.length; i++) {
       const start = sortedMarks[i];
-      const startHeight = start.heightRatio || lineStep || (2 / Math.max(1, h));
+      const fallbackHeight = lineStep || (2 / Math.max(1, h));
+      const startHeight = start.heightRatio || fallbackHeight;
       let endRatio = start.ratio + startHeight;
       while (
         i + 1 < sortedMarks.length &&
@@ -89,7 +86,7 @@ export function DiffMinimap({ marks, scrollTop, viewport, content, onSeek }: Pro
 
       ctx.fillStyle = colorByType[start.type];
       const y = start.ratio * h;
-      const height = Math.max(markH, endRatio * h - y);
+      const height = Math.max(2, endRatio * h - y);
       ctx.fillRect(0, y, w, height);
     }
   }, [marks]);

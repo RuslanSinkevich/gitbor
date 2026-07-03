@@ -63,7 +63,7 @@ describe('ipcHandlersGitOps.stash', () => {
       ctx as never,
     );
     expect(ch.stash).toHaveBeenCalledTimes(1);
-    expect(ch.stash).toHaveBeenCalledWith('WIP login');
+    expect(ch.stash).toHaveBeenCalledWith('WIP login', undefined);
   });
 
   it('passes undefined when cmd.message is missing', async () => {
@@ -79,7 +79,16 @@ describe('ipcHandlersGitOps.stash', () => {
       { type: 'stash', message: '' } as never,
       ctx as never,
     );
-    expect(ch.stash).toHaveBeenCalledWith('');
+    expect(ch.stash).toHaveBeenCalledWith('', undefined);
+  });
+
+  it('forwards includeUntracked flag to CommandHandler.stash', async () => {
+    const { ctx, ch } = makeCtx();
+    await ipcHandlersGitOps.stash!(
+      { type: 'stash', message: 'WIP', includeUntracked: true } as never,
+      ctx as never,
+    );
+    expect(ch.stash).toHaveBeenCalledWith('WIP', true);
   });
 
   it('emits operationStart and operationEnd around the call (success)', async () => {

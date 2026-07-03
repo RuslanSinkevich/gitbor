@@ -40,6 +40,7 @@ export interface BranchPrefsAPI {
   clearSolo: () => void;
   showInfo: (branch: Branch) => void;
   renameBranch: (oldName: string, newName: string) => void;
+  dropBranch: (name: string) => void;
 }
 
 /* ─── Tree node ─── */
@@ -247,6 +248,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
               onToggleSolo: () => prefs.toggleSolo(branch.name),
               onClearSolo: () => prefs.clearSolo(),
               onShowInfo: () => prefs.showInfo(branch),
+              onDelete: () => prefs.dropBranch(branch.name),
             } : {}));
           }}
 >

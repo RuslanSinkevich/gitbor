@@ -9,7 +9,7 @@ import { AI_ENABLED } from '@core/buildFlags';
 
 interface Props {
   onClose: () => void;
-  onSubmit: (message: string) => void;
+  onSubmit: (message: string, includeUntracked: boolean) => void;
 }
 
 /**
@@ -29,6 +29,7 @@ export function StashCreateDialog({ onClose, onSubmit }: Props) {
   const tier2 = t().aiTier2;
   const { config, loaded } = useAiConfig();
   const [value, setValue] = useState('');
+  const [includeUntracked, setIncludeUntracked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const undoStackRef = useRef<string[]>([]);
@@ -65,9 +66,9 @@ export function StashCreateDialog({ onClose, onSubmit }: Props) {
   }, [aiAvailable]);
 
   const handleSubmit = useCallback(() => {
-    onSubmit(value.trim());
+    onSubmit(value.trim(), includeUntracked);
     onClose();
-  }, [value, onSubmit, onClose]);
+  }, [value, includeUntracked, onSubmit, onClose]);
 
   return (
     <SgDialog
@@ -106,6 +107,15 @@ export function StashCreateDialog({ onClose, onSubmit }: Props) {
           </button>
         )}
       </div>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 13, cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={includeUntracked}
+          onChange={(e) => setIncludeUntracked(e.target.checked)}
+          disabled={busy}
+        />
+        {loc.includeUntracked}
+      </label>
       {error && (
         <p style={{ marginTop: 8, fontSize: 12, color: 'var(--sg-danger)' }}>
           {tpl(tier2.stashSuggestFailed, { error })}

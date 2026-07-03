@@ -14,7 +14,7 @@ export { buildFileTree, collectFiles, type FileTreeNode } from './fileTreeModel'
  * и визуально «плывут» вверх/вниз внутри квадрата. SVG центрируется
  * пиксель в пиксель независимо от шрифта.
  */
-function statusIcon(status: string): string | JSX.Element {
+export function statusIcon(status: string): string | JSX.Element {
   switch (status) {
     case 'M': return 'M';
     case 'A': return <PlusGlyph />;
@@ -42,7 +42,7 @@ function MinusGlyph(): JSX.Element {
   );
 }
 
-function statusCls(status: string): string {
+export function statusCls(status: string): string {
   switch (status) {
     case 'M': return s.statusModified;
     case 'A': return s.statusAdded;

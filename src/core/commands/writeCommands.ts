@@ -294,10 +294,72 @@ export async function push(
   return gitExecSimple(queue, git, state, 'push', args);
 }
 
-export async function stash(queue: OperationQueue, git: GitExecutor, state: StateManager, message?: string): Promise<OperationResult> {
+export async function stash(
+  queue: OperationQueue, git: GitExecutor, state: StateManager,
+  message?: string, includeUntracked?: boolean,
+): Promise<OperationResult> {
   const args = ['stash', 'push'];
+  // `-u` перед `-m`: забирает новые (untracked) файлы в стэш, иначе они
+  // остаются в рабочей копии и «протекают» между ветками при checkout.
+  if (includeUntracked) args.push('-u');
   if (message) args.push('-m', message);
   return gitExecSimple(queue, git, state, 'stash', args);
+}
+
+/**
+ * Стянуть неактивную ЛОКАЛЬНУЮ ветку без переключения на неё.
+ *
+ * Это НЕ `git pull` (тот мержит в текущую рабочую копию). Правильный приём —
+ * `git fetch <remote> <branch>:<branch>`: git обновит локальный ref только
+ * при fast-forward. При расхождении git откажет с "non-fast-forward" — мы
+ * НЕ обходим это (--force сломал бы историю), а возвращаем понятную ошибку,
+ * чтобы UI предложил переключиться и смержить вручную.
+ *
+ * Remote определяем по upstream ветки (`branch.<name>.remote`); если его нет
+ * — берём единственный remote, а при нескольких дефолтимся на `origin`.
+ */
+export async function fetchBranchFastForward(
+  queue: OperationQueue, git: GitExecutor, state: StateManager, branch: string,
+): Promise<OperationResult> {
+  return gitWrite(queue, state, 'fetch', async (timing) => {
+    const execStart = Date.now();
+
+    const upstreamRemote = (await git.exec(['config', '--get', `branch.${branch}.remote`])).stdout.trim();
+    let remote = upstreamRemote;
+    if (!remote) {
+      const remotesOut = (await git.exec(['remote'])).stdout.trim();
+      const remotes = remotesOut ? remotesOut.split('\n').map(r => r.trim()).filter(Boolean) : [];
+      if (remotes.length === 0) {
+        timing.execMs = Date.now() - execStart;
+        return {
+          success: false,
+          rollbackAvailable: false,
+          error: 'No remote configured for this repository.',
+        };
+      }
+      remote = remotes.length === 1 ? remotes[0] : (remotes.includes('origin') ? 'origin' : remotes[0]);
+    }
+
+    const r = await git.exec(['fetch', remote, `${branch}:${branch}`]);
+    timing.execMs = Date.now() - execStart;
+    if (r.exitCode !== 0) {
+      const classified = GitErrorClassifier.classify(r.stderr);
+      // Non-fast-forward — самый частый случай: ветка разошлась с remote.
+      const isNonFf = classified.class === 'non_fast_forward' ||
+        /non-fast-forward|rejected|diverg/i.test(r.stderr);
+      return {
+        success: false,
+        rollbackAvailable: false,
+        errorClass: isNonFf ? 'non_fast_forward' : classified.class,
+        // Для non-ff даём понятный текст вместо сырого git-вывода: fast-forward
+        // невозможен → нужно переключиться на ветку и смержить/ребейзнуть.
+        error: isNonFf
+          ? `Cannot fast-forward "${branch}": it has diverged from ${remote}. Switch to the branch and merge or rebase.`
+          : r.stderr,
+      };
+    }
+    return { success: true, rollbackAvailable: false };
+  }, 'refreshAll');
 }
 
 export async function stashPop(queue: OperationQueue, git: GitExecutor, state: StateManager): Promise<OperationResult> {

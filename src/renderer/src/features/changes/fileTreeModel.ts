@@ -56,3 +56,51 @@ export function collectFiles(node: FileTreeNode): FileStatus[] {
   if (node.file) return [node.file];
   return node.children.flatMap(collectFiles);
 }
+
+/* ─── Flatten (для виртуализации) ─── */
+
+export function isFolderNode(node: FileTreeNode): boolean {
+  return node.children.length > 0 && !node.file;
+}
+
+export interface FlatTreeRow {
+  node: FileTreeNode;
+  depth: number;
+  isDir: boolean;
+}
+
+/**
+ * Расплющивает видимое дерево в линейный список строк с учётом свёрнутых
+ * папок (их дети пропускаются). Нужно для виртуализации: рендерим только
+ * видимый диапазон строк, а не весь DOM. Свёрнутость задаётся множеством
+ * путей папок в `collapsed`.
+ */
+export function flattenTree(nodes: FileTreeNode[], collapsed: Set<string>): FlatTreeRow[] {
+  const rows: FlatTreeRow[] = [];
+  const walk = (list: FileTreeNode[], depth: number): void => {
+    for (const node of list) {
+      const dir = isFolderNode(node);
+      rows.push({ node, depth, isDir: dir });
+      if (dir && !collapsed.has(node.path)) {
+        walk(node.children, depth + 1);
+      }
+    }
+  };
+  walk(nodes, 0);
+  return rows;
+}
+
+/** Все пути папок дерева — для дефолтного «свернуть всё» на больших репо. */
+export function collectFolderPaths(nodes: FileTreeNode[]): string[] {
+  const paths: string[] = [];
+  const walk = (list: FileTreeNode[]): void => {
+    for (const node of list) {
+      if (isFolderNode(node)) {
+        paths.push(node.path);
+        walk(node.children);
+      }
+    }
+  };
+  walk(nodes);
+  return paths;
+}

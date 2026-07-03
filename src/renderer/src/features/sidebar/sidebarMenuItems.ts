@@ -55,6 +55,7 @@ export interface BranchExtrasMenu {
   onShowInfo?: () => void;
   /** Перенести pin/hide/solo/notes на новое имя перед отправкой renameBranch. */
   onRename?: (oldName: string, newName: string) => void;
+  onDelete?: () => void;
 }
 
 export function getBranchMenuItems(
@@ -76,6 +77,18 @@ export function getBranchMenuItems(
       label: tpl(loc.contextMenu.mergeInto, { source: short, target: shortCurrent }),
       title: tpl(loc.contextMenu.mergeInto, { source: branch.name, target: currentBranch }),
       action: () => onMerge ? onMerge(branch.name) : postCommand({ type: 'merge', branch: branch.name }),
+    });
+  }
+  // Обновить неактивную ЛОКАЛЬНУЮ ветку с upstream без переключения:
+  // `git fetch <remote> <branch>:<branch>` (fast-forward). Активной и
+  // remote-веткам пункт не показываем — там смысла нет (у remote своя fetch,
+  // активную тянут обычным Pull).
+  if (!branch.isCurrent && !branch.isRemote && branch.upstream) {
+    items.push({ divider: true });
+    items.push({
+      label: loc.contextMenu.fetchBranch,
+      title: tpl(loc.contextMenu.fetchBranchTitle, { branch: branch.name }),
+      action: () => postCommand({ type: 'fetchBranch', branch: branch.name }),
     });
   }
   // Track Remote Branch (как в Fork): только для remote-веток. Создаёт
@@ -115,7 +128,10 @@ export function getBranchMenuItems(
           message: loc.dialog.deleteBranchMessage,
           confirmLabel: loc.dialog.delete,
           danger: true,
-          onConfirm: () => postCommand({ type: 'deleteBranch', branch: branch.name, force: true }),
+          onConfirm: () => {
+            extras.onDelete?.();
+            postCommand({ type: 'deleteBranch', branch: branch.name, force: true });
+          },
         }),
       });
     }

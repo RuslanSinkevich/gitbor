@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   buildFileTree,
   collectFiles,
+  flattenTree,
+  collectFolderPaths,
+  isFolderNode,
   type FileTreeNode,
 } from '../../src/renderer/src/features/changes/fileTreeModel';
 import type { FileStatus } from '../../src/core/git/types/git';
@@ -84,5 +87,53 @@ describe('collectFiles', () => {
     const tree = buildFileTree([fs('foo'), fs('foo/bar.ts')]);
     const fooNode = tree.find((n) => n.name === 'foo')!;
     expect(collectFiles(fooNode)).toEqual([fooNode.file]);
+  });
+});
+
+describe('flattenTree', () => {
+  it('flattens all rows when nothing is collapsed', () => {
+    const tree = buildFileTree([fs('src/a.ts'), fs('src/sub/c.ts'), fs('readme.md')]);
+    const rows = flattenTree(tree, new Set());
+    // Папки сортируются перед файлами: src → src/sub → src/sub/c.ts → src/a.ts → readme.md
+    expect(rows.map((r) => r.node.path)).toEqual([
+      'src', 'src/sub', 'src/sub/c.ts', 'src/a.ts', 'readme.md',
+    ]);
+    expect(rows.find((r) => r.node.path === 'src')!.isDir).toBe(true);
+    expect(rows.find((r) => r.node.path === 'readme.md')!.isDir).toBe(false);
+  });
+
+  it('assigns increasing depth to nested nodes', () => {
+    const tree = buildFileTree([fs('src/sub/c.ts')]);
+    const rows = flattenTree(tree, new Set());
+    const byPath = Object.fromEntries(rows.map((r) => [r.node.path, r.depth]));
+    expect(byPath['src']).toBe(0);
+    expect(byPath['src/sub']).toBe(1);
+    expect(byPath['src/sub/c.ts']).toBe(2);
+  });
+
+  it('hides children of collapsed folders', () => {
+    const tree = buildFileTree([fs('src/a.ts'), fs('src/sub/c.ts'), fs('readme.md')]);
+    const rows = flattenTree(tree, new Set(['src']));
+    expect(rows.map((r) => r.node.path)).toEqual(['src', 'readme.md']);
+  });
+
+  it('collapsing a deep folder keeps its siblings visible', () => {
+    const tree = buildFileTree([fs('src/a.ts'), fs('src/sub/c.ts')]);
+    const rows = flattenTree(tree, new Set(['src/sub']));
+    expect(rows.map((r) => r.node.path)).toEqual(['src', 'src/sub', 'src/a.ts']);
+  });
+});
+
+describe('collectFolderPaths / isFolderNode', () => {
+  it('collects every folder path in the tree', () => {
+    const tree = buildFileTree([fs('src/a.ts'), fs('src/sub/c.ts'), fs('readme.md')]);
+    expect(collectFolderPaths(tree).sort()).toEqual(['src', 'src/sub']);
+  });
+
+  it('isFolderNode distinguishes folders from leaves', () => {
+    const tree = buildFileTree([fs('src/a.ts')]);
+    const src = tree.find((n) => n.name === 'src')!;
+    expect(isFolderNode(src)).toBe(true);
+    expect(isFolderNode(src.children[0])).toBe(false);
   });
 });

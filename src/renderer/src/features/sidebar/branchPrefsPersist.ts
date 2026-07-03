@@ -106,6 +106,50 @@ function remapList(list: string[], oldName: string, newName: string): string[] {
   return next;
 }
 
+/** Убрать pin/hide/solo/note для одной ветки (удалена или пропала из репо). */
+export function dropBranchPrefs(prefs: BranchPrefs, name: string): BranchPrefs {
+  if (!name) return prefs;
+  const pinned = prefs.pinned.filter(n => n !== name);
+  const hidden = prefs.hidden.filter(n => n !== name);
+  const soloBranch = prefs.soloBranch === name ? null : prefs.soloBranch;
+  if (!(name in prefs.notes) && pinned.length === prefs.pinned.length && hidden.length === prefs.hidden.length && soloBranch === prefs.soloBranch) {
+    return prefs;
+  }
+  const notes = { ...prefs.notes };
+  delete notes[name];
+  return { pinned, hidden, soloBranch, notes };
+}
+
+/**
+ * Снять pin/hide/solo для веток, которых больше нет локально.
+ *
+ * ЗАМЕТКИ (`notes`) НЕ трогаем сознательно. Раньше sync вычищал и заметки
+ * для веток вне `localNames` — и это был источник их «пропажи»: при рассинхроне
+ * набора (например, localNames ещё от прошлого репо во время переключения,
+ * либо частично загруженный список веток) заметки затирались и persist'ились
+ * пустыми. Заметки — пользовательский контент; удаляются только явным
+ * `dropBranchPrefs` при реальном удалении ветки из UI.
+ *
+ * pin/hide/solo — производное UI-состояние, их авто-снятие дёшево и обратимо,
+ * поэтому оставляем. Возврат того же объекта при отсутствии изменений важен:
+ * хук в `useBranchPrefs` полагается на `next === prev`, чтобы не перезаписывать
+ * хранилище на каждый рендер.
+ */
+export function syncBranchPrefs(prefs: BranchPrefs, localNames: ReadonlySet<string>): BranchPrefs {
+  if (localNames.size === 0) return prefs;
+  const pinned = prefs.pinned.filter(n => localNames.has(n));
+  const hidden = prefs.hidden.filter(n => localNames.has(n));
+  const soloBranch = prefs.soloBranch && !localNames.has(prefs.soloBranch) ? null : prefs.soloBranch;
+  if (
+    pinned.length === prefs.pinned.length &&
+    hidden.length === prefs.hidden.length &&
+    soloBranch === prefs.soloBranch
+  ) {
+    return prefs;
+  }
+  return { pinned, hidden, soloBranch, notes: prefs.notes };
+}
+
 /** Перенести pin/hide/solo/notes при `git branch -m`. */
 export function migrateBranchPrefs(
   prefs: BranchPrefs,

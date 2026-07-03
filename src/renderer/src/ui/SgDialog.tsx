@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { t } from '../i18n';
 
 export type SgDialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'fullscreen';
@@ -109,7 +110,7 @@ export function SgDialog({
     )
     : footer;
 
-  return (
+  return createPortal(
     <dialog
       ref={dialogRef}
       className="sg-dialog"
@@ -129,6 +130,7 @@ export function SgDialog({
         {children}
       </div>
       {effectiveFooter && <footer className="sg-dialog-footer">{effectiveFooter}</footer>}
-    </dialog>
+    </dialog>,
+    document.body,
   );
 }

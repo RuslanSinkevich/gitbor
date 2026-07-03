@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   loadBranchPrefs, savePinned, saveHidden, saveSoloBranch, saveBranchNotes,
-  migrateBranchPrefs, saveBranchPrefs,
+  migrateBranchPrefs, dropBranchPrefs, syncBranchPrefs, saveBranchPrefs,
   type BranchPrefs,
 } from '../features/sidebar/branchPrefsPersist';
 
@@ -27,17 +27,28 @@ export interface BranchPrefsState {
   setNote: (branchName: string, text: string) => void;
   /** Перенести prefs при переименовании ветки (`git branch -m`). */
   renameBranch: (oldName: string, newName: string) => void;
+  dropBranch: (name: string) => void;
   /** Сбросить hidden для всего репо разом (баннер «Показать все ветки»). */
   clearAllHidden: () => void;
   clearAll: () => void;
 }
 
-export function useBranchPrefs(repoPath: string): BranchPrefsState {
+export function useBranchPrefs(repoPath: string, localNames?: ReadonlySet<string>): BranchPrefsState {
   const [prefs, setPrefs] = useState<BranchPrefs>(() => loadBranchPrefs(repoPath));
 
   useEffect(() => {
     setPrefs(loadBranchPrefs(repoPath));
   }, [repoPath]);
+
+  useEffect(() => {
+    if (!repoPath || !localNames?.size) return;
+    setPrefs(prev => {
+      const next = syncBranchPrefs(prev, localNames);
+      if (next === prev) return prev;
+      saveBranchPrefs(repoPath, next);
+      return next;
+    });
+  }, [repoPath, localNames]);
 
   const togglePin = useCallback((name: string) => {
     setPrefs(prev => {
@@ -88,6 +99,15 @@ export function useBranchPrefs(repoPath: string): BranchPrefsState {
     });
   }, [repoPath]);
 
+  const dropBranch = useCallback((name: string) => {
+    setPrefs(prev => {
+      const next = dropBranchPrefs(prev, name);
+      if (next === prev) return prev;
+      saveBranchPrefs(repoPath, next);
+      return next;
+    });
+  }, [repoPath]);
+
   const clearAllHidden = useCallback(() => {
     setPrefs(prev => {
       if (prev.hidden.length === 0) return prev;
@@ -117,6 +137,7 @@ export function useBranchPrefs(repoPath: string): BranchPrefsState {
     setSoloBranch,
     setNote,
     renameBranch,
+    dropBranch,
     clearAllHidden,
     clearAll,
   };

@@ -41,4 +41,42 @@ describe('parseFileHistory', () => {
     expect(entries).toHaveLength(1);
     expect(entries[0].status).toBe('M');
   });
+
+  // Регрессия: реальный git-вывод — meta\n\nstatus, а между status
+  // предыдущего коммита и meta следующего пустой строки НЕТ. Старый
+  // split('\n\n')+шаг2 бил hash мусором и терял половину коммитов.
+  it('parses real git layout (no blank line between commits)', () => {
+    const meta = (h: string, s: string) => ['hash_' + h, h, s, 'Dev', '100'].join(SEP);
+    const raw = [
+      meta('c1', 'first'),
+      '',
+      'M\tsrc/app.ts',
+      meta('c2', 'second'),
+      '',
+      'A\tsrc/app.ts',
+      meta('c3', 'third'),
+      '',
+      'M\tsrc/app.ts',
+    ].join('\n');
+
+    const entries = parseFileHistory(raw);
+    expect(entries).toHaveLength(3);
+    expect(entries.map(e => e.hash)).toEqual(['hash_c1', 'hash_c2', 'hash_c3']);
+    expect(entries.map(e => e.shortHash)).toEqual(['c1', 'c2', 'c3']);
+    expect(entries.map(e => e.status)).toEqual(['M', 'A', 'M']);
+    // Ни один hash не должен содержать мусор от status-строки.
+    for (const e of entries) expect(e.hash).not.toContain('\t');
+  });
+
+  it('handles rename name-status (R100\\told\\tnew)', () => {
+    const raw = [
+      ['hash_r', 'r', 'rename', 'Dev', '100'].join(SEP),
+      '',
+      'R100\told/path.ts\tnew/path.ts',
+    ].join('\n');
+    const entries = parseFileHistory(raw);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].hash).toBe('hash_r');
+    expect(entries[0].status).toBe('R');
+  });
 });

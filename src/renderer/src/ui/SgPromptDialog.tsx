@@ -24,15 +24,24 @@ interface PromptInputOptions {
   onConfirm: (value: string) => void;
 }
 
+interface PromptCheckbox {
+  label: string;
+  /** Предупреждение, показывается когда чекбокс включён. */
+  warning?: string;
+}
+
 interface PromptConfirmOptions {
   kind: 'confirm';
   title: string;
   message?: string;
   /** Опциональный список под сообщением (напр. «что нового» в обновлении). */
   bullets?: string[];
+  /** Опциональный чекбокс (напр. «удалить untracked» в Discard All). */
+  checkbox?: PromptCheckbox;
   confirmLabel?: string;
   danger?: boolean;
-  onConfirm: () => void;
+  /** При checkbox — аргумент true/false; без checkbox — вызов без аргумента. */
+  onConfirm: (checkboxChecked?: boolean) => void;
 }
 
 export type ShowPromptOptions = PromptInputOptions | PromptConfirmOptions;
@@ -46,10 +55,11 @@ interface PromptState {
   placeholder: string;
   message: string;
   bullets: string[];
+  checkbox?: PromptCheckbox;
   confirmLabel: string;
   danger: boolean;
   allowEmpty: boolean;
-  onConfirm: (value: string) => void;
+  onConfirm: (value: string, checkboxChecked?: boolean) => void;
 }
 
 export function usePromptDialog() {
@@ -65,10 +75,11 @@ export function usePromptDialog() {
         placeholder: '',
         message: opts.message ?? '',
         bullets: opts.bullets ?? [],
+        checkbox: opts.checkbox,
         confirmLabel: opts.confirmLabel ?? '',
         danger: opts.danger ?? false,
         allowEmpty: true,
-        onConfirm: () => opts.onConfirm(),
+        onConfirm: (_value, checked) => opts.onConfirm(checked),
       });
       return;
     }
@@ -99,10 +110,12 @@ interface SgPromptDialogProps {
 
 export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
   const [value, setValue] = useState('');
+  const [checkboxChecked, setCheckboxChecked] = useState(false);
 
   useEffect(() => {
     if (!prompt) return;
     setValue(prompt.defaultValue);
+    setCheckboxChecked(false);
     // Фокус на input ставит autoFocus + showModal() — без таймера.
   }, [prompt]);
 
@@ -110,7 +123,7 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
 
   const handleSubmit = () => {
     if (prompt.kind === 'confirm') {
-      prompt.onConfirm('');
+      prompt.onConfirm('', prompt.checkbox ? checkboxChecked : undefined);
       onClose();
       return;
     }
@@ -145,6 +158,22 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
                     <li key={i}>{b}</li>
                   ))}
                 </ul>
+              )}
+              {prompt.checkbox && (
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 12, fontSize: 13, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={checkboxChecked}
+                    onChange={(e) => setCheckboxChecked(e.target.checked)}
+                    style={{ marginTop: 2 }}
+                  />
+                  <span>{prompt.checkbox.label}</span>
+                </label>
+              )}
+              {prompt.checkbox?.warning && checkboxChecked && (
+                <p style={{ margin: '10px 0 0', fontSize: 12, color: 'var(--sg-danger)' }}>
+                  {prompt.checkbox.warning}
+                </p>
               )}
             </>
           )

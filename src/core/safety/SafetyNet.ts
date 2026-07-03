@@ -91,7 +91,10 @@ export class SafetyNet {
 
     if (hasUncommitted && autoStash) {
       const stashMsg = `${AUTO_STASH_PREFIX} before ${operationName} ${Object.values(params).join(' ')}`.trim();
-      const stashResult = await this.git.exec(['stash', 'push', '-m', stashMsg]);
+      // `-u`: auto-stash забирает и новые (untracked) файлы. Без него новые
+      // файлы остаются в рабочей копии и «протекают» между ветками при
+      // checkout/pull — осознанно включаем по умолчанию.
+      const stashResult = await this.git.exec(['stash', 'push', '-u', '-m', stashMsg]);
       if (stashResult.exitCode === 0) {
         const hashResult = await this.git.exec(['rev-parse', 'stash@{0}']);
         autoStashHash = hashResult.stdout.trim();

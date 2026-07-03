@@ -14,8 +14,23 @@ function getStorage(): Storage | null {
   return null;
 }
 
+/**
+ * Нормализация scope (обычно repoPath) в стабильный ключ localStorage.
+ *
+ * Раньше только lowercase + `\`→`/`. Из-за этого один репо, открытый как
+ * `.../gitbor` и `.../gitbor/` (или с дублем слэшей), давал РАЗНЫЕ ключи —
+ * заметки/prefs «терялись» между запусками. Теперь дополнительно:
+ *   - схлопываем повторные слэши (`//` → `/`);
+ *   - срезаем trailing-слэш(и).
+ * Так любое написание одного пути даёт один ключ.
+ */
 function normalizeScopePart(value: string): string {
-  return encodeURIComponent(value.replace(/\\/g, '/').toLowerCase());
+  const unified = value
+    .replace(/\\/g, '/')
+    .replace(/\/+/g, '/')
+    .replace(/\/+$/, '')
+    .toLowerCase();
+  return encodeURIComponent(unified);
 }
 
 export function buildStorageKey(baseKey: string, scope?: string): string {

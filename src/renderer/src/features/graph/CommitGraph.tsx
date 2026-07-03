@@ -129,13 +129,19 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
 
   const prevSelectedRef = useRef<string | null>(null);
   const prevFocusRef = useRef<number | undefined>(focusNonce);
+  const rowClickSelectedRef = useRef<string | null>(null);
   useEffect(() => {
     const focusRequested = focusNonce !== prevFocusRef.current;
     prevFocusRef.current = focusNonce;
+    const selectedFromRowClick = !focusRequested
+      && selectedHash
+      && hashMatch(rowClickSelectedRef.current ?? '', selectedHash);
+    rowClickSelectedRef.current = null;
     // Скроллим при смене выбранного коммита ИЛИ при явном запросе фокуса
     // (повторный клик по той же ветке). Простая смена commits (fetch/refresh)
-    // при том же selectedHash и без focus-запроса скролл не дёргает.
-    if (selectedHash && (selectedHash !== prevSelectedRef.current || focusRequested)) {
+    // при том же selectedHash и без focus-запроса скролл не дёргает. Клик по
+    // уже видимой строке графа только выбирает commit, без центровки viewport.
+    if (selectedHash && !selectedFromRowClick && (selectedHash !== prevSelectedRef.current || focusRequested)) {
       const idx = commits.findIndex(c => hashMatch(c.hash, selectedHash));
       if (idx >= 0) scrollToRow(idx);
       else if (onLoadMore) onLoadMore();
@@ -270,7 +276,7 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
               <div key={commit.hash}
                 className={`${s.row} ${hashMatch(commit.hash, selectedHash) ? s.rowSelected : ''} ${isHead(commit) ? s.rowHead : ''} ${significant ? s.rowSignificant : ''} ${search.searchMatchSet.has(i) ? s.rowSearchMatch : ''} ${isRemoteOnly ? s.rowDimmed : ''}`}
                 style={{ top: i * ROW_HEIGHT, height: ROW_HEIGHT }}
-                onClick={() => onSelect(commit.hash)}
+                onClick={() => { rowClickSelectedRef.current = commit.hash; onSelect(commit.hash); }}
                 title={isRemoteOnly ? loc.graph.remoteOnlyHint : undefined}
                 onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getCommitMenuItems(commit, currentBranch, showPrompt, requestCheckout, onRebase, compareFrom, onCompareFrom, onCompareTo, headOnRemote)); }}>
                 <div className={s.rowDesc} style={{ paddingLeft: descLeft }}>

@@ -112,7 +112,11 @@ export function App() {
     repoPath: string;
     commitsAtEnd: typeof state.commits;
   } | null>(null);
-  const branchPrefsState = useBranchPrefs(state.repoPath);
+  const localBranchNames = useMemo(
+    () => new Set(state.branches.filter(b => !b.isRemote).map(b => b.name)),
+    [state.branches],
+  );
+  const branchPrefsState = useBranchPrefs(state.repoPath, localBranchNames);
   /* Стабильный объект-фасад для Sidebar/BranchTree. useMemo — чтобы не
      ломать React.memo / identity-зависимые useMemo внутри (поля self-bind
      уже стабильны из useCallback в useBranchPrefs). */
@@ -127,6 +131,7 @@ export function App() {
     clearSolo: () => branchPrefsState.setSoloBranch(null),
     showInfo: (b: Branch) => setOpenInfoBranch(b),
     renameBranch: branchPrefsState.renameBranch,
+    dropBranch: branchPrefsState.dropBranch,
   }), [branchPrefsState]);
   // RepoManager как «вкладка»: «+» в RepoTabs включает этот флаг и
   // показывает менеджер поверх workspace, не открывая системный диалог.
@@ -288,8 +293,8 @@ export function App() {
   const promptStash = useCallback(() => {
     setShowStashDialog(true);
   }, []);
-  const handleStashSubmit = useCallback((message: string) => {
-    postCommand({ type: 'stash', message: message || undefined });
+  const handleStashSubmit = useCallback((message: string, includeUntracked: boolean) => {
+    postCommand({ type: 'stash', message: message || undefined, includeUntracked: includeUntracked || undefined });
   }, []);
 
   const handleMenuAction = useMenuActions({
