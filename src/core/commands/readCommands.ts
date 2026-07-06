@@ -172,7 +172,10 @@ async function computeFileDiff(
 
     if (hash.includes('..')) {
       const [fromH, toH] = hash.split('..');
-      const stdout = await runDiff(git, ['diff', ...diffFlags, fromH, toH, '--', file]);
+      // `<commit>..WORKING` — сравнение коммита с рабочей копией: диффим
+      // `git diff <commit> -- file` (без второй ревизии = рабочее дерево).
+      const revs = toH === 'WORKING' ? [fromH] : [fromH, toH];
+      const stdout = await runDiff(git, ['diff', ...diffFlags, ...revs, '--', file]);
       return parseDiff(stdout);
     }
 
@@ -232,7 +235,9 @@ export async function getFileText(
   queue: OperationQueue, git: GitExecutor, file: string, hash: string,
 ): Promise<string | null> {
   return queue.enqueueRead('getFileText', async () => {
-    if (hash === 'WORKING') {
+    // `WORKING` и `<commit>..WORKING` (сравнение с рабочей копией) — правая
+    // сторона это рабочее дерево, читаем файл прямо с ФС.
+    if (hash === 'WORKING' || hash.endsWith('..WORKING')) {
       const { readFile } = await import('fs/promises');
       const { safePath } = await import('../utils/pathSecurity');
       const repoPath = git.getCwd();

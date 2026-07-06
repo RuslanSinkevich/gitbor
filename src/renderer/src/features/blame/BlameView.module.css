@@ -17,6 +17,12 @@
   flex-shrink: 0;
 }
 
+.toolbarHint {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--sg-foreground-muted);
+}
+
 .filePath {
   font-weight: 600;
   font-size: 12px;
@@ -57,10 +63,13 @@
   color: var(--sg-foreground-muted);
   font-size: 11px;
   border-right: 1px solid var(--sg-border);
+}
+
+.blameMetaClickable {
   cursor: pointer;
 }
 
-.blameMeta:hover {
+.blameMetaClickable:hover {
   color: var(--sg-primary);
 }
 
@@ -104,4 +113,49 @@
 
 .blockStart {
   border-top: 1px solid color-mix(in srgb, var(--sg-border) 60%, transparent);
+}
+
+/* Поповер с информацией о коммите строки (клик по метаданным blame). */
+.popover {
+  position: fixed;
+  z-index: 10001;
+  min-width: 240px;
+  max-width: 420px;
+  padding: 10px 12px;
+  background: var(--sg-menu-bg, var(--sg-surface-raised));
+  border: 1px solid var(--sg-menu-border, var(--sg-border));
+  border-radius: var(--sg-radius, 6px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  font-family: var(--sg-font-sans, sans-serif);
+  font-size: 12px;
+  color: var(--sg-foreground);
+}
+
+.popSummary {
+  font-weight: 600;
+  margin-bottom: 8px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.popRow {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 2px 0;
+}
+
+.popLabel {
+  flex: 0 0 64px;
+  color: var(--sg-foreground-muted);
+}
+
+.popHash {
+  font-family: var(--sg-font-mono);
+  color: var(--sg-primary);
+  cursor: pointer;
+}
+
+.popHash:hover {
+  text-decoration: underline;
 }

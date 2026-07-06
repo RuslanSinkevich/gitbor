@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { CommitGraph, CommitDetails } from '../graph';
 import { useCommitExplainer } from '../ai';
-import { RightPanelContent, type RightPanel } from './RightPanelContent';
+import { RightPanelContent } from './RightPanelContent';
 import { SgSplitPane } from '../../ui/SgSplitPane';
 import { postCommand } from '../../api';
 import { buildStorageKey } from '../../shared/uiPersist';
@@ -17,18 +17,12 @@ interface Props {
   state: AppState;
   commitDetail: CommitDetail | null;
   diffTarget: { file: string; hash: string } | null;
-  rightPanel: RightPanel;
-  setRightPanel: (p: RightPanel) => void;
   selectCommit: (hash: string) => void;
   openDiff: (file: string, hash: string) => void;
-  openFileHistory: (file: string) => void;
-  openFileBlame: (file: string, hash?: string) => void;
   showContextMenu: ShowContextMenuFn;
   showPrompt: ShowPromptFn;
   requestCheckout: RequestCheckout;
   setRebaseOnto: (onto: string | null) => void;
-  compareFrom?: string | null;
-  onCompareFrom?: (hash: string) => void;
   onCompareTo?: (from: string, to: string) => void;
   /** Счётчик запроса фокуса графа (бампается на клик по ветке) — см. CommitGraph. */
   focusNonce?: number;
@@ -50,10 +44,10 @@ interface Props {
 }
 
 export function CommitsView({
-  state, commitDetail, diffTarget, rightPanel, setRightPanel,
-  selectCommit, openDiff, openFileHistory, openFileBlame,
+  state, commitDetail, diffTarget,
+  selectCommit, openDiff,
   showContextMenu, showPrompt, requestCheckout, setRebaseOnto,
-  compareFrom, onCompareFrom, onCompareTo, focusNonce,
+  onCompareTo, focusNonce,
   soloBranch, hidden, onClearSolo, onClearAllHidden,
   onOpenAiSettings, onExpandDiff,
 }: Props) {
@@ -157,8 +151,6 @@ export function CommitsView({
           requestCheckout={requestCheckout}
           onRebase={setRebaseOnto}
           onLoadMore={() => postCommand({ type: 'getGraphData', maxCount: state.commits.length + 50000 })}
-          compareFrom={compareFrom}
-          onCompareFrom={onCompareFrom}
           onCompareTo={onCompareTo}
           focusNonce={focusNonce}
           headOnRemote={state.branches.some(b => b.isCurrent && b.upstream) && state.ahead === 0}
@@ -174,8 +166,6 @@ export function CommitsView({
         onSelectCommit={selectCommit}
         onOpenDiff={openDiff}
         onContextMenu={showContextMenu}
-        onFileHistory={openFileHistory}
-        onFileBlame={(f) => openFileBlame(f)}
         onOpenAiSettings={onOpenAiSettings}
         activePath={diffTarget?.file}
         activeTab={detailTab}
@@ -199,13 +189,8 @@ export function CommitsView({
           right={
             <div className={s.commitDiffPane}>
               <RightPanelContent
-                rightPanel={rightPanel}
-                setRightPanel={setRightPanel}
                 diffTarget={diffTarget}
-                selectCommit={selectCommit}
-                openDiff={openDiff}
                 onExpandDiff={onExpandDiff}
-                showContextMenu={showContextMenu}
               />
             </div>
           }

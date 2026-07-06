@@ -169,6 +169,7 @@ export function useStateSubscription(deps: StateSubscriptionDeps): void {
           const subject = buildCompareLabel(fromHash, toHash, {
             vsPrevious: loc.compare.vsPrevious,
             sinceCreation: loc.compare.sinceCreation,
+            vsWorking: loc.compare.vsWorking,
             range: (from, to) => tpl(loc.compare.range, { from, to }),
           });
           d.setCommitDetail(() => ({

@@ -18,7 +18,6 @@ import { useRestoreRepoTabs } from './hooks/useRestoreRepoTabs';
 import { useFolderDropOpenRepos } from './hooks/useFolderDropOpenRepos';
 import { useAppUpdater } from './hooks/useAppUpdater';
 import { TitleBar } from './features/titlebar';
-import type { RightPanel } from './features/layout';
 import { BranchInfoDialog } from './features/sidebar';
 import { useBranchPrefs } from './hooks/useBranchPrefs';
 import type { Branch } from './types';
@@ -89,12 +88,10 @@ export function App() {
   }, [rawSelectCommit, closeDiff]);
 
   const [viewMode, setViewMode] = useState<ViewMode>('changes');
-  const [rightPanel, setRightPanel] = useState<RightPanel>('diff');
   const [mergeDialogSource, setMergeDialogSource] = useState<string | null>(null);
   const [conflictFile, setConflictFile] = useState<string | null>(null);
   const [mergeEditorFile, setMergeEditorFile] = useState<string | null>(null);
   const [rebaseOnto, setRebaseOnto] = useState<string | null>(null);
-  const [compareFromHash, setCompareFromHash] = useState<string | null>(null);
   /* Счётчик запросов фокуса графа: бампается на каждый клик по ветке/рефу,
      даже если выбран тот же commit. CommitGraph по его смене доскроллит к
      выбранному (иначе повторный клик по той же ветке не реагировал). */
@@ -373,11 +370,9 @@ export function App() {
     // Первое появление пути (prev был пуст) — это начальная загрузка, нечего сбрасывать.
     if (!prev) return;
     closeDiff();
-    setRightPanel('diff');
     setConflictFile(null);
     setMergeEditorFile(null);
     setRebaseOnto(null);
-    setCompareFromHash(null);
     setMergeDialogSource(null);
     prevCommitHashRef.current = null;
     prevMergeRef.current = false;
@@ -390,7 +385,6 @@ export function App() {
   useEffect(() => {
     if (pendingOpenDiff) {
       openDiff(pendingOpenDiff.file, pendingOpenDiff.hash);
-      setRightPanel('diff');
       clearPendingOpenDiff();
     }
   }, [pendingOpenDiff, openDiff, clearPendingOpenDiff]);
@@ -481,24 +475,14 @@ export function App() {
   }, [state.repoPath]);
 
   const handleSelectRef = useCallback((hash: string) => {
-    setViewMode('commits'); setRightPanel('diff'); closeDiff(); selectCommit(hash);
+    setViewMode('commits'); closeDiff(); selectCommit(hash);
     setGraphFocusNonce(n => n + 1);
   }, [selectCommit, closeDiff]);
 
   const handleCompareTo = useCallback((fromHash: string, toHash: string) => {
     setViewMode('commits');
-    setRightPanel('diff');
     postCommand({ type: 'getCommitDiff', fromHash, toHash });
-    setCompareFromHash(null);
   }, []);
-
-  const openFileHistory = useCallback((file: string) => {
-    openDiff(file, diffTarget?.hash || 'WORKING'); setRightPanel('history');
-  }, [openDiff, diffTarget]);
-
-  const openFileBlame = useCallback((file: string, hash?: string) => {
-    openDiff(file, hash || 'WORKING'); setRightPanel('blame');
-  }, [openDiff]);
 
   useEffect(() => {
     const newHash = commitDetail?.hash ?? null;
@@ -535,14 +519,13 @@ export function App() {
     if (prev === viewMode) return;
     if (
       viewMode === 'changes' &&
-      rightPanel === 'diff' &&
       diffTarget &&
       diffTarget.hash !== 'WORKING' &&
       diffTarget.hash !== 'STAGED'
     ) {
       closeDiff();
     }
-  }, [viewMode, rightPanel, diffTarget, closeDiff]);
+  }, [viewMode, diffTarget, closeDiff]);
 
   const hasRepo = !!state.repoPath;
   /** Один путь в индексе и в рабочей копии — одна позиция в бейдже/статусбаре. */
@@ -637,8 +620,6 @@ export function App() {
             repoManagerVisible={repoManagerVisible}
             viewMode={viewMode}
             setViewMode={setViewMode}
-            rightPanel={rightPanel}
-            setRightPanel={setRightPanel}
             commitDetail={commitDetail}
             diffTarget={diffTarget}
             mergeState={mergeState}
@@ -647,8 +628,6 @@ export function App() {
             setConflictFile={setConflictFile}
             setMergeEditorFile={setMergeEditorFile}
             setRebaseOnto={setRebaseOnto}
-            compareFromHash={compareFromHash}
-            setCompareFromHash={setCompareFromHash}
             graphFocusNonce={graphFocusNonce}
             soloBranch={branchPrefsState.soloBranch}
             hiddenBranches={branchPrefsState.hidden}
@@ -670,8 +649,6 @@ export function App() {
             requestApplyStash={requestApplyStash}
             openDiff={openDiff}
             closeDiff={closeDiff}
-            openFileHistory={openFileHistory}
-            openFileBlame={openFileBlame}
             onOpenMergeEditor={handleOpenMergeEditor}
             onConflictResolved={handleConflictResolved}
             onCompareTo={handleCompareTo}

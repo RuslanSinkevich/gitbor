@@ -262,6 +262,20 @@
   font-size: 10px;
   flex: 0 0 auto;
 }
+.sg-context-menu-help {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sg-foreground-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+}
+.sg-context-menu-help:hover {
+  color: var(--sg-primary);
+}
 .sg-context-menu-divider { height: 1px; background: var(--sg-menu-border); margin: 3px 0; }
 .sg-context-menu-header {
   display: flex;

@@ -6,6 +6,7 @@ const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf899d15d4cef8de1';
 const STR = {
   vsPrevious: 'VS_PREV',
   sinceCreation: 'SINCE_CREATION',
+  vsWorking: 'VS_WORKING',
   range: (from: string, to: string) => `${from}>>${to}`,
 };
 
@@ -49,5 +50,11 @@ describe('buildCompareLabel', () => {
 
   it('renders short range for an arbitrary pair', () => {
     expect(buildCompareLabel('1111111aaaa', '2222222bbbb', STR)).toBe('1111111>>2222222');
+  });
+
+  it('says "vs working" when the target is the working copy (WORKING)', () => {
+    expect(buildCompareLabel('abc123', 'WORKING', STR)).toBe('VS_WORKING');
+    // WORKING берёт верх даже над "parent" эвристикой.
+    expect(buildCompareLabel('abc123^', 'WORKING', STR)).toBe('VS_WORKING');
   });
 });

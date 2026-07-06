@@ -456,7 +456,10 @@ export class CommandHandler {
   // ─── Compare two commits ───
   async getCommitDiff(fromHash: string, toHash: string): Promise<FileChange[]> {
     return this.queue.enqueueRead('getCommitDiff', async () => {
-      const r = await this.git.exec(['diff', '--name-status', `${fromHash}..${toHash}`]);
+      // toHash === 'WORKING' — сравнение коммита с рабочей копией: `git diff <from>`
+      // (без второй ревизии) диффит коммит против рабочего дерева.
+      const range = toHash === 'WORKING' ? [fromHash] : [`${fromHash}..${toHash}`];
+      const r = await this.git.exec(['diff', '--name-status', ...range]);
       const { parseFileChanges } = await import('../git/GitParser');
       return parseFileChanges(r.stdout);
     });

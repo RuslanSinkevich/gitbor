@@ -7,20 +7,8 @@ import type { ShowPromptFn } from '../../ui/SgPromptDialog';
 
 export type ShowPrompt = ShowPromptFn;
 
-const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf899d15d4cef8de1';
-
-/**
- * Хэш для сравнения «с предыдущей»: root-коммит сравниваем с пустым деревом,
- * merge — с первым родителем (mainline), обычный коммит — с родителем.
- */
 function isCurrentHead(commit: Commit): boolean {
   return commit.refs.some(r => r.type === 'head');
-}
-
-function previousHash(commit: Commit): string {
-  if (commit.parents.length === 0) return EMPTY_TREE;
-  if (commit.parents.length > 1) return `${commit.hash}^1`;
-  return `${commit.hash}^`;
 }
 
 function formatCommitInfo(commit: Commit): string {
@@ -34,7 +22,7 @@ export type OnRebase = (onto: string) => void;
 
 export function getCommitMenuItems(
   commit: Commit, currentBranch: string, showPrompt: ShowPrompt, requestCheckout: RequestCheckout,
-  onRebase?: OnRebase, compareFrom?: string | null, onCompareFrom?: (hash: string) => void, onCompareTo?: (from: string, to: string) => void,
+  onRebase?: OnRebase, onCompareTo?: (from: string, to: string) => void,
   headOnRemote = false,
 ): SgContextMenuItem[] {
   const loc = t();
@@ -82,28 +70,30 @@ export function getCommitMenuItems(
     },
     { divider: true },
 
-    { label: tpl(loc.contextMenu.mergeInto, { source: shortHash, target: currentBranch }), action: () => postCommand({ type: 'startMerge', source: commit.hash, options: { noCommit: false, ffOnly: false, squash: false } }) },
-    { label: tpl(loc.contextMenu.rebaseToHere, { branch: currentBranch }), action: () => postCommand({ type: 'rebaseTo', onto: commit.hash }) },
+    { label: tpl(loc.contextMenu.mergeInto, { source: shortHash, target: currentBranch }), help: loc.contextMenu.help.mergeInto, action: () => postCommand({ type: 'startMerge', source: commit.hash, options: { noCommit: false, ffOnly: false, squash: false } }) },
+    { label: tpl(loc.contextMenu.rebaseToHere, { branch: currentBranch }), help: loc.contextMenu.help.rebaseToHere, action: () => postCommand({ type: 'rebaseTo', onto: commit.hash }) },
     {
       label: tpl(loc.contextMenu.interactiveRebaseToHere, { branch: currentBranch }),
+      help: loc.contextMenu.help.interactiveRebaseToHere,
       action: onRebase ? () => onRebase(commit.hash) : undefined,
       disabled: !onRebase,
     },
     { divider: true },
 
     ...(isCurrentHead(commit) && commit.parents.length > 0 && !headOnRemote ? [
-      { label: loc.contextMenu.uncommitToStaging, action: () => postCommand({ type: 'resetTo', hash: commit.parents[0], mode: 'soft' }) },
+      { label: loc.contextMenu.uncommitToStaging, help: loc.contextMenu.help.uncommitToStaging, action: () => postCommand({ type: 'resetTo', hash: commit.parents[0], mode: 'soft' }) },
       { divider: true },
     ] as SgContextMenuItem[] : []),
 
     {
       label: tpl(loc.contextMenu.resetToHere, { branch: currentBranch }),
       submenu: [
-        { label: loc.contextMenu.resetSoft, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'soft' }) },
-        { label: loc.contextMenu.resetMixed, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'mixed' }) },
+        { label: loc.contextMenu.resetSoft, help: loc.contextMenu.help.resetSoft, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'soft' }) },
+        { label: loc.contextMenu.resetMixed, help: loc.contextMenu.help.resetMixed, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'mixed' }) },
         {
           label: loc.contextMenu.resetHard,
           danger: true,
+          help: loc.contextMenu.help.resetHard,
           action: () => showPrompt({
             kind: 'confirm',
             title: loc.dialog.resetHardTitle,
@@ -117,9 +107,10 @@ export function getCommitMenuItems(
     },
     { divider: true },
 
-    { label: loc.contextMenu.checkoutCommit, action: () => requestCheckout(commit.hash) },
+    { label: loc.contextMenu.checkoutCommit, help: loc.contextMenu.help.checkoutCommit, action: () => requestCheckout(commit.hash) },
     {
       label: loc.contextMenu.cherryPick,
+      help: loc.contextMenu.help.cherryPick,
       action: () => postCommand({
         type: 'cherryPick',
         hash: commit.hash,
@@ -128,6 +119,7 @@ export function getCommitMenuItems(
     },
     {
       label: loc.contextMenu.revert,
+      help: loc.contextMenu.help.revert,
       action: () => postCommand({
         type: 'revert',
         hash: commit.hash,
@@ -136,19 +128,16 @@ export function getCommitMenuItems(
     },
     { divider: true },
 
-    { label: loc.contextMenu.saveAsPatch, action: () => postCommand({ type: 'saveAsPatch', hash: commit.hash }) },
+    { label: loc.contextMenu.saveAsPatch, help: loc.contextMenu.help.saveAsPatch, action: () => postCommand({ type: 'saveAsPatch', hash: commit.hash }) },
     { divider: true },
 
-    { label: loc.contextMenu.compareToLocal, action: () => postCommand({ type: 'openDiff', file: '.', hash: commit.hash }) },
-    ...(onCompareTo ? [{
-      label: loc.contextMenu.compareWithPrevious,
-      action: () => onCompareTo(previousHash(commit), commit.hash),
-    }] : []),
-    { label: loc.contextMenu.compareFrom, action: () => onCompareFrom?.(commit.hash) },
-    ...(compareFrom && compareFrom !== commit.hash ? [{
-      label: tpl(loc.contextMenu.compareTo, { hash: compareFrom.substring(0, 7) }),
-      action: () => onCompareTo?.(compareFrom, commit.hash),
-    }] : []),
+    // «Сравнить с локальными» — выбранный коммит против рабочей копии
+    // (toHash === 'WORKING') через onCompareTo. Результат открывается в режиме
+    // сравнения CommitsView. Пункт показываем только когда сравнение доступно
+    // (граф-вью).
+    ...(onCompareTo ? [
+      { label: loc.contextMenu.compareToLocal, help: loc.contextMenu.help.compareToLocal, action: () => onCompareTo(commit.hash, 'WORKING') },
+    ] : []),
     { divider: true },
 
     { label: loc.contextMenu.copySha, shortcut: 'Ctrl+C', action: () => copyToClipboard(commit.hash) },

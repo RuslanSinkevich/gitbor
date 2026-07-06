@@ -208,6 +208,7 @@ export const en = {
   compare: {
     vsPrevious: 'Changes vs the previous commit',
     sinceCreation: 'Changes since the file was created',
+    vsWorking: 'Changes vs your working copy',
     range: '{from} → {to}',
   },
   diff: {
@@ -280,6 +281,11 @@ export const en = {
   blame: {
     loading: 'Loading blame...',
     noData: 'No blame data',
+    clickHint: 'Click a line on the left for commit info',
+    commit: 'Commit',
+    author: 'Author',
+    date: 'Date',
+    notCommitted: 'Not committed yet (local changes)',
   },
   rebaseEditor: {
     title: 'Interactive Rebase',
@@ -447,6 +453,25 @@ export const en = {
     blame: 'Blame',
     newAnnotatedTag: 'New Annotated Tag...',
     tagMessageTitle: 'Tag message',
+    help: {
+      mergeInto: 'Merges the selected commit into the current branch, creating a merge commit. Both branches\u2019 history is preserved.',
+      rebaseToHere: 'Replays the current branch\u2019s commits on top of the selected one — history becomes linear. Commit hashes change; avoid on already-pushed commits.',
+      interactiveRebaseToHere: 'Like rebase, but opens an editor: you can reorder, squash, rename or drop commits before replaying them.',
+      uncommitToStaging: 'Undoes the last commit, moving its changes back to staged. Nothing is lost; history is shortened by one commit.',
+      resetSoft: 'Moves the branch to this commit. Newer changes stay staged — nothing is lost.',
+      resetMixed: 'Moves the branch to this commit. Newer changes stay in the working copy but unstaged.',
+      resetHard: 'Moves the branch to this commit and DELETES all newer changes — staged and working copy alike. Irreversible.',
+      checkoutCommit: 'Switches the working copy to this commit without a branch (detached HEAD) — to inspect a past state.',
+      cherryPick: 'Applies the selected commit\u2019s changes on top of the current branch as a new separate commit.',
+      revert: 'Creates a new commit that undoes the selected one. Does not rewrite history — safe for pushed commits.',
+      saveAsPatch: 'Saves the commit\u2019s changes to a .patch file. It can be shared and applied in another repository.',
+      compareToLocal: 'Shows how your current working copy differs from the selected commit.',
+      compareWithPrevious: 'Shows the changes introduced by this commit (relative to the previous one).',
+      compareFrom: 'Marks this commit as the start of a comparison. Then click a second commit and choose “Compare with…”.',
+      compareTo: 'Compares the previously marked commit with this one and shows the difference.',
+      fileHistory: 'Shows every commit that changed this file, with a diff for each.',
+      blame: 'For each line of the file, shows in which commit, when and by whom it was last changed.',
+    },
     folder: {
       header: '{name} ({count} file(s))',
       stageAll: 'Stage all in folder',

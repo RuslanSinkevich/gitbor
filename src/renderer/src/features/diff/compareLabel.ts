@@ -16,16 +16,20 @@ export interface CompareLabelStrings {
   vsPrevious: string;
   /** «Изменения с момента создания» (сравнение с пустым деревом). */
   sinceCreation: string;
+  /** «Изменения относительно рабочей копии» (сравнение коммита с WORKING). */
+  vsWorking: string;
   /** Шаблон `{from} → {to}` для произвольного диапазона. */
   range: (from: string, to: string) => string;
 }
 
 /**
  * Человекочитаемый заголовок сравнения вместо сырых хешей `abc..abc`.
- * Частые случаи (коммит против родителя, против пустого дерева) проговариваются
- * словами; произвольный диапазон — короткие хеши со стрелкой.
+ * Частые случаи (коммит против родителя, против пустого дерева, против рабочей
+ * копии) проговариваются словами; произвольный диапазон — короткие хеши со
+ * стрелкой.
  */
 export function buildCompareLabel(fromHash: string, toHash: string, str: CompareLabelStrings): string {
+  if (toHash === 'WORKING') return str.vsWorking;
   if (isParentOf(fromHash, toHash)) return str.vsPrevious;
   if (fromHash === EMPTY_TREE || fromHash.startsWith(`${EMPTY_TREE}`)) return str.sinceCreation;
   return str.range(shortRev(fromHash), shortRev(toHash));

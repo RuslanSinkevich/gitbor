@@ -8,6 +8,10 @@ export type SgContextMenuItem =
       /** Текст нативного тултипа при наведении. Если не задан — берётся `label`.
           Нужен, когда в `label` показываем короткое имя, а полное — в тултип. */
       title?: string;
+      /** Пояснение для неочевидных пунктов: рядом с пунктом появляется значок
+          «?», при наведении на который показывается этот текст. Помогает понять,
+          что делает пункт, даже новичку. */
+      help?: string;
       shortcut?: string;
       disabled?: boolean;
       danger?: boolean;
@@ -119,6 +123,17 @@ function MenuItems({ items, onClose }: MenuItemsProps) {
             title={item.title ?? item.label}
           >
             <span className="sg-context-menu-item-label">{item.label}</span>
+            {item.help && (
+              <span
+                className="sg-context-menu-help"
+                title={item.help}
+                aria-label={item.help}
+                onClick={(e) => { e.stopPropagation(); }}
+                onMouseDown={(e) => { e.stopPropagation(); }}
+              >
+                !
+              </span>
+            )}
             {item.shortcut && <span className="sg-context-menu-shortcut">{item.shortcut}</span>}
           </div>
         ),

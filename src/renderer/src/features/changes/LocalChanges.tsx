@@ -7,6 +7,7 @@ import { SgSplitPane } from '../../ui/SgSplitPane';
 import { buildStorageKey } from '../../shared/uiPersist';
 import type { ShowPrompt } from '../graph/commitMenuItems';
 import { FileHistoryModal } from '../file-history';
+import { BlameModal } from '../blame';
 import { buildFileTree, fileName, collectFiles, type FileTreeNode } from './FileTree';
 import { VirtualFileTree } from './VirtualFileTree';
 import { useFileListKeyboard } from './useFileListKeyboard';
@@ -40,9 +41,6 @@ interface Props {
   mergeInProgress?: boolean;
   onContextMenu: (e: React.MouseEvent, items: SgContextMenuItem[]) => void;
   onOpenDiff?: (file: string, hash: string) => void;
-  /** @deprecated История файла теперь открывается модалкой внутри области changes; проп игнорируется (backward-compat). */
-  onFileHistory?: (file: string) => void;
-  onFileBlame?: (file: string) => void;
   onOpenMergeEditor?: (file: string) => void;
   onSelectFolder?: (folderPath: string, section: 'unstaged' | 'staged') => void;
   showPrompt?: ShowPrompt;
@@ -52,19 +50,21 @@ interface Props {
 
 export function LocalChanges({
   repoPath,
-  stagedFiles, unstagedFiles, onContextMenu, onOpenDiff, onFileBlame,
+  stagedFiles, unstagedFiles, onContextMenu, onOpenDiff,
   onOpenMergeEditor, onSelectFolder, showPrompt, activePath, activeSection,
 }: Props) {
   const loc = t();
   const stagedSplitStorageKey = buildStorageKey('sg-layout:changes-staged-height', repoPath);
 
-  // История файла: модалка держит своё open/close состояние ВНУТРИ области
-  // changes (см. границы стрима), не через App. null = закрыта.
+  // История файла / Blame: модалки держат своё open/close состояние ВНУТРИ
+  // области changes (см. границы стрима), не через App. null = закрыта.
   const [historyFile, setHistoryFile] = useState<string | null>(null);
+  const [blameFile, setBlameFile] = useState<string | null>(null);
 
   // Модалки/состояние привязаны к репо — при смене таба сбрасываем.
   useEffect(() => {
     setHistoryFile(null);
+    setBlameFile(null);
   }, [repoPath]);
 
   const conflictFiles = useMemo(() => unstagedFiles.filter(f => f.status === 'U'), [unstagedFiles]);
@@ -75,12 +75,12 @@ export function LocalChanges({
     { divider: true },
     { label: loc.contextMenu.openFile, action: () => postCommand({ type: 'openFile', file: file.path }) },
     { label: loc.contextMenu.openDiff, action: () => onOpenDiff ? onOpenDiff(file.path, 'STAGED') : postCommand({ type: 'openDiff', file: file.path, hash: 'STAGED' }) },
-    { label: loc.contextMenu.fileHistory, action: () => setHistoryFile(file.path) },
-    { label: loc.contextMenu.blame, action: () => onFileBlame?.(file.path) },
+    { label: loc.contextMenu.fileHistory, help: loc.contextMenu.help.fileHistory, action: () => setHistoryFile(file.path) },
+    { label: loc.contextMenu.blame, help: loc.contextMenu.help.blame, action: () => setBlameFile(file.path) },
     { divider: true },
     { label: loc.contextMenu.copyPath, action: () => copyToClipboard(file.path) },
     { label: loc.contextMenu.copyFileName, action: () => copyToClipboard(fileName(file.path)) },
-  ], [loc, onFileBlame, onOpenDiff]);
+  ], [loc, onOpenDiff]);
 
   const getUnstagedMenuItems = useCallback((file: FileStatus): SgContextMenuItem[] => {
     const items: SgContextMenuItem[] = [
@@ -93,8 +93,8 @@ export function LocalChanges({
     // (`?`) истории нет — пункт не показываем.
     if (file.status !== '?') {
       items.push(
-        { label: loc.contextMenu.fileHistory, action: () => setHistoryFile(file.path) },
-        { label: loc.contextMenu.blame, action: () => onFileBlame?.(file.path) },
+        { label: loc.contextMenu.fileHistory, help: loc.contextMenu.help.fileHistory, action: () => setHistoryFile(file.path) },
+        { label: loc.contextMenu.blame, help: loc.contextMenu.help.blame, action: () => setBlameFile(file.path) },
       );
     }
     if (file.status !== '?' && file.status !== 'U') {
@@ -135,7 +135,7 @@ export function LocalChanges({
       { label: loc.contextMenu.copyFileName, action: () => copyToClipboard(fileName(file.path)) },
     );
     return items;
-  }, [loc, onFileBlame, onOpenDiff, showPrompt]);
+  }, [loc, onOpenDiff, showPrompt]);
 
   const getConflictMenuItems = useCallback((file: FileStatus): SgContextMenuItem[] => [
     { label: loc.contextMenu.openMergeEditor, action: () => onOpenMergeEditor?.(file.path) },
@@ -410,6 +410,13 @@ export function LocalChanges({
         <FileHistoryModal
           file={historyFile}
           onClose={() => setHistoryFile(null)}
+        />
+      )}
+
+      {blameFile && (
+        <BlameModal
+          file={blameFile}
+          onClose={() => setBlameFile(null)}
         />
       )}
     </div>

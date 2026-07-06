@@ -12,7 +12,7 @@ import { RepoTabs } from '../repo-tabs';
 import { Sidebar } from '../sidebar';
 import { MergeBanner, shouldShowMergeBanner } from '../merge';
 import { Toolbar } from '../toolbar';
-import { ChangesView, CommitsView, type RightPanel } from '../layout';
+import { ChangesView, CommitsView } from '../layout';
 import type { AppState, CommitDetail, MergeState, RebaseProgress } from '../../types';
 import s from '../../App.module.css';
 
@@ -28,8 +28,6 @@ interface Props {
   repoManagerVisible: boolean;
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
-  rightPanel: RightPanel;
-  setRightPanel: (panel: RightPanel) => void;
   commitDetail: CommitDetail | null;
   diffTarget: { file: string; hash: string } | null;
   mergeState: MergeState | null;
@@ -38,8 +36,6 @@ interface Props {
   setConflictFile: (file: string | null) => void;
   setMergeEditorFile: (file: string | null) => void;
   setRebaseOnto: (onto: string | null) => void;
-  compareFromHash: string | null;
-  setCompareFromHash: (hash: string | null) => void;
   graphFocusNonce: number;
   soloBranch: string | null;
   hiddenBranches: Set<string>;
@@ -61,8 +57,6 @@ interface Props {
   requestApplyStash: RequestApplyStash;
   openDiff: (file: string, hash: string) => void;
   closeDiff: () => void;
-  openFileHistory: (file: string) => void;
-  openFileBlame: (file: string, hash?: string) => void;
   onOpenMergeEditor: (file: string) => void;
   onConflictResolved: (resolvedPath: string) => void;
   onCompareTo: (fromHash: string, toHash: string) => void;
@@ -80,8 +74,6 @@ export function AppWorkspace({
   repoManagerVisible,
   viewMode,
   setViewMode,
-  rightPanel,
-  setRightPanel,
   commitDetail,
   diffTarget,
   mergeState,
@@ -90,8 +82,6 @@ export function AppWorkspace({
   setConflictFile,
   setMergeEditorFile,
   setRebaseOnto,
-  compareFromHash,
-  setCompareFromHash,
   graphFocusNonce,
   soloBranch,
   hiddenBranches,
@@ -113,8 +103,6 @@ export function AppWorkspace({
   requestApplyStash,
   openDiff,
   closeDiff,
-  openFileHistory,
-  openFileBlame,
   onOpenMergeEditor,
   onConflictResolved,
   onCompareTo,
@@ -217,18 +205,12 @@ export function AppWorkspace({
                     state={state}
                     commitDetail={commitDetail}
                     diffTarget={diffTarget}
-                    rightPanel={rightPanel}
-                    setRightPanel={setRightPanel}
                     selectCommit={onSelectCommit}
                     openDiff={openDiff}
-                    openFileHistory={openFileHistory}
-                    openFileBlame={openFileBlame}
                     showContextMenu={onContextMenu}
                     showPrompt={showPrompt}
                     requestCheckout={requestCheckout}
                     setRebaseOnto={setRebaseOnto}
-                    compareFrom={compareFromHash}
-                    onCompareFrom={setCompareFromHash}
                     onCompareTo={onCompareTo}
                     focusNonce={graphFocusNonce}
                     soloBranch={soloBranch}
@@ -243,19 +225,14 @@ export function AppWorkspace({
                     state={state}
                     mergeState={mergeState}
                     diffTarget={diffTarget}
-                    rightPanel={rightPanel}
-                    setRightPanel={setRightPanel}
                     conflictFile={conflictFile}
                     setConflictFile={setConflictFile}
                     setMergeEditorFile={setMergeEditorFile}
                     showContextMenu={onContextMenu}
                     openDiff={openDiff}
                     closeDiff={closeDiff}
-                    openFileHistory={openFileHistory}
-                    openFileBlame={openFileBlame}
                     handleOpenMergeEditor={onOpenMergeEditor}
                     handleConflictResolved={onConflictResolved}
-                    selectCommit={onSelectCommit}
                     showPrompt={showPrompt}
                     loc={loc}
                     onOpenAiSettings={onOpenAiSettings}

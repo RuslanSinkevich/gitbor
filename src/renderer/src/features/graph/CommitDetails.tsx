@@ -6,6 +6,8 @@ import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { AuthorAvatar } from '../../ui/AuthorAvatar';
 import { CommitExplainerButton, CommitExplainerOutput, type CommitExplainerState } from '../ai';
 import { buildFileTree, FileTreeItem } from '../changes/FileTree';
+import { FileHistoryModal } from '../file-history';
+import { BlameModal } from '../blame';
 import { AI_ENABLED } from '@core/buildFlags';
 import s from './CommitDetails.module.css';
 
@@ -43,8 +45,6 @@ interface Props {
   onSelectCommit?: (hash: string) => void;
   onOpenDiff?: (file: string, hash: string) => void;
   onContextMenu?: (e: React.MouseEvent, items: SgContextMenuItem[]) => void;
-  onFileHistory?: (file: string) => void;
-  onFileBlame?: (file: string) => void;
   /** Открыть AI Settings — нужно `CommitExplainer`'у когда конфиг отсутствует. */
   onOpenAiSettings?: () => void;
   activePath?: string;
@@ -58,9 +58,14 @@ interface Props {
   explainer: CommitExplainerState;
 }
 
-export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMenu, onFileHistory, onFileBlame, onOpenAiSettings, activePath, activeTab, onTabChange, explainer }: Props) {
+export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMenu, onOpenAiSettings, activePath, activeTab, onTabChange, explainer }: Props) {
   const loc = t();
   const [tabInternal, setTabInternal] = useState<Tab>('commit');
+  // История файла / Blame: модалки держат своё open/close состояние ВНУТРИ
+  // деталей коммита (как в LocalChanges), а не через правую панель App.
+  // null = закрыта. Blame считаем на ревизии коммита (см. blameTarget.hash).
+  const [historyFile, setHistoryFile] = useState<string | null>(null);
+  const [blameTarget, setBlameTarget] = useState<{ file: string; hash: string } | null>(null);
   const tab = activeTab ?? tabInternal;
   const setTab = useCallback((next: Tab) => {
     setTabInternal(next);
@@ -129,25 +134,18 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
       { label: loc2.contextMenu.openDiff, action: () => onOpenDiff ? onOpenDiff(file.path, commitHash) : postCommand({ type: 'openDiff', file: file.path, hash: commitHash }) },
       { label: loc2.contextMenu.openFile, action: () => postCommand({ type: 'openFile', file: file.path }) },
     ];
-    // «Сравнить с прошлой ревизией» — только для конкретного коммита, не для
-    // диапазона сравнения. PREV: резолвится в backend в `prev..commit`.
-    if (!commitHash.includes('..')) {
-      items.push({
-        label: loc2.contextMenu.compareWithPrevRevision,
-        action: () => onOpenDiff
-          ? onOpenDiff(file.path, `PREV:${commitHash}`)
-          : postCommand({ type: 'openDiff', file: file.path, hash: `PREV:${commitHash}` }),
-      });
-    }
-    if (onFileHistory) items.push({ label: loc2.contextMenu.fileHistory, action: () => onFileHistory(file.path) });
-    if (onFileBlame) items.push({ label: loc2.contextMenu.blame, action: () => onFileBlame(file.path) });
+    items.push({ label: loc2.contextMenu.fileHistory, help: loc2.contextMenu.help.fileHistory, action: () => setHistoryFile(file.path) });
+    // Blame на ревизии коммита: для диапазона сравнения `a..b` берём правую
+    // границу `b`, иначе git blame ругается на неверный revision.
+    const blameHash = commitHash.includes('..') ? commitHash.split('..')[1] : commitHash;
+    items.push({ label: loc2.contextMenu.blame, help: loc2.contextMenu.help.blame, action: () => setBlameTarget({ file: file.path, hash: blameHash }) });
     items.push(
       { divider: true },
       { label: loc2.contextMenu.copyPath, action: () => copyToClipboard(file.path) },
       { label: loc2.contextMenu.copyFileName, action: () => copyToClipboard(file.path.split('/').pop() || file.path) },
     );
     return items;
-  }, [onOpenDiff, onFileHistory, onFileBlame]);
+  }, [onOpenDiff]);
 
   const copySha = useCallback(() => {
     if (detail) copyToClipboard(detail.hash);
@@ -293,6 +291,21 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
           </div>
         )}
       </div>
+
+      {historyFile && (
+        <FileHistoryModal
+          file={historyFile}
+          onClose={() => setHistoryFile(null)}
+        />
+      )}
+
+      {blameTarget && (
+        <BlameModal
+          file={blameTarget.file}
+          hash={blameTarget.hash}
+          onClose={() => setBlameTarget(null)}
+        />
+      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { LocalChanges, CommitBar } from '../changes';
 import { GitignoreBanner } from '../gitignore';
 import { ConflictPanel } from '../merge';
-import { RightPanelContent, type RightPanel } from './RightPanelContent';
+import { RightPanelContent } from './RightPanelContent';
 import { SgSplitPane } from '../../ui/SgSplitPane';
 import type { AppState, MergeState } from '../../types';
 import type { t } from '../../i18n';
@@ -15,19 +15,14 @@ interface Props {
   state: AppState;
   mergeState: MergeState | null;
   diffTarget: { file: string; hash: string } | null;
-  rightPanel: RightPanel;
-  setRightPanel: (p: RightPanel) => void;
   conflictFile: string | null;
   setConflictFile: (f: string | null) => void;
   setMergeEditorFile: (f: string | null) => void;
   showContextMenu: ShowContextMenuFn;
   openDiff: (file: string, hash: string) => void;
   closeDiff: () => void;
-  openFileHistory: (file: string) => void;
-  openFileBlame: (file: string) => void;
   handleOpenMergeEditor: (file: string) => void;
   handleConflictResolved: (resolvedPath: string) => void;
-  selectCommit: (hash: string) => void;
   showPrompt: ShowPromptFn;
   loc: ReturnType<typeof t>;
   onOpenAiSettings: () => void;
@@ -36,10 +31,10 @@ interface Props {
 }
 
 export function ChangesView({
-  state, mergeState, diffTarget, rightPanel, setRightPanel,
+  state, mergeState, diffTarget,
   conflictFile, setConflictFile, setMergeEditorFile,
-  showContextMenu, openDiff, closeDiff, openFileHistory, openFileBlame,
-  handleOpenMergeEditor, handleConflictResolved, selectCommit,
+  showContextMenu, openDiff, closeDiff,
+  handleOpenMergeEditor, handleConflictResolved,
   showPrompt, loc, onOpenAiSettings, onOpenGitignoreDialog, onExpandDiff,
 }: Props) {
   const [selectedFolder, setSelectedFolder] = useState<{ path: string; section: 'unstaged' | 'staged' } | null>(null);
@@ -80,10 +75,7 @@ export function ChangesView({
                 openDiff(f, h);
                 setConflictFile(null);
                 setMergeEditorFile(null);
-                setRightPanel('diff');
               }}
-              onFileHistory={openFileHistory}
-              onFileBlame={(f) => openFileBlame(f)}
               onOpenMergeEditor={(f) => { setSelectedFolder(null); handleOpenMergeEditor(f); }}
               onSelectFolder={(folderPath, section) => {
                 setSelectedFolder({ path: folderPath, section });
@@ -109,13 +101,8 @@ export function ChangesView({
                 />
               ) : diffTarget ? (
                 <RightPanelContent
-                  rightPanel={rightPanel}
-                  setRightPanel={setRightPanel}
                   diffTarget={diffTarget}
-                  selectCommit={selectCommit}
-                  openDiff={openDiff}
                   onExpandDiff={onExpandDiff}
-                  showContextMenu={showContextMenu}
                 />
               ) : (
                 <div className={s.emptyDiff}>{loc.details.selectCommit}</div>

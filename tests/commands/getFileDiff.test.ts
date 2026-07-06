@@ -69,6 +69,29 @@ describe('getFileDiff — PREV: sentinel', () => {
   });
 });
 
+describe('getFileDiff — compare with working copy (<commit>..WORKING)', () => {
+  it('diffs the commit against the working tree without a second revision', async () => {
+    const git = makeScriptedGit({ 'diff': { stdout: smallDiff() } });
+    await getFileDiff(asQueue(makeMockQueue()), asGit(git), 'f.txt', 'abc123..WORKING');
+
+    const diffArgs = firstDiffCall(git);
+    // Должен быть `git diff abc123 -- f.txt` (без WORKING как ревизии).
+    expect(diffArgs).toContain('abc123');
+    expect(diffArgs).not.toContain('WORKING');
+    expect(diffArgs).not.toContain('abc123..WORKING');
+    expect(diffArgs).toContain('f.txt');
+  });
+
+  it('still splits a normal range into two revisions', async () => {
+    const git = makeScriptedGit({ 'diff': { stdout: smallDiff() } });
+    await getFileDiff(asQueue(makeMockQueue()), asGit(git), 'f.txt', 'aaa..bbb');
+
+    const diffArgs = firstDiffCall(git);
+    expect(diffArgs).toContain('aaa');
+    expect(diffArgs).toContain('bbb');
+  });
+});
+
 describe('getFileDiff — fullContext', () => {
   it('passes the whole-file context flag when requested', async () => {
     const git = makeScriptedGit({ 'diff': { stdout: smallDiff() } });

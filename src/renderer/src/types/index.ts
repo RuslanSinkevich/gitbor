@@ -4,7 +4,7 @@ export type {
   MergeOptions, MergeState, ConflictBlock, ConflictContent, ConflictResolutionKind,
   AppState,
   RecoveryAction, RecoveryIssue,
-  DiffLine, DiffHunk, FileDiff, BlameResult, FileHistoryEntry, FileHistoryResult,
+  DiffLine, DiffHunk, FileDiff, BlameLine, BlameResult, FileHistoryEntry, FileHistoryResult,
   RebaseAction, RebaseTodoEntry, RebaseProgress,
   Submodule,
   GitErrorClass, ClassifiedError, GitProcessInfo, SuggestedAction,
