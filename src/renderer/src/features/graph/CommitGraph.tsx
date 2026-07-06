@@ -1,5 +1,5 @@
 import { memo, useRef, useEffect, useCallback, useMemo, type KeyboardEvent as ReactKBEvent } from 'react';
-import { t } from '../../i18n';
+import { t, tpl } from '../../i18n';
 import type { Commit, GraphNode, MergeLink } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { ROW_HEIGHT, COL_WIDTH, LEFT_PAD, NODE_RADIUS, MERGE_RADIUS, DESC_PAD, colX, formatCommitDate } from './graphConstants';
@@ -21,6 +21,9 @@ import s from './CommitGraph.module.css';
  * он каждый раз пересчитывает groupBranchPaths(15k) = 100-150мс. WeakMap по
  * ссылке даёт O(1) выдачу и сам чистит память, когда репо закрыт.
  */
+/** Стабильная пустая ссылка — дефолт для selectedHashes, чтобы memo не дёргался. */
+const EMPTY_HASH_SET: ReadonlySet<string> = new Set<string>();
+
 const branchPathsByNodes = new WeakMap<GraphNode[], BranchPathData[]>();
 const nodeCirclesByNodes = new WeakMap<GraphNode[], NodeCircle[]>();
 const rowMetaByNodes = new WeakMap<GraphNode[], { rightEdge: number; color: string; isRemoteOnly: boolean }[]>();
@@ -65,6 +68,12 @@ interface Props {
   mergeLinks: MergeLink[];
   selectedHash: string | null;
   onSelect: (hash: string) => void;
+  /** Множество коммитов в мульти-выборе (Ctrl/Shift-клик, «выбрать все»). */
+  selectedHashes?: ReadonlySet<string>;
+  /** Клик по строке с модификатором: toggle (Ctrl/Cmd), range (Shift), single (обычный). */
+  onMultiSelect?: (hash: string, mode: 'toggle' | 'range' | 'single') => void;
+  /** «Выбрать все совпадения» поиска → положить их в мульти-выбор. */
+  onSelectMany?: (hashes: string[]) => void;
   currentBranch: string;
   /** Имена remote'ов — для слияния локальной ветки с её remote-tracking двойником. */
   remoteNames: string[];
@@ -91,7 +100,7 @@ interface Props {
   focusNonce?: number;
 }
 
-function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, currentBranch, remoteNames, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, onCompareTo, headOnRemote = false, focusNonce }: Props) {
+function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, selectedHashes = EMPTY_HASH_SET, onMultiSelect, onSelectMany, currentBranch, remoteNames, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, onCompareTo, headOnRemote = false, focusNonce }: Props) {
   const loc = t();
   const graphWidth = LEFT_PAD * 2 + (maxColumns + 1) * COL_WIDTH + 12;
   const totalHeight = commits.length * ROW_HEIGHT;
@@ -175,6 +184,16 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
 
   const visibleCommits = commits.slice(visibleRange.start, visibleRange.end);
 
+  const handleRowClick = useCallback((e: React.MouseEvent, hash: string) => {
+    // Ctrl/Cmd — toggle, Shift — range: только мульти-выбор, панель деталей
+    // не трогаем (как в JetBrains). Обычный клик — сброс мульти + onSelect.
+    if (onMultiSelect && (e.ctrlKey || e.metaKey)) { onMultiSelect(hash, 'toggle'); return; }
+    if (onMultiSelect && e.shiftKey) { onMultiSelect(hash, 'range'); return; }
+    onMultiSelect?.(hash, 'single');
+    rowClickSelectedRef.current = hash;
+    onSelect(hash);
+  }, [onMultiSelect, onSelect]);
+
   const handleKeyDown = useCallback((e: ReactKBEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
     e.preventDefault();
@@ -199,6 +218,16 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
               if (e.key === 'Escape') { search.setSearchVisible(false); search.setSearchQuery(''); }
             }}
           />
+          <button
+            type="button"
+            className={`${s.searchAiToggle} ${search.regexMode ? s.searchAiToggleActive : ''} ${search.regexMode && search.regexError ? s.searchRegexError : ''}`}
+            onClick={search.toggleRegexMode}
+            title={search.regexMode ? loc.graph.regexOff : loc.graph.regexOn}
+            aria-label={search.regexMode ? loc.graph.regexOff : loc.graph.regexOn}
+            aria-pressed={search.regexMode}
+          >
+            .*
+          </button>
           {AI_ENABLED && (
             <button
               type="button"
@@ -209,6 +238,19 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
               aria-pressed={search.aiMode}
             >
               <SemanticSearchIcon />
+            </button>
+          )}
+          {search.regexMode && search.regexError && (
+            <span className={s.searchCount} title={loc.graph.regexError}>{loc.graph.regexInvalid}</span>
+          )}
+          {onSelectMany && !search.aiMode && search.matchedHashes.length > 0 && (
+            <button
+              type="button"
+              className={s.searchNav}
+              title={loc.graph.selectAllMatches}
+              onClick={() => onSelectMany(search.matchedHashes)}
+            >
+              {tpl(loc.graph.selectAllCount, { count: search.matchedHashes.length })}
             </button>
           )}
           {search.aiMode && search.semantic.status === 'busy' && (
@@ -272,11 +314,20 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
             const significant = commit.refs.length > 0;
             return (
               <div key={commit.hash}
-                className={`${s.row} ${hashMatch(commit.hash, selectedHash) ? s.rowSelected : ''} ${isHead(commit) ? s.rowHead : ''} ${significant ? s.rowSignificant : ''} ${search.searchMatchSet.has(i) ? s.rowSearchMatch : ''} ${isRemoteOnly ? s.rowDimmed : ''}`}
+                className={`${s.row} ${hashMatch(commit.hash, selectedHash) ? s.rowSelected : ''} ${selectedHashes.has(commit.hash) ? s.rowMultiSelected : ''} ${isHead(commit) ? s.rowHead : ''} ${significant ? s.rowSignificant : ''} ${search.searchMatchSet.has(i) ? s.rowSearchMatch : ''} ${isRemoteOnly ? s.rowDimmed : ''}`}
                 style={{ top: i * ROW_HEIGHT, height: ROW_HEIGHT }}
-                onClick={() => { rowClickSelectedRef.current = commit.hash; onSelect(commit.hash); }}
+                onClick={(e) => handleRowClick(e, commit.hash)}
                 title={isRemoteOnly ? loc.graph.remoteOnlyHint : undefined}
-                onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getCommitMenuItems(commit, currentBranch, showPrompt, requestCheckout, onRebase, onCompareTo, headOnRemote)); }}>
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  // Мульти-выбор → отсортировать старые→новые: commits в topo-порядке
+                  // (новые сверху), фильтруем и разворачиваем. Секвенсеру нужен
+                  // порядок от предка к потомку.
+                  const sortedSelected = selectedHashes.size > 1
+                    ? commits.filter(c => selectedHashes.has(c.hash)).map(c => c.hash).reverse()
+                    : undefined;
+                  onContextMenu(e, getCommitMenuItems(commit, currentBranch, showPrompt, requestCheckout, onRebase, onCompareTo, headOnRemote, sortedSelected));
+                }}>
                 <div className={s.rowDesc} style={{ paddingLeft: descLeft }}>
                   {buildRefBadges(commit.refs, remoteNames, currentBranch).map((badge) => {
                     const tipLines = [badge.fullName];
@@ -357,6 +408,7 @@ export const CommitGraph = memo(CommitGraphImpl, (prev, next) => (
   prev.maxColumns === next.maxColumns &&
   prev.mergeLinks === next.mergeLinks &&
   prev.selectedHash === next.selectedHash &&
+  prev.selectedHashes === next.selectedHashes &&
   prev.focusNonce === next.focusNonce &&
   prev.currentBranch === next.currentBranch &&
   prev.remoteNames === next.remoteNames &&

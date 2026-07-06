@@ -24,9 +24,31 @@ export function getCommitMenuItems(
   commit: Commit, currentBranch: string, showPrompt: ShowPrompt, requestCheckout: RequestCheckout,
   onRebase?: OnRebase, onCompareTo?: (from: string, to: string) => void,
   headOnRemote = false,
+  /** Мульти-выбор, отсортированный старые→новые. Если кликнутый коммит в нём
+      и коммитов > 1 — пункт «Cherry-pick N коммитов» вместо одиночного. */
+  selectedHashes?: string[],
 ): SgContextMenuItem[] {
   const loc = t();
   const shortHash = commit.hash.substring(0, 7);
+
+  const multiCount = selectedHashes && selectedHashes.length > 1 && selectedHashes.includes(commit.hash)
+    ? selectedHashes.length
+    : 0;
+  const cherryPickItem: SgContextMenuItem = multiCount > 0
+    ? {
+      label: tpl(loc.contextMenu.cherryPickMany, { count: multiCount }),
+      help: loc.contextMenu.help.cherryPickMany,
+      action: () => postCommand({ type: 'cherryPickMany', hashes: selectedHashes! }),
+    }
+    : {
+      label: loc.contextMenu.cherryPick,
+      help: loc.contextMenu.help.cherryPick,
+      action: () => postCommand({
+        type: 'cherryPick',
+        hash: commit.hash,
+        ...(commit.parents.length > 1 ? { mainline: 1 } : {}),
+      }),
+    };
 
   const items: SgContextMenuItem[] = [];
 
@@ -108,15 +130,7 @@ export function getCommitMenuItems(
     { divider: true },
 
     { label: loc.contextMenu.checkoutCommit, help: loc.contextMenu.help.checkoutCommit, action: () => requestCheckout(commit.hash) },
-    {
-      label: loc.contextMenu.cherryPick,
-      help: loc.contextMenu.help.cherryPick,
-      action: () => postCommand({
-        type: 'cherryPick',
-        hash: commit.hash,
-        ...(commit.parents.length > 1 ? { mainline: 1 } : {}),
-      }),
-    },
+    cherryPickItem,
     {
       label: loc.contextMenu.revert,
       help: loc.contextMenu.help.revert,

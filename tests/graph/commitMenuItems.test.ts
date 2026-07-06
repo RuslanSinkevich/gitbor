@@ -116,6 +116,46 @@ describe('getCommitMenuItems — cherry-pick / revert', () => {
   });
 });
 
+describe('getCommitMenuItems — множественный cherry-pick', () => {
+  it('показывает «Cherry-pick N коммитов», когда кликнутый коммит в мульти-выборе (>1)', () => {
+    const loc = t();
+    const commit = makeCommit({ hash: 'bbbbbbb' });
+    const selected = ['aaaaaaa', 'bbbbbbb', 'ccccccc'];
+    const showPrompt = vi.fn();
+    const requestCheckout = vi.fn();
+    const items = getCommitMenuItems(commit, 'main', showPrompt, requestCheckout, undefined, undefined, false, selected);
+
+    const label = tpl(loc.contextMenu.cherryPickMany, { count: 3 });
+    const item = byLabel(items, label);
+    expect(item).toBeTruthy();
+    item!.action!();
+    expect(postCommand).toHaveBeenCalledWith({ type: 'cherryPickMany', hashes: selected });
+    // Одиночного пункта при этом быть не должно.
+    expect(byLabel(items, loc.contextMenu.cherryPick)).toBeUndefined();
+  });
+
+  it('остаётся одиночным, если кликнутый коммит вне мульти-выбора', () => {
+    const loc = t();
+    const commit = makeCommit({ hash: 'zzzzzzz' });
+    const selected = ['aaaaaaa', 'bbbbbbb'];
+    const showPrompt = vi.fn();
+    const requestCheckout = vi.fn();
+    const items = getCommitMenuItems(commit, 'main', showPrompt, requestCheckout, undefined, undefined, false, selected);
+
+    expect(byLabel(items, loc.contextMenu.cherryPick)).toBeTruthy();
+    expect(byLabel(items, tpl(loc.contextMenu.cherryPickMany, { count: 2 }))).toBeUndefined();
+  });
+
+  it('остаётся одиночным при выборе из одного коммита', () => {
+    const loc = t();
+    const commit = makeCommit({ hash: 'aaaaaaa' });
+    const showPrompt = vi.fn();
+    const requestCheckout = vi.fn();
+    const items = getCommitMenuItems(commit, 'main', showPrompt, requestCheckout, undefined, undefined, false, ['aaaaaaa']);
+    expect(byLabel(items, loc.contextMenu.cherryPick)).toBeTruthy();
+  });
+});
+
 describe('getCommitMenuItems — reset submenu', () => {
   it('soft/mixed вызывают resetTo сразу, hard — через подтверждение', () => {
     const loc = t();

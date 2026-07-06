@@ -4,3 +4,6 @@
 .bannerBranch { font-weight: 600; font-family: var(--sg-font-mono); }
 .bannerAbort { padding: 2px 10px; font-size: 11px; font-family: inherit; font-weight: 600; background: transparent; color: var(--sg-danger); border: 1px solid var(--sg-danger); border-radius: var(--sg-radius-sm); cursor: pointer; transition: all var(--sg-transition); }
 .bannerAbort:hover { background: color-mix(in srgb, var(--sg-danger) 15%, transparent); }
+.bannerBtn { padding: 2px 10px; font-size: 11px; font-family: inherit; font-weight: 600; background: transparent; color: var(--sg-primary); border: 1px solid var(--sg-primary); border-radius: var(--sg-radius-sm); cursor: pointer; transition: all var(--sg-transition); }
+.bannerBtn:hover:not(:disabled) { background: color-mix(in srgb, var(--sg-primary) 15%, transparent); }
+.bannerBtn:disabled { opacity: 0.45; cursor: not-allowed; }

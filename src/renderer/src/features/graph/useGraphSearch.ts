@@ -23,6 +23,7 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchMatchIdx, setSearchMatchIdx] = useState(0);
   const [aiMode, setAiMode] = useState(false);
+  const [regexMode, setRegexMode] = useState(false);
   const [semantic, setSemantic] = useState<SemanticSearchState>({ status: 'idle' });
 
   /* Подписка на одноразовый ответ — ставим один раз, фильтруем по
@@ -71,6 +72,22 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
       }
       return out;
     }
+    if (regexMode) {
+      // Невалидный паттерн → пустой результат (ошибку показывает regexError,
+      // UI не роняем). Матчим по subject и имени автора.
+      let re: RegExp;
+      try {
+        re = new RegExp(searchQuery, 'i');
+      } catch {
+        return [];
+      }
+      const matches: number[] = [];
+      for (let i = 0; i < commits.length; i++) {
+        const c = commits[i];
+        if (re.test(c.subject) || re.test(c.authorName)) matches.push(i);
+      }
+      return matches;
+    }
     const q = searchQuery.toLowerCase();
     const matches: number[] = [];
     for (let i = 0; i < commits.length; i++) {
@@ -80,9 +97,23 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
       }
     }
     return matches;
-  }, [commits, searchQuery, aiMode, semantic]);
+  }, [commits, searchQuery, aiMode, regexMode, semantic]);
 
   const searchMatchSet = useMemo(() => new Set(searchMatches), [searchMatches]);
+
+  /** Хэши всех совпадений — для кнопки «Выбрать все» (массовый cherry-pick). */
+  const matchedHashes = useMemo(() => searchMatches.map(i => commits[i].hash), [searchMatches, commits]);
+
+  /** Паттерн введён, режим regexp, но не компилируется — подсветить ошибку. */
+  const regexError = useMemo(() => {
+    if (!regexMode || !searchQuery.trim()) return false;
+    try {
+      new RegExp(searchQuery, 'i');
+      return false;
+    } catch {
+      return true;
+    }
+  }, [regexMode, searchQuery]);
 
   const navigateSearch = useCallback((dir: 1 | -1) => {
     if (searchMatches.length === 0) return;
@@ -112,7 +143,7 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
     if (searchVisible) searchRef.current?.focus();
   }, [searchVisible]);
 
-  useEffect(() => { setSearchMatchIdx(0); }, [searchQuery, aiMode]);
+  useEffect(() => { setSearchMatchIdx(0); }, [searchQuery, aiMode, regexMode]);
 
   const toggleAiMode = useCallback(() => {
     if (!AI_ENABLED) return;
@@ -120,9 +151,20 @@ export function useGraphSearch(commits: Commit[], onSelect: (hash: string) => vo
     setSemantic({ status: 'idle' });
   }, []);
 
+  /* Regexp и AI взаимоисключающи: включение regexp гасит AI-режим (и наоборот
+     семантику), чтобы searchMatches шёл по одной ветке. */
+  const toggleRegexMode = useCallback(() => {
+    setRegexMode((v) => {
+      const next = !v;
+      if (next) { setAiMode(false); setSemantic({ status: 'idle' }); }
+      return next;
+    });
+  }, []);
+
   return {
     searchRef, searchQuery, setSearchQuery, searchVisible, setSearchVisible,
-    searchMatchIdx, searchMatches, searchMatchSet, navigateSearch,
+    searchMatchIdx, searchMatches, searchMatchSet, matchedHashes, navigateSearch,
     semantic, aiMode, toggleAiMode,
+    regexMode, toggleRegexMode, regexError,
   };
 }

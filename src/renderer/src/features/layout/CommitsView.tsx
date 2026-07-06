@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { CommitGraph, CommitDetails } from '../graph';
+import { CommitGraph, CommitDetails, useMultiSelect } from '../graph';
 import { useCommitExplainer } from '../ai';
 import { RightPanelContent } from './RightPanelContent';
 import { SgSplitPane } from '../../ui/SgSplitPane';
@@ -88,6 +88,11 @@ export function CommitsView({
   const graphMaxColumns = filtered.mode === 'none' ? state.graphLayout.maxColumns : filtered.maxColumns;
   const graphMergeLinks = filtered.mode === 'none' ? (state.graphLayout.mergeLinks ?? []) : filtered.mergeLinks;
 
+  /* Мульти-выбор коммитов для batch cherry-pick. Range Shift-клика считается
+     по тому же списку, что рисует граф (graphCommits). Сбрасывается при смене
+     репо внутри хука. */
+  const multi = useMultiSelect(graphCommits, state.repoPath);
+
   const banner = (() => {
     if (filtered.mode === 'solo' && soloBranch) {
       return (
@@ -143,6 +148,9 @@ export function CommitsView({
           mergeLinks={graphMergeLinks}
           selectedHash={state.selectedCommitHash}
           onSelect={selectCommit}
+          selectedHashes={multi.selectedHashes}
+          onMultiSelect={multi.select}
+          onSelectMany={multi.selectMany}
           currentBranch={state.currentBranch}
           remoteNames={remoteNames}
           repoPath={state.repoPath}

@@ -256,6 +256,21 @@
   background: color-mix(in srgb, var(--sg-primary) 18%, transparent) !important;
 }
 
+/*
+ * Мульти-выбор (Ctrl/Shift-клик, «выбрать все» по regexp). Визуально
+ * отличается от rowSelected (одиночный выбор для панели деталей) более
+ * насыщенной заливкой + левой полосой другого цвета, чтобы серия коммитов
+ * под будущий batch cherry-pick читалась как «отмеченная», а не «открытая».
+ */
+.rowMultiSelected {
+  background: color-mix(in srgb, var(--sg-primary) 26%, transparent) !important;
+  box-shadow: inset 3px 0 0 var(--sg-primary);
+}
+
+.rowMultiSelected.rowSelected {
+  background: color-mix(in srgb, var(--sg-primary) 32%, transparent) !important;
+}
+
 .searchBar {
   display: flex;
   align-items: center;
@@ -344,6 +359,12 @@
   background: color-mix(in srgb, var(--sg-primary) 12%, transparent);
   border-color: var(--sg-primary);
   color: var(--sg-primary);
+}
+
+/* Тумблер regexp с невалидным паттерном — красная рамка/текст. */
+.searchRegexError {
+  border-color: var(--sg-error, #e5484d) !important;
+  color: var(--sg-error, #e5484d) !important;
 }
 
 .searchClose {

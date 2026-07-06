@@ -18,8 +18,17 @@ interface Props {
  * Если конфликтов НЕ было изначально (fast-forward отменён, ручной
  * merge без них) — баннер тоже не нужен.
  */
+/** Cherry-pick-серия с непройденным остатком секвенсера. */
+function isCherryPickSeries(mergeState: MergeState): boolean {
+  return mergeState.kind === 'cherry-pick' && (mergeState.sequencerTotal ?? 0) > 0;
+}
+
 export function shouldShowMergeBanner(mergeState: MergeState | null): boolean {
   if (!mergeState || !mergeState.inProgress) return false;
+  // Cherry-pick-серия: держим баннер пока идёт секвенсер, даже когда текущие
+  // конфликты уже разрешены — нужна кнопка Continue, чтобы продвинуть серию
+  // к следующему коммиту (обычный commit секвенсер не двигает).
+  if (isCherryPickSeries(mergeState)) return true;
   const conflicted = mergeState.conflictFiles.filter(f => f.status === 'conflicted').length;
   if (mergeState.totalConflicts === 0) return false;
   if (conflicted === 0) return false;
@@ -46,6 +55,38 @@ export function MergeBanner({ mergeState, showPrompt }: Props) {
       postCommand({ type: 'abortMerge' });
     }
   };
+
+  // Cherry-pick-серия: свой баннер с прогрессом и Continue/Skip/Abort.
+  if (isCherryPickSeries(mergeState)) {
+    const done = mergeState.sequencerDone ?? 0;
+    const total = mergeState.sequencerTotal ?? 0;
+    return (
+      <div className={s.banner}>
+        <span className={s.bannerIcon}>⚠</span>
+        <span className={s.bannerText}>
+          {loc.mergeBanner.cherryPicking}
+          {' '}
+          {tpl(loc.mergeBanner.cherryPickProgress, { done, total })}
+          {conflicted > 0
+            ? ` ${tpl(loc.mergeBanner.fixConflicts, { count: conflicted })}`
+            : ` ${loc.mergeBanner.continueHint}`}
+        </span>
+        <button
+          className={s.bannerBtn}
+          disabled={conflicted > 0}
+          onClick={() => postCommand({ type: 'cherryPickContinue' })}
+        >
+          {loc.mergeBanner.continue}
+        </button>
+        <button className={s.bannerBtn} onClick={() => postCommand({ type: 'cherryPickSkip' })}>
+          {loc.mergeBanner.skip}
+        </button>
+        <button className={s.bannerAbort} onClick={handleAbort}>
+          {loc.mergeBanner.abort}
+        </button>
+      </div>
+    );
+  }
 
   // Заголовок в зависимости от kind (merge / cherry-pick / revert / rebase / unmerged-paths).
   const kindLabel =
