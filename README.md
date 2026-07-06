@@ -1,6 +1,6 @@
 # GitBor
 
-> Русская версия: [docs/ru/README.md](docs/ru/README.md)
+> Русская версия: [docs/ru/](docs/ru/)
 
 Free cross-platform desktop Git client built on Electron. A Fork/GitKraken/SourceTree alternative. Source is MIT-licensed but the repository is not publicly hosted.
 
@@ -59,7 +59,7 @@ npm run dist:linux   # Linux (AppImage + deb)
 | UI | React 18, TypeScript 5.9, Vite 6 |
 | Styles | CSS Modules, `--sg-*` custom properties |
 | File watcher | chokidar 4 |
-| Tests | Vitest 4.1 (unit, <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> files / <!-- TESTS_COUNT -->631<!-- /TESTS_COUNT --> tests), Playwright 1.59 (E2E, Windows) |
+| Tests | Vitest 4.1 (unit, <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> files / <!-- TESTS_COUNT -->635<!-- /TESTS_COUNT --> tests), Playwright 1.59 (E2E, Windows) |
 | DX | husky 9 + lint-staged 17 (pre-commit) + `npm test` (pre-push), `npm run analyze` (rollup-plugin-visualizer) |
 | Git | Bundled git binary (`resources/git/{platform}/git`) |
 
@@ -230,7 +230,7 @@ gitbor/
 │       ├── package.json
 │       └── vite.config.ts
 │
-├── tests/                         # Unit tests (Vitest, <!-- TESTS_COUNT -->631<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> files)
+├── tests/                         # Unit tests (Vitest, <!-- TESTS_COUNT -->635<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> files)
 │   ├── git/                       # Parsers, managers
 │   ├── commands/                  # writeCommands (incl. batch discardFiles), readCommands, ConflictManager
 │   ├── state/                     # StateManager (multi-repo), repoSlice
@@ -252,6 +252,8 @@ gitbor/
 │   └── switch-tab.spec.ts         # Multi-repo tab switching
 │
 ├── docs/                          # Documentation (screenshots, Russian README)
+│   ├── images/                    # Screenshots
+│   └── ru/                        # Russian translations
 │
 ├── .github/workflows/             # ci.yml (push, 3 OS, Node 20) + pr.yml (PR, Win, Node 22, +e2e)
 ├── .husky/pre-commit              # husky 9 + lint-staged 17 + project-wide tsc
@@ -269,10 +271,10 @@ gitbor/
 ## Key Features
 
 - **Commit graph** — virtualized scroll, branch coloring, search
-- **Branch/Tag/Stash sidebar** — tree view, checkout, merge, rename, delete; current branch marked with green dot
+- **Branch/Tag/Stash sidebar** — tree view, checkout, merge, rename, delete; current branch marked with green dot; per-branch hover-actions (pin / solo / hide / note), Solo + Hide graph filters and per-repo branch notes
 - **Local changes** — tree view, stage/unstage/discard per file and per hunk
 - **Folder context menu** — stage / unstage / discard / delete applied to all files inside (Staged/Unstaged sections)
-- **Diff viewer** — inline + split, ignore whitespace, stage hunk; no `+`/`−` text prefix in line content (color-only)
+- **Diff viewer** — inline + split, ignore whitespace, hover-overlay stage/discard/unstage on hunk block (Fork-style); no `+`/`−` text prefix in line content (color-only); right-click → Copy (selection or hovered line); Markdown preview button for `.md` files; legacy encodings (CP1251/CP866) decoded via heuristic so Cyrillic comments in old `.sql` files render readably
 - **Merge conflict resolution** — two-column editor, auto-advance, conflict prediction
 - **File history & Git blame** — per-file commit history, line-by-line annotations
 - **Interactive rebase** — pick/reword/edit/squash/fixup/drop, progress banner
@@ -334,8 +336,18 @@ Each open repository is a fully independent set of services — a long `git pull
 1. **Git reflog** — built-in, 90 days
 2. **Auto-stash** — saves uncommitted changes before destructive operations
 3. **HEAD hash** — saved for rollback
-4. **WAL journal** — `.git/GitBor-journal.json`, begin/complete/fail
+4. **WAL journal** — `.git/GitBor-journal.json`, begin/complete/fail (with `errorClass`)
 5. **RecoveryManager** — startup checks: lock files (stale `.git/index.lock` is ignored on startup), incomplete operations, rebase, merge
+
+### Classified Error Handling
+
+`SafetyNet` no longer auto-rolls back on any failure. Stderr is
+classified into `GitErrorClass` (`lock_held` / `conflict` / `dirty_tree` /
+`network` / `auth` / ...). The UI opens a `SafetyDialog` with
+context-aware actions (retry, abort merge, restore stash, kill git
+process, remove lock, rollback). `PreflightChecks` runs before
+destructive operations to detect `index.lock`, intermediate state
+files (`MERGE_HEAD`, `rebase-apply`, etc.), and unmerged paths.
 
 ### Input Safety
 
@@ -366,9 +378,15 @@ Two-sided system: both main and renderer log only in dev mode; production consol
 
 ---
 
+## Documentation
+
+Russian translation: [`docs/ru/`](docs/ru/)
+
+---
+
 ## Status
 
-Version 0.1.0. Backend and UI feature-complete for MVP. <!-- TESTS_COUNT -->631<!-- /TESTS_COUNT --> unit tests across <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> files (Vitest 4.1) plus 3 Playwright E2E specs (Windows). ESLint + Prettier configured; husky 9 + lint-staged 17 enforce `eslint --fix` and project-wide `tsc --noEmit` on each commit; `npm test` runs in `.husky/pre-push` (bypass via `SKIP_TESTS=1`). CI: `ci.yml` runs lint/typecheck/test/build on Ubuntu / Windows / macOS (Node 20) for push events; `pr.yml` runs the same plus E2E on Windows / Node 22 for pull requests. 0 npm audit vulnerabilities (root + renderer). Not production-tested.
+Version 0.1.0. Backend and UI feature-complete for MVP. <!-- TESTS_COUNT -->635<!-- /TESTS_COUNT --> unit tests across <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> files (Vitest 4.1) plus 3 Playwright E2E specs (Windows). ESLint + Prettier configured; husky 9 + lint-staged 17 enforce `eslint --fix` and project-wide `tsc --noEmit` on each commit; `npm test` runs in `.husky/pre-push` (bypass via `SKIP_TESTS=1`). CI: `ci.yml` runs lint/typecheck/test/build on Ubuntu / Windows / macOS (Node 20) for push events; `pr.yml` runs the same plus E2E on Windows / Node 22 for pull requests. 0 npm audit vulnerabilities (root + renderer). Not production-tested.
 
 ## License
 
