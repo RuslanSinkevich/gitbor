@@ -94,6 +94,12 @@ type RendererCommandCore =
 
   // Commit operations
   | { type: 'cherryPick'; hash: string; mainline?: number }
+  /** Batch cherry-pick через нативный git-секвенсер. hashes — уже упорядочены старые→новые. */
+  | { type: 'cherryPickMany'; hashes: string[] }
+  /** Продолжить остановленную cherry-pick-серию после разрешения конфликта. */
+  | { type: 'cherryPickContinue' }
+  /** Пропустить текущий (конфликтный/пустой) коммит cherry-pick-серии. */
+  | { type: 'cherryPickSkip' }
   | { type: 'revert'; hash: string; mainline?: number }
   | { type: 'resetTo'; hash: string; mode: 'soft' | 'mixed' | 'hard' }
 

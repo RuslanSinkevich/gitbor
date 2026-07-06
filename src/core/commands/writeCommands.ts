@@ -453,6 +453,85 @@ export async function cherryPick(queue: OperationQueue, git: GitExecutor, safety
   return safeWrite(queue, git, safety, state, 'cherry-pick', meta, args, 'Cherry-pick failed');
 }
 
+/**
+ * Batch cherry-pick через нативный git-секвенсер:
+ * `git cherry-pick --empty=drop <h1..hN>` применяет по одному, на конфликте
+ * останавливается с `CHERRY_PICK_HEAD` + `.git/sequencer/`. Порядок хэшей —
+ * старые→новые (сортирует renderer). Конфликт — нормальный исход
+ * (`allowedErrorClasses:['conflict']`), UI откроет merge-editor.
+ *
+ * `--empty=drop` (git ≥ 2.45) пропускает коммиты, ставшие пустыми. Старый git
+ * не знает флаг и падает с parse-ошибкой — тогда повторяем без него.
+ */
+export async function cherryPickMany(
+  queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager, hashes: string[],
+): Promise<OperationResult> {
+  if (hashes.length === 0) return { success: true, rollbackAvailable: false };
+  const meta: Record<string, string> = { count: String(hashes.length) };
+  return gitWrite(queue, state, 'cherry-pick', async (timing) => {
+    const preStart = Date.now();
+    const blocked = await runPreflight(git, 'cherry-pick');
+    timing.preflightMs = Date.now() - preStart;
+    if (blocked) return blocked;
+
+    const execStart = Date.now();
+    const result = await safety.wrapDestructive(
+      'cherry-pick',
+      meta,
+      async () => {
+        let r = await git.exec(['cherry-pick', '--empty=drop', ...hashes]);
+        // Старый git (<2.45) не знает `--empty`: git печатает usage/parse-ошибку
+        // (не конфликт) — повторяем без флага. Конфликт же пропускаем дальше,
+        // его обработает allowedErrorClasses.
+        if (r.exitCode !== 0 && /unknown option|error: option .*empty|usage: git cherry-pick/i.test(r.stderr)) {
+          r = await git.exec(['cherry-pick', ...hashes]);
+        }
+        if (r.exitCode !== 0) throw new GitError(`Cherry-pick failed: ${r.stderr}`, 'cherry-pick', r.exitCode, r.stderr);
+      },
+      { allowedErrorClasses: allowedClassesFor('cherry-pick') },
+    );
+    timing.execMs = Date.now() - execStart;
+    return result;
+  });
+}
+
+/**
+ * Продолжить остановленную cherry-pick-серию: `git cherry-pick --continue`.
+ * НЕ через safeWrite (auto-stash не нужен — конфликт уже разрешён в индексе).
+ * `GIT_EDITOR=true` — сообщение коммита уже готово, редактор не нужен.
+ * Следующий pick может снова конфликтовать: это не ошибка, возвращаем success
+ * и даём UI перечитать mergeState (баннер покажет остаток серии).
+ */
+export async function cherryPickContinue(queue: OperationQueue, git: GitExecutor, state: StateManager): Promise<OperationResult> {
+  return gitWrite(queue, state, 'cherry-pick', async (timing) => {
+    const execStart = Date.now();
+    const r = await git.exec(['cherry-pick', '--continue'], { env: { GIT_EDITOR: 'true' } });
+    timing.execMs = Date.now() - execStart;
+    if (r.exitCode === 0) return { success: true, rollbackAvailable: false };
+    if (GitErrorClassifier.classify(r.stderr).class === 'conflict') {
+      return { success: true, rollbackAvailable: false };
+    }
+    return simpleResult(r.exitCode, r.stderr);
+  });
+}
+
+/**
+ * Пропустить текущий коммит cherry-pick-серии: `git cherry-pick --skip`.
+ * Как и continue, следующий pick может конфликтовать — конфликт не ошибка.
+ */
+export async function cherryPickSkip(queue: OperationQueue, git: GitExecutor, state: StateManager): Promise<OperationResult> {
+  return gitWrite(queue, state, 'cherry-pick', async (timing) => {
+    const execStart = Date.now();
+    const r = await git.exec(['cherry-pick', '--skip']);
+    timing.execMs = Date.now() - execStart;
+    if (r.exitCode === 0) return { success: true, rollbackAvailable: false };
+    if (GitErrorClassifier.classify(r.stderr).class === 'conflict') {
+      return { success: true, rollbackAvailable: false };
+    }
+    return simpleResult(r.exitCode, r.stderr);
+  });
+}
+
 export async function revert(queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager, hash: string, mainline?: number): Promise<OperationResult> {
   const args = ['revert', '--no-edit'];
   if (mainline && mainline > 0) args.push('-m', String(mainline));

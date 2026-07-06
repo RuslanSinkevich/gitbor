@@ -86,6 +86,9 @@ export class CommandHandler {
   createTag(name: string, ref: string, message?: string): Promise<OperationResult> { return Write.createTag(this.queue, this.git, this.state, name, ref, message); }
   deleteTag(name: string, remote?: boolean): Promise<OperationResult> { return Write.deleteTag(this.queue, this.git, this.state, name, remote); }
   cherryPick(hash: string, mainline?: number): Promise<OperationResult> { return Write.cherryPick(this.queue, this.git, this.safety, this.state, hash, mainline); }
+  cherryPickMany(hashes: string[]): Promise<OperationResult> { return Write.cherryPickMany(this.queue, this.git, this.safety, this.state, hashes); }
+  cherryPickContinue(): Promise<OperationResult> { return Write.cherryPickContinue(this.queue, this.git, this.state); }
+  cherryPickSkip(): Promise<OperationResult> { return Write.cherryPickSkip(this.queue, this.git, this.state); }
   revert(hash: string, mainline?: number): Promise<OperationResult> { return Write.revert(this.queue, this.git, this.safety, this.state, hash, mainline); }
   resetTo(hash: string, mode: 'soft' | 'mixed' | 'hard'): Promise<OperationResult> { return Write.resetTo(this.queue, this.git, this.safety, this.state, hash, mode); }
   async stashShow(index: string): Promise<FileDiff[]> {

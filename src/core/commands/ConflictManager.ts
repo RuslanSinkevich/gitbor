@@ -1,5 +1,6 @@
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { readFile } from 'fs/promises';
+import { isAbsolute, join } from 'path';
 import { GitExecutor, GitError } from '../git/GitExecutor';
 import * as GitParser from '../git/GitParser';
 import {
@@ -122,7 +123,7 @@ export class ConflictManager {
       }
     }
 
-    return {
+    const state: MergeState = {
       inProgress: true,
       sourceBranch,
       targetBranch,
@@ -131,6 +132,53 @@ export class ConflictManager {
       conflictFiles,
       kind: detected.kind,
     };
+
+    if (detected.kind === 'cherry-pick') {
+      const progress = await this.getSequencerProgress();
+      if (progress && progress.total > 1) {
+        state.sequencerDone = progress.done;
+        state.sequencerTotal = progress.total;
+      }
+    }
+
+    return state;
+  }
+
+  /**
+   * Прогресс git-секвенсера cherry-pick-серии. Путь берём через
+   * `git rev-parse --git-path sequencer` (учитывает worktree и `.git`-файл).
+   * `done` — pick-строки уже обработанных коммитов, `todo` — оставшиеся.
+   * total = done + todo. Возвращает null, если секвенсер отсутствует
+   * (одиночный cherry-pick секвенсер не создаёт).
+   */
+  async getSequencerProgress(): Promise<{ done: number; total: number } | null> {
+    try {
+      const pathResult = await this.git.exec(['rev-parse', '--git-path', 'sequencer']);
+      const rel = pathResult.stdout.trim();
+      if (!rel) return null;
+      const seqDir = isAbsolute(rel) ? rel : join(this.git.getCwd(), rel);
+      if (!existsSync(seqDir)) return null;
+
+      const done = await this.countPickLines(join(seqDir, 'done'));
+      const todo = await this.countPickLines(join(seqDir, 'todo'));
+      const total = done + todo;
+      if (total === 0) return null;
+      return { done, total };
+    } catch {
+      return null;
+    }
+  }
+
+  private async countPickLines(file: string): Promise<number> {
+    try {
+      const content = await readFile(file, 'utf-8');
+      return content
+        .split('\n')
+        .filter(l => /^(pick|p|revert)\b/.test(l.trim()))
+        .length;
+    } catch {
+      return 0;
+    }
   }
 
   /**

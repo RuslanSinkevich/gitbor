@@ -24,6 +24,23 @@ export const ipcHandlersGitOps: HandlerTable = {
   createBranch: op('createBranch', (cmd, ctx) => ctx.ch.createBranch(cmd.name, cmd.from)),
   trackRemoteBranch: op('checkout', (cmd, ctx) => ctx.ch.trackRemoteBranch(cmd.remote, cmd.remoteBranch, cmd.localName)),
   cherryPick: op('cherry-pick', (cmd, ctx) => ctx.ch.cherryPick(cmd.hash, cmd.mainline)),
+  cherryPickMany: opWithPostMerge('cherry-pick', (cmd, ctx) => ctx.ch.cherryPickMany(cmd.hashes)),
+  cherryPickContinue: async (_cmd, ctx) => {
+    const repoPath = ctx.sm.getState().repoPath || null;
+    ctx.send({ type: 'operationStart', operation: 'cherry-pick', repoPath });
+    const result = await runTracked('cherry-pick', ctx, () => ctx.ch.cherryPickContinue());
+    ctx.send({ type: 'operationEnd', operation: 'cherry-pick', success: result.success, error: result.error, repoPath });
+    const mergeState = repoPath ? await ctx.ch.getMergeStateForRepo(repoPath) : await ctx.ch.getMergeState();
+    ctx.send({ type: 'mergeState', data: mergeState, repoPath });
+  },
+  cherryPickSkip: async (_cmd, ctx) => {
+    const repoPath = ctx.sm.getState().repoPath || null;
+    ctx.send({ type: 'operationStart', operation: 'cherry-pick', repoPath });
+    const result = await runTracked('cherry-pick', ctx, () => ctx.ch.cherryPickSkip());
+    ctx.send({ type: 'operationEnd', operation: 'cherry-pick', success: result.success, error: result.error, repoPath });
+    const mergeState = repoPath ? await ctx.ch.getMergeStateForRepo(repoPath) : await ctx.ch.getMergeState();
+    ctx.send({ type: 'mergeState', data: mergeState, repoPath });
+  },
   revert: op('revert', (cmd, ctx) => ctx.ch.revert(cmd.hash, cmd.mainline)),
   resetTo: op('reset', (cmd, ctx) => ctx.ch.resetTo(cmd.hash, cmd.mode)),
   cloneRepo: op('clone', (cmd, ctx) => ctx.ch.cloneRepo(cmd.url, cmd.path)),

@@ -280,6 +280,47 @@ describe('ConflictManager', () => {
       expect(ms.kind).toBe('none');
     });
 
+    it('cherry-pick series fills sequencerDone/Total from the sequencer', async () => {
+      writeFileSync(join(gitDir, 'CHERRY_PICK_HEAD'), '');
+      const seqDir = join(gitDir, 'sequencer');
+      mkdirSync(seqDir, { recursive: true });
+      writeFileSync(join(seqDir, 'done'), 'pick aaaaaaa one\npick bbbbbbb two\n');
+      writeFileSync(join(seqDir, 'todo'), 'pick ccccccc three\n');
+
+      const exec = vi.fn(async (args: string[]): Promise<GitExecResult> => {
+        const key = args.join(' ');
+        if (key === 'diff --name-only --diff-filter=U') return { stdout: 'src/a.ts\n', stderr: '', exitCode: 0, duration: 1 };
+        if (key === 'rev-parse --abbrev-ref HEAD') return { stdout: 'main\n', stderr: '', exitCode: 0, duration: 1 };
+        if (key === 'status --porcelain=v1') return { stdout: 'UU src/a.ts\n', stderr: '', exitCode: 0, duration: 1 };
+        if (key === 'rev-parse --git-path sequencer') return { stdout: seqDir + '\n', stderr: '', exitCode: 0, duration: 1 };
+        return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+      });
+      const git = { exec, getCwd: vi.fn(() => repoDir) } as MockGit;
+      const cm = new ConflictManager(asGit(git));
+      const ms = await cm.getMergeState();
+      expect(ms.kind).toBe('cherry-pick');
+      expect(ms.sequencerDone).toBe(2);
+      expect(ms.sequencerTotal).toBe(3);
+    });
+
+    it('single cherry-pick (no sequencer) leaves progress undefined', async () => {
+      writeFileSync(join(gitDir, 'CHERRY_PICK_HEAD'), '');
+      const exec = vi.fn(async (args: string[]): Promise<GitExecResult> => {
+        const key = args.join(' ');
+        if (key === 'diff --name-only --diff-filter=U') return { stdout: 'src/a.ts\n', stderr: '', exitCode: 0, duration: 1 };
+        if (key === 'rev-parse --abbrev-ref HEAD') return { stdout: 'main\n', stderr: '', exitCode: 0, duration: 1 };
+        if (key === 'status --porcelain=v1') return { stdout: 'UU src/a.ts\n', stderr: '', exitCode: 0, duration: 1 };
+        if (key === 'rev-parse --git-path sequencer') return { stdout: join(gitDir, 'sequencer') + '\n', stderr: '', exitCode: 0, duration: 1 };
+        return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+      });
+      const git = { exec, getCwd: vi.fn(() => repoDir) } as MockGit;
+      const cm = new ConflictManager(asGit(git));
+      const ms = await cm.getMergeState();
+      expect(ms.kind).toBe('cherry-pick');
+      expect(ms.sequencerDone).toBeUndefined();
+      expect(ms.sequencerTotal).toBeUndefined();
+    });
+
     it('unmerged-paths kind without MERGE_HEAD', async () => {
       const exec = vi.fn(async (args: string[]): Promise<GitExecResult> => {
         const key = args.join(' ');

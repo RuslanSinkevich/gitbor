@@ -314,6 +314,107 @@ describe('writeCommands', () => {
     });
   });
 
+  describe('cherryPickMany', () => {
+    it('applies all hashes in order via --empty=drop', async () => {
+      const git = makeMockGit();
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const safety = makeMockSafety();
+      const r = await Write.cherryPickMany(asQueue(queue), asGit(git), asSafety(safety), asState(state), ['h1', 'h2', 'h3']);
+      expect(git.exec).toHaveBeenCalledWith(['cherry-pick', '--empty=drop', 'h1', 'h2', 'h3']);
+      expect(r.success).toBe(true);
+    });
+
+    it('goes through safety.wrapDestructive with conflict allowed', async () => {
+      const git = makeMockGit();
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const safety = makeMockSafety();
+      await Write.cherryPickMany(asQueue(queue), asGit(git), asSafety(safety), asState(state), ['h1']);
+      expect(safety.wrapDestructive).toHaveBeenCalledWith(
+        'cherry-pick',
+        { count: '1' },
+        expect.any(Function),
+        expect.objectContaining({ allowedErrorClasses: ['conflict'] }),
+      );
+    });
+
+    it('retries without --empty when git does not know the flag', async () => {
+      const git = makeMockGit();
+      git.exec.mockImplementation(async (args: string[]) => {
+        if (args.includes('--empty=drop')) {
+          return { stdout: '', stderr: "error: unknown option `empty=drop'", exitCode: 129, duration: 1 };
+        }
+        return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+      });
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const safety = makeMockSafety();
+      const r = await Write.cherryPickMany(asQueue(queue), asGit(git), asSafety(safety), asState(state), ['h1', 'h2']);
+      expect(git.exec).toHaveBeenCalledWith(['cherry-pick', '--empty=drop', 'h1', 'h2']);
+      expect(git.exec).toHaveBeenCalledWith(['cherry-pick', 'h1', 'h2']);
+      expect(r.success).toBe(true);
+    });
+
+    it('empty hash list does not invoke git', async () => {
+      const git = makeMockGit();
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const safety = makeMockSafety();
+      const r = await Write.cherryPickMany(asQueue(queue), asGit(git), asSafety(safety), asState(state), []);
+      expect(git.exec).not.toHaveBeenCalled();
+      expect(r.success).toBe(true);
+    });
+  });
+
+  describe('cherryPickContinue', () => {
+    it('runs cherry-pick --continue with non-interactive editor', async () => {
+      const git = makeMockGit();
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const r = await Write.cherryPickContinue(asQueue(queue), asGit(git), asState(state));
+      const call = git.exec.mock.calls[0];
+      expect(call[0]).toEqual(['cherry-pick', '--continue']);
+      expect(call[1]?.env).toMatchObject({ GIT_EDITOR: 'true' });
+      expect(r.success).toBe(true);
+    });
+
+    it('treats a follow-up conflict as success (series stopped, not failed)', async () => {
+      const git = makeMockGit({ stderr: 'CONFLICT (content): Merge conflict in a.ts', exitCode: 1 });
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const r = await Write.cherryPickContinue(asQueue(queue), asGit(git), asState(state));
+      expect(r.success).toBe(true);
+    });
+
+    it('returns failure on a real error', async () => {
+      const git = makeMockGit({ stderr: 'fatal: no cherry-pick in progress', exitCode: 128 });
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const r = await Write.cherryPickContinue(asQueue(queue), asGit(git), asState(state));
+      expect(r.success).toBe(false);
+      expect(r.error).toContain('no cherry-pick');
+    });
+  });
+
+  describe('cherryPickSkip', () => {
+    it('runs cherry-pick --skip', async () => {
+      const git = makeMockGit();
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      await Write.cherryPickSkip(asQueue(queue), asGit(git), asState(state));
+      expect(git.exec).toHaveBeenCalledWith(['cherry-pick', '--skip']);
+    });
+
+    it('treats a follow-up conflict as success', async () => {
+      const git = makeMockGit({ stderr: 'CONFLICT (content): Merge conflict in a.ts', exitCode: 1 });
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const r = await Write.cherryPickSkip(asQueue(queue), asGit(git), asState(state));
+      expect(r.success).toBe(true);
+    });
+  });
+
   describe('fetchBranchFastForward', () => {
     it('uses upstream remote and fetches with branch:branch refspec', async () => {
       const git = makeScriptedGit({ 'config --get branch': { stdout: 'origin' } });

@@ -82,6 +82,15 @@ export interface MergeState {
    * состояние, ручной reset). UI меняет заголовок баннера по kind.
    */
   kind: ConflictResolutionKind;
+  /**
+   * Прогресс git-секвенсера для cherry-pick-серии (`.git/sequencer/`).
+   * `sequencerDone` — сколько pick-строк уже обработано, `sequencerTotal` —
+   * всего в серии. Заполняются только когда серия > 1 коммита (иначе
+   * секвенсер не создаётся). UI по ним показывает «picked N/M» и кнопки
+   * Continue/Skip.
+   */
+  sequencerDone?: number;
+  sequencerTotal?: number;
 }
 
 export type ConflictResolution = 'ours' | 'theirs' | 'both-ours-first' | 'both-theirs-first';
