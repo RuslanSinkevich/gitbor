@@ -58,6 +58,39 @@ export function getCommitMenuItems(
   }
   if (branchRefs.length > 0) items.push({ divider: true });
 
+  // Редко используемые пункты вынесены в подменю «Дополнительно», чтобы не
+  // перегружать корневое меню. Порядок: создание аннотированной метки,
+  // интерактивный rebase, патч, сравнение с локальными, копирование инфо.
+  const moreItems: SgContextMenuItem[] = [
+    {
+      label: loc.contextMenu.newAnnotatedTag,
+      action: () => showPrompt({
+        title: loc.contextMenu.newAnnotatedTag,
+        placeholder: 'v1.0.0',
+        onConfirm: (name) => showPrompt({
+          title: loc.contextMenu.tagMessageTitle,
+          placeholder: 'Release v1.0.0',
+          onConfirm: (message) => postCommand({ type: 'createTag', name, ref: commit.hash, message }),
+        }),
+      }),
+    },
+    {
+      label: tpl(loc.contextMenu.interactiveRebaseToHere, { branch: currentBranch }),
+      help: loc.contextMenu.help.interactiveRebaseToHere,
+      action: onRebase ? () => onRebase(commit.hash) : undefined,
+      disabled: !onRebase,
+    },
+    { label: loc.contextMenu.saveAsPatch, help: loc.contextMenu.help.saveAsPatch, action: () => postCommand({ type: 'saveAsPatch', hash: commit.hash }) },
+    // «Сравнить с локальными» — выбранный коммит против рабочей копии
+    // (toHash === 'WORKING') через onCompareTo. Результат открывается в режиме
+    // сравнения CommitsView. Пункт показываем только когда сравнение доступно
+    // (граф-вью).
+    ...(onCompareTo ? [
+      { label: loc.contextMenu.compareToLocal, help: loc.contextMenu.help.compareToLocal, action: () => onCompareTo(commit.hash, 'WORKING') },
+    ] as SgContextMenuItem[] : []),
+    { label: loc.contextMenu.copyCommitInfo, shortcut: 'Ctrl+Shift+C', action: () => copyToClipboard(formatCommitInfo(commit)) },
+  ];
+
   items.push(
     {
       label: tpl(loc.contextMenu.newBranch, { ref: shortHash }),
@@ -78,28 +111,10 @@ export function getCommitMenuItems(
         onConfirm: (name) => postCommand({ type: 'createTag', name, ref: commit.hash }),
       }),
     },
-    {
-      label: loc.contextMenu.newAnnotatedTag,
-      action: () => showPrompt({
-        title: loc.contextMenu.newAnnotatedTag,
-        placeholder: 'v1.0.0',
-        onConfirm: (name) => showPrompt({
-          title: loc.contextMenu.tagMessageTitle,
-          placeholder: 'Release v1.0.0',
-          onConfirm: (message) => postCommand({ type: 'createTag', name, ref: commit.hash, message }),
-        }),
-      }),
-    },
     { divider: true },
 
     { label: tpl(loc.contextMenu.mergeInto, { source: shortHash, target: currentBranch }), help: loc.contextMenu.help.mergeInto, action: () => postCommand({ type: 'startMerge', source: commit.hash, options: { noCommit: false, ffOnly: false, squash: false } }) },
     { label: tpl(loc.contextMenu.rebaseToHere, { branch: currentBranch }), help: loc.contextMenu.help.rebaseToHere, action: () => postCommand({ type: 'rebaseTo', onto: commit.hash }) },
-    {
-      label: tpl(loc.contextMenu.interactiveRebaseToHere, { branch: currentBranch }),
-      help: loc.contextMenu.help.interactiveRebaseToHere,
-      action: onRebase ? () => onRebase(commit.hash) : undefined,
-      disabled: !onRebase,
-    },
     { divider: true },
 
     ...(isCurrentHead(commit) && commit.parents.length > 0 && !headOnRemote ? [
@@ -142,20 +157,10 @@ export function getCommitMenuItems(
     },
     { divider: true },
 
-    { label: loc.contextMenu.saveAsPatch, help: loc.contextMenu.help.saveAsPatch, action: () => postCommand({ type: 'saveAsPatch', hash: commit.hash }) },
-    { divider: true },
-
-    // «Сравнить с локальными» — выбранный коммит против рабочей копии
-    // (toHash === 'WORKING') через onCompareTo. Результат открывается в режиме
-    // сравнения CommitsView. Пункт показываем только когда сравнение доступно
-    // (граф-вью).
-    ...(onCompareTo ? [
-      { label: loc.contextMenu.compareToLocal, help: loc.contextMenu.help.compareToLocal, action: () => onCompareTo(commit.hash, 'WORKING') },
-    ] : []),
-    { divider: true },
-
     { label: loc.contextMenu.copySha, shortcut: 'Ctrl+C', action: () => copyToClipboard(commit.hash) },
-    { label: loc.contextMenu.copyCommitInfo, shortcut: 'Ctrl+Shift+C', action: () => copyToClipboard(formatCommitInfo(commit)) },
+    { divider: true },
+
+    { label: loc.contextMenu.more, submenu: moreItems },
   );
 
   return items;

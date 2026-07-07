@@ -31,7 +31,12 @@ function makeCommit(over: Partial<Commit> = {}): Commit {
 /** Только пункты с меткой (без разделителей/заголовков), рекурсивно с submenu. */
 type LabeledItem = Extract<SgContextMenuItem, { label: string }>;
 function labeled(items: SgContextMenuItem[]): LabeledItem[] {
-  return items.filter((i): i is LabeledItem => 'label' in i && !!i.label && !('header' in i && i.header));
+  const out: LabeledItem[] = [];
+  for (const i of items) {
+    if ('label' in i && !!i.label && !('header' in i && i.header)) out.push(i as LabeledItem);
+    if ('submenu' in i && i.submenu) out.push(...labeled(i.submenu));
+  }
+  return out;
 }
 function byLabel(items: SgContextMenuItem[], label: string): LabeledItem | undefined {
   return labeled(items).find((i) => i.label === label);
@@ -239,6 +244,35 @@ describe('getCommitMenuItems — copy', () => {
     expect(text).toContain(commit.hash.substring(0, 7));
     expect(text).toContain(commit.subject);
     expect(text).toContain(commit.authorName);
+  });
+});
+
+describe('getCommitMenuItems — подменю «Дополнительно»', () => {
+  it('редкие пункты вынесены в подменю, а частые остаются в корне', () => {
+    const loc = t();
+    const commit = makeCommit();
+    const { items } = build(commit, { onRebase: noop, onCompareTo: vi.fn() });
+
+    const more = items.find(
+      (i): i is LabeledItem => 'label' in i && i.label === loc.contextMenu.more,
+    );
+    expect(more?.submenu).toBeTruthy();
+    const subLabels = labeled(more!.submenu!).map((i) => i.label);
+
+    expect(subLabels).toContain(loc.contextMenu.newAnnotatedTag);
+    expect(subLabels).toContain(tpl(loc.contextMenu.interactiveRebaseToHere, { branch: 'main' }));
+    expect(subLabels).toContain(loc.contextMenu.saveAsPatch);
+    expect(subLabels).toContain(loc.contextMenu.compareToLocal);
+    expect(subLabels).toContain(loc.contextMenu.copyCommitInfo);
+
+    // Частые остаются в корне (не внутри «Дополнительно»).
+    const rootLabels = items
+      .filter((i): i is LabeledItem => 'label' in i && !!i.label && i.label !== loc.contextMenu.more)
+      .map((i) => i.label);
+    expect(rootLabels).toContain(loc.contextMenu.cherryPick);
+    expect(rootLabels).toContain(loc.contextMenu.checkoutCommit);
+    expect(rootLabels).toContain(loc.contextMenu.copySha);
+    expect(rootLabels).toContain(tpl(loc.contextMenu.rebaseToHere, { branch: 'main' }));
   });
 });
 

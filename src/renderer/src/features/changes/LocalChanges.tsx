@@ -314,6 +314,7 @@ export function LocalChanges({
       <div className={s.mainSplit}>
         <SgSplitPane
           direction="vertical"
+          proportional
           defaultSize={280}
           minSize={120}
           maxSize={2000}

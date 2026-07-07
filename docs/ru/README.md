@@ -47,7 +47,7 @@ npm run format       # Prettier форматирование
 ```bash
 npm run dist:win     # Windows (NSIS + portable)
 npm run dist:mac     # macOS (DMG)
-npm run dist:linux   # Linux (AppImage + deb)
+npm run dist:linux   # Linux (AppImage + deb + rpm)
 ```
 
 ---
@@ -60,11 +60,11 @@ npm run dist:linux   # Linux (AppImage + deb)
 | UI | React 18, TypeScript 5.9, Vite 6 |
 | Стили | CSS Modules, CSS-переменные `--sg-*` |
 | Файловый наблюдатель | chokidar 4 |
-| Тесты | Vitest 4.1 (unit, <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> файлов / <!-- TESTS_COUNT -->635<!-- /TESTS_COUNT --> тестов), Playwright 1.59 (E2E, Windows) |
+| Тесты | Vitest 4.1 (unit, <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлов / <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> тестов), Playwright 1.59 (E2E, Windows) |
 | DX | husky 9 + lint-staged 17 (pre-commit) + `npm test` (pre-push), `npm run analyze` (rollup-plugin-visualizer) |
 | Линтинг | ESLint 10 (flat config) + Prettier |
 | CI | GitHub Actions: `ci.yml` (push, 3 ОС, Node 20) + `pr.yml` (PR, Windows, Node 22, +e2e) |
-| Git | Встроенный git binary (`resources/git/{platform}/git`) |
+| Git | Системный git из `PATH` (`execFile('git', …)` в `GitExecutor`) |
 
 ---
 
@@ -83,8 +83,8 @@ npm run dist:linux   # Linux (AppImage + deb)
 │  Main Process (Node.js)                                  │
 │  Application + Safety + Git Layer + SSH Key Manager      │
 ├──────────────────────────────────────────────────────────┤
-│  Bundled Git                                             │
-│  resources/git/{platform}/git                            │
+│  System Git                                              │
+│  берётся из PATH (execFile('git', …))                    │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -233,7 +233,7 @@ gitbor/
 │       ├── package.json
 │       └── vite.config.ts
 │
-├── tests/                         # Юнит-тесты (Vitest, <!-- TESTS_COUNT -->635<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> файлах)
+├── tests/                         # Юнит-тесты (Vitest, <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлах)
 │   ├── git/                       # Парсеры и менеджеры (GitExecutor, RebaseManager, ...)
 │   ├── commands/                  # writeCommands (вкл. batch discardFiles), readCommands, ConflictManager
 │   ├── state/                     # StateManager (мульти-репо), repoSlice
@@ -248,11 +248,12 @@ gitbor/
 │   ├── utils/                     # pathSecurity, repoPathGuard, AppError, Logger
 │   └── i18n/                      # Полнота локализации, tpl
 │
-├── tests-e2e/                     # Playwright E2E (Windows-only, 3 спека)
+├── tests-e2e/                     # Playwright E2E (Windows-only, 4 спека)
 │   ├── helpers.ts                 # launchApp(), makeFixtureRepo()
 │   ├── app-launch.spec.ts         # Smoke: видимость titlebar
 │   ├── open-repo.spec.ts          # autoOpenRepo через cwd=fixture
-│   └── switch-tab.spec.ts         # Переключение между табами репозиториев
+│   ├── switch-tab.spec.ts         # Переключение между табами репозиториев
+│   └── safety-flow.spec.ts        # диалог index.lock, конфликт merge, retry-toast, осиротевший stash
 │
 ├── docs/                          # Документация
 │   ├── getting-started.md         # Установка и рабочий процесс
@@ -260,6 +261,8 @@ gitbor/
 │   ├── features.md                # Список возможностей
 │   ├── contributing.md            # Руководство по контрибьюции
 │   ├── testing.md                 # Тестирование (Vitest + Playwright)
+│   ├── safety-error-handling.md   # GitErrorClass, SafetyDialog, preflight
+│   ├── BUILD.md                   # Пакетинг, пользовательские данные, авто-апдейт
 │   ├── cross-platform-checklist.md # Cross-platform чек-лист
 │   └── ru/                        # Русские переводы
 │
@@ -292,7 +295,7 @@ gitbor/
 - **Интерактивный rebase** — pick/reword/edit/squash/fixup/drop, баннер прогресса
 - **Вкладки репозиториев** — независимые per-repo движки, вкладка «+» открывает RepoManager; список открытых вкладок и активная вкладка восстанавливаются при следующем запуске
 - **Менеджер репозиториев** — недавние / открыть / clone / init; доступ через вкладку «+» или повторный клик по активной вкладке
-- **AI-сообщения коммитов** — генерация одной кнопкой из staged diff; OpenAI-compatible (OpenAI/Ollama/LM Studio/DeepSeek/Groq) и Qwen Web (сессионный токен chat.qwen.ai); язык commit message `auto`/`en`/`ru`
+- **AI-сообщения коммитов и помощники** — генерация commit message из staged diff плюс 5 доп. помощников (Explain Commit / Smart Stash Naming / Explain Reflog / Explain Conflict / Semantic Search); OpenAI-compatible (OpenAI/Ollama/LM Studio/DeepSeek/Groq/YandexGPT) и Qwen Web (сессионный токен chat.qwen.ai); язык ответов AI `auto`/`en`/`ru`; privacy-гейт по умолчанию блокирует зарубежных провайдеров
 - **Кастомное меню** — HTML/CSS меню с Edit-действиями, горячие клавиши (нативное меню удалено)
 - **Менеджер SSH-ключей** — генерация, просмотр, копирование, удаление
 - **Настройки репозитория** — user.name/email, global/local
@@ -338,7 +341,7 @@ gitbor/
   - `QwenWebProvider` — неофициальный мост к `chat.qwen.ai` через сессионный токен из `localStorage` (без официального API-ключа DashScope).
 - **`AiConfigStore`** — `{userData}/ai-config.json`, atomic write, API-ключ / Qwen-токен шифруются Electron `safeStorage` (DPAPI / Keychain / libsecret); fallback на префикс `plain:`, если key store недоступен.
 - **`AiHandlers`** — per-`requestId` `AbortController`, `cancelAll()` при выключении, маскирование секретов (`••••••••`) в `getConfig` для UI.
-- **Промпты** — system + user с языком commit message `auto`/`en`/`ru`; diff обрезается до `MAX_DIFF_CHARS = 6000` (head 70% + tail 20%).
+- **Промпты** — system + user с языком ответов AI `auto`/`en`/`ru`; diff обрезается до `MAX_DIFF_CHARS = 6000` (head 70% + tail 20%).
 - **UI** — `AiSettingsDialog` (нативный `select` пресетов с optgroup Cloud/Local/Web + Custom), `AiGenerateButton` в commit bar, hot path через `useAiConfig`.
 
 ## Безопасность данных
@@ -389,12 +392,14 @@ gitbor/
 | [Возможности](features.md) | Что умеет GitBor: граф, diff, merge, blame и др. |
 | [Участие в разработке](contributing.md) | Стиль кода, конвенции, чеклист PR |
 | [Тестирование](testing.md) | Vitest, структура тестов, ручное тестирование фич |
+| [Безопасность и обработка ошибок](safety-error-handling.md) | `GitErrorClass`, `SafetyDialog`, preflight, журнал |
+| [Сборка и дистрибуция](BUILD.md) | Пакетинг по ОС, пути пользовательских данных, авто-обновления |
 
 ---
 
 ## Статус
 
-Версия 0.1.0. Бэкенд и UI функционально готовы для MVP. **<!-- TESTS_COUNT -->635<!-- /TESTS_COUNT -->** юнит-тестов в <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> файлах (Vitest 4.1) плюс 3 Playwright E2E-спека (Windows). ESLint + Prettier настроены; husky 9 + lint-staged 17 на pre-commit гонят `eslint --fix` и project-wide `tsc --noEmit`; `npm test` запускается в `.husky/pre-push` (bypass через `SKIP_TESTS=1`). CI: `ci.yml` (push, lint/typecheck/test/build на Ubuntu / Windows / macOS, Node 20) + `pr.yml` (PR, всё то же плюс E2E на Windows, Node 22). 0 уязвимостей в `npm audit` (root + renderer). Не протестирован в production.
+Версия 0.1.19. Бэкенд и UI функционально готовы для MVP. **<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT -->** юнит-тестов в <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлах (Vitest 4.1) плюс 4 Playwright E2E-спека (Windows). ESLint + Prettier настроены; husky 9 + lint-staged 17 на pre-commit гонят `eslint --fix` и project-wide `tsc --noEmit`; `npm test` запускается в `.husky/pre-push` (bypass через `SKIP_TESTS=1`). CI: `ci.yml` (push, lint/typecheck/test/build на Ubuntu / Windows / macOS, Node 20) + `pr.yml` (PR, всё то же плюс E2E на Windows, Node 22). 0 уязвимостей в `npm audit` (root + renderer). Не протестирован в production.
 
 ## Лицензия
 

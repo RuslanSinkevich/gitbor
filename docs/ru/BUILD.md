@@ -15,8 +15,8 @@
   рантайма, но не требуется для сборки.
 - **macOS**: Xcode Command Line Tools (`xcode-select --install`) для
   `git` и утилит подписи кода. Для DMG: macOS Sonoma+.
-- **Linux**: `fakeroot` и `dpkg` для `.deb`; AppImage собирается без
-  дополнительных системных пакетов на Ubuntu 22.04+.
+- **Linux**: `fakeroot` и `dpkg` для `.deb`; `rpmbuild` для `.rpm`;
+  AppImage собирается без дополнительных системных пакетов на Ubuntu 22.04+.
 
 ## Сборка (без пакетинга)
 
@@ -75,17 +75,30 @@ npm run dist:mac
 
 Hardened runtime включён. Entitlements в `build/entitlements.mac.plist`.
 
-### Linux (AppImage + .deb)
+### Linux (AppImage + .deb + .rpm)
 
 ```bash
 npm run dist:linux
 ```
 
-Вывод: `release/GitBor-X.Y.Z.AppImage`, `release/gitbor_X.Y.Z_amd64.deb`.
+Вывод: `release/GitBor-X.Y.Z.AppImage`, `release/gitbor_X.Y.Z_amd64.deb`,
+`release/gitbor-X.Y.Z.x86_64.rpm`.
 
-`.deb` включает maintainer/synopsis/desktop entry. AppImage запускается
-на большинстве glibc-based дистрибутивов (Ubuntu 22.04+, Fedora 38+,
-Debian 12+).
+`.deb` / `.rpm` включают maintainer/synopsis/desktop entry. AppImage
+запускается на большинстве glibc-based дистрибутивов (Ubuntu 22.04+,
+Fedora 38+, Debian 12+).
+
+### Варианты сборки без AI
+
+Для сред, где AI-функции нужно вырезать, скрипты `dist:*:no-ai` собирают
+с `GITBOR_AI=0` и отдельными appId/productName/publish URL:
+
+```bash
+npm run dist:win:no-ai
+npm run dist:mac:no-ai
+npm run dist:linux:no-ai
+npm run dist:win:all      # обычный и no-ai варианты для Windows
+```
 
 ## CI
 
@@ -232,8 +245,8 @@ session, физически в `<userData>/Local Storage/`). Префиксы к
   через `.blockmap`); portable — НЕ поддерживает.
 - **macOS**: требует подпись Developer ID И нотаризацию — оба сейчас
   отключены (`mac.identity: null`, `mac.notarize: false`).
-- **Linux**: AppImage поддерживает обновления; `.deb` — нет (раздавать
-  через свой apt-репозиторий).
+- **Linux**: AppImage поддерживает обновления; `.deb` / `.rpm` — нет
+  (раздавать через свой apt/yum-репозиторий).
 
 ## Известные ограничения
 

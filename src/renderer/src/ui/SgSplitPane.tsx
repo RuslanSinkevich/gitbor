@@ -14,6 +14,10 @@ interface SgSplitPaneProps {
   direction?: 'horizontal' | 'vertical';
   /** Optional localStorage key to persist pane size between sessions. */
   storageKey?: string;
+  /** Если true — при ресайзе контейнера (окна) размер панели меняется
+      пропорционально, сохраняя долю от контейнера, а не абсолютные пиксели.
+      Нужно для вертикальных сплитов, чтобы высоты панелей не «плыли». */
+  proportional?: boolean;
 }
 
 export function SgSplitPane({
@@ -25,6 +29,7 @@ export function SgSplitPane({
   minOpposite = 120,
   direction = 'horizontal',
   storageKey,
+  proportional = false,
 }: SgSplitPaneProps) {
   const clampSize = useCallback((value: number, total = 0) => {
     const maxFromContainer =
@@ -44,6 +49,8 @@ export function SgSplitPane({
   const startPos = useRef(0);
   const startSize = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
+  /** Последний измеренный размер контейнера — база для пропорции при ресайзе. */
+  const prevTotalRef = useRef(0);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     dragging.current = true;
@@ -88,11 +95,24 @@ export function SgSplitPane({
     const isH = direction === 'horizontal';
     const observer = new ResizeObserver(() => {
       const total = isH ? root.clientWidth : root.clientHeight;
-      setSize(prev => clampSize(prev, total));
+      if (total <= 0) return;
+      // Захватываем прошлый размер контейнера до обновления ref, чтобы
+      // функциональный setSize не словил уже перезаписанное значение (гонка).
+      const prevTotal = prevTotalRef.current;
+      prevTotalRef.current = total;
+      setSize(prev => {
+        // Пропорция считается только на реальном ресайзе (prevTotal>0) и не
+        // во время перетаскивания планки — тогда контейнер не меняется.
+        const scaled =
+          proportional && prevTotal > 0 && !dragging.current
+            ? prev * (total / prevTotal)
+            : prev;
+        return clampSize(scaled, total);
+      });
     });
     observer.observe(root);
     return () => observer.disconnect();
-  }, [direction, clampSize]);
+  }, [direction, clampSize, proportional]);
 
   const isH = direction === 'horizontal';
 

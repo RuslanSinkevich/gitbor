@@ -225,6 +225,8 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
     const isHidden = prefs?.hidden.has(branch.name) ?? false;
     const isSolo = prefs?.soloBranch === branch.name;
     const isSelected = selectedBranch != null && selectedBranch === branch.name;
+    const noteText = prefs?.notes[branch.name] ?? '';
+    const hasNote = noteText.trim().length > 0;
 
     return (
       <>
@@ -257,8 +259,20 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
               <span className={s.itemBadge} title={loc.sidebar.current} aria-label={loc.sidebar.current} />
             )}
             <span className={s.itemName}>{node.segment}</span>
+            {isPinned && (
+              <span className={s.branchStateMarker} title={loc.sidebar.pinBranch} aria-label={loc.sidebar.pinBranch}><IconPin /></span>
+            )}
+            {isSolo && (
+              <span className={s.branchStateMarker} title={loc.sidebar.soloGraph} aria-label={loc.sidebar.soloGraph}><IconFilter /></span>
+            )}
+            {hasNote && (
+              <span className={`${s.branchStateMarker} ${s.branchStateMarkerMuted}`} title={truncateNote(noteText)} aria-label={loc.sidebar.branchNote}><IconInfo /></span>
+            )}
           </span>
           {branch.upstream && <span className={s.itemUpstream} title={branch.upstream}>↔</span>}
+          {prefs && !branch.isRemote && (
+            <span className={s.branchHotzone} aria-hidden="true" />
+          )}
           {prefs && !branch.isRemote && (
             <BranchHoverActions
               loc={loc}

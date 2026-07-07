@@ -435,7 +435,7 @@ Module: `src/renderer/src/features/changes/fileTreeModel.ts`
 | Changes | fileTree (buildFileTree, collectFiles) | ~11 |
 | Repo Manager | recentRepos (invalid path filtering) | ~3 |
 | Main | gracefulShutdown | ~5 |
-| **Total** | **<!-- TESTS_FILES -->58<!-- /TESTS_FILES --> files** | **<!-- TESTS_COUNT -->635<!-- /TESTS_COUNT -->** |
+| **Total** | **<!-- TESTS_FILES -->81<!-- /TESTS_FILES --> files** | **<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT -->** |
 
 ---
 
@@ -528,7 +528,7 @@ steps:
   - npm run lint                        # ESLint check
   - npx tsc -p tsconfig.main.json       # TypeScript check (main + core)
   - npx tsc -b (src/renderer)           # TypeScript check (renderer)
-  - npm test                            # Vitest (<!-- TESTS_COUNT -->635<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> files)
+  - npm test                            # Vitest (<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> files)
   - npm run build:renderer              # Vite build
   - npm run build:main                  # tsc main process
 ```
@@ -545,7 +545,7 @@ e2e:
   steps:
     - npm ci (root + renderer)
     - npm run build
-    - npx playwright test                # 3 specs, ~27s
+    - npx playwright test                # 4 specs
     - upload tests-e2e/_report on failure
 ```
 
@@ -553,13 +553,14 @@ e2e:
 
 ### E2E (Playwright + Electron)
 
-3 specs in `tests-e2e/`:
+4 specs in `tests-e2e/`:
 
-| Spec | Scenario | Time |
-|------|----------|------|
-| `app-launch.spec.ts` | Application launch, `[data-testid=titlebar]` visible. | ~7.5s |
-| `open-repo.spec.ts` | Launch with `cwd=fixture` → autoOpenRepo picks it up → TitleBar + Sidebar + "main" text visible. | ~4.2s |
-| `switch-tab.spec.ts` | Launch with fixture A → open fixture B via `window.gitBorAPI.invoke({ type: 'openRepo', path: B })` → click `[data-testid=repo-tab-0]` and `[data-testid=repo-tab-1]`. | ~12.9s |
+| Spec | Scenario |
+|------|----------|
+| `app-launch.spec.ts` | Application launch, `[data-testid=titlebar]` visible. |
+| `open-repo.spec.ts` | Launch with `cwd=fixture` → autoOpenRepo picks it up → TitleBar + Sidebar + "main" text visible. |
+| `switch-tab.spec.ts` | Launch with fixture A → open fixture B via `window.gitBorAPI.invoke({ type: 'openRepo', path: B })` → click `[data-testid=repo-tab-0]` and `[data-testid=repo-tab-1]`. |
+| `safety-flow.spec.ts` | Fresh `.git/index.lock` → SafetyDialog with `remove_lock`/`cancel`; merge conflict → no rollback + MergeBanner; fetch from unreachable host → toast with Retry; orphaned auto-stash → recovery at startup. |
 
 Helpers in `tests-e2e/helpers.ts`: `launchApp({ cwd? })` and `makeFixtureRepo(prefix)` (creates a temp git repo with an initial commit, cleanup in `finally`).
 
@@ -572,7 +573,7 @@ Helpers in `tests-e2e/helpers.ts`: `launchApp({ cwd? })` and `makeFixtureRepo(pr
 
 `.husky/pre-push` (~5–7s):
 
-1. `npm test` (Vitest, <!-- TESTS_COUNT -->635<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> files) — full suite to catch regressions before they reach the remote.
+1. `npm test` (Vitest, <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> files) — full suite to catch regressions before they reach the remote.
 2. Bypass: `SKIP_TESTS=1 git push` — for branches that touch only docs/configs and have no code under test.
 
 Split rationale: keep commits cheap (lint-staged + tsc), put the full test suite at push time where the latency is acceptable and the safety net catches red trees before they hit the remote.

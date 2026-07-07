@@ -464,6 +464,7 @@ export const en = {
     blame: 'Blame',
     newAnnotatedTag: 'New Annotated Tag...',
     tagMessageTitle: 'Tag message',
+    more: 'More',
     help: {
       mergeInto: 'Merges the selected commit into the current branch, creating a merge commit. Both branches\u2019 history is preserved.',
       rebaseToHere: 'Replays the current branch\u2019s commits on top of the selected one — history becomes linear. Commit hashes change; avoid on already-pushed commits.',

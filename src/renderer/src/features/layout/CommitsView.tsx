@@ -213,6 +213,7 @@ export function CommitsView({
     <div className={s.commitsLayout}>
       <SgSplitPane
         direction="vertical"
+        proportional
         defaultSize={420}
         minSize={160}
         maxSize={2000}
