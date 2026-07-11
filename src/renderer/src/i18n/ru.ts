@@ -221,9 +221,14 @@ export const ru: LocaleMap = {
   },
   diff: {
     loading: 'Загрузка diff...',
+    loadingContent: 'Загрузка файла…',
     noDiff: 'Нет diff',
     noChanges: 'Нет изменений',
+    fileContent: 'Файл',
+    fileContentEmpty: 'Файл пустой',
+    fileContentBinary: 'Бинарный файл — просмотр недоступен',
     binaryFile: 'Бинарный файл — diff недоступен',
+
     imageBinary: 'Diff картинок для коммитов требует извлечения blob.',
     imageSideBySide: 'Рядом',
     imageOverlay: 'Наложение',

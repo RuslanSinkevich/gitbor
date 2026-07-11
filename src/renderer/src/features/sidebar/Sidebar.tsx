@@ -30,6 +30,8 @@ interface Props {
   onContextMenu: (e: React.MouseEvent, items: SgContextMenuItem[]) => void;
   onSwitchView: (view: 'changes' | 'commits') => void;
   onSelectRef?: (hash: string) => void;
+  /** Меню stash «Показать изменения» — select + вкладка Changes. */
+  onShowStashChanges?: (hash: string) => void;
   onMerge?: (source: string) => void;
   showPrompt: ShowPrompt;
   requestCheckout: RequestCheckout;
@@ -47,7 +49,7 @@ const ICONS = { changes: '●' } as const;
 
 export function Sidebar({
   repoPath, currentBranch, branches, tags, stashes, remotes,
-  localChangesCount, activeView, onContextMenu, onSwitchView, onSelectRef, onMerge, showPrompt, requestCheckout,
+  localChangesCount, activeView, onContextMenu, onSwitchView, onSelectRef, onShowStashChanges, onMerge, showPrompt, requestCheckout,
   requestApplyStash, selectedRefHash, branchPrefs,
 }: Props) {
   const loc = t();
@@ -205,7 +207,12 @@ export function Sidebar({
             active={!!selectedRefHash && selectedRefHash === stash.hash}
             onSelect={() => onSelectRef?.(stash.hash)}
             onApply={() => requestApplyStash(stash)}
-            onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getStashMenuItems(stash, loc, showPrompt, requestApplyStash)); }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              onContextMenu(e, getStashMenuItems(stash, loc, showPrompt, requestApplyStash, () => {
+                (onShowStashChanges ?? onSelectRef)?.(stash.hash);
+              }));
+            }}
           />
         ))}
         {stashes.some(isAutoStash) && (
@@ -220,7 +227,12 @@ export function Sidebar({
                 autoBadge
                 onSelect={() => onSelectRef?.(stash.hash)}
                 onApply={() => requestApplyStash(stash)}
-                onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getStashMenuItems(stash, loc, showPrompt, requestApplyStash)); }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  onContextMenu(e, getStashMenuItems(stash, loc, showPrompt, requestApplyStash, () => {
+                    (onShowStashChanges ?? onSelectRef)?.(stash.hash);
+                  }));
+                }}
               />
             ))}
           </>

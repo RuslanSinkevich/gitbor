@@ -219,9 +219,14 @@ export const en = {
   },
   diff: {
     loading: 'Loading diff...',
+    loadingContent: 'Loading file…',
     noDiff: 'No diff available',
     noChanges: 'No changes',
+    fileContent: 'File',
+    fileContentEmpty: 'File is empty',
+    fileContentBinary: 'Binary file — preview not available',
     binaryFile: 'Binary file — diff not available',
+
     imageBinary: 'Image diff for commits requires git blob extraction.',
     imageSideBySide: 'Side by Side',
     imageOverlay: 'Overlay',

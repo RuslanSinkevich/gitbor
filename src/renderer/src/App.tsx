@@ -96,6 +96,8 @@ export function App() {
      даже если выбран тот же commit. CommitGraph по его смене доскроллит к
      выбранному (иначе повторный клик по той же ветке не реагировал). */
   const [graphFocusNonce, setGraphFocusNonce] = useState(0);
+  /** Бамп → CommitsView переключает вкладку на «Изменения» (меню stash «Показать изменения»). */
+  const [revealChangesNonce, setRevealChangesNonce] = useState(0);
   /* Репо использует LFS (есть filter=lfs в .gitattributes) — для контекстного
      показа пункта «Git LFS…» в меню. Пересчитывается при смене репо. */
   const [usesLfs, setUsesLfs] = useState(false);
@@ -479,6 +481,11 @@ export function App() {
     setGraphFocusNonce(n => n + 1);
   }, [selectCommit, closeDiff]);
 
+  const handleShowStashChanges = useCallback((hash: string) => {
+    handleSelectRef(hash);
+    setRevealChangesNonce(n => n + 1);
+  }, [handleSelectRef]);
+
   const handleCompareTo = useCallback((fromHash: string, toHash: string) => {
     setViewMode('commits');
     postCommand({ type: 'getCommitDiff', fromHash, toHash });
@@ -629,6 +636,7 @@ export function App() {
             setMergeEditorFile={setMergeEditorFile}
             setRebaseOnto={setRebaseOnto}
             graphFocusNonce={graphFocusNonce}
+            revealChangesNonce={revealChangesNonce}
             soloBranch={branchPrefsState.soloBranch}
             hiddenBranches={branchPrefsState.hidden}
             branchPrefs={branchPrefsAPI}
@@ -643,6 +651,7 @@ export function App() {
             onOpenActivity={() => dlg.setShowGitActivity(true)}
             onSelectCommit={selectCommit}
             onSelectRef={handleSelectRef}
+            onShowStashChanges={handleShowStashChanges}
             onMerge={handleOpenMergeDialog}
             showPrompt={showPrompt}
             requestCheckout={requestCheckout}
