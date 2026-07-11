@@ -27,18 +27,27 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+/* Прозрачная рамка + background-clip дают «воздух» вокруг ползунка:
+   он выглядит тоньше и не липнет к краю контента. */
 ::-webkit-scrollbar-thumb {
   background: var(--sg-scrollbar-thumb);
-  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 6px;
+  transition: background var(--sg-transition);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--sg-scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* Глобальный focus-ring — только для не-form элементов

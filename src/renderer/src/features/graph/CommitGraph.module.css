@@ -14,9 +14,9 @@
   align-items: center;
   background: var(--sg-surface-raised);
   border-bottom: 1px solid var(--sg-border);
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
   color: var(--sg-foreground-muted);
   flex-shrink: 0;
   user-select: none;
@@ -88,7 +88,7 @@
 }
 
 .row:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--sg-surface-hover);
 }
 
 .rowSelected {

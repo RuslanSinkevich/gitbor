@@ -127,7 +127,7 @@
   background: var(--sg-surface-raised);
   border: 1px solid var(--sg-border);
   border-radius: var(--sg-radius-sm);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--sg-shadow-md);
   padding: 4px 0;
   margin-top: 2px;
 }

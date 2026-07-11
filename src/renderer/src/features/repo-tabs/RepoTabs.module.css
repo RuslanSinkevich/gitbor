@@ -50,6 +50,9 @@
   background: var(--sg-background);
   color: var(--sg-foreground);
   border-color: var(--sg-border);
+  /* Тонкий акцент сверху — активная вкладка «подсвечена», как в редакторах.
+     Через inset-shadow, чтобы не смещать содержимое (не занимает высоту). */
+  box-shadow: inset 0 2px 0 var(--sg-primary);
 }
 
 .tabName {
