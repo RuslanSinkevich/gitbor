@@ -87,6 +87,9 @@ function makeMockGit(opts: MockGitOptions = {}): ScriptedExec {
     if (key.startsWith('stash apply')) {
       return { stdout: '', stderr: stashApplyExit === 0 ? '' : 'apply fail', exitCode: stashApplyExit, duration: 1 };
     }
+    if (key.startsWith('stash list')) {
+      return { stdout: `stash@{0}\x00${stashHash}\n`, stderr: '', exitCode: 0, duration: 1 };
+    }
     if (key.startsWith('stash drop') || key === 'stash pop') {
       return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
     }
@@ -171,6 +174,8 @@ describe('SafetyNet.wrapDestructive (new contract)', () => {
       args[0] === 'stash' && args[1] === 'drop',
     );
     expect(dropCall).toBeDefined();
+    // drop только по stash@{n} — hash git не принимает.
+    expect(dropCall![0]).toEqual(['stash', 'drop', 'stash@{0}']);
     // pop НЕ должен использоваться — он был источником "потерянных" данных.
     const popCall = git.exec.mock.calls.find(([args]: [string[]]) =>
       args[0] === 'stash' && args[1] === 'pop',

@@ -140,13 +140,18 @@ describe('RecoveryManager extended actions', () => {
     expect(r.error).toContain('merge conflict');
   });
 
-  it('dropStash exec git stash drop <hash>', async () => {
+  it('dropStash resolves hash to stash@{n} before drop', async () => {
     const { RecoveryManager } = await import('../../src/core/safety/RecoveryManager');
-    const exec = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 }));
+    const exec = vi.fn(async (args: string[]) => {
+      if (args[0] === 'stash' && args[1] === 'list') {
+        return { stdout: 'stash@{2}\x00abcdef123\n', stderr: '', exitCode: 0, duration: 1 };
+      }
+      return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+    });
     const { deps } = makeRm(exec);
     const rm = new RecoveryManager(deps.git, deps.journal, deps.safetyNet);
-    await rm.dropStash('h');
-    expect(exec).toHaveBeenCalledWith(['stash', 'drop', 'h']);
+    await rm.dropStash('abcdef123');
+    expect(exec).toHaveBeenCalledWith(['stash', 'drop', 'stash@{2}']);
   });
 
   it('killGitProcess refuses pid that is NOT a git process', async () => {
@@ -166,13 +171,18 @@ describe('RecoveryManager extended actions', () => {
     expect(exec).toHaveBeenCalledWith(['stash', 'apply', 'aaaa']);
   });
 
-  it('executeRecovery: drop_stash delegates to git stash drop', async () => {
+  it('executeRecovery: drop_stash resolves hash then drops stash@{n}', async () => {
     const { RecoveryManager } = await import('../../src/core/safety/RecoveryManager');
-    const exec = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0, duration: 1 }));
+    const exec = vi.fn(async (args: string[]) => {
+      if (args[0] === 'stash' && args[1] === 'list') {
+        return { stdout: 'stash@{0}\x00aaaa\n', stderr: '', exitCode: 0, duration: 1 };
+      }
+      return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+    });
     const { deps } = makeRm(exec);
     const rm = new RecoveryManager(deps.git, deps.journal, deps.safetyNet);
     await rm.executeRecovery({ type: 'drop_stash', stashHash: 'aaaa' });
-    expect(exec).toHaveBeenCalledWith(['stash', 'drop', 'aaaa']);
+    expect(exec).toHaveBeenCalledWith(['stash', 'drop', 'stash@{0}']);
   });
 
   it('executeRecovery: retry / manual_continue are no-ops', async () => {

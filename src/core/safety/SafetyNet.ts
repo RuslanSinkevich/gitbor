@@ -12,6 +12,7 @@ import { OperationJournal } from './OperationJournal';
 import { GitErrorClassifier } from '../git/GitErrorClassifier';
 import { mainLogger } from '../utils/Logger';
 import { recordErrorClass } from './SafetyStats';
+import { resolveStashDropRef } from '../git/stashRef';
 
 export interface WrapOptions {
   autoStash?: boolean;
@@ -304,10 +305,15 @@ export class SafetyNet {
       mainLogger.warn(`safety: auto-stash apply failed (${stashHash.slice(0, 7)}), keeping stash. stderr: ${applyResult.stderr.split('\n')[0]}`);
       return;
     }
-    // apply OK → drop одноразовую запись из stash list.
-    const dropResult = await this.git.exec(['stash', 'drop', stashHash]);
+    // apply OK → drop. `stash drop` не принимает hash — только stash@{n}.
+    const dropRef = await resolveStashDropRef(this.git, stashHash);
+    if (!dropRef) {
+      mainLogger.warn(`safety: auto-stash drop skipped — ${stashHash.slice(0, 7)} not in stash list`);
+      return;
+    }
+    const dropResult = await this.git.exec(['stash', 'drop', dropRef]);
     if (dropResult.exitCode !== 0) {
-      mainLogger.warn(`safety: auto-stash drop failed (${stashHash.slice(0, 7)}). stderr: ${dropResult.stderr.split('\n')[0]}`);
+      mainLogger.warn(`safety: auto-stash drop failed (${dropRef}). stderr: ${dropResult.stderr.split('\n')[0]}`);
     }
   }
 

@@ -312,6 +312,20 @@ describe('writeCommands', () => {
       await Write.stashDrop(asQueue(queue), asGit(git), asState(state), 'stash@{2}');
       expect(git.exec).toHaveBeenCalledWith(['stash', 'drop', 'stash@{2}']);
     });
+
+    it('resolves commit hash to stash@{n} before drop', async () => {
+      const git = makeMockGit();
+      git.exec.mockImplementation(async (args: string[]) => {
+        if (args[0] === 'stash' && args[1] === 'list') {
+          return { stdout: 'stash@{1}\x00deadbeef\n', stderr: '', exitCode: 0, duration: 1 };
+        }
+        return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+      });
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      await Write.stashDrop(asQueue(queue), asGit(git), asState(state), 'deadbeef');
+      expect(git.exec).toHaveBeenCalledWith(['stash', 'drop', 'stash@{1}']);
+    });
   });
 
   describe('cherryPickMany', () => {

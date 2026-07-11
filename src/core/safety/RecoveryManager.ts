@@ -7,6 +7,7 @@ import { SafetyNet } from './SafetyNet';
 import { findGitProcesses } from './GitProcessDetector';
 import { cleanupTmpFiles } from './AtomicWrite';
 import { mainLogger } from '../utils/Logger';
+import { resolveStashDropRef } from '../git/stashRef';
 
 const AUTO_STASH_PREFIX = '[GitBor auto-stash]';
 
@@ -103,7 +104,11 @@ export class RecoveryManager {
   }
 
   async dropStash(hash: string): Promise<OperationResult> {
-    const r = await this.git.exec(['stash', 'drop', hash]);
+    const dropRef = await resolveStashDropRef(this.git, hash);
+    if (!dropRef) {
+      return { success: false, error: `stash ${hash.slice(0, 7)} not found`, rollbackAvailable: false };
+    }
+    const r = await this.git.exec(['stash', 'drop', dropRef]);
     if (r.exitCode === 0) return { success: true, rollbackAvailable: false };
     return { success: false, error: r.stderr, rollbackAvailable: false };
   }
@@ -152,7 +157,9 @@ export class RecoveryManager {
   }
 
   private async dropStashByHash(hash: string): Promise<void> {
-    const r = await this.git.exec(['stash', 'drop', hash]);
+    const dropRef = await resolveStashDropRef(this.git, hash);
+    if (!dropRef) throw new Error(`stash ${hash.slice(0, 7)} not found in stash list`);
+    const r = await this.git.exec(['stash', 'drop', dropRef]);
     if (r.exitCode !== 0) throw new Error(`stash drop failed: ${r.stderr}`);
   }
 
