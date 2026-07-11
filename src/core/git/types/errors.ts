@@ -72,6 +72,8 @@ export type SuggestedAction =
   | { kind: 'rollback'; label?: string; payload: { journalEntryId: string } }
   | { kind: 'abort_merge'; label?: string; payload?: Record<string, string> }
   | { kind: 'continue_merge'; label?: string; payload?: Record<string, string> }
+  /** Продвинуть cherry-pick / серию: `git cherry-pick --continue` (не `commit`). */
+  | { kind: 'continue_cherry_pick'; label?: string; payload?: Record<string, string> }
   | { kind: 'abort_rebase'; label?: string; payload?: Record<string, string> }
   | { kind: 'manual_continue'; label?: string; payload?: Record<string, string> }
   | { kind: 'ignore'; label?: string; payload?: Record<string, string> }

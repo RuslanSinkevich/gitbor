@@ -1071,6 +1071,7 @@ export const ru: LocaleMap = {
       rollback: 'Откатить',
       abort_merge: 'Отменить merge',
       continue_merge: 'Продолжить merge',
+      continue_cherry_pick: 'Продолжить cherry-pick',
       abort_rebase: 'Отменить rebase',
       manual_continue: 'Продолжить вручную',
       ignore: 'Игнорировать',

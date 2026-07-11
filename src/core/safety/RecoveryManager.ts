@@ -59,7 +59,26 @@ export class RecoveryManager {
             `Cannot continue merge: ${unresolved.stdout.trim().split('\n').length} unresolved conflict(s). Resolve them first or abort.`
           );
         }
+        // Cherry-pick (в т.ч. серия) — только `cherry-pick --continue`, иначе
+        // `commit` закоммитит текущий pick и не продвинет секвенсер.
+        const cp = await this.git.exec(['rev-parse', '--verify', 'CHERRY_PICK_HEAD']);
+        if (cp.exitCode === 0) {
+          const r = await this.git.exec(['cherry-pick', '--continue'], { env: { GIT_EDITOR: 'true' } });
+          if (r.exitCode !== 0) throw new Error(`cherry-pick --continue failed: ${r.stderr}`);
+          break;
+        }
         await this.git.exec(['commit', '--no-edit']);
+        break;
+      }
+      case 'continue_cherry_pick': {
+        const unresolved = await this.git.exec(['diff', '--name-only', '--diff-filter=U']);
+        if (unresolved.stdout.trim()) {
+          throw new Error(
+            `Cannot continue cherry-pick: ${unresolved.stdout.trim().split('\n').length} unresolved conflict(s). Resolve them first or abort.`
+          );
+        }
+        const r = await this.git.exec(['cherry-pick', '--continue'], { env: { GIT_EDITOR: 'true' } });
+        if (r.exitCode !== 0) throw new Error(`cherry-pick --continue failed: ${r.stderr}`);
         break;
       }
       case 'abort_rebase':

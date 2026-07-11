@@ -49,6 +49,10 @@ export async function runPreflight(
       actions.push({ kind: 'continue_merge' });
       actions.push({ kind: 'abort_merge' });
     }
+    if (issue.kind === 'cherry_pick_in_progress') {
+      actions.push({ kind: 'continue_cherry_pick' });
+      actions.push({ kind: 'abort_merge' });
+    }
     if (issue.kind === 'rebase_in_progress') {
       actions.push({ kind: 'abort_rebase' });
       actions.push({ kind: 'manual_continue' });

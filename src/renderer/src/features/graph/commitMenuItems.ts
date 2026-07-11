@@ -27,6 +27,8 @@ export function getCommitMenuItems(
   /** Мульти-выбор, отсортированный старые→новые. Если кликнутый коммит в нём
       и коммитов > 1 — пункт «Cherry-pick N коммитов» вместо одиночного. */
   selectedHashes?: string[],
+  /** Сброс мульти-выбора после старта batch cherry-pick. */
+  onMultiCherryPickStart?: () => void,
 ): SgContextMenuItem[] {
   const loc = t();
   const shortHash = commit.hash.substring(0, 7);
@@ -38,7 +40,10 @@ export function getCommitMenuItems(
     ? {
       label: tpl(loc.contextMenu.cherryPickMany, { count: multiCount }),
       help: loc.contextMenu.help.cherryPickMany,
-      action: () => postCommand({ type: 'cherryPickMany', hashes: selectedHashes! }),
+      action: () => {
+        onMultiCherryPickStart?.();
+        postCommand({ type: 'cherryPickMany', hashes: selectedHashes! });
+      },
     }
     : {
       label: loc.contextMenu.cherryPick,

@@ -19,8 +19,10 @@ interface Props {
  * merge без них) — баннер тоже не нужен.
  */
 /** Cherry-pick-серия с непройденным остатком секвенсера. */
-function isCherryPickSeries(mergeState: MergeState): boolean {
-  return mergeState.kind === 'cherry-pick' && (mergeState.sequencerTotal ?? 0) > 0;
+export function isCherryPickSeries(mergeState: MergeState): boolean {
+  const done = mergeState.sequencerDone ?? 0;
+  const total = mergeState.sequencerTotal ?? 0;
+  return mergeState.kind === 'cherry-pick' && total > done;
 }
 
 export function shouldShowMergeBanner(mergeState: MergeState | null): boolean {

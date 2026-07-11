@@ -40,6 +40,7 @@ export interface RecoveryIssue {
 export type RecoveryAction =
   | { type: 'rollback'; journalEntryId: string }
   | { type: 'continue_merge' }
+  | { type: 'continue_cherry_pick' }
   | { type: 'abort_merge' }
   | { type: 'continue_rebase' }
   | { type: 'abort_rebase' }

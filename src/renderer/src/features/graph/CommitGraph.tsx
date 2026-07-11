@@ -74,6 +74,13 @@ interface Props {
   onMultiSelect?: (hash: string, mode: 'toggle' | 'range' | 'single') => void;
   /** «Выбрать все совпадения» поиска → положить их в мульти-выбор. */
   onSelectMany?: (hashes: string[]) => void;
+  /**
+   * Полный список коммитов репо (без solo/hide-фильтра) — для сортировки
+   * мульти-выбора старые→новые. Если не передан, сортируем по `commits`.
+   */
+  orderCommits?: Commit[];
+  /** Сброс мульти-выбора после старта batch cherry-pick. */
+  onMultiCherryPickStart?: () => void;
   currentBranch: string;
   /** Имена remote'ов — для слияния локальной ветки с её remote-tracking двойником. */
   remoteNames: string[];
@@ -100,7 +107,7 @@ interface Props {
   focusNonce?: number;
 }
 
-function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, selectedHashes = EMPTY_HASH_SET, onMultiSelect, onSelectMany, currentBranch, remoteNames, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, onCompareTo, headOnRemote = false, focusNonce }: Props) {
+function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, selectedHashes = EMPTY_HASH_SET, onMultiSelect, onSelectMany, orderCommits, onMultiCherryPickStart, currentBranch, remoteNames, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, onCompareTo, headOnRemote = false, focusNonce }: Props) {
   const loc = t();
   const graphWidth = LEFT_PAD * 2 + (maxColumns + 1) * COL_WIDTH + 12;
   const totalHeight = commits.length * ROW_HEIGHT;
@@ -320,13 +327,17 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
                 title={isRemoteOnly ? loc.graph.remoteOnlyHint : undefined}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  // Мульти-выбор → отсортировать старые→новые: commits в topo-порядке
-                  // (новые сверху), фильтруем и разворачиваем. Секвенсеру нужен
-                  // порядок от предка к потомку.
+                  // Мульти-выбор → отсортировать старые→новые по полному списку
+                  // (не по отфильтрованному graphCommits): иначе solo/hide тихо
+                  // выкидывает выбранные хэши. Секвенсеру нужен порядок предок→потомок.
+                  const order = orderCommits ?? commits;
                   const sortedSelected = selectedHashes.size > 1
-                    ? commits.filter(c => selectedHashes.has(c.hash)).map(c => c.hash).reverse()
+                    ? order.filter(c => selectedHashes.has(c.hash)).map(c => c.hash).reverse()
                     : undefined;
-                  onContextMenu(e, getCommitMenuItems(commit, currentBranch, showPrompt, requestCheckout, onRebase, onCompareTo, headOnRemote, sortedSelected));
+                  onContextMenu(e, getCommitMenuItems(
+                    commit, currentBranch, showPrompt, requestCheckout, onRebase, onCompareTo,
+                    headOnRemote, sortedSelected, onMultiCherryPickStart,
+                  ));
                 }}>
                 <div className={s.rowDesc} style={{ paddingLeft: descLeft }}>
                   {buildRefBadges(commit.refs, remoteNames, currentBranch).map((badge) => {
@@ -409,6 +420,7 @@ export const CommitGraph = memo(CommitGraphImpl, (prev, next) => (
   prev.mergeLinks === next.mergeLinks &&
   prev.selectedHash === next.selectedHash &&
   prev.selectedHashes === next.selectedHashes &&
+  prev.orderCommits === next.orderCommits &&
   prev.focusNonce === next.focusNonce &&
   prev.currentBranch === next.currentBranch &&
   prev.remoteNames === next.remoteNames &&

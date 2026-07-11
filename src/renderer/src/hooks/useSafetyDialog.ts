@@ -130,6 +130,8 @@ function mapActionToCommand(
       return { type: 'abortMerge' };
     case 'continue_merge':
       return { type: 'completeMerge' };
+    case 'continue_cherry_pick':
+      return { type: 'cherryPickContinue' };
     case 'abort_rebase':
       return { type: 'abortRebase' };
     case 'manual_continue':

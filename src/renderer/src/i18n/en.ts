@@ -1076,6 +1076,7 @@ export const en = {
       rollback: 'Rollback',
       abort_merge: 'Abort merge',
       continue_merge: 'Continue merge',
+      continue_cherry_pick: 'Continue cherry-pick',
       abort_rebase: 'Abort rebase',
       manual_continue: 'Continue manually',
       ignore: 'Ignore',

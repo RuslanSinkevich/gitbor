@@ -261,6 +261,28 @@ describe('SafetyNet.wrapDestructive (new contract)', () => {
     expect(result.suggestedActions?.find(a => a.kind === 'abort_merge')).toBeDefined();
   });
 
+  it('cherry-pick conflict → continue_cherry_pick (не continue_merge)', async () => {
+    const { GitError: ImportedGitError } = await import('../../src/core/git/GitExecutor');
+    const { SafetyNet } = await import('../../src/core/safety/SafetyNet');
+    const git = makeMockGit();
+    const sn = new SafetyNet(git as never);
+
+    const result = await sn.wrapDestructive('cherry-pick', {}, async () => {
+      throw new ImportedGitError(
+        'cherry-pick failed',
+        'cherry-pick',
+        1,
+        'error: could not apply abc1234... CONFLICTing\nCONFLICT (content): Merge conflict in src/a.ts',
+      );
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.errorClass).toBe('conflict');
+    expect(result.suggestedActions?.find(a => a.kind === 'continue_cherry_pick')).toBeDefined();
+    expect(result.suggestedActions?.find(a => a.kind === 'continue_merge')).toBeUndefined();
+    expect(result.suggestedActions?.find(a => a.kind === 'abort_merge')).toBeDefined();
+  });
+
   it('operation throws lock_held stderr → no rollback, suggestedActions includes remove_lock+retry', async () => {
     const { GitError: ImportedGitError } = await import('../../src/core/git/GitExecutor');
     const { SafetyNet } = await import('../../src/core/safety/SafetyNet');

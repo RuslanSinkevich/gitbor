@@ -123,12 +123,16 @@ describe('getCommitMenuItems — множественный cherry-pick', () => 
     const selected = ['aaaaaaa', 'bbbbbbb', 'ccccccc'];
     const showPrompt = vi.fn();
     const requestCheckout = vi.fn();
-    const items = getCommitMenuItems(commit, 'main', showPrompt, requestCheckout, undefined, undefined, false, selected);
+    const onStart = vi.fn();
+    const items = getCommitMenuItems(
+      commit, 'main', showPrompt, requestCheckout, undefined, undefined, false, selected, onStart,
+    );
 
     const label = tpl(loc.contextMenu.cherryPickMany, { count: 3 });
     const item = byLabel(items, label);
     expect(item).toBeTruthy();
     item!.action!();
+    expect(onStart).toHaveBeenCalledOnce();
     expect(postCommand).toHaveBeenCalledWith({ type: 'cherryPickMany', hashes: selected });
     // Одиночного пункта при этом быть не должно.
     expect(byLabel(items, loc.contextMenu.cherryPick)).toBeUndefined();

@@ -151,6 +151,8 @@ export function CommitsView({
           selectedHashes={multi.selectedHashes}
           onMultiSelect={multi.select}
           onSelectMany={multi.selectMany}
+          orderCommits={state.commits}
+          onMultiCherryPickStart={multi.clear}
           currentBranch={state.currentBranch}
           remoteNames={remoteNames}
           repoPath={state.repoPath}

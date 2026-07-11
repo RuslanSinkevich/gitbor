@@ -106,7 +106,7 @@ export class SafetyNet {
           rollbackAvailable: false,
           errorClass: classified.class,
           error: `Failed to auto-stash uncommitted changes: ${stashResult.stderr}`,
-          suggestedActions: this.buildActions(classified.class, undefined),
+          suggestedActions: this.buildActions(classified.class, undefined, undefined, operationName),
         };
       }
     }
@@ -163,7 +163,7 @@ export class SafetyNet {
           severity,
           hookOutput,
           savedState: { headHash, branchName, autoStashHash },
-          suggestedActions: this.buildActions(errorClass, autoStashHash, journalId),
+          suggestedActions: this.buildActions(errorClass, autoStashHash, journalId, operationName),
           journalEntryId: journalId,
         };
       }
@@ -203,7 +203,7 @@ export class SafetyNet {
         severity,
         hookOutput,
         savedState: { headHash, branchName, autoStashHash },
-        suggestedActions: this.buildActions(errorClass, autoStashHash, journalId),
+        suggestedActions: this.buildActions(errorClass, autoStashHash, journalId, operationName),
         journalEntryId: journalId,
       };
     }
@@ -214,8 +214,14 @@ export class SafetyNet {
     errorClass: GitErrorClass,
     stashHash: string | undefined,
     journalEntryId?: string,
+    operationName?: string,
   ): SuggestedAction[] {
     const actions: SuggestedAction[] = [];
+    // Cherry-pick (одиночный и серия) завершается через `cherry-pick --continue`.
+    // `completeMerge` (= commit) коммитит текущий pick, но не двигает секвенсер.
+    const continueConflict: SuggestedAction = operationName === 'cherry-pick'
+      ? { kind: 'continue_cherry_pick' }
+      : { kind: 'continue_merge' };
 
     switch (errorClass) {
       case 'lock_held':
@@ -227,7 +233,7 @@ export class SafetyNet {
         if (journalEntryId) actions.push({ kind: 'retry', payload: { journalEntryId } });
         break;
       case 'conflict':
-        actions.push({ kind: 'continue_merge' });
+        actions.push(continueConflict);
         actions.push({ kind: 'abort_merge' });
         break;
       case 'dirty_tree':
