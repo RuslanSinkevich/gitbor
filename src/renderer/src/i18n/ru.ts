@@ -185,6 +185,7 @@ export const ru: LocaleMap = {
       'В этом проекте настроена проверка формата сообщений коммитов: тема должна начинаться с типа (например, fix:). Если правило не соблюдается, git не создаст коммит. Подсказка появляется только в проектах, где такая проверка настроена — в других её не будет.',
     commitDescription: 'Описание',
     commit: 'Зафиксировать',
+    commitBlockedCherryPick: 'Идёт cherry-pick — жмите «Продолжить» в баннере сверху',
     amend: 'Дополнить',
     noChanges: 'Нет изменений для фиксации',
     discardAll: 'Откатить всё',
@@ -1030,6 +1031,7 @@ export const ru: LocaleMap = {
     titles: {
       lock_held: 'Другой git-процесс запущен',
       conflict: 'Конфликты при merge',
+      conflict_cherry_pick: 'Конфликты при cherry-pick',
       dirty_tree: 'Локальные изменения будут перезаписаны',
       merge_in_progress: 'Merge уже выполняется',
       rebase_in_progress: 'Rebase уже выполняется',
@@ -1047,6 +1049,7 @@ export const ru: LocaleMap = {
     descriptions: {
       lock_held: 'Git-процесс (терминал, IDE или hook) держит .git/index.lock. Подождите, прибейте процесс или удалите lock-файл.',
       conflict: 'Автомерж не разрешил все файлы. Откройте редактор конфликтов, разрешите их и закоммитьте, либо отмените merge.',
+      conflict_cherry_pick: 'Автомерж не разрешил все файлы. Откройте редактор конфликтов, разрешите их и нажмите «Продолжить cherry-pick» (или Continue в баннере сверху).',
       dirty_tree: 'Локальные изменения будут перезаписаны этой операцией. Сделайте stash, commit или discard.',
       merge_in_progress: 'Merge уже идёт. Завершите или отмените его перед новой операцией.',
       rebase_in_progress: 'Rebase уже идёт. Продолжите (в терминале) или отмените.',
@@ -1070,6 +1073,7 @@ export const ru: LocaleMap = {
       remove_lock: 'Удалить index.lock',
       rollback: 'Откатить',
       abort_merge: 'Отменить merge',
+      abort_cherry_pick: 'Отменить cherry-pick',
       continue_merge: 'Продолжить merge',
       continue_cherry_pick: 'Продолжить cherry-pick',
       abort_rebase: 'Отменить rebase',

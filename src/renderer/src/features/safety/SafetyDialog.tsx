@@ -46,10 +46,15 @@ interface SafetyDialogProps {
 export function SafetyDialog({ payload, onAction, onClose }: SafetyDialogProps) {
   const loc = t();
 
+  const cherryPick = useMemo(
+    () => (payload ? isCherryPickContext(payload) : false),
+    [payload],
+  );
+
   const title = useMemo(() => {
     if (!payload) return '';
-    return safetyTitle(payload.errorClass, loc);
-  }, [payload, loc]);
+    return safetyTitle(payload.errorClass, loc, cherryPick);
+  }, [payload, loc, cherryPick]);
 
   const primaryIndex = useMemo(() => {
     if (!payload) return -1;
@@ -60,7 +65,7 @@ export function SafetyDialog({ payload, onAction, onClose }: SafetyDialogProps) 
 
   if (!payload) return null;
 
-  const description = safetyDescription(payload.errorClass, loc);
+  const description = safetyDescription(payload.errorClass, loc, cherryPick);
 
   return (
     <SgDialog
@@ -71,7 +76,7 @@ export function SafetyDialog({ payload, onAction, onClose }: SafetyDialogProps) 
       footer={
         <div className={s.actions}>
           {payload.suggestedActions.map((act, i) => {
-            const label = actionLabel(act, loc);
+            const label = actionLabel(act, loc, cherryPick);
             const isDanger = isDangerKind(act.kind);
             const isPrimary = i === primaryIndex;
             const variant =
@@ -156,14 +161,26 @@ function isDangerKind(kind: SuggestedAction['kind']): boolean {
   return DANGER_KINDS.has(kind);
 }
 
-function safetyTitle(cls: GitErrorClass, loc: Loc): string {
-  const titles = loc.safety.titles;
-  return (titles as Record<string, string>)[cls] || loc.safety.titles.unknown;
+/** Cherry-pick (одиночный или серия): operation name или suggested continue_cherry_pick. */
+function isCherryPickContext(payload: SafetyDialogPayload): boolean {
+  if (payload.operation === 'cherry-pick') return true;
+  return payload.suggestedActions.some((a) => a.kind === 'continue_cherry_pick');
 }
 
-function safetyDescription(cls: GitErrorClass, loc: Loc): string {
-  const descs = loc.safety.descriptions;
-  return (descs as Record<string, string>)[cls] || '';
+function safetyTitle(cls: GitErrorClass, loc: Loc, cherryPick: boolean): string {
+  const titles = loc.safety.titles as Record<string, string>;
+  if (cherryPick && (cls === 'conflict' || cls === 'unmerged_paths')) {
+    return titles.conflict_cherry_pick || titles.conflict || loc.safety.titles.unknown;
+  }
+  return titles[cls] || loc.safety.titles.unknown;
+}
+
+function safetyDescription(cls: GitErrorClass, loc: Loc, cherryPick: boolean): string {
+  const descs = loc.safety.descriptions as Record<string, string>;
+  if (cherryPick && (cls === 'conflict' || cls === 'unmerged_paths')) {
+    return descs.conflict_cherry_pick || descs.conflict || '';
+  }
+  return descs[cls] || '';
 }
 
 function preflightDescription(iss: PreflightIssue, loc: Loc): string {
@@ -172,8 +189,11 @@ function preflightDescription(iss: PreflightIssue, loc: Loc): string {
   return base;
 }
 
-function actionLabel(act: SuggestedAction, loc: Loc): string {
+function actionLabel(act: SuggestedAction, loc: Loc, cherryPick: boolean): string {
   if (act.label) return act.label;
-  const map = loc.safety.actionLabels;
-  return (map as Record<string, string>)[act.kind] || act.kind;
+  const map = loc.safety.actionLabels as Record<string, string>;
+  if (cherryPick && act.kind === 'abort_merge') {
+    return map.abort_cherry_pick || map.abort_merge || act.kind;
+  }
+  return map[act.kind] || act.kind;
 }

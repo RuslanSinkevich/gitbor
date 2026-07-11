@@ -183,6 +183,7 @@ export const en = {
       'This project is configured to validate commit message format: the subject must start with a type (for example, fix:). If the rule is not met, git will not create the commit. This hint only appears in projects where such validation is set up — other projects will not show it.',
     commitDescription: 'Description',
     commit: 'Commit',
+    commitBlockedCherryPick: 'Cherry-pick in progress — use Continue in the top banner',
     amend: 'Amend',
     noChanges: 'No changes to commit',
     discardAll: 'Discard All',
@@ -1035,6 +1036,7 @@ export const en = {
     titles: {
       lock_held: 'Another git process is running',
       conflict: 'Merge conflicts',
+      conflict_cherry_pick: 'Cherry-pick conflicts',
       dirty_tree: 'Local changes would be overwritten',
       merge_in_progress: 'Merge in progress',
       rebase_in_progress: 'Rebase in progress',
@@ -1052,6 +1054,7 @@ export const en = {
     descriptions: {
       lock_held: 'A git process (likely a terminal, IDE, or hook) is holding .git/index.lock. You can wait, kill the process, or remove the lock file.',
       conflict: 'Automatic merge could not resolve some files. Open the merge editor to fix conflicts, then commit, or abort the merge.',
+      conflict_cherry_pick: 'Automatic merge could not resolve some files. Open the merge editor, resolve them, then click “Continue cherry-pick” (or Continue in the top banner).',
       dirty_tree: 'Your local changes would be overwritten by this operation. Stash, commit, or discard them first.',
       merge_in_progress: 'A merge is already in progress. Finish or abort it before running another operation.',
       rebase_in_progress: 'A rebase is already in progress. Continue (in terminal) or abort it.',
@@ -1075,6 +1078,7 @@ export const en = {
       remove_lock: 'Remove index.lock',
       rollback: 'Rollback',
       abort_merge: 'Abort merge',
+      abort_cherry_pick: 'Abort cherry-pick',
       continue_merge: 'Continue merge',
       continue_cherry_pick: 'Continue cherry-pick',
       abort_rebase: 'Abort rebase',

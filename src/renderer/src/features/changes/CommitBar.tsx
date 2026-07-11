@@ -45,6 +45,9 @@ export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiS
   const repoPathRef = useRef(repoPath);
   repoPathRef.current = repoPath;
 
+  // Cherry-pick-серия: обычный commit не двигает секвенсер — только Continue в баннере.
+  const cherryPickSeriesBlocked = isCherryPickSeriesInProgress(mergeState);
+
   // Спиннер на кнопке коммита держим, пока идёт операция, и снимаем, когда
   // isOperationRunning сменился с true на false (операция завершилась).
   useEffect(() => {
@@ -101,7 +104,11 @@ export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiS
     if (event.type === 'conventionalCommits') setConventionalCommits(event.active);
   }), []);
 
-  const canCommit = (subject.trim().length > 0 || amend) && stagedCount > 0 && !isOperationRunning;
+  const canCommit =
+    (subject.trim().length > 0 || amend)
+    && stagedCount > 0
+    && !isOperationRunning
+    && !cherryPickSeriesBlocked;
   const subjectPlaceholder = conventionalCommits ? loc.changes.commitSubjectConventional : loc.changes.commitSubject;
 
   const currentType = parseConventionalType(subject);
@@ -306,7 +313,12 @@ export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiS
             </button>
           )}
         </div>
-        <button className={s.button} disabled={!canCommit || submitting} onClick={doCommit}>
+        <button
+          className={s.button}
+          disabled={!canCommit || submitting}
+          onClick={doCommit}
+          title={cherryPickSeriesBlocked ? loc.changes.commitBlockedCherryPick : undefined}
+        >
           <span className="sg-button-content">
             {submitting && <span className="sg-button-spinner" aria-hidden="true" />}
             {loc.changes.commit}
@@ -314,6 +326,19 @@ export function CommitBar({ repoPath, stagedCount, isOperationRunning, onOpenAiS
           </span>
         </button>
       </div>
+      {cherryPickSeriesBlocked && (
+        <div className={s.seriesHint} role="status">
+          {loc.changes.commitBlockedCherryPick}
+        </div>
+      )}
     </div>
   );
+}
+
+/** Серия batch cherry-pick ещё не дошла до конца — обычный commit запрещён. */
+function isCherryPickSeriesInProgress(mergeState?: MergeState | null): boolean {
+  if (!mergeState?.inProgress || mergeState.kind !== 'cherry-pick') return false;
+  const done = mergeState.sequencerDone ?? 0;
+  const total = mergeState.sequencerTotal ?? 0;
+  return total > done;
 }
