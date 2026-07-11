@@ -257,18 +257,20 @@
 }
 
 /*
- * Мульти-выбор (Ctrl/Shift-клик, «выбрать все» по regexp). Визуально
- * отличается от rowSelected (одиночный выбор для панели деталей) более
- * насыщенной заливкой + левой полосой другого цвета, чтобы серия коммитов
- * под будущий batch cherry-pick читалась как «отмеченная», а не «открытая».
+ * Мульти-выбор (Ctrl/Shift-клик, «выбрать все» по regexp).
+ * Другой hue, не primary: иначе в light 16% vs 26% синего сливаются
+ * с одиночным rowSelected (фокус панели деталей).
+ * success (teal/green) = «отмечен для batch», primary blue = «открыт».
  */
 .rowMultiSelected {
-  background: color-mix(in srgb, var(--sg-primary) 26%, transparent) !important;
-  box-shadow: inset 3px 0 0 var(--sg-primary);
+  background: color-mix(in srgb, var(--sg-success) 22%, transparent) !important;
+  box-shadow: inset 3px 0 0 var(--sg-success);
 }
 
+/* И в мульти, и в фокусе деталей — teal-заливка + синяя полоса фокуса. */
 .rowMultiSelected.rowSelected {
-  background: color-mix(in srgb, var(--sg-primary) 32%, transparent) !important;
+  background: color-mix(in srgb, var(--sg-success) 28%, transparent) !important;
+  box-shadow: inset 3px 0 0 var(--sg-success), inset 6px 0 0 var(--sg-primary);
 }
 
 .searchBar {
