@@ -26,6 +26,8 @@ interface Props {
   onCompareTo?: (from: string, to: string) => void;
   /** Счётчик запроса фокуса графа (бампается на клик по ветке) — см. CommitGraph. */
   focusNonce?: number;
+  /** Бамп → переключить detail-вкладку на «Изменения» (меню stash). */
+  revealChangesNonce?: number;
   /**
    * Solo/Hide фильтр из useBranchPrefs. Если оба не заданы — useGraphFilter
    * проксирует исходный список коммитов и server-side layout. Передаются
@@ -47,7 +49,7 @@ export function CommitsView({
   state, commitDetail, diffTarget,
   selectCommit, openDiff,
   showContextMenu, showPrompt, requestCheckout, setRebaseOnto,
-  onCompareTo, focusNonce,
+  onCompareTo, focusNonce, revealChangesNonce = 0,
   soloBranch, hidden, onClearSolo, onClearAllHidden,
   onOpenAiSettings, onExpandDiff,
 }: Props) {
@@ -55,11 +57,11 @@ export function CommitsView({
   const graphHeightKey = buildStorageKey('sg-layout:commits-graph-height', state.repoPath);
   const detailWidthKey = buildStorageKey('sg-layout:commits-detail-width', state.repoPath);
 
-  /* Активная вкладка деталей коммита. Полноценный diff живёт только на
-     «Изменения»: на «Коммит» (summary) и «Дерево файлов» (snapshot) клик по
-     файлу переключает на «Изменения», поэтому правую панель показываем там. */
+  /* Правая панель: на «Изменения» — diff, на «Дерево» — содержимое файла
+     на ревизии. На «Коммит» (summary) клик уводит на «Изменения». */
   const [detailTab, setDetailTab] = useState<'commit' | 'changes' | 'tree'>('commit');
-  const showDiffPane = !!diffTarget && detailTab === 'changes';
+  const showDiffPane = !!diffTarget && detailTab !== 'commit';
+  const panelMode = detailTab === 'tree' ? 'content' : 'diff';
 
   /* Режим сравнения (hash вида `<from>..<to>`) не имеет данных коммита —
      вкладка «Коммит» для него пустая, а правая панель диффа на ней скрыта.
@@ -68,6 +70,10 @@ export function CommitsView({
   useEffect(() => {
     if (isCompareRange) setDetailTab('changes');
   }, [isCompareRange, commitDetail?.hash]);
+
+  useEffect(() => {
+    if (revealChangesNonce > 0) setDetailTab('changes');
+  }, [revealChangesNonce]);
 
   /* Стрим Commit Explainer-а держим здесь, а не в CommitDetails: при
      переключении вкладок detailPane перемещается в дереве (split ↔ no-split)
@@ -200,6 +206,7 @@ export function CommitsView({
             <div className={s.commitDiffPane}>
               <RightPanelContent
                 diffTarget={diffTarget}
+                mode={panelMode}
                 onExpandDiff={onExpandDiff}
               />
             </div>
@@ -215,6 +222,7 @@ export function CommitsView({
     <div className={s.commitsLayout}>
       <SgSplitPane
         direction="vertical"
+        proportional
         defaultSize={420}
         minSize={160}
         maxSize={2000}

@@ -123,7 +123,7 @@ tests/
 | `parseStatus` | Staged/unstaged модификации, `MM` (обе), untracked (`??`), staged add (`A`), delete (`D`), конфликты (`UU`, `AA`), несколько файлов |
 | `parseFileChanges` | Модификация, добавление, удаление, переименование (`R100`), копирование (`C100`) |
 
-**<!-- TESTS_COUNT -->635<!-- /TESTS_COUNT --> тестов / <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> файлов — всё зелёное.**
+**<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> тестов / <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлов — всё зелёное.**
 
 ### 2. DiffParser (`tests/git/DiffParser.test.ts`)
 
@@ -516,7 +516,7 @@ npx vitest run tests/git/MyNewParser.test.ts
 | Changes | fileTree (buildFileTree, collectFiles) | ~11 |
 | Repo Manager | recentRepos (фильтрация невалидных путей) | ~3 |
 | Main | gracefulShutdown | ~5 |
-| **Итого** | **<!-- TESTS_FILES -->58<!-- /TESTS_FILES --> файлов** | **<!-- TESTS_COUNT -->635<!-- /TESTS_COUNT -->** |
+| **Итого** | **<!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлов** | **<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT -->** |
 
 ---
 
@@ -585,7 +585,7 @@ steps:
   - npm run lint                        # ESLint проверка
   - npx tsc -p tsconfig.main.json       # TypeScript (main + core)
   - npx tsc -b (src/renderer)           # TypeScript (renderer)
-  - npm test                            # Vitest (<!-- TESTS_COUNT -->635<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> файлах)
+  - npm test                            # Vitest (<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлах)
   - npm run build:renderer              # Vite сборка
   - npm run build:main                  # tsc main process
 ```
@@ -602,7 +602,7 @@ e2e:
   steps:
     - npm ci (root + renderer)
     - npm run build
-    - npx playwright test                # 3 спека, ~27 сек
+    - npx playwright test                # 4 спека
     - upload tests-e2e/_report при failure
 ```
 
@@ -610,13 +610,14 @@ e2e:
 
 ### E2E (Playwright + Electron)
 
-3 спека в `tests-e2e/`:
+4 спека в `tests-e2e/`:
 
-| Спек | Сценарий | Время |
-|------|----------|-------|
-| `app-launch.spec.ts` | Запуск приложения, видимость `[data-testid=titlebar]`. | ~7.5с |
-| `open-repo.spec.ts` | Запуск с `cwd=fixture` → autoOpenRepo подхватывает → TitleBar + Sidebar + текст «main» в Sidebar. | ~4.2с |
-| `switch-tab.spec.ts` | Запуск с фикстурой A → открытие фикстуры B через `window.gitBorAPI.invoke({ type: 'openRepo', path: B })` → клик по `[data-testid=repo-tab-0]` и `[data-testid=repo-tab-1]`. | ~12.9с |
+| Спек | Сценарий |
+|------|----------|
+| `app-launch.spec.ts` | Запуск приложения, видимость `[data-testid=titlebar]`. |
+| `open-repo.spec.ts` | Запуск с `cwd=fixture` → autoOpenRepo подхватывает → TitleBar + Sidebar + текст «main» в Sidebar. |
+| `switch-tab.spec.ts` | Запуск с фикстурой A → открытие фикстуры B через `window.gitBorAPI.invoke({ type: 'openRepo', path: B })` → клик по `[data-testid=repo-tab-0]` и `[data-testid=repo-tab-1]`. |
+| `safety-flow.spec.ts` | Свежий `.git/index.lock` → SafetyDialog с `remove_lock`/`cancel`; merge с конфликтом → без rollback + MergeBanner; fetch с недостижимого хоста → toast с Retry; осиротевший auto-stash → recovery при старте. |
 
 Хелперы в `tests-e2e/helpers.ts`: `launchApp({ cwd? })` и `makeFixtureRepo(prefix)` (создаёт пустой git-репо в temp-каталоге с initial commit, cleanup в `finally`).
 
@@ -629,7 +630,7 @@ e2e:
 
 `.husky/pre-push` (~5–7 сек):
 
-1. `npm test` (Vitest, <!-- TESTS_COUNT -->635<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> файлах) — полный набор перед пушем в remote.
+1. `npm test` (Vitest, <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлах) — полный набор перед пушем в remote.
 2. Bypass: `SKIP_TESTS=1 git push` — для веток, где менялись только doc/config и тесты прогонять не из чего.
 
 Логика разделения: коммит держим дешёвым (lint-staged + tsc), полный тестовый прогон уезжает в pre-push, где задержка приемлема и страхует от пуша красного.

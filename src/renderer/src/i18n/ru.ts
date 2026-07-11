@@ -222,9 +222,14 @@ export const ru: LocaleMap = {
   },
   diff: {
     loading: 'Загрузка diff...',
+    loadingContent: 'Загрузка файла…',
     noDiff: 'Нет diff',
     noChanges: 'Нет изменений',
+    fileContent: 'Файл',
+    fileContentEmpty: 'Файл пустой',
+    fileContentBinary: 'Бинарный файл — просмотр недоступен',
     binaryFile: 'Бинарный файл — diff недоступен',
+
     imageBinary: 'Diff картинок для коммитов требует извлечения blob.',
     imageSideBySide: 'Рядом',
     imageOverlay: 'Наложение',
@@ -468,6 +473,7 @@ export const ru: LocaleMap = {
     blame: 'Blame',
     newAnnotatedTag: 'Новая аннотированная метка...',
     tagMessageTitle: 'Сообщение метки',
+    more: 'Дополнительно',
     help: {
       mergeInto: 'Вливает выбранный коммит в текущую ветку, создавая коммит слияния. История обеих веток сохраняется.',
       rebaseToHere: 'Переносит коммиты текущей ветки поверх выбранного — история становится линейной. Хеши коммитов меняются, не делайте это с уже отправленными коммитами.',

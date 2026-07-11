@@ -298,5 +298,5 @@
 
 ## Дистрибуция
 
-- Конфигурация electron-builder для Windows (NSIS + portable), macOS (DMG), Linux (AppImage + deb)
+- Конфигурация electron-builder для Windows (NSIS + portable), macOS (DMG), Linux (AppImage + deb + rpm)
 - Сборка: `npm run dist:win`, `npm run dist:mac`, `npm run dist:linux`

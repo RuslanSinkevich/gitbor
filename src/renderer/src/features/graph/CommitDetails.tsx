@@ -116,13 +116,17 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
     return buildFileTree(asStatus);
   }, [detail]);
 
-  /* Клик по файлу в summary (вкладка «Коммит») или в дереве: переключаем на
-     «Изменения» — единственное место с полноценным diff — и открываем файл. */
-  const openInChanges = useCallback((path: string, hash: string) => {
-    setTab('changes');
+  /* Клик по файлу в summary («Коммит»): на «Изменения» + diff.
+     Из дерева — открываем панель справа без смены вкладки; CommitsView
+     на «Дереве» показывает содержимое файла (не diff). */
+  const openDiff = useCallback((path: string, hash: string) => {
     if (onOpenDiff) onOpenDiff(path, hash);
     else postCommand({ type: 'openDiff', file: path, hash });
-  }, [onOpenDiff, setTab]);
+  }, [onOpenDiff]);
+  const openInChanges = useCallback((path: string, hash: string) => {
+    setTab('changes');
+    openDiff(path, hash);
+  }, [openDiff, setTab]);
   const isCompareRange = detail?.hash.includes('..') ?? false;
   /* Кнопку держим в строке табов (видна при любой высоте панели), результат
      рендерим под subject. Сам стрим живёт в CommitsView (см. проп explainer). */
@@ -284,7 +288,7 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
                 activeSection="unstaged"
                 plain
                 defaultExpanded={false}
-                onClickFile={(file) => openInChanges(file.path, detail.hash)}
+                onClickFile={(file) => openDiff(file.path, detail.hash)}
                 onContextMenu={(e, file) => onContextMenu?.(e, getFileMenuItems(file, detail.hash))}
               />
             ))}

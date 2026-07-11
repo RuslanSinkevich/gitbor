@@ -214,10 +214,16 @@ export function getStashMenuItems(
   loc: Loc,
   showPrompt: ShowPrompt,
   requestApplyStash: RequestApplyStash,
-  onShowStash?: (index: string) => void,
+  onShowStash?: (stash: Stash) => void,
 ): SgContextMenuItem[] {
   return [
-    { label: loc.contextMenu.stashShow, action: () => onShowStash?.(stash.index) ?? postCommand({ type: 'stashShow', index: stash.index }) },
+    {
+      label: loc.contextMenu.stashShow,
+      action: () => {
+        if (onShowStash) onShowStash(stash);
+        else postCommand({ type: 'stashShow', index: stash.index });
+      },
+    },
     { divider: true },
     { label: loc.contextMenu.stashApply, action: () => requestApplyStash(stash) },
     { label: loc.contextMenu.stashPop, action: () => postCommand({ type: 'stashPopIndex', index: stash.index }) },

@@ -1,16 +1,19 @@
-import { DiffPanel } from '../diff';
+import { DiffPanel, FileContentPanel } from '../diff';
 
 interface Props {
   diffTarget: { file: string; hash: string };
+  /** `content` — снимок файла на ревизии (вкладка «Дерево файлов»). */
+  mode?: 'diff' | 'content';
   onExpandDiff?: (file: string, hash: string) => void;
 }
 
 /**
- * Правая (нижняя) панель просмотра: всегда diff выбранного файла.
- * История файла и Blame открываются отдельными модалками
- * (FileHistoryModal / BlameModal) из контекстных меню — единый механизм
- * для всех точек вызова, без дублирующей inline-панели.
+ * Правая (нижняя) панель просмотра: diff изменённого файла или содержимое
+ * снимка на ревизии. История / Blame — отдельные модалки из контекстного меню.
  */
-export function RightPanelContent({ diffTarget, onExpandDiff }: Props) {
+export function RightPanelContent({ diffTarget, mode = 'diff', onExpandDiff }: Props) {
+  if (mode === 'content') {
+    return <FileContentPanel file={diffTarget.file} hash={diffTarget.hash} />;
+  }
   return <DiffPanel file={diffTarget.file} hash={diffTarget.hash} onExpand={onExpandDiff} />;
 }

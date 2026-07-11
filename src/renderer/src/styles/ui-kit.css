@@ -17,7 +17,7 @@
 .sg-button--lg { padding: 6px 20px; font-size: 14px; }
 
 .sg-button--primary { background: var(--sg-primary); color: var(--sg-primary-foreground); }
-.sg-button--primary:hover { background: var(--sg-primary-hover); }
+.sg-button--primary:hover { background: var(--sg-primary-hover); box-shadow: var(--sg-shadow-sm); }
 .sg-button--secondary { background: var(--sg-surface); color: var(--sg-foreground); border-color: var(--sg-border); }
 .sg-button--secondary:hover { background: var(--sg-surface-hover); }
 .sg-button--danger { background: var(--sg-danger); color: var(--sg-danger-foreground); }
@@ -105,7 +105,7 @@
 /* === Dialog === */
 .sg-dialog {
   border: 1px solid var(--sg-border);
-  border-radius: var(--sg-radius);
+  border-radius: var(--sg-radius-lg);
   background: var(--sg-surface);
   color: var(--sg-foreground);
   padding: 0;
@@ -113,7 +113,7 @@
   inset: 0;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 32px);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  box-shadow: var(--sg-shadow-lg);
   /* Колоночная раскладка: шапка/футер flex-shrink:0, body растягивается.
      Без этого fullscreen-контент (compare-modal) перерастал диалог и
      скроллил его целиком — шапка уезжала наверх вместе с контентом. */
@@ -225,7 +225,7 @@
   border: 1px solid var(--sg-menu-border);
   border-radius: var(--sg-radius);
   padding: 2px 0;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  box-shadow: var(--sg-shadow-md);
 }
 .sg-context-menu-item {
   display: flex;
@@ -358,7 +358,7 @@
   font-size: 12px;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: var(--sg-shadow-md);
 }
 .sg-tooltip--portal {
   position: fixed;
@@ -386,7 +386,7 @@
   padding: 8px 14px;
   border-radius: var(--sg-radius);
   font-size: 13px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  box-shadow: var(--sg-shadow-md);
   animation: sg-toast-in 200ms ease;
 }
 .sg-toast--info { background: var(--sg-toast-info-bg); color: #1a1a1a; }

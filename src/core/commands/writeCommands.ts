@@ -7,6 +7,7 @@ import { SafetyNet } from '../safety/SafetyNet';
 import { PreflightChecks } from '../safety/PreflightChecks';
 import { StateManager } from '../state/StateManager';
 import { GitErrorClassifier } from '../git/GitErrorClassifier';
+import { resolveStashDropRef } from '../git/stashRef';
 import { mainLogger } from '../utils/Logger';
 
 function simpleResult(exitCode: number, stderr: string): OperationResult {
@@ -554,7 +555,18 @@ export async function stashApply(queue: OperationQueue, git: GitExecutor, state:
 }
 
 export async function stashDrop(queue: OperationQueue, git: GitExecutor, state: StateManager, index: string): Promise<OperationResult> {
-  return gitExecSimple(queue, git, state, 'stashDrop', ['stash', 'drop', index]);
+  return gitWrite(queue, state, 'stashDrop', async (timing) => {
+    const execStart = Date.now();
+    // Hash (из SafetyNet / recovery) → stash@{n}: `git stash drop` hash не принимает.
+    const dropRef = await resolveStashDropRef(git, index);
+    if (!dropRef) {
+      timing.execMs = Date.now() - execStart;
+      return { success: false, error: `stash ${index} not found`, rollbackAvailable: false };
+    }
+    const r = await git.exec(['stash', 'drop', dropRef]);
+    timing.execMs = Date.now() - execStart;
+    return simpleResult(r.exitCode, r.stderr);
+  }, 'refreshAll');
 }
 
 export async function commit(queue: OperationQueue, git: GitExecutor, state: StateManager, message: string, amend?: boolean): Promise<OperationResult> {

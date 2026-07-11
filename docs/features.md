@@ -298,5 +298,5 @@ Common behavior: streaming where it makes sense, a second click on the active bu
 
 ### Distribution
 
-- Electron-builder config for Windows (NSIS + portable), macOS (DMG), Linux (AppImage + deb)
+- Electron-builder config for Windows (NSIS + portable), macOS (DMG), Linux (AppImage + deb + rpm)
 - Build: `npm run dist:win`, `npm run dist:mac`, `npm run dist:linux`

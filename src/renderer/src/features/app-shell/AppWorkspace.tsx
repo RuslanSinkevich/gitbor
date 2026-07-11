@@ -37,6 +37,8 @@ interface Props {
   setMergeEditorFile: (file: string | null) => void;
   setRebaseOnto: (onto: string | null) => void;
   graphFocusNonce: number;
+  /** Бамп → вкладка «Изменения» в CommitsView (меню stash). */
+  revealChangesNonce?: number;
   soloBranch: string | null;
   hiddenBranches: Set<string>;
   branchPrefs: BranchPrefsProp;
@@ -51,6 +53,7 @@ interface Props {
   onOpenActivity: () => void;
   onSelectCommit: (hash: string | null) => void;
   onSelectRef: (hash: string) => void;
+  onShowStashChanges?: (hash: string) => void;
   onMerge: (source: string) => void;
   showPrompt: ShowPromptFn;
   requestCheckout: RequestCheckout;
@@ -83,6 +86,7 @@ export function AppWorkspace({
   setMergeEditorFile,
   setRebaseOnto,
   graphFocusNonce,
+  revealChangesNonce = 0,
   soloBranch,
   hiddenBranches,
   branchPrefs,
@@ -97,6 +101,7 @@ export function AppWorkspace({
   onOpenActivity,
   onSelectCommit,
   onSelectRef,
+  onShowStashChanges,
   onMerge,
   showPrompt,
   requestCheckout,
@@ -189,6 +194,7 @@ export function AppWorkspace({
                   onContextMenu={onContextMenu}
                   onSwitchView={setViewMode}
                   onSelectRef={onSelectRef}
+                  onShowStashChanges={onShowStashChanges}
                   onMerge={onMerge}
                   showPrompt={showPrompt}
                   requestCheckout={requestCheckout}
@@ -213,6 +219,7 @@ export function AppWorkspace({
                     setRebaseOnto={setRebaseOnto}
                     onCompareTo={onCompareTo}
                     focusNonce={graphFocusNonce}
+                    revealChangesNonce={revealChangesNonce}
                     soloBranch={soloBranch}
                     hidden={hiddenBranches}
                     onClearSolo={onClearSolo}

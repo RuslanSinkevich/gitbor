@@ -157,6 +157,7 @@
 
 /* Items */
 .item {
+  position: relative;
   display: flex;
   align-items: center;
   padding: 3px 10px 3px 28px;
@@ -166,6 +167,8 @@
   line-height: 1.25;
   color: var(--sg-foreground);
   transition: background var(--sg-transition);
+  /* Плашка действий выезжает из-за правого края — прячем то, что за ним. */
+  overflow: hidden;
 }
 
 .item:hover {
@@ -201,6 +204,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  flex: 1;
   line-height: 1.25;
 }
 
@@ -223,16 +227,74 @@
   flex-shrink: 0;
 }
 
-/* Fork-style hover-overlay над строкой ветки. Идле — невидим, не съедает
-   layout; при hover/focus-within строки .item — opacity 1. Active-кнопки
-   (например, pinned ветка) видны всегда, чтобы пользователь сверху видел,
-   какие ветки участвуют в графе/закреплены. */
+/* Блок действий строки ветки. В покое сдвинут за правый край (translateX)
+   и не занимает ширину — имя получает всю строку. При hover/focus-within
+   выезжает влево непрозрачной плашкой поверх хвоста имени (не сквозь текст).
+   Постоянные состояния (pinned/solo/заметка) показываются отдельными
+   маркерами справа от имени, чтобы их было видно и без наведения. */
 .branchActions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
   display: inline-flex;
-  gap: 0;
-  margin-left: 4px;
   align-items: center;
-  flex-shrink: 0;
+  gap: 0;
+  padding: 0 6px 0 4px;
+  background: var(--sg-surface-hover);
+  transform: translateX(110%);
+  opacity: 0;
+  pointer-events: none;
+  /* ease-out делает выдвижение заметным: быстрый старт, плавная остановка. */
+  transition: transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1), opacity 120ms ease;
+  /* Лёгкая тень слева — плашка читается как отдельный «тулбар», а не пятна
+     поверх текста. Стык с именем дополнительно смягчает ::before-градиент. */
+  box-shadow: -4px 0 6px -4px rgba(0, 0, 0, 0.28);
+  z-index: 2;
+}
+
+/* Мягкий градиент-подводка слева, чтобы стык плашки с именем не резал букву. */
+.branchActions::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 14px;
+  transform: translateX(-100%);
+  background: linear-gradient(to right, transparent, var(--sg-surface-hover));
+  pointer-events: none;
+}
+
+/* Невидимая зона наведения у правого края строки. Блок кнопок выезжает
+   только при наведении на неё (или на сам блок), а не на всю строку —
+   чтобы кнопки не мелькали при обычном движении мыши по списку. */
+.branchHotzone {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 80px;
+  z-index: 1;
+}
+
+/* :focus-visible (а не focus-within): держим блок открытым при заходе с
+   клавиатуры (Tab), но НЕ после клика мышью — иначе кнопка сохраняет фокус
+   и блок «залипает» открытым, пока не кликнешь мимо. */
+.branchHotzone:hover ~ .branchActions,
+.branchActions:hover,
+.branchActions:has(:focus-visible) {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Плашка и подводка под цвет выбранной строки — иначе виден шов. */
+.itemSelected .branchActions {
+  background: color-mix(in srgb, var(--sg-primary) 24%, var(--sg-surface));
+}
+.itemSelected .branchActions::before {
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--sg-primary) 24%, var(--sg-surface)));
 }
 
 .branchActionBtn {
@@ -247,16 +309,24 @@
   color: var(--sg-foreground-muted);
   cursor: pointer;
   border-radius: 3px;
-  opacity: 0;
-  transition: opacity var(--sg-transition), background var(--sg-transition);
+  transition: background var(--sg-transition), color var(--sg-transition);
 }
 
-.item:hover .branchActionBtn,
-.item:focus-within .branchActionBtn,
-.branchActionBtn.branchActionActive,
-.branchActionBtn.branchActionFilled,
-.branchActionBtn:focus-visible {
-  opacity: 1;
+/* Постоянный маркер состояния справа от имени (не интерактивный): виден
+   всегда, отражает pinned/solo/заметку с одного взгляда. */
+.branchStateMarker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--sg-primary);
+  pointer-events: none;
+}
+
+/* info-маркер для ветки с заметкой — серый (не активное состояние, а
+   индикатор наличия), чтобы не путать с «активной» подсветкой. */
+.branchStateMarkerMuted {
+  color: var(--sg-foreground-muted);
 }
 
 /* Заметка с контентом: кнопка info всегда видна (есть что показать), но

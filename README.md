@@ -46,7 +46,7 @@ npm run format       # Prettier format
 ```bash
 npm run dist:win     # Windows (NSIS + portable)
 npm run dist:mac     # macOS (DMG)
-npm run dist:linux   # Linux (AppImage + deb)
+npm run dist:linux   # Linux (AppImage + deb + rpm)
 ```
 
 ---
@@ -59,9 +59,9 @@ npm run dist:linux   # Linux (AppImage + deb)
 | UI | React 18, TypeScript 5.9, Vite 6 |
 | Styles | CSS Modules, `--sg-*` custom properties |
 | File watcher | chokidar 4 |
-| Tests | Vitest 4.1 (unit, <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> files / <!-- TESTS_COUNT -->635<!-- /TESTS_COUNT --> tests), Playwright 1.59 (E2E, Windows) |
+| Tests | Vitest 4.1 (unit, <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> files / <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> tests), Playwright 1.59 (E2E, Windows) |
 | DX | husky 9 + lint-staged 17 (pre-commit) + `npm test` (pre-push), `npm run analyze` (rollup-plugin-visualizer) |
-| Git | Bundled git binary (`resources/git/{platform}/git`) |
+| Git | System git via `PATH` (`execFile('git', …)` in `GitExecutor`) |
 
 ---
 
@@ -80,8 +80,8 @@ npm run dist:linux   # Linux (AppImage + deb)
 │  Main Process (Node.js)                                  │
 │  Application + Safety + Git Layer + SSH Key Manager      │
 ├──────────────────────────────────────────────────────────┤
-│  Bundled Git                                             │
-│  resources/git/{platform}/git                            │
+│  System Git                                              │
+│  resolved from PATH (execFile('git', …))                 │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -230,7 +230,7 @@ gitbor/
 │       ├── package.json
 │       └── vite.config.ts
 │
-├── tests/                         # Unit tests (Vitest, <!-- TESTS_COUNT -->635<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> files)
+├── tests/                         # Unit tests (Vitest, <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> files)
 │   ├── git/                       # Parsers, managers
 │   ├── commands/                  # writeCommands (incl. batch discardFiles), readCommands, ConflictManager
 │   ├── state/                     # StateManager (multi-repo), repoSlice
@@ -245,11 +245,12 @@ gitbor/
 │   ├── utils/                     # pathSecurity, repoPathGuard, AppError, Logger
 │   └── i18n/                      # Localization completeness, tpl
 │
-├── tests-e2e/                     # Playwright E2E (Windows-only, 3 specs)
+├── tests-e2e/                     # Playwright E2E (Windows-only, 4 specs)
 │   ├── helpers.ts                 # launchApp(), makeFixtureRepo()
 │   ├── app-launch.spec.ts         # Smoke: titlebar visible
 │   ├── open-repo.spec.ts          # autoOpenRepo via cwd=fixture
-│   └── switch-tab.spec.ts         # Multi-repo tab switching
+│   ├── switch-tab.spec.ts         # Multi-repo tab switching
+│   └── safety-flow.spec.ts        # index.lock dialog, merge conflict, retry toast, orphan stash
 │
 ├── docs/                          # Documentation
 │   ├── getting-started.md         # Setup and dev workflow
@@ -257,6 +258,8 @@ gitbor/
 │   ├── features.md                # Feature list
 │   ├── contributing.md            # Contributing guide
 │   ├── testing.md                 # Testing (Vitest + Playwright)
+│   ├── safety-error-handling.md   # GitErrorClass, SafetyDialog, preflight
+│   ├── BUILD.md                   # Packaging, user-data, auto-update
 │   ├── cross-platform-checklist.md # Cross-platform checklist
 │   └── ru/                        # Russian translations
 │
@@ -285,7 +288,7 @@ gitbor/
 - **Interactive rebase** — pick/reword/edit/squash/fixup/drop, progress banner
 - **Multi-repo tabs** — independent per-repo engines, the `+` tab opens RepoManager; open tabs and the active one are restored on next launch
 - **Repository Manager** — recent list, open/clone/init; reachable via the `+` tab or by clicking the active tab again
-- **AI commit messages** — one-click generation from staged diff; OpenAI-compatible (OpenAI/Ollama/LM Studio/DeepSeek/Groq) and Qwen Web (chat.qwen.ai session token); commit language `auto`/`en`/`ru`
+- **AI commit messages & helpers** — one-click commit message from staged diff plus 5 extra helpers (Explain Commit / Smart Stash Naming / Explain Reflog / Explain Conflict / Semantic Search); OpenAI-compatible (OpenAI/Ollama/LM Studio/DeepSeek/Groq/YandexGPT) and Qwen Web (chat.qwen.ai session token); AI response language `auto`/`en`/`ru`; privacy gate blocks foreign providers by default
 - **Custom menu bar** — HTML/CSS menu with Edit actions, keyboard shortcuts (no native menu)
 - **SSH Keys Manager** — generate, view, copy, delete SSH keys
 - **Repository Settings** — user.name/email, global/local toggle
@@ -331,7 +334,7 @@ Each open repository is a fully independent set of services — a long `git pull
   - `QwenWebProvider` — unofficial bridge to `chat.qwen.ai` via session token from `localStorage` (no DashScope API key needed).
 - **`AiConfigStore`** — `{userData}/ai-config.json`, atomic write, API key / Qwen token encrypted via Electron `safeStorage` (DPAPI / Keychain / libsecret); fallback to `plain:` prefix when key store is unavailable.
 - **`AiHandlers`** — per-`requestId` `AbortController`, `cancelAll()` on shutdown, secret masking (`••••••••`) in `getConfig` for the UI.
-- **Prompts** — system + user prompts with commit language `auto`/`en`/`ru`; diff truncated to `MAX_DIFF_CHARS = 6000` (head 70% + tail 20%).
+- **Prompts** — system + user prompts with AI response language `auto`/`en`/`ru`; diff truncated to `MAX_DIFF_CHARS = 6000` (head 70% + tail 20%).
 - **UI** — `AiSettingsDialog` (preset `select` with Cloud/Local/Web optgroups + Custom), `AiGenerateButton` in the commit bar, hot path through `useAiConfig`.
 
 ## Data Safety
@@ -394,6 +397,7 @@ Two-sided system: both main and renderer log only in dev mode; production consol
 | [Contributing](docs/contributing.md) | Code style, conventions, PR checklist |
 | [Testing](docs/testing.md) | Vitest setup, test structure, manual feature testing |
 | [Safety & Error Handling](docs/safety-error-handling.md) | `GitErrorClass`, `SafetyDialog`, preflight, journal |
+| [Build & Distribution](docs/BUILD.md) | Packaging per OS, user-data locations, auto-update |
 
 Russian translations: [`docs/ru/`](docs/ru/)
 
@@ -401,7 +405,7 @@ Russian translations: [`docs/ru/`](docs/ru/)
 
 ## Status
 
-Version 0.1.0. Backend and UI feature-complete for MVP. <!-- TESTS_COUNT -->635<!-- /TESTS_COUNT --> unit tests across <!-- TESTS_FILES -->58<!-- /TESTS_FILES --> files (Vitest 4.1) plus 3 Playwright E2E specs (Windows). ESLint + Prettier configured; husky 9 + lint-staged 17 enforce `eslint --fix` and project-wide `tsc --noEmit` on each commit; `npm test` runs in `.husky/pre-push` (bypass via `SKIP_TESTS=1`). CI: `ci.yml` runs lint/typecheck/test/build on Ubuntu / Windows / macOS (Node 20) for push events; `pr.yml` runs the same plus E2E on Windows / Node 22 for pull requests. 0 npm audit vulnerabilities (root + renderer). Not production-tested.
+Version 0.1.19. Backend and UI feature-complete for MVP. <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> unit tests across <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> files (Vitest 4.1) plus 4 Playwright E2E specs (Windows). ESLint + Prettier configured; husky 9 + lint-staged 17 enforce `eslint --fix` and project-wide `tsc --noEmit` on each commit; `npm test` runs in `.husky/pre-push` (bypass via `SKIP_TESTS=1`). CI: `ci.yml` runs lint/typecheck/test/build on Ubuntu / Windows / macOS (Node 20) for push events; `pr.yml` runs the same plus E2E on Windows / Node 22 for pull requests. 0 npm audit vulnerabilities (root + renderer). Not production-tested.
 
 ## License
 
