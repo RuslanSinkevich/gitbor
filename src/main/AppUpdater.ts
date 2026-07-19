@@ -4,6 +4,11 @@ import { mainLogger } from '../core/utils/Logger';
 import { isNewerVersion } from '../core/utils/semver';
 import type { MainEvent } from '../core/bridge/messages';
 import { BUILD_FLAVOR } from '../core/buildFlags';
+import {
+  collectUpdateArtifactNames,
+  decideUpdateAcceptance,
+  resolveUpdateFeedUrl,
+} from './updateFlavor';
 
 const STARTUP_CHECK_DELAY_MS = 8_000;
 const NOTES_FETCH_TIMEOUT_MS = 4_000;
@@ -56,29 +61,18 @@ function isPortableBuild(): boolean {
 }
 
 /**
- * electron-builder зашивает `publish.url` (`stable/win/`) в app-update.yml.
- * Но Linux/macOS-артефакты лежат в других папках бакета (`stable/linux/`,
- * `stable/mac/`), а electron-updater ищет `latest-linux.yml` /
- * `latest-mac.yml` относительно feed-URL. Без переопределения Linux искал
- * бы `stable/win/latest-linux.yml` и обновление не находилось бы.
- *
- * Поэтому feed-URL выставляем по платформе в рантайме. Для Windows значение
- * совпадает с app-update.yml — поведение не меняется. Linux auto-update
- * поддерживается только для AppImage (deb обновляется через apt).
+ * electron-builder зашивает publish.url в app-update.yml; на Linux/macOS
+ * без рантайм-override updater искал бы не тот latest-*.yml. No-AI — всегда
+ * каталог no_ai (win/no_ai и т.п.), иначе скачается чужой Setup (регрессия 0.1.17).
+ * Политика URL — resolveUpdateFeedUrl (покрыта тестами).
  */
 function configurePlatformFeedUrl(): void {
-  const base =
-    process.env.GITBOR_UPDATE_BASE_URL ??
-    'https://storage.yandexcloud.net/gitbor/stable';
-  const dir =
-    process.platform === 'win32'
-      ? (BUILD_FLAVOR as string) === 'no-ai'
-        ? 'win/no_ai'
-        : 'win'
-      : process.platform === 'darwin'
-        ? 'mac'
-        : 'linux';
-  autoUpdater.setFeedURL({ provider: 'generic', url: `${base}/${dir}/` });
+  const url = resolveUpdateFeedUrl({
+    platform: process.platform,
+    flavor: BUILD_FLAVOR,
+    baseUrl: process.env.GITBOR_UPDATE_BASE_URL,
+  });
+  autoUpdater.setFeedURL({ provider: 'generic', url });
 }
 
 /**
@@ -102,7 +96,9 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
   }
 
   autoUpdater.logger = mainLogger;
-  autoUpdater.autoDownload = true;
+  // Скачиваем сами после проверки flavor — иначе autoDownload может
+  // начать тянуть чужой Setup до того, как мы успеем отказаться.
+  autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   configurePlatformFeedUrl();
 
@@ -112,9 +108,48 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
     mainLogger.warn(`appUpdater: ${err.message}`);
   });
 
+  autoUpdater.on('update-available', (info) => {
+    const decision = decideUpdateAcceptance({
+      remoteVersion: info.version,
+      currentVersion: app.getVersion(),
+      flavor: BUILD_FLAVOR,
+      info,
+    });
+    if (!decision.ok) {
+      if (decision.reason === 'flavor-mismatch') {
+        mainLogger.warn(
+          `appUpdater: refusing update ${info.version} — artifact flavor mismatch for ${BUILD_FLAVOR} (${collectUpdateArtifactNames(info).join(', ') || 'no files'})`,
+        );
+      } else {
+        mainLogger.debug(
+          `appUpdater: available ${info.version} skipped (${decision.reason}) vs ${app.getVersion()}`,
+        );
+      }
+      return;
+    }
+    void autoUpdater.downloadUpdate().catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      mainLogger.warn(`appUpdater: download failed: ${msg}`);
+    });
+  });
+
   autoUpdater.on('update-downloaded', (info) => {
-    if (!isNewerVersion(info.version, app.getVersion())) {
-      mainLogger.debug(`appUpdater: downloaded ${info.version} is not newer than ${app.getVersion()}, ignoring`);
+    const decision = decideUpdateAcceptance({
+      remoteVersion: info.version,
+      currentVersion: app.getVersion(),
+      flavor: BUILD_FLAVOR,
+      info,
+    });
+    if (!decision.ok) {
+      if (decision.reason === 'flavor-mismatch') {
+        mainLogger.warn(
+          `appUpdater: refusing install of ${info.version} — artifact flavor mismatch for ${BUILD_FLAVOR} (${collectUpdateArtifactNames(info).join(', ') || 'no files'})`,
+        );
+      } else {
+        mainLogger.debug(
+          `appUpdater: downloaded ${info.version} skipped (${decision.reason}) vs ${app.getVersion()}`,
+        );
+      }
       return;
     }
     void fetchReleaseNotes(info.version).then((notes) => {
@@ -152,6 +187,27 @@ export async function runManualUpdateCheck(notify: (event: MainEvent) => void): 
     // временно отдавать latest.yml с откатом/старой версией — тогда показывать
     // «доступно обновление» нельзя (иначе у юзера с 0.1.17 «обновление» 0.1.16).
     if (remote && isNewerVersion(remote, current)) {
+      const updateInfo = result?.updateInfo ?? { path: undefined, files: [] };
+      const decision = decideUpdateAcceptance({
+        remoteVersion: remote,
+        currentVersion: current,
+        flavor: BUILD_FLAVOR,
+        info: updateInfo,
+      });
+      if (!decision.ok) {
+        mainLogger.warn(
+          `appUpdater: manual check found ${remote}, but rejected (${decision.reason}) for ${BUILD_FLAVOR}`,
+        );
+        notify({
+          type: 'appUpdateManualResult',
+          result: 'error',
+          error:
+            decision.reason === 'flavor-mismatch'
+              ? 'update flavor mismatch'
+              : `update rejected: ${decision.reason}`,
+        });
+        return;
+      }
       notify({ type: 'appUpdateManualResult', result: 'available', version: remote, current });
       return;
     }
