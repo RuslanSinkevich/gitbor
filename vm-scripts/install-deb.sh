@@ -56,6 +56,17 @@ echo "    deb: $DEB"
 echo "==> 4. Ustanovka cherez apt"
 sudo apt install -y "$DEB"
 
+echo "==> 5. Proverka chrome-sandbox (setuid-root)"
+SANDBOX=/opt/GitBor/chrome-sandbox
+if [ -f "$SANDBOX" ]; then
+  sudo chown root:root "$SANDBOX"
+  sudo chmod 4755 "$SANDBOX"
+  ls -l "$SANDBOX"
+else
+  echo "OSHIBKA: net $SANDBOX — deb sobran krivo"
+  exit 1
+fi
+
 echo "==> Obnovlenie bazy menyu i ikonok"
 update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
 gtk-update-icon-cache /usr/share/icons/hicolor >/dev/null 2>&1 || true

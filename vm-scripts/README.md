@@ -15,7 +15,8 @@
 | `dev.sh` | Каждый запуск в dev | Чинит sandbox (если нужно) и поднимает `npm run dev` |
 | `release-linux.sh` | После правок на Windows, для релиза | Синкает код Win→VM, ставит зависимости, чистит старьё, собирает AppImage+deb+rpm, кладёт в `linux-release/` (видно на Windows) |
 | `install-appimage.sh` | Поставить AppImage с ярлыком | Кладёт AppImage в `~/Applications`, создаёт иконку и ярлык в меню (без админа). Авто-апдейт заменяет файл на месте |
-| `install-deb.sh` | Поставить как обычный юзер (Ubuntu/Debian) | Сносит старую установку (AppImage + deb), ставит свежий `.deb` через apt. Иконка и меню — автоматом. Авто-апдейта нет |
+| `install-deb.sh` | Поставить как обычный юзер (Ubuntu/Debian) | Сносит старую установку (AppImage + deb), ставит свежий `.deb` через apt. Иконка и меню — автоматом. Авто-апдейта нет. После установки сам чинит chrome-sandbox |
+| `fix-chrome-sandbox.sh` | deb падает: SUID sandbox / SIGTRAP | `chown root` + `chmod 4755` на `/opt/GitBor/chrome-sandbox` |
 | `uninstall-clean.sh` | Полностью снести GitBor | Удаляет deb, AppImage, ярлыки, иконки, конфиг (`~/.config/GitBor`), кэш, остатки в `/opt`. Для чистой переустановки |
 | `run-gitbor-vm.sh` | Запуск установленного GitBor в этой VM | Костыль для VirtualBox без 3D: форсит X11 + software-rendering. На реальном железе не нужен |
 | `fix-desktop-vm.sh` | Если ярлык в VM не запускается / нет иконки | Костыль для VM: правит `.desktop` (X11+disable-gpu, абсолютный путь иконки). На реальном железе не нужен |
@@ -41,6 +42,9 @@ bash /media/sf_gitbor/vm-scripts/install-appimage.sh
 
 # поставить как обычный юзер через deb (иконка автоматом, без авто-апдейта)
 bash /media/sf_gitbor/vm-scripts/install-deb.sh
+
+# если deb падает: SUID sandbox / SIGTRAP
+bash /media/sf_gitbor/vm-scripts/fix-chrome-sandbox.sh
 ```
 
 ## Релизный цикл Linux
@@ -92,7 +96,7 @@ chmod +x GitBor-0.1.XX.AppImage
 | `$'\r': command not found` | скрипт сохранён в Windows (CRLF) | конвертировать в LF |
 | `Cannot find module '@rollup/rollup-linux-x64-gnu'` | у рендерера свой `node_modules` (Windows-бинарь) | в `src/renderer`: удалить `node_modules` + `package-lock.json`, `npm install` |
 | `ERESOLVE` на `eslint-plugin-jsx-a11y` | плагин не объявил поддержку eslint 10 | `npm install --legacy-peer-deps` |
-| `chrome-sandbox ... mode 4755` (dev/deb) | sandbox не setuid-root | `chown root:root` + `chmod 4755` (делает `dev.sh`) |
+| `chrome-sandbox ... mode 4755` (dev/deb) | sandbox не setuid-root | `bash .../fix-chrome-sandbox.sh` (или `dev.sh` для node_modules) |
 | `error loading libfuse.so.2` | нет FUSE | `--appimage-extract-and-run` или `sudo apt install libfuse2` |
 | `SUID sandbox ... aborting` (AppImage) | userns зарезан AppArmor | `--no-sandbox` или `sysctl kernel.apparmor_restrict_unprivileged_userns=0` |
 | `/media/sf_gitbor` пустая | не в группе `vboxsf` без reboot | `usermod -aG vboxsf $USER` + reboot |
