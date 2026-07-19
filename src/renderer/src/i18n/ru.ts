@@ -435,6 +435,9 @@ export const ru: LocaleMap = {
     fetchRemote: 'Получить (Fetch) «{remote}»',
     fetchBranch: 'Обновить ветку (fetch)',
     fetchBranchTitle: 'Стянуть «{branch}» из remote (fast-forward)',
+    fetchBranchPickRemote: 'У ветки нет upstream. Укажите remote-родителя — после обновления tracking сохранится.',
+    fetchBranchRemoteLabel: 'Remote',
+    fetchBranchNoRemotes: 'В репозитории нет remote. Добавьте remote и повторите.',
     editRemote: 'Редактировать «{remote}»...',
     deleteRemote: 'Удалить «{remote}»...',
     stashApply: 'Применить...',
@@ -643,6 +646,8 @@ export const ru: LocaleMap = {
   },
   operations: {
     fetchSuccess: 'Fetch выполнен',
+    fetchBranchSuccess: 'Ветка «{branch}» обновлена',
+    fetchBranchSuccessFallback: 'Ветка обновлена',
     pullSuccess: 'Pull выполнен',
     pushSuccess: 'Push выполнен',
     stashSuccess: 'Изменения отложены',

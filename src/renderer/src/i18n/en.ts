@@ -432,6 +432,9 @@ export const en = {
     fetchRemote: "Fetch '{remote}'",
     fetchBranch: 'Update branch (fetch)',
     fetchBranchTitle: "Fetch '{branch}' from remote (fast-forward)",
+    fetchBranchPickRemote: 'This branch has no upstream. Pick a remote parent — tracking will be saved after update.',
+    fetchBranchRemoteLabel: 'Remote',
+    fetchBranchNoRemotes: 'This repository has no remotes. Add a remote and try again.',
     editRemote: "Edit '{remote}'...",
     deleteRemote: "Delete '{remote}'...",
     stashApply: 'Apply...',
@@ -640,6 +643,8 @@ export const en = {
   },
   operations: {
     fetchSuccess: 'Fetch completed',
+    fetchBranchSuccess: "Branch '{branch}' updated",
+    fetchBranchSuccessFallback: 'Branch updated',
     pullSuccess: 'Pull completed',
     pushSuccess: 'Push completed',
     stashSuccess: 'Changes stashed',

@@ -320,17 +320,21 @@ export async function stash(
  * НЕ обходим это (--force сломал бы историю), а возвращаем понятную ошибку,
  * чтобы UI предложил переключиться и смержить вручную.
  *
- * Remote определяем по upstream ветки (`branch.<name>.remote`); если его нет
- * — берём единственный remote, а при нескольких дефолтимся на `origin`.
+ * Remote: явный `remoteOverride` (из UI-модалки) → иначе upstream
+ * (`branch.<name>.remote`) → иначе единственный remote / `origin`.
+ * `setUpstream` — после успешного FF прописать tracking на `<remote>/<branch>`.
  */
 export async function fetchBranchFastForward(
   queue: OperationQueue, git: GitExecutor, state: StateManager, branch: string,
+  remoteOverride?: string, setUpstream?: boolean,
 ): Promise<OperationResult> {
   return gitWrite(queue, state, 'fetch', async (timing) => {
     const execStart = Date.now();
 
-    const upstreamRemote = (await git.exec(['config', '--get', `branch.${branch}.remote`])).stdout.trim();
-    let remote = upstreamRemote;
+    let remote = remoteOverride?.trim() || '';
+    if (!remote) {
+      remote = (await git.exec(['config', '--get', `branch.${branch}.remote`])).stdout.trim();
+    }
     if (!remote) {
       const remotesOut = (await git.exec(['remote'])).stdout.trim();
       const remotes = remotesOut ? remotesOut.split('\n').map(r => r.trim()).filter(Boolean) : [];
@@ -363,6 +367,13 @@ export async function fetchBranchFastForward(
           : r.stderr,
       };
     }
+
+    if (setUpstream) {
+      // Tracking после успешного FF — следующие обновления без модалки.
+      // Ошибку set-upstream не пробрасываем: сам fetch уже прошёл.
+      await git.exec(['branch', '--set-upstream-to', `${remote}/${branch}`, branch]);
+    }
+
     return { success: true, rollbackAvailable: false };
   }, 'refreshAll');
 }

@@ -83,7 +83,7 @@ type RendererCommandCore =
   | { type: 'renameBranch'; oldName: string; newName: string }
   | { type: 'deleteBranch'; branch: string; force?: boolean }
   /** Стянуть неактивную локальную ветку по fast-forward (`git fetch <remote> <branch>:<branch>`). */
-  | { type: 'fetchBranch'; branch: string }
+  | { type: 'fetchBranch'; branch: string; remote?: string; setUpstream?: boolean }
 
   // Tag operations
   | { type: 'createTag'; name: string; ref: string; message?: string }

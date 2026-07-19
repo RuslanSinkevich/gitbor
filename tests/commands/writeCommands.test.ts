@@ -439,6 +439,23 @@ describe('writeCommands', () => {
       expect(r.success).toBe(true);
     });
 
+    it('uses explicit remote override over upstream config', async () => {
+      const git = makeScriptedGit({ 'config --get branch': { stdout: 'origin' } });
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      await Write.fetchBranchFastForward(asQueue(queue), asGit(git), asState(state), 'feature', 'upstream');
+      expect(git.exec).toHaveBeenCalledWith(['fetch', 'upstream', 'feature:feature']);
+    });
+
+    it('sets upstream after successful fetch when requested', async () => {
+      const git = makeScriptedGit({ 'config --get branch': { stdout: 'origin' } });
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const r = await Write.fetchBranchFastForward(asQueue(queue), asGit(git), asState(state), 'feature', 'origin', true);
+      expect(r.success).toBe(true);
+      expect(git.exec).toHaveBeenCalledWith(['branch', '--set-upstream-to', 'origin/feature', 'feature']);
+    });
+
     it('falls back to the only remote when no upstream configured', async () => {
       // Точный mock: config пустой (нет upstream), `git remote` — один remote.
       const git = makeMockGit();

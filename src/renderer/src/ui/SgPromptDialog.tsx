@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import { SgDialog } from './SgDialog';
+import { SgSelect } from './SgSelect';
 import { t } from '../i18n';
 
 /**
- * Два различных режима диалога:
+ * Режимы диалога:
  *  - `input`   — поле ввода + Cancel/Confirm; onConfirm получает строку.
  *  - `confirm` — только сообщение + Cancel/Confirm; onConfirm получает ''.
+ *  - `select`  — выпадающий список + Cancel/Confirm; onConfirm получает value.
  *
  * РАНЬШЕ режим вычислялся из наличия `confirmLabel`, и любая кастомная
  * надпись на кнопке Confirm молча отбирала у диалога поле ввода. Это был
@@ -44,11 +46,27 @@ interface PromptConfirmOptions {
   onConfirm: (checkboxChecked?: boolean) => void;
 }
 
-export type ShowPromptOptions = PromptInputOptions | PromptConfirmOptions;
+export interface PromptSelectOption {
+  value: string;
+  label: string;
+}
+
+interface PromptSelectOptions {
+  kind: 'select';
+  title: string;
+  label?: string;
+  message?: string;
+  options: PromptSelectOption[];
+  defaultValue?: string;
+  confirmLabel?: string;
+  onConfirm: (value: string) => void;
+}
+
+export type ShowPromptOptions = PromptInputOptions | PromptConfirmOptions | PromptSelectOptions;
 export type ShowPromptFn = (opts: ShowPromptOptions) => void;
 
 interface PromptState {
-  kind: 'input' | 'confirm';
+  kind: 'input' | 'confirm' | 'select';
   title: string;
   label: string;
   defaultValue: string;
@@ -56,6 +74,7 @@ interface PromptState {
   message: string;
   bullets: string[];
   checkbox?: PromptCheckbox;
+  options: PromptSelectOption[];
   confirmLabel: string;
   danger: boolean;
   allowEmpty: boolean;
@@ -76,10 +95,29 @@ export function usePromptDialog() {
         message: opts.message ?? '',
         bullets: opts.bullets ?? [],
         checkbox: opts.checkbox,
+        options: [],
         confirmLabel: opts.confirmLabel ?? '',
         danger: opts.danger ?? false,
         allowEmpty: true,
         onConfirm: (_value, checked) => opts.onConfirm(checked),
+      });
+      return;
+    }
+    if (opts.kind === 'select') {
+      const fallback = opts.defaultValue ?? opts.options[0]?.value ?? '';
+      setPrompt({
+        kind: 'select',
+        title: opts.title,
+        label: opts.label ?? '',
+        defaultValue: fallback,
+        placeholder: '',
+        message: opts.message ?? '',
+        bullets: [],
+        options: opts.options,
+        confirmLabel: opts.confirmLabel ?? '',
+        danger: false,
+        allowEmpty: false,
+        onConfirm: opts.onConfirm,
       });
       return;
     }
@@ -91,6 +129,7 @@ export function usePromptDialog() {
       placeholder: opts.placeholder ?? '',
       message: opts.message ?? '',
       bullets: [],
+      options: [],
       confirmLabel: opts.confirmLabel ?? '',
       danger: opts.danger ?? false,
       allowEmpty: opts.allowEmpty ?? false,
@@ -133,7 +172,9 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
     onClose();
   };
 
-  const disabled = prompt.kind === 'input' && !prompt.allowEmpty && !value.trim();
+  const disabled = (prompt.kind === 'input' || prompt.kind === 'select')
+    && !prompt.allowEmpty
+    && !value.trim();
 
   return (
     <SgDialog
@@ -175,6 +216,21 @@ export function SgPromptDialog({ prompt, onClose }: SgPromptDialogProps) {
                   {prompt.checkbox.warning}
                 </p>
               )}
+            </>
+          )
+        : prompt.kind === 'select'
+          ? (
+            <>
+              {prompt.message && (
+                <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--sg-foreground-muted)' }}>{prompt.message}</p>
+              )}
+              <SgSelect
+                label={prompt.label || undefined}
+                value={value}
+                options={prompt.options}
+                onChange={(e) => setValue(e.target.value)}
+                autoFocus
+              />
             </>
           )
         : (

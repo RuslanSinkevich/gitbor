@@ -39,6 +39,47 @@ export function promptTrackRemote(branch: Branch, loc: Loc, showPrompt: ShowProm
 }
 
 /**
+ * Обновить неактивную локальную ветку через `git fetch <remote> <b>:<b>`.
+ * С upstream — сразу; без — модалка выбора remote (родителя), после успеха
+ * ставим tracking, чтобы следующий раз не спрашивать.
+ */
+export function promptFetchBranch(
+  branch: Branch,
+  loc: Loc,
+  showPrompt: ShowPrompt,
+  remoteNames: string[],
+): void {
+  if (branch.upstream) {
+    postCommand({ type: 'fetchBranch', branch: branch.name });
+    return;
+  }
+  if (remoteNames.length === 0) {
+    showPrompt({
+      kind: 'confirm',
+      title: tpl(loc.contextMenu.fetchBranchTitle, { branch: branch.name }),
+      message: loc.contextMenu.fetchBranchNoRemotes,
+      confirmLabel: loc.dialog.close,
+      onConfirm: () => {},
+    });
+    return;
+  }
+  const defaultRemote = remoteNames.includes('origin') ? 'origin' : remoteNames[0];
+  showPrompt({
+    kind: 'select',
+    title: tpl(loc.contextMenu.fetchBranchTitle, { branch: branch.name }),
+    message: loc.contextMenu.fetchBranchPickRemote,
+    label: loc.contextMenu.fetchBranchRemoteLabel,
+    options: remoteNames.map((name) => ({ value: name, label: name })),
+    defaultValue: defaultRemote,
+    confirmLabel: loc.contextMenu.fetchBranch,
+    onConfirm: (remote) => {
+      if (!remote) return;
+      postCommand({ type: 'fetchBranch', branch: branch.name, remote, setUpstream: true });
+    },
+  });
+}
+
+/**
  * Колбэки для Fork-style фич веток (pin / solo / hide / info).
  * Опциональные — старые вызывающие места работают без них (фичи просто
  * не появятся в меню). Когда передан колбэк — добавляем соответствующий
@@ -62,6 +103,7 @@ export function getBranchMenuItems(
   branch: Branch, currentBranch: string, loc: Loc, showPrompt: ShowPrompt,
   requestCheckout: RequestCheckout, onMerge?: (source: string) => void,
   extras: BranchExtrasMenu = {},
+  remoteNames: string[] = [],
 ): SgContextMenuItem[] {
   const short = leaf(branch.name);
   const shortCurrent = leaf(currentBranch);
@@ -79,16 +121,16 @@ export function getBranchMenuItems(
       action: () => onMerge ? onMerge(branch.name) : postCommand({ type: 'merge', branch: branch.name }),
     });
   }
-  // Обновить неактивную ЛОКАЛЬНУЮ ветку с upstream без переключения:
+  // Обновить неактивную ЛОКАЛЬНУЮ ветку без переключения:
   // `git fetch <remote> <branch>:<branch>` (fast-forward). Активной и
   // remote-веткам пункт не показываем — там смысла нет (у remote своя fetch,
-  // активную тянут обычным Pull).
-  if (!branch.isCurrent && !branch.isRemote && branch.upstream) {
+  // активную тянут обычным Pull). Без upstream — модалка выбора remote.
+  if (!branch.isCurrent && !branch.isRemote) {
     items.push({ divider: true });
     items.push({
       label: loc.contextMenu.fetchBranch,
       title: tpl(loc.contextMenu.fetchBranchTitle, { branch: branch.name }),
-      action: () => postCommand({ type: 'fetchBranch', branch: branch.name }),
+      action: () => promptFetchBranch(branch, loc, showPrompt, remoteNames),
     });
   }
   // Track Remote Branch (как в Fork): только для remote-веток. Создаёт

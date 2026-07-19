@@ -172,7 +172,7 @@ export function Sidebar({
       <SidebarSection title={loc.sidebar.branches} count={filteredLocal.length} expanded={sections.branches} onToggle={() => toggleSection('branches')}>
         {filteredLocal.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noBranches}</div>}
         {localTree.map(node => (
-          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandLocal} onBranchMove={handleBranchMove} prefs={branchPrefs} selectedBranch={selectedBranch} onSelectBranch={setSelectedBranch} />
+          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandLocal} onBranchMove={handleBranchMove} prefs={branchPrefs} selectedBranch={selectedBranch} onSelectBranch={setSelectedBranch} remoteNames={remotes.map(r => r.name)} />
         ))}
       </SidebarSection>
 

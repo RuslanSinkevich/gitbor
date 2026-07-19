@@ -17,7 +17,7 @@ export const ipcHandlersGitOps: HandlerTable = {
   pushTo: op('push', (cmd, ctx) => ctx.ch.push(cmd.force, cmd.setUpstream, cmd.remote, cmd.branch)),
   stash: op('stash', (cmd, ctx) => ctx.ch.stash(cmd.message, cmd.includeUntracked)),
   stashPop: op('stashPop', (_cmd, ctx) => ctx.ch.stashPop()),
-  fetchBranch: op('fetch', (cmd, ctx) => ctx.ch.fetchBranch(cmd.branch)),
+  fetchBranch: op('fetchBranch', (cmd, ctx) => ctx.ch.fetchBranch(cmd.branch, cmd.remote, cmd.setUpstream)),
   merge: opWithPostMerge('merge', (cmd, ctx) =>
     ctx.ch.startMerge(cmd.branch, { noCommit: false, squash: false, ffOnly: false, noFf: false }),
   ),

@@ -222,6 +222,18 @@ describe('ipcHandlersGitOps.fetch / pull (regression — operation name)', () =>
     expect(sent.find(e => e.type === 'operationEnd')?.operation).toBe('fetch');
   });
 
+  it('fetchBranch handler announces operation="fetchBranch"', async () => {
+    const fetchBranch = vi.fn(async () => ({ success: true }));
+    const { ctx, sent } = makeCtx({ ch: { fetchBranch } as never });
+    await ipcHandlersGitOps.fetchBranch!(
+      { type: 'fetchBranch', branch: 'feature' } as never,
+      ctx as never,
+    );
+    expect(sent.find(e => e.type === 'operationStart')?.operation).toBe('fetchBranch');
+    expect(sent.find(e => e.type === 'operationEnd')?.operation).toBe('fetchBranch');
+    expect(fetchBranch).toHaveBeenCalledWith('feature', undefined, undefined);
+  });
+
   it('pull handler forwards rebase + autostash flags into CommandHandler.pull', async () => {
     const { ctx, ch } = makeCtx();
     await ipcHandlersGitOps.pull!(

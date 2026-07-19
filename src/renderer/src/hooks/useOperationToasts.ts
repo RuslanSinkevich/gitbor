@@ -77,6 +77,18 @@ export function useOperationToasts(
     const ops = t().operations;
     if (success) {
       if (SILENT_OPS.includes(operation)) return;
+      // Обновление чужой ветки — toast с именем, иначе «Fetch выполнен» бесполезен.
+      if (operation === 'fetchBranch') {
+        const cmd = lastCommandRef?.current;
+        const branch = cmd?.type === 'fetchBranch' ? cmd.branch : '';
+        addToast(
+          branch
+            ? tpl(ops.fetchBranchSuccess, { branch })
+            : ops.fetchBranchSuccessFallback,
+          'success',
+        );
+        return;
+      }
       const msg: Record<string, string> = {
         fetch: ops.fetchSuccess, pull: ops.pullSuccess, push: ops.pushSuccess,
         stash: ops.stashSuccess, stashPop: ops.stashPopSuccess,

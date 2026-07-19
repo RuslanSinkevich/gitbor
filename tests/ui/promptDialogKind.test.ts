@@ -21,4 +21,13 @@ describe('ShowPromptOptions discriminator', () => {
       onConfirm: () => void;
     }>().toMatchTypeOf<ShowPromptOptions>();
   });
+
+  it('select variant: kind=select, options и onConfirm(value)', () => {
+    expectTypeOf<{
+      kind: 'select';
+      title: 'x';
+      options: { value: string; label: string }[];
+      onConfirm: (v: string) => void;
+    }>().toMatchTypeOf<ShowPromptOptions>();
+  });
 });

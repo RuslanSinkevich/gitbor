@@ -75,7 +75,9 @@ export class CommandHandler {
     return Write.push(this.queue, this.git, this.state, force, setUpstream, remote, branch);
   }
   stash(message?: string, includeUntracked?: boolean): Promise<OperationResult> { return Write.stash(this.queue, this.git, this.state, message, includeUntracked); }
-  fetchBranch(branch: string): Promise<OperationResult> { return Write.fetchBranchFastForward(this.queue, this.git, this.state, branch); }
+  fetchBranch(branch: string, remote?: string, setUpstream?: boolean): Promise<OperationResult> {
+    return Write.fetchBranchFastForward(this.queue, this.git, this.state, branch, remote, setUpstream);
+  }
   stashPop(): Promise<OperationResult> { return Write.stashPop(this.queue, this.git, this.state); }
   createBranch(name: string, from: string): Promise<OperationResult> { return Write.createBranch(this.queue, this.git, this.state, name, from); }
   trackRemoteBranch(remote: string, remoteBranch: string, localName: string): Promise<OperationResult> {
