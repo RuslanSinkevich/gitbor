@@ -45,6 +45,16 @@ export class RepoStateRefresher {
    */
   private static readonly PROGRESSIVE_FULL_LIMIT = 5000;
 
+  /**
+   * Идущие обходы по репозиториям: ключ — путь. `running` — текущий,
+   * `trailing` — единственный догоняющий, который заберёт все вызовы,
+   * пришедшие во время работы текущего. Подробности — в refreshAll.
+   */
+  private readonly refreshChains = new Map<
+    string,
+    { running: Promise<void>; trailing: Promise<void> | null; trailingDeferHeavy: boolean }
+  >();
+
   constructor(
     private readonly store: RepoSlicesStore,
     private readonly registry: RepoServicesRegistry,
@@ -71,6 +81,55 @@ export class RepoStateRefresher {
   async refreshAll(repoPath?: string, opts?: { deferHeavy?: boolean }): Promise<void> {
     const target = repoPath ?? this.state.repoPath;
     if (!target) return;
+
+    // Схлопывание параллельных вызовов. Раньше каждый вызов сразу уходил в
+    // работу: watcher стреляет раз в 120 мс, а полный обход большого репозитория
+    // идёт секунды — прогоны накладывались, и каждый порождал свои 7+ git-процессов
+    // (5 в refreshFast плюс две фазы графа). На vscode это давало сотни
+    // одновременных git.exe. Теперь в работе не больше одного прогона на репозиторий
+    // плюс один догоняющий: вызвавший получает промис, который завершится после
+    // обхода, начатого ПОСЛЕ его вызова, — свежесть данных не страдает.
+    const chain = this.refreshChains.get(target);
+    if (chain) {
+      if (chain.trailing) {
+        // Догоняющий уже запланирован — присоединяемся к нему. deferHeavy
+        // оставляем, только если его просят все участники.
+        chain.trailingDeferHeavy = chain.trailingDeferHeavy && opts?.deferHeavy === true;
+        return chain.trailing;
+      }
+      chain.trailingDeferHeavy = opts?.deferHeavy === true;
+      chain.trailing = chain.running
+        .catch(() => undefined)
+        .then(() => {
+          const deferHeavy = chain.trailingDeferHeavy;
+          // Догоняющий становится текущим: пока он идёт, новые вызовы снова
+          // копятся в trailing, а не запускают параллельный обход.
+          chain.trailing = null;
+          chain.running = this.runRefreshAll(target, { deferHeavy }).finally(() => {
+            this.releaseChain(target, chain);
+          });
+          return chain.running;
+        });
+      return chain.trailing;
+    }
+
+    // Запись в Map до старта: runRefreshAll может завершиться синхронно
+    // (репо уже не отслеживается), и тогда finally отработал бы раньше set.
+    const entry = { running: Promise.resolve(), trailing: null as Promise<void> | null, trailingDeferHeavy: false };
+    this.refreshChains.set(target, entry);
+    entry.running = this.runRefreshAll(target, opts).finally(() => {
+      this.releaseChain(target, entry);
+    });
+    return entry.running;
+  }
+
+  /** Убрать запись об обходе, если за ним не выстроился догоняющий. */
+  private releaseChain(target: string, entry: { trailing: Promise<void> | null }): void {
+    const current = this.refreshChains.get(target);
+    if (current === entry && !current.trailing) this.refreshChains.delete(target);
+  }
+
+  private async runRefreshAll(target: string, opts?: { deferHeavy?: boolean }): Promise<void> {
     if (!this.store.isRepoTracked(target)) return;
     const slice = this.store.getOrCreateSlice(target);
     const startToken = slice.token;

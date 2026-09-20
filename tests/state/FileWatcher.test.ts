@@ -124,6 +124,34 @@ describe('FileWatcher', () => {
       fw.dispose();
     });
 
+    it('git-watcher игнорирует .git/index и прочую служебку', async () => {
+      const { FileWatcher } = await import('../../src/core/state/FileWatcher');
+      const sm = makeFakeStateManager();
+      const fw = new FileWatcher(sm as never);
+      fw.addRepo(tmpRepo);
+      await waitForWatcher(calls => calls.some(c => c.target.endsWith('.git')));
+      const gitCall = watchCalls.find(c => c.target.endsWith('.git'));
+      const ignored = (gitCall!.options as { ignored?: RegExp[] }).ignored;
+      expect(ignored).toBeDefined();
+
+      const matches = (p: string) => ignored!.some(re => re.test(p));
+      // Индекс переписывает наш же `update-index --refresh` — если слушать его,
+      // refreshAll запускает сам себя по кругу.
+      expect(matches(join(tmpRepo, '.git', 'index'))).toBe(true);
+      expect(matches(join(tmpRepo, '.git', 'index.lock'))).toBe(true);
+      expect(matches(join(tmpRepo, '.git', 'objects', 'ab', 'cdef'))).toBe(true);
+      expect(matches(join(tmpRepo, '.git', 'COMMIT_EDITMSG'))).toBe(true);
+      expect(matches(join(tmpRepo, '.git', 'refs', 'heads', 'main.lock'))).toBe(true);
+
+      // А это слушать обязательно — иначе граф не узнает о новых коммитах.
+      expect(matches(join(tmpRepo, '.git', 'HEAD'))).toBe(false);
+      expect(matches(join(tmpRepo, '.git', 'refs', 'heads', 'main'))).toBe(false);
+      expect(matches(join(tmpRepo, '.git', 'packed-refs'))).toBe(false);
+      // Ветка с именем "index" не должна попасть под правило про индекс.
+      expect(matches(join(tmpRepo, '.git', 'refs', 'heads', 'index'))).toBe(false);
+      fw.dispose();
+    });
+
     it('идемпотентность: повторный addRepo не создаёт дублей', async () => {
       const { FileWatcher } = await import('../../src/core/state/FileWatcher');
       const sm = makeFakeStateManager();

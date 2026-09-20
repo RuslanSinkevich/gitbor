@@ -84,6 +84,38 @@ describe('StateManager.refreshGraph dedup', () => {
     expect(secondLayout).toBe(firstLayout);
   });
 
+  it('схлопывает параллельные refreshAll в один обход плюс один догоняющий', async () => {
+    // Watcher стреляет чаще, чем длится обход большого репозитория, поэтому
+    // вызовы приходят пачками. Раньше каждый уходил в работу и тянул свои
+    // git-процессы — на vscode их накапливалось больше семисот.
+    const git: MockGit = {
+      exec: vi.fn(async (args: string[]): Promise<GitExecResult> => {
+        const key = args.join(' ');
+        if (key.startsWith('rev-parse HEAD')) {
+          return { stdout: 'aaa3\n', stderr: '', exitCode: 0, duration: 1 };
+        }
+        if (key.startsWith('log ')) {
+          // Держим обход, чтобы остальные вызовы гарантированно пришли на живой.
+          await new Promise<void>(resolve => setTimeout(resolve, 10));
+          return { stdout: REPO_STDOUT_A, stderr: '', exitCode: 0, duration: 1 };
+        }
+        return { stdout: '', stderr: '', exitCode: 0, duration: 1 };
+      }),
+      setCwd: vi.fn(),
+      getCwd: vi.fn().mockReturnValue('/repo'),
+      killAll: vi.fn().mockReturnValue(0),
+    };
+    const sm = new StateManager(makeFakeRegistry(git));
+    sm.setRepoPath('/repo');
+
+    await Promise.all([sm.refreshAll(), sm.refreshAll(), sm.refreshAll(), sm.refreshAll(), sm.refreshAll()]);
+
+    // `status` выполняется ровно раз на обход, поэтому считаем по нему.
+    const statusRuns = git.exec.mock.calls.filter(([args]: [string[]]) => args.join(' ').startsWith('status')).length;
+    // Один текущий плюс один догоняющий — и ни одного лишнего.
+    expect(statusRuns).toBe(2);
+  });
+
   it('пересоздаёт массив если stdout изменился (реальный новый коммит)', async () => {
     let stdout = REPO_STDOUT_A;
     const git: MockGit = {

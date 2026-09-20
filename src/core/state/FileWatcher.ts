@@ -8,6 +8,37 @@ import { mainLogger } from '../utils/Logger';
 const GIT_DEBOUNCE_MS = 120;
 const WORKTREE_DEBOUNCE_MS = 200;
 /**
+ * Потолок адаптивного debounce для .git. На монорепозитории один refreshAll
+ * идёт секунды, и дёргать его каждые 120 мс бессмысленно — см. scheduleGitRefresh.
+ */
+const GIT_DEBOUNCE_MAX_MS = 2000;
+
+/**
+ * Что внутри `.git` НЕ слушаем.
+ *
+ * Ключевая запись здесь — `index`. refreshStatus по своей природе выполняет
+ * `update-index --refresh`, тот переписывает stat-кэш в `.git/index`, chokidar
+ * видит запись и просит новый refreshAll, который снова делает
+ * `update-index --refresh`. Петля кормит сама себя, и на большом репозитории она
+ * не затухает: цикл длится дольше debounce, запуски накладываются, git-процессы
+ * копятся сотнями (наблюдали 726 одновременно на vscode).
+ *
+ * Остальное — служебные файлы, по которым обновлять граф незачем: за любым
+ * изменением объектов, reflog'ов и FETCH_HEAD всё равно следует запись ref'а,
+ * а её мы слушаем. `*.lock` отсекает промежуточные события: git пишет
+ * `refs/heads/main.lock` и переименовывает его в `main`, событие по `main`
+ * никуда не девается.
+ */
+const GIT_WATCH_IGNORED: RegExp[] = [
+  /[\\/]\.git[\\/]index(\.lock)?$/,
+  /\.lock$/,
+  /[\\/]\.git[\\/]objects[\\/]/,
+  /[\\/]\.git[\\/]logs[\\/]/,
+  /[\\/]\.git[\\/]hooks[\\/]/,
+  /[\\/]\.git[\\/]FETCH_HEAD$/,
+  /[\\/]\.git[\\/]COMMIT_EDITMSG$/,
+];
+/**
  * Если в корне репозитория больше этого числа записей верхнего уровня —
  * worktreeWatcher НЕ запускается. На профильных каталогах chokidar пытается
  * рекурсивно сканировать сотни тысяч файлов, выдаёт EPERM на системные
@@ -61,6 +92,14 @@ export class FileWatcher {
   private paused = false;
   private pendingGitRefresh = false;
   private pendingWorktreeRefresh = false;
+  /**
+   * Длительность последнего refreshAll. На монорепозитории он идёт секунды
+   * (`git log --all` по сотням тысяч ref'ов, `status --untracked-files=all` по
+   * сотням тысяч файлов), и debounce в 120 мс просто ставит в очередь следующий
+   * прогон до завершения текущего. Подстраиваемся под факт: чем дороже обход,
+   * тем реже дёргаем.
+   */
+  private lastGitRefreshMs = 0;
 
   constructor(private readonly stateManager: StateManager) {}
 
@@ -115,6 +154,7 @@ export class FileWatcher {
         const gitWatcher = chokidarWatch(gitDir, {
           ignoreInitial: true,
           depth: 3,
+          ignored: GIT_WATCH_IGNORED,
           awaitWriteFinish: { stabilityThreshold: 50, pollInterval: 20 },
         });
         const worktreeWatcher: FSWatcher | null = isHugeWorktree ? null : chokidarWatch(repoPath, {
@@ -276,6 +316,9 @@ export class FileWatcher {
       return;
     }
     if (this.gitDebounce) clearTimeout(this.gitDebounce);
+    // Четверть от стоимости прошлого обхода, но не меньше базовых 120 мс и не
+    // больше двух секунд: на обычном репо поведение прежнее, на тяжёлом — реже.
+    const delay = Math.min(GIT_DEBOUNCE_MAX_MS, Math.max(GIT_DEBOUNCE_MS, Math.round(this.lastGitRefreshMs / 4)));
     this.gitDebounce = setTimeout(() => {
       this.gitDebounce = null;
       // Идёт write — переарм debounce и ждём его завершения, иначе словим
@@ -285,10 +328,16 @@ export class FileWatcher {
         return;
       }
       this.stateManager.invalidateGraphCache();
-      this.stateManager.refreshAll().catch((err) => {
-        mainLogger.error(`FileWatcher: refreshAll failed: ${err instanceof Error ? err.message : String(err)}`);
-      });
-    }, GIT_DEBOUNCE_MS);
+      const startedAt = Date.now();
+      this.stateManager
+        .refreshAll()
+        .then(() => {
+          this.lastGitRefreshMs = Date.now() - startedAt;
+        })
+        .catch((err) => {
+          mainLogger.error(`FileWatcher: refreshAll failed: ${err instanceof Error ? err.message : String(err)}`);
+        });
+    }, delay);
   }
 
   private scheduleStatusRefresh(): void {
