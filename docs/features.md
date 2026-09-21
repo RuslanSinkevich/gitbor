@@ -7,6 +7,8 @@
 - Virtualized scroll — renders only visible rows, handles 15000+ commits smoothly
 - Branch coloring — each branch lane gets a unique color
 - Click on commit — loads details + auto-selects first file diff
+- **Double click on commit** — reveals the nearest named ref in the sidebar (BFS towards descendants until a branch/tag is found): opens the section, expands the ancestor folders and scrolls the row into view. No checkout
+- **Auto-focus after write operations** — after commit / push / pull / checkout / fetchBranch / merge / cherry-pick / revert / rebase / reset / restoreReflog / createBranch the graph seeks to the resulting tip. `fetchBranch` / `createBranch` focus their own branch, not HEAD; if the tip is outside the loaded window, `Load more` runs and the seek repeats once the new page arrives
 - Search commits (Ctrl+F) — by subject, author, or hash prefix
 - **Author avatars** — small colored circle with author initials in every row; HSL hue is a deterministic hash of the email so the same contributor looks the same everywhere (Cyrillic supported, fallback to email local part)
 - **Remote-only commits dimmed** — commits reachable from `refs/remotes/*` but not from any local branch render at ~0.45 node / ~0.35 line opacity; hover boosts to 0.9 to make them readable
@@ -23,7 +25,10 @@
 
 - Tree view with collapsible folders (feature/user/branch)
 - Single click — scrolls graph to branch head commit, loads details + diff
-- Double click — checkout branch
+- Double click — checkout branch (remote branch → Track dialog). On a hybrid «branch + folder» node (both `release` and `release/1.0` exist) the first double click expands the children, checkout happens on the second
+- Double click on a folder always expands it — the two `click` events no longer collapse it back
+- Hybrid «branch + folder» rows get their own arrow in the left padding, so names stay aligned
+- After checkout / track the current branch is selected, its ancestor folders are expanded and the row is scrolled into view — it no longer hides inside a collapsed folder
 - Right-click — context menu: checkout, merge, rename, delete, new branch/tag
 - Cannot delete the currently checked-out branch (option hidden)
 - **Current branch marker** — green dot next to the name (no text badge cluttering the row)

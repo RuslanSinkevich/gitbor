@@ -14,6 +14,7 @@ import { MergeBanner, shouldShowMergeBanner } from '../merge';
 import { Toolbar } from '../toolbar';
 import { ChangesView, CommitsView } from '../layout';
 import type { AppState, CommitDetail, MergeState, RebaseProgress } from '../../types';
+import type { FocusTarget } from '../graph/pickFocusRef';
 import s from '../../App.module.css';
 
 type ViewMode = 'changes' | 'commits';
@@ -53,6 +54,8 @@ interface Props {
   onOpenActivity: () => void;
   onSelectCommit: (hash: string | null) => void;
   onSelectRef: (hash: string) => void;
+  onRevealRef?: (hash: string) => void;
+  sidebarReveal?: { nonce: number; target: FocusTarget } | null;
   onShowStashChanges?: (hash: string) => void;
   onMerge: (source: string) => void;
   showPrompt: ShowPromptFn;
@@ -101,6 +104,8 @@ export function AppWorkspace({
   onOpenActivity,
   onSelectCommit,
   onSelectRef,
+  onRevealRef,
+  sidebarReveal = null,
   onShowStashChanges,
   onMerge,
   showPrompt,
@@ -194,6 +199,7 @@ export function AppWorkspace({
                   onContextMenu={onContextMenu}
                   onSwitchView={setViewMode}
                   onSelectRef={onSelectRef}
+                  reveal={sidebarReveal}
                   onShowStashChanges={onShowStashChanges}
                   onMerge={onMerge}
                   showPrompt={showPrompt}
@@ -226,6 +232,7 @@ export function AppWorkspace({
                     onClearAllHidden={onClearAllHidden}
                     onOpenAiSettings={onOpenAiSettings}
                     onExpandDiff={onExpandDiff}
+                    onRevealRef={onRevealRef}
                   />
                 ) : (
                   <ChangesView

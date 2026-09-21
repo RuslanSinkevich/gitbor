@@ -195,6 +195,11 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
         <div
           className={`${s.treeFolder} ${rowFolder}`}
           onClick={toggleExpanded}
+          onDoubleClick={() => {
+            /* Два click при dblclick успевают свернуть папку обратно.
+               Второй жест явно раскрывает — иначе «нажал дважды, осталась свёрнутой». */
+            if (!expanded) toggleExpanded();
+          }}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -233,10 +238,17 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
     return (
       <>
         <div className={`${s.item} ${rowItem} ${branch.isCurrent ? s.itemCurrent : ''} ${isSelected ? s.itemSelected : ''} ${isHidden ? s.itemHiddenInGraph : ''}`}
+          data-branch={branch.name}
           draggable={!branch.isRemote}
           onDragStart={handleDragStart}
           onClick={() => { onSelectBranch?.(branch.name); onSelectRef?.(branch.hash); }}
           onDoubleClick={() => {
+            // Гибрид «ветка + папка» (есть и `release`, и `release/1.0`):
+            // сначала раскрыть детей, Track/checkout — со второго жеста.
+            if (node.children.length > 0 && !expanded) {
+              toggleExpanded();
+              return;
+            }
             if (branch.isCurrent) return;
             // Remote-ветка: не делаем checkout (это detached HEAD), а
             // открываем Track-диалог — забрать ветку к себе + переключиться.
@@ -256,6 +268,12 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
             } : {}, remoteNames));
           }}
 >
+          {node.children.length > 0 && (
+            <span
+              className={`${s.arrow} ${expanded ? s.arrowExpanded : ''} ${s.branchTreeHybridArrow}`}
+              onClick={(e) => { e.stopPropagation(); toggleExpanded(); }}
+            >&#9656;</span>
+          )}
           <span className={s.itemLabel}>
             {branch.isCurrent && (
               <span className={s.itemBadge} title={loc.sidebar.current} aria-label={loc.sidebar.current} />

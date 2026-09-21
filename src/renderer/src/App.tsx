@@ -20,6 +20,13 @@ import { useAppUpdater } from './hooks/useAppUpdater';
 import { TitleBar } from './features/titlebar';
 import { BranchInfoDialog } from './features/sidebar';
 import { useBranchPrefs } from './hooks/useBranchPrefs';
+import { nearestFocusRef, type FocusTarget } from './features/graph/pickFocusRef';
+import {
+  focusBranchNameForOp,
+  resolveGraphFocus,
+  shouldFocusAfterOp,
+  type PendingGraphFocus,
+} from './features/graph/graphFocus';
 import type { Branch } from './types';
 import { useSupportPrompt } from './features/support';
 import { usePromptDialog } from './ui/SgPromptDialog';
@@ -98,6 +105,8 @@ export function App() {
   const [graphFocusNonce, setGraphFocusNonce] = useState(0);
   /** Бамп → CommitsView переключает вкладку на «Изменения» (меню stash «Показать изменения»). */
   const [revealChangesNonce, setRevealChangesNonce] = useState(0);
+  /** Двойной клик по коммиту в графе → раскрыть/доскроллить ветку в сайдбаре. */
+  const [sidebarReveal, setSidebarReveal] = useState<{ nonce: number; target: FocusTarget } | null>(null);
   /* Репо использует LFS (есть filter=lfs в .gitattributes) — для контекстного
      показа пункта «Git LFS…» в меню. Пересчитывается при смене репо. */
   const [usesLfs, setUsesLfs] = useState(false);
@@ -106,11 +115,8 @@ export function App() {
   /* Branch info dialog: текущая выбранная ветка показывается через SgDialog,
      данные из стейта + getCommitDetails. setOpenInfoBranch(null) — закрыть. */
   const [openInfoBranch, setOpenInfoBranch] = useState<Branch | null>(null);
-  const pendingGraphFocusRef = useRef<{
-    op: typeof lastOpResult;
-    repoPath: string;
-    commitsAtEnd: typeof state.commits;
-  } | null>(null);
+  const pendingGraphFocusRef = useRef<PendingGraphFocus | null>(null);
+  const [graphFocusKick, setGraphFocusKick] = useState(0);
   const localBranchNames = useMemo(
     () => new Set(state.branches.filter(b => !b.isRemote).map(b => b.name)),
     [state.branches],
@@ -219,54 +225,65 @@ export function App() {
   }, [lastOpResult, closeDiff]);
 
   /**
-   * После успешного commit/push/pull авто-фокусируем tip текущей ветки в графе —
-   * «авто-клик» по коммиту. Для `commit`/`pull` tip может стать новым; для
-   * `push` tip тот же, но на нём появляется свежая remote-плашка
-   * (`origin/<branch>`) — это и есть «новая запись», на которую нужно встать.
-   *
-   * `commit`/`push`/`pull` при `deferHeavy` завершают операцию после быстрого refresh
-   * веток/status, а сам граф догружается следующим stateUpdate. Поэтому нельзя
-   * фокусироваться прямо на `operationEnd`: в renderer ещё может лежать старый
-   * `commits[]`, и граф уедет к прежнему tip. Ставим pending-запрос и выполняем
-   * его только после смены `state.commits`.
-   *
-   * Бампаем `graphFocusNonce`, а не только selectCommit: после push/pull
-   * выбранным мог уже быть tip — без bump'а граф не доскроллит к нему.
-   *
-   * Ref-гард по идентичности `lastOpResult` (новый объект на каждый
-   * operationEnd) защищает от повторной отработки, когда смена
-   * selectedCommitHash перезапускает эффект с тем же результатом.
+   * После write-операций, которые двигают HEAD или создают/обновляют ref,
+   * ставим граф на tip. Явная ветка — fetch/create (без checkout);
+   * иначе текущая. deferHeavy-операции ждут новый `commits[]`.
+   * `completeMerge` не шлёт operationEnd — отдельный kick по mergeCompleted.
    */
   const focusedOpRef = useRef<typeof lastOpResult>(null);
+  /* Читаем актуальный стейт из события, не пересоздавая подписку на каждый
+     новый `commits[]` — иначе unsubscribe/subscribe на каждом refresh графа. */
+  const graphFocusStateRef = useRef({ repoPath: state.repoPath, commits: state.commits });
+  graphFocusStateRef.current = { repoPath: state.repoPath, commits: state.commits };
+  useEffect(() => {
+    return onMainEvent((msg) => {
+      if (msg.type !== 'mergeCompleted') return;
+      const snapshot = graphFocusStateRef.current;
+      pendingGraphFocusRef.current = {
+        operation: null,
+        repoPath: msg.repoPath || snapshot.repoPath,
+        commitsAtEnd: snapshot.commits,
+        skipWait: true,
+      };
+      setGraphFocusKick(n => n + 1);
+    });
+  }, []);
+
   useEffect(() => {
     if (
       lastOpResult?.success
-      && (lastOpResult.operation === 'commit' || lastOpResult.operation === 'push' || lastOpResult.operation === 'pull')
+      && shouldFocusAfterOp(lastOpResult.operation)
       && focusedOpRef.current !== lastOpResult
     ) {
       focusedOpRef.current = lastOpResult;
       pendingGraphFocusRef.current = {
-        op: lastOpResult,
+        operation: lastOpResult.operation,
         repoPath: state.repoPath,
         commitsAtEnd: state.commits,
+        branchName: focusBranchNameForOp(lastOpResult.operation, lastCommandRef.current),
       };
     }
 
     const pending = pendingGraphFocusRef.current;
     if (!pending) return;
-    if (pending.repoPath !== state.repoPath) {
+    const outcome = resolveGraphFocus(pending, state);
+    if (outcome.kind === 'drop') {
       pendingGraphFocusRef.current = null;
       return;
     }
-    if (state.commits === pending.commitsAtEnd) return;
-    const tip = state.branches.find(b => b.isCurrent && !b.isRemote)?.hash;
-    if (!tip) return;
-    const tipInGraph = state.commits.some(c => c.hash === tip || c.hash.startsWith(tip) || tip.startsWith(c.hash));
-    if (!tipInGraph) return;
-    if (tip !== state.selectedCommitHash) selectCommit(tip);
+    if (outcome.kind === 'wait') return;
+
+    if (outcome.branchName) {
+      setViewMode('commits');
+      setSidebarReveal(prev => ({
+        nonce: (prev?.nonce ?? 0) + 1,
+        target: { kind: 'local', name: outcome.branchName! },
+      }));
+    }
+    if (outcome.hash !== state.selectedCommitHash) selectCommit(outcome.hash);
     setGraphFocusNonce(n => n + 1);
     pendingGraphFocusRef.current = null;
-  }, [lastOpResult, state.repoPath, state.commits, state.branches, state.selectedCommitHash, selectCommit]);
+  }, [lastOpResult, state.repoPath, state.commits, state.branches, state.selectedCommitHash, selectCommit, graphFocusKick]);
 
   useAutoFetch(
     state.repoPath,
@@ -481,6 +498,12 @@ export function App() {
     setGraphFocusNonce(n => n + 1);
   }, [selectCommit, closeDiff]);
 
+  const handleRevealRef = useCallback((hash: string) => {
+    const target = nearestFocusRef(hash, state.commits, state.currentBranch);
+    if (!target) return;
+    setSidebarReveal(prev => ({ nonce: (prev?.nonce ?? 0) + 1, target }));
+  }, [state.commits, state.currentBranch]);
+
   const handleShowStashChanges = useCallback((hash: string) => {
     handleSelectRef(hash);
     setRevealChangesNonce(n => n + 1);
@@ -651,6 +674,8 @@ export function App() {
             onOpenActivity={() => dlg.setShowGitActivity(true)}
             onSelectCommit={selectCommit}
             onSelectRef={handleSelectRef}
+            onRevealRef={handleRevealRef}
+            sidebarReveal={sidebarReveal}
             onShowStashChanges={handleShowStashChanges}
             onMerge={handleOpenMergeDialog}
             showPrompt={showPrompt}

@@ -105,9 +105,11 @@ interface Props {
    * графа не давал реакции (selectedHash тот же → эффект ниже не срабатывал).
    */
   focusNonce?: number;
+  /** Двойной клик по коммиту — показать ветку/тег в сайдбаре, без checkout. */
+  onRevealRef?: (hash: string) => void;
 }
 
-function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, selectedHashes = EMPTY_HASH_SET, onMultiSelect, onSelectMany, orderCommits, onMultiCherryPickStart, currentBranch, remoteNames, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, onCompareTo, headOnRemote = false, focusNonce }: Props) {
+function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, selectedHashes = EMPTY_HASH_SET, onMultiSelect, onSelectMany, orderCommits, onMultiCherryPickStart, currentBranch, remoteNames, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, onCompareTo, headOnRemote = false, focusNonce, onRevealRef }: Props) {
   const loc = t();
   const graphWidth = LEFT_PAD * 2 + (maxColumns + 1) * COL_WIDTH + 12;
   const totalHeight = commits.length * ROW_HEIGHT;
@@ -144,6 +146,7 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
   const prevSelectedRef = useRef<string | null>(null);
   const prevFocusRef = useRef<number | undefined>(focusNonce);
   const rowClickSelectedRef = useRef<string | null>(null);
+  const pendingScrollRef = useRef<string | null>(null);
   useEffect(() => {
     const focusRequested = focusNonce !== prevFocusRef.current;
     prevFocusRef.current = focusNonce;
@@ -155,12 +158,33 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
     // (повторный клик по той же ветке). Простая смена commits (fetch/refresh)
     // при том же selectedHash и без focus-запроса скролл не дёргает. Клик по
     // уже видимой строке графа только выбирает commit, без центровки viewport.
-    if (selectedHash && !selectedFromRowClick && (selectedHash !== prevSelectedRef.current || focusRequested)) {
-      const idx = commits.findIndex(c => hashMatch(c.hash, selectedHash));
-      if (idx >= 0) scrollToRow(idx);
-      else if (onLoadMore) onLoadMore();
-    }
+    const shouldSeek = !!selectedHash && !selectedFromRowClick
+      && (selectedHash !== prevSelectedRef.current || focusRequested);
     prevSelectedRef.current = selectedHash;
+    if (!selectedHash) {
+      pendingScrollRef.current = null;
+      return;
+    }
+    if (shouldSeek) {
+      const idx = commits.findIndex(c => hashMatch(c.hash, selectedHash));
+      if (idx >= 0) {
+        scrollToRow(idx);
+        pendingScrollRef.current = null;
+      } else {
+        // Tip ещё не в загруженном окне (частый случай для старых remote).
+        // onLoadMore подгрузит, а повторный seek — когда commits сменятся.
+        pendingScrollRef.current = selectedHash;
+        onLoadMore?.();
+      }
+      return;
+    }
+    if (pendingScrollRef.current && hashMatch(pendingScrollRef.current, selectedHash)) {
+      const idx = commits.findIndex(c => hashMatch(c.hash, selectedHash));
+      if (idx >= 0) {
+        scrollToRow(idx);
+        pendingScrollRef.current = null;
+      }
+    }
   }, [selectedHash, focusNonce, commits, scrollToRow, hashMatch, onLoadMore]);
 
   const allBranchPaths = useMemo(() => getOrComputeBranchPaths(graphNodes), [graphNodes]);
@@ -324,6 +348,7 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
                 className={`${s.row} ${hashMatch(commit.hash, selectedHash) ? s.rowSelected : ''} ${selectedHashes.has(commit.hash) ? s.rowMultiSelected : ''} ${isHead(commit) ? s.rowHead : ''} ${significant ? s.rowSignificant : ''} ${search.searchMatchSet.has(i) ? s.rowSearchMatch : ''} ${isRemoteOnly ? s.rowDimmed : ''}`}
                 style={{ top: i * ROW_HEIGHT, height: ROW_HEIGHT }}
                 onClick={(e) => handleRowClick(e, commit.hash)}
+                onDoubleClick={() => onRevealRef?.(commit.hash)}
                 title={isRemoteOnly ? loc.graph.remoteOnlyHint : undefined}
                 onContextMenu={(e) => {
                   e.preventDefault();

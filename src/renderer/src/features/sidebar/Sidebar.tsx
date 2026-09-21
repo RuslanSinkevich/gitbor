@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { t } from '../../i18n';
 import type { Branch, Tag, Stash, Remote } from '../../types';
 import type { RequestCheckout } from '../checkout';
@@ -10,6 +10,8 @@ import {
   buildBranchTree, countLeaves, BranchTreeItem,
   type BranchFolderExpand, type BranchPrefsAPI,
 } from './BranchTree';
+import { ancestorFolderPaths, matchRemoteName, treeAncestorPaths } from './branchTreePaths';
+import type { FocusTarget } from '../graph/pickFocusRef';
 import { postCommand } from '../../api';
 import { SubmodulesList } from './SubmodulesList';
 import type { ShowPrompt } from '../graph/commitMenuItems';
@@ -41,6 +43,8 @@ interface Props {
   /** Per-repo prefs для pin/solo/hide/info (создаётся в App.tsx через useBranchPrefs).
       Если не передан — иконки на ветках не рендерятся. */
   branchPrefs?: BranchPrefsAPI;
+  /** Запрос фокуса ветки/тега из графа (двойной клик по коммиту). Без checkout. */
+  reveal?: { nonce: number; target: FocusTarget } | null;
 }
 
 interface SectionState { branches: boolean; remotes: boolean; tags: boolean; stashes: boolean }
@@ -50,7 +54,7 @@ const ICONS = { changes: '●' } as const;
 export function Sidebar({
   repoPath, currentBranch, branches, tags, stashes, remotes,
   localChangesCount, activeView, onContextMenu, onSwitchView, onSelectRef, onShowStashChanges, onMerge, showPrompt, requestCheckout,
-  requestApplyStash, selectedRefHash, branchPrefs,
+  requestApplyStash, selectedRefHash, branchPrefs, reveal = null,
 }: Props) {
   const loc = t();
   const [filter, setFilter] = useState('');
@@ -75,7 +79,6 @@ export function Sidebar({
   // Локальный стейт: переживает переключение панелей changes/commits (Sidebar
   // не размонтируется), сбрасывается при смене репозитория.
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
-  useEffect(() => { setSelectedBranch(null); }, [repoPath]);
 
   const [branchFoldersExpanded, setBranchFoldersExpanded] = useState<Set<string>>(() => new Set());
 
@@ -105,6 +108,117 @@ export function Sidebar({
       });
     },
   }), [repoPath, branchFoldersExpanded]);
+
+  // После checkout/track вложенной ветки раскрыть папки-предки и выделить её,
+  // иначе текущая остаётся внутри свёрнутой папки без фокуса в дереве.
+  useEffect(() => {
+    if (!currentBranch) {
+      setSelectedBranch(null);
+      return;
+    }
+    const ancestors = ancestorFolderPaths(currentBranch);
+    if (ancestors.length > 0) {
+      setBranchFoldersExpanded(prev => {
+        let changed = false;
+        const next = new Set(prev);
+        for (const p of ancestors) {
+          if (!next.has(p)) { next.add(p); changed = true; }
+        }
+        if (!changed) return prev;
+        saveBranchFolderExpanded(repoPath, next, '');
+        return next;
+      });
+    }
+    setSelectedBranch(currentBranch);
+  }, [currentBranch, repoPath]);
+
+  useEffect(() => {
+    const name = selectedBranch ?? currentBranch;
+    if (!name) return;
+    const root = document.querySelector('[data-testid="sidebar"]');
+    if (!root) return;
+    const el = root.querySelector(`[data-branch="${CSS.escape(name)}"]`);
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [selectedBranch, currentBranch]);
+
+  const [remoteReveal, setRemoteReveal] = useState<{ nonce: number; remote: string; innerPaths: string[] } | null>(null);
+  const remotesRef = useRef(remotes);
+  remotesRef.current = remotes;
+
+  useEffect(() => {
+    if (!reveal) return;
+    const { target } = reveal;
+    if (target.kind === 'local') {
+      setSections(prev => {
+        if (prev.branches) return prev;
+        const next = { ...prev, branches: true };
+        saveSidebarSections(next);
+        return next;
+      });
+      const ancestors = ancestorFolderPaths(target.name);
+      if (ancestors.length > 0) {
+        setBranchFoldersExpanded(prev => {
+          const next = new Set(prev);
+          let changed = false;
+          for (const p of ancestors) {
+            if (!next.has(p)) { next.add(p); changed = true; }
+          }
+          if (!changed) return prev;
+          saveBranchFolderExpanded(repoPath, next, '');
+          return next;
+        });
+      }
+      setSelectedBranch(target.name);
+      return;
+    }
+    if (target.kind === 'remote') {
+      setSections(prev => {
+        if (prev.remotes) return prev;
+        const next = { ...prev, remotes: true };
+        saveSidebarSections(next);
+        return next;
+      });
+      const remoteNames = remotesRef.current.map(r => r.name);
+      const matched = matchRemoteName(target.name, remoteNames);
+      setRemoteReveal({
+        nonce: reveal.nonce,
+        remote: matched?.remote ?? target.name.split('/')[0] ?? target.name,
+        innerPaths: treeAncestorPaths(target.name, matched?.prefix ?? ''),
+      });
+      setSelectedBranch(target.name);
+      return;
+    }
+    setSections(prev => {
+      if (prev.tags) return prev;
+      const next = { ...prev, tags: true };
+      saveSidebarSections(next);
+      return next;
+    });
+  }, [reveal, repoPath]);
+
+  useEffect(() => {
+    if (!reveal) return;
+    const attr = reveal.target.kind === 'tag' ? 'data-tag' : 'data-branch';
+    const name = reveal.target.name;
+    let frames = 0;
+    let raf = 0;
+    let cancelled = false;
+    const tryScroll = () => {
+      if (cancelled) return;
+      const root = document.querySelector('[data-testid="sidebar"]');
+      const el = root?.querySelector(`[${attr}="${CSS.escape(name)}"]`);
+      if (el) {
+        el.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (frames++ < 8) raf = requestAnimationFrame(tryScroll);
+    };
+    raf = requestAnimationFrame(tryScroll);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
+  }, [reveal]);
 
   const localBranches = useMemo(() => branches.filter(b => !b.isRemote), [branches]);
   const remoteBranches = useMemo(() => branches.filter(b => b.isRemote), [branches]);
@@ -181,7 +295,8 @@ export function Sidebar({
         {remoteEntries.map(({ remote, remoteTree, remoteBranchSig }) => (
           <RemoteFolder key={remote.name} repoPath={repoPath} remote={remote} tree={remoteTree} remoteBranchSig={remoteBranchSig}
             currentBranch={currentBranch}
-            loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} selectedBranch={selectedBranch} onSelectBranch={setSelectedBranch} />
+            loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} selectedBranch={selectedBranch} onSelectBranch={setSelectedBranch}
+            reveal={remoteReveal && remoteReveal.remote === remote.name ? remoteReveal : null} />
         ))}
       </SidebarSection>
 
@@ -189,6 +304,7 @@ export function Sidebar({
         {filteredTags.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noTags}</div>}
         {filteredTags.map(tag => (
           <div key={tag.name} className={s.item}
+            data-tag={tag.name}
             onClick={() => onSelectRef?.(tag.hash)}
             onDoubleClick={() => requestCheckout(tag.name)}
             onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getTagMenuItems(tag, loc, showPrompt, requestCheckout)); }}>
@@ -282,11 +398,12 @@ function StashItem({ stash, loc, active, autoBadge, onSelect, onApply, onContext
 }
 
 
-function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout, selectedBranch, onSelectBranch }: {
+function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout, selectedBranch, onSelectBranch, reveal }: {
   repoPath: string;
   remote: Remote; tree: ReturnType<typeof buildBranchTree>; remoteBranchSig: string; currentBranch: string;
   loc: ReturnType<typeof t>; onContextMenu: Props['onContextMenu']; onSelectRef?: (hash: string) => void; onMerge?: (source: string) => void; showPrompt: ShowPrompt; requestCheckout: RequestCheckout;
   selectedBranch?: string | null; onSelectBranch?: (name: string) => void;
+  reveal?: { nonce: number; innerPaths: string[] } | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [innerFolders, setInnerFolders] = useState<Set<string>>(() => {
@@ -300,6 +417,22 @@ function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, 
     if (saved !== null) setInnerFolders(new Set(saved));
     else setInnerFolders(new Set());
   }, [repoPath, remote.name, remoteBranchSig]);
+
+  useEffect(() => {
+    if (!reveal) return;
+    setExpanded(true);
+    if (reveal.innerPaths.length === 0) return;
+    setInnerFolders(prev => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const p of reveal.innerPaths) {
+        if (!next.has(p)) { next.add(p); changed = true; }
+      }
+      if (!changed) return prev;
+      saveBranchFolderExpanded(repoPath, next, remote.name);
+      return next;
+    });
+  }, [reveal, repoPath, remote.name]);
 
   const folderExpandRemote = useMemo<BranchFolderExpand>(() => ({
     isExpanded: (fullPath: string) => innerFolders.has(fullPath),
@@ -316,7 +449,9 @@ function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, 
 
   return (
     <>
-      <div className={s.treeFolder} style={{ paddingLeft: 20 }} onClick={() => setExpanded(e => !e)}
+      <div className={s.treeFolder} style={{ paddingLeft: 20 }}
+        onClick={() => setExpanded(e => !e)}
+        onDoubleClick={() => { if (!expanded) setExpanded(true); }}
         onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, getRemoteMenuItems(remote, loc, showPrompt)); }}>
         <span className={`${s.arrow} ${expanded ? s.arrowExpanded : ''}`}>&#9656;</span>
         <span className={s.treeFolderIcon}>☁</span>

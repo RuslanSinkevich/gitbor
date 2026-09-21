@@ -440,3 +440,18 @@
 .item.branchTreeItemNested {
   padding: 3px 10px 3px calc(8px + var(--branch-tree-folder-label-offset));
 }
+
+/* Стрелка у гибрида «ветка + папка» — в левом паддинге, имена не сдвигаются. */
+.branchTreeHybridArrow {
+  position: absolute;
+  left: 8px;
+  font-size: 18px;
+  width: 18px;
+  min-height: 24px;
+  padding: 0;
+  justify-content: center;
+}
+
+.item.branchTreeItemRoot .branchTreeHybridArrow {
+  left: 15px;
+}

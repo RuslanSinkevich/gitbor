@@ -43,6 +43,8 @@ interface Props {
   onOpenAiSettings?: () => void;
   /** Развернуть текущий файл в полноэкранной модалке сравнения. */
   onExpandDiff?: (file: string, hash: string) => void;
+  /** Двойной клик по коммиту — фокус ветки в сайдбаре, без checkout. */
+  onRevealRef?: (hash: string) => void;
 }
 
 export function CommitsView({
@@ -51,7 +53,7 @@ export function CommitsView({
   showContextMenu, showPrompt, requestCheckout, setRebaseOnto,
   onCompareTo, focusNonce, revealChangesNonce = 0,
   soloBranch, hidden, onClearSolo, onClearAllHidden,
-  onOpenAiSettings, onExpandDiff,
+  onOpenAiSettings, onExpandDiff, onRevealRef,
 }: Props) {
   const loc = t();
   const graphHeightKey = buildStorageKey('sg-layout:commits-graph-height', state.repoPath);
@@ -170,6 +172,7 @@ export function CommitsView({
           onCompareTo={onCompareTo}
           focusNonce={focusNonce}
           headOnRemote={state.branches.some(b => b.isCurrent && b.upstream) && state.ahead === 0}
+          onRevealRef={onRevealRef}
         />
       )}
     </div>
