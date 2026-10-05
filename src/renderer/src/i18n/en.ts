@@ -217,6 +217,8 @@ export const en = {
     sinceCreation: 'Changes since the file was created',
     vsWorking: 'Changes vs your working copy',
     range: '{from} → {to}',
+    branches: 'Comparing ‘{branch}’ against ‘{base}’',
+    branchesBody: 'Changes in ‘{branch}’ since it diverged from ‘{base}’ (what a merge would bring in).\nCommits only in ‘{branch}’: {ahead}, only in ‘{base}’: {behind}.',
   },
   diff: {
     loading: 'Loading diff...',
@@ -431,7 +433,7 @@ export const en = {
     copyUrl: 'Copy URL',
     fetchRemote: "Fetch '{remote}'",
     fetchBranch: 'Update branch (fetch)',
-    compareWithCurrent: "Compare with '{target}'",
+    compareWithCurrent: 'Compare with current branch',
     fetchBranchTitle: "Fetch '{branch}' from remote (fast-forward)",
     fetchBranchPickRemote: 'This branch has no upstream. Pick a remote parent — tracking will be saved after update.',
     fetchBranchRemoteLabel: 'Remote',
@@ -476,6 +478,7 @@ export const en = {
     tagMessageTitle: 'Tag message',
     more: 'More',
     help: {
+      compareWithCurrent: 'Shows what changed in ‘{branch}’ since it diverged from ‘{target}’ — i.e. what a merge would bring in.',
       mergeInto: 'Merges the selected commit into the current branch, creating a merge commit. Both branches\u2019 history is preserved.',
       rebaseToHere: 'Replays the current branch\u2019s commits on top of the selected one — history becomes linear. Commit hashes change; avoid on already-pushed commits.',
       interactiveRebaseToHere: 'Like rebase, but opens an editor: you can reorder, squash, rename or drop commits before replaying them.',

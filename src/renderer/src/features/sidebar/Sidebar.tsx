@@ -35,8 +35,6 @@ interface Props {
   /** Меню stash «Показать изменения» — select + вкладка Changes. */
   onShowStashChanges?: (hash: string) => void;
   onMerge?: (source: string) => void;
-  /** Сравнение двух ревизий (`from..to`) — открывает режим сравнения в CommitsView. */
-  onCompareTo?: (fromHash: string, toHash: string) => void;
   showPrompt: ShowPrompt;
   requestCheckout: RequestCheckout;
   requestApplyStash: RequestApplyStash;
@@ -55,15 +53,16 @@ const ICONS = { changes: '●' } as const;
 
 export function Sidebar({
   repoPath, currentBranch, branches, tags, stashes, remotes,
-  localChangesCount, activeView, onContextMenu, onSwitchView, onSelectRef, onShowStashChanges, onMerge, onCompareTo, showPrompt, requestCheckout,
+  localChangesCount, activeView, onContextMenu, onSwitchView, onSelectRef, onShowStashChanges, onMerge, showPrompt, requestCheckout,
   requestApplyStash, selectedRefHash, branchPrefs, reveal = null,
 }: Props) {
   const loc = t();
-  // «Сравнить с текущей»: ветка → текущая (detached HEAD — сам HEAD).
-  const onCompareBranch = useMemo(
-    () => onCompareTo ? (branch: string) => onCompareTo(branch, currentBranch || 'HEAD') : undefined,
-    [onCompareTo, currentBranch],
-  );
+  // «Сравнить с текущей»: что принесёт ветка относительно текущей (от
+  // merge-base). Результат — режим сравнения в CommitsView.
+  const onCompareBranch = useCallback((branch: string) => {
+    onSwitchView('commits');
+    postCommand({ type: 'compareBranches', base: currentBranch || 'HEAD', branch });
+  }, [onSwitchView, currentBranch]);
   const [filter, setFilter] = useState('');
   const [sections, setSections] = useState<SectionState>(() => {
     const p = loadSidebarSections();

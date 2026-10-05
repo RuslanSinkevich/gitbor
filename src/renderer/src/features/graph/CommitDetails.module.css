@@ -299,3 +299,24 @@
 .statusDeleted { color: var(--sg-file-deleted); background: color-mix(in srgb, var(--sg-file-deleted) 12%, transparent); }
 .statusRenamed { color: var(--sg-file-renamed); background: color-mix(in srgb, var(--sg-file-renamed) 12%, transparent); }
 .statusUnknown { color: var(--sg-foreground-muted); }
+
+/* Режим сравнения (`a..b`): что с чем сравниваем — видно на любой вкладке. */
+.compareBanner {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--sg-foreground);
+  background: color-mix(in srgb, var(--sg-primary) 12%, var(--sg-surface));
+  border-bottom: 1px solid var(--sg-border);
+  border-left: 3px solid var(--sg-primary);
+}
+
+.compareBannerTitle {
+  font-weight: 600;
+}
+
+.compareBannerHint {
+  color: var(--sg-foreground-muted);
+  white-space: pre-line;
+}

@@ -208,6 +208,7 @@ type RendererCommandCore =
 
   // Compare two commits
   | { type: 'getCommitDiff'; fromHash: string; toHash: string }
+  | { type: 'compareBranches'; base: string; branch: string }
 
   // Renderer-handled views
   | { type: 'openDiff'; file: string; hash: string }
@@ -320,7 +321,11 @@ export type MainEvent =
   | { type: 'reflog'; data: ReflogEntry[] }
   | { type: 'bisectStatus'; data: import('../git/BisectManager').BisectStatus }
   | { type: 'bisectOutput'; output: string }
-  | { type: 'commitDiff'; data: { fromHash: string; toHash: string; files: import('../git/types').FileChange[] } }
+  | { type: 'commitDiff'; data: {
+      fromHash: string; toHash: string; files: import('../git/types').FileChange[];
+      /** Есть, если это «Сравнить ветку с текущей» — для заголовка в UI. */
+      branchCompare?: { base: string; branch: string; ahead: number; behind: number };
+    } }
   | { type: 'gitignoreContent'; data: string; exists: boolean }
   | { type: 'repoStats'; data: RepoStats }
   | { type: 'dayCommits'; data: DayCommitEntry[] }

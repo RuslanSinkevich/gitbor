@@ -96,6 +96,16 @@ export const ipcHandlersRepoExtras: HandlerTable = {
     ctx.send({ type: 'commitDiff', data: { fromHash: cmd.fromHash, toHash: cmd.toHash, files } });
   },
 
+  compareBranches: async (cmd, ctx) => {
+    const r = await ctx.ch.compareBranches(cmd.base, cmd.branch);
+    if (!r) return;
+    const { fromHash, toHash, files, ahead, behind } = r;
+    ctx.send({
+      type: 'commitDiff',
+      data: { fromHash, toHash, files, branchCompare: { base: cmd.base, branch: cmd.branch, ahead, behind } },
+    });
+  },
+
   getRepoStats: async (_cmd, ctx) => {
     const data = await ctx.ch.getRepoStats();
     ctx.send({ type: 'repoStats', data });

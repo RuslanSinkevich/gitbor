@@ -470,6 +470,31 @@ export class CommandHandler {
     });
   }
 
+  /**
+   * «Сравнить ветку с текущей»: что принесёт `branch` при слиянии в `base`.
+   * Диффим от merge-base, а не вершину к вершине — иначе всё, что появилось
+   * в `base` после ответвления, выглядит как «удалено» в `branch`.
+   */
+  async compareBranches(base: string, branch: string): Promise<{
+    fromHash: string; toHash: string; files: FileChange[]; ahead: number; behind: number;
+  } | null> {
+    return this.queue.enqueueRead('compareBranches', async () => {
+      const toR = await this.git.exec(['rev-parse', '--verify', '-q', `${branch}^{commit}`]);
+      const baseR = await this.git.exec(['rev-parse', '--verify', '-q', `${base}^{commit}`]);
+      if (toR.exitCode !== 0 || baseR.exitCode !== 0) return null;
+      const toHash = toR.stdout.trim();
+      const baseHash = baseR.stdout.trim();
+      // Несвязанные истории — merge-base нет, сравниваем вершины.
+      const mbR = await this.git.exec(['merge-base', baseHash, toHash]);
+      const fromHash = mbR.exitCode === 0 && mbR.stdout.trim() ? mbR.stdout.trim() : baseHash;
+      const diffR = await this.git.exec(['diff', '--name-status', `${fromHash}..${toHash}`]);
+      const countR = await this.git.exec(['rev-list', '--left-right', '--count', `${baseHash}...${toHash}`]);
+      const [behind = 0, ahead = 0] = countR.stdout.trim().split(/\s+/).map(n => Number(n) || 0);
+      const { parseFileChanges } = await import('../git/GitParser');
+      return { fromHash, toHash, files: parseFileChanges(diffR.stdout), ahead, behind };
+    });
+  }
+
   // ─── Reflog ───
   async getReflog(maxCount = 100): Promise<ReflogEntry[]> {
     return this.queue.enqueueRead('getReflog', async () => {

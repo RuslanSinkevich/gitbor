@@ -163,15 +163,22 @@ export function useStateSubscription(deps: StateSubscriptionDeps): void {
           });
           break;
         case 'commitDiff': {
-          const { fromHash, toHash, files } = msg.data;
+          const { fromHash, toHash, files, branchCompare: bc } = msg.data;
           const rangeHash = `${fromHash}..${toHash}`;
           const loc = t();
-          const subject = buildCompareLabel(fromHash, toHash, {
-            vsPrevious: loc.compare.vsPrevious,
-            sinceCreation: loc.compare.sinceCreation,
-            vsWorking: loc.compare.vsWorking,
-            range: (from, to) => tpl(loc.compare.range, { from, to }),
-          });
+          const subject = bc
+            ? tpl(loc.compare.branches, { branch: bc.branch, base: bc.base })
+            : buildCompareLabel(fromHash, toHash, {
+              vsPrevious: loc.compare.vsPrevious,
+              sinceCreation: loc.compare.sinceCreation,
+              vsWorking: loc.compare.vsWorking,
+              range: (from, to) => tpl(loc.compare.range, { from, to }),
+            });
+          const body = bc
+            ? tpl(loc.compare.branchesBody, {
+              branch: bc.branch, base: bc.base, ahead: String(bc.ahead), behind: String(bc.behind),
+            })
+            : '';
           d.setCommitDetail(() => ({
             hash: rangeHash,
             parents: [],
@@ -183,7 +190,7 @@ export function useStateSubscription(deps: StateSubscriptionDeps): void {
             commitDate: 0,
             refs: [],
             subject,
-            body: '',
+            body,
             files,
           }));
           break;

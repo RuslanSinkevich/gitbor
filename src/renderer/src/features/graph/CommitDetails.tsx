@@ -165,6 +165,12 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
 
   return (
     <div className={s.root}>
+      {isCompareRange && (
+        <div className={s.compareBanner}>
+          <div className={s.compareBannerTitle}>{detail.subject}</div>
+          {detail.body && <div className={s.compareBannerHint}>{detail.body}</div>}
+        </div>
+      )}
       <div className={s.tabs}>
         <button className={`${s.tab} ${tab === 'commit' ? s.tabActive : ''}`} onClick={() => setTab('commit')}>
           {loc.details.commit}
@@ -188,8 +194,9 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
       <div className={s.content}>
         {tab === 'commit' && (
           <div className={s.commitTab}>
-            <h3 className={s.subject}>{detail.subject}</h3>
-            {detail.body && <pre className={s.body}>{detail.body}</pre>}
+            {/* В режиме сравнения заголовок уже в баннере над вкладками. */}
+            {!isCompareRange && <h3 className={s.subject}>{detail.subject}</h3>}
+            {!isCompareRange && detail.body && <pre className={s.body}>{detail.body}</pre>}
             {showExplainer && <CommitExplainerOutput state={explainer} />}
             <div className={s.meta}>
               {!isCompareRange && (

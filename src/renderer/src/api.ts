@@ -42,7 +42,7 @@ const NON_RETRYABLE_TYPES = new Set<string>([
   'getRepoSettings', 'listSshKeys', 'getPublicKey', 'getLfsStatus', 'getLfsActive', 'getConventionalCommits',
   'getWorktrees', 'getHooks', 'getReflog',
   'getBisectStatus', 'getGitignore',
-  'getCommitDiff',
+  'getCommitDiff', 'compareBranches',
   'aiGetConfig', 'aiSetConfig', 'aiTestConnection', 'aiGenerateCommitMessage', 'aiCancelGenerate',
   'aiTestPrompt', 'aiGetLastDebug', 'aiSuggestStashName', 'aiSemanticSearch',
   'aiExplainCommit', 'aiExplainReflog', 'aiAnalyzeConflict',

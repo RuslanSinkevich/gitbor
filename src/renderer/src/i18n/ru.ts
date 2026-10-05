@@ -219,6 +219,8 @@ export const ru: LocaleMap = {
     sinceCreation: 'Изменения с момента создания файла',
     vsWorking: 'Изменения относительно рабочей копии',
     range: '{from} → {to}',
+    branches: 'Сравнение: «{branch}» относительно «{base}»',
+    branchesBody: 'Изменения из «{branch}» с момента ответвления от «{base}» (то, что принесёт слияние).\nКоммитов только в «{branch}»: {ahead}, только в «{base}»: {behind}.',
   },
   diff: {
     loading: 'Загрузка diff...',
@@ -434,7 +436,7 @@ export const ru: LocaleMap = {
     copyUrl: 'Копировать URL',
     fetchRemote: 'Получить (Fetch) «{remote}»',
     fetchBranch: 'Обновить ветку (fetch)',
-    compareWithCurrent: 'Сравнить с «{target}»',
+    compareWithCurrent: 'Сравнить с текущей веткой',
     fetchBranchTitle: 'Стянуть «{branch}» из remote (fast-forward)',
     fetchBranchPickRemote: 'У ветки нет upstream. Укажите remote-родителя — после обновления tracking сохранится.',
     fetchBranchRemoteLabel: 'Remote',
@@ -479,6 +481,7 @@ export const ru: LocaleMap = {
     tagMessageTitle: 'Сообщение метки',
     more: 'Дополнительно',
     help: {
+      compareWithCurrent: 'Показывает, что изменено в «{branch}» с момента ответвления от «{target}» — то есть что принесёт слияние.',
       mergeInto: 'Вливает выбранный коммит в текущую ветку, создавая коммит слияния. История обеих веток сохраняется.',
       rebaseToHere: 'Переносит коммиты текущей ветки поверх выбранного — история становится линейной. Хеши коммитов меняются, не делайте это с уже отправленными коммитами.',
       interactiveRebaseToHere: 'То же, что rebase, но открывает редактор: можно переставить, объединить (squash), переименовать или удалить коммиты перед переносом.',

@@ -121,12 +121,12 @@ export function getBranchMenuItems(
       title: tpl(loc.contextMenu.mergeInto, { source: branch.name, target: currentBranch }),
       action: () => onMerge ? onMerge(branch.name) : postCommand({ type: 'merge', branch: branch.name }),
     });
-    // Полная разница между вершинами веток (`git diff <branch>..<current>`):
-    // список файлов в режиме сравнения CommitsView, дифф по клику на файл.
+    // Что принесёт ветка при слиянии: дифф от merge-base до вершины ветки.
+    // Список файлов — в режиме сравнения CommitsView, дифф по клику на файл.
     if (onCompare) {
       items.push({
-        label: tpl(loc.contextMenu.compareWithCurrent, { target: shortCurrent || 'HEAD' }),
-        title: `${branch.name} → ${currentBranch || 'HEAD'}`,
+        label: loc.contextMenu.compareWithCurrent,
+        help: tpl(loc.contextMenu.help.compareWithCurrent, { branch: short, target: shortCurrent || 'HEAD' }),
         action: () => onCompare(branch.name),
       });
     }
