@@ -1,9 +1,10 @@
+import * as path from 'path';
 import * as fs from 'fs/promises';
 import { watch as chokidarWatch, type FSWatcher } from 'chokidar';
 import { StateManager } from './StateManager';
 import { isDangerousRepoRoot } from '../utils/repoPathGuard';
 import { mainLogger } from '../utils/Logger';
-import { resolveGitDir } from '../git/gitDir';
+import { resolveGitDir, resolveCommonGitDir } from '../git/gitDir';
 
 const GIT_DEBOUNCE_MS = 120;
 const WORKTREE_DEBOUNCE_MS = 200;
@@ -29,15 +30,24 @@ const GIT_DEBOUNCE_MAX_MS = 2000;
  * `refs/heads/main.lock` и переименовывает его в `main`, событие по `main`
  * никуда не девается.
  */
-const GIT_WATCH_IGNORED: RegExp[] = [
-  /[\\/]\.git[\\/]index(\.lock)?$/,
-  /\.lock$/,
-  /[\\/]\.git[\\/]objects[\\/]/,
-  /[\\/]\.git[\\/]logs[\\/]/,
-  /[\\/]\.git[\\/]hooks[\\/]/,
-  /[\\/]\.git[\\/]FETCH_HEAD$/,
-  /[\\/]\.git[\\/]COMMIT_EDITMSG$/,
-];
+const GIT_WATCH_IGNORED_FILES = new Set(['index', 'FETCH_HEAD', 'COMMIT_EDITMSG']);
+const GIT_WATCH_IGNORED_DIRS = ['objects', 'logs', 'hooks', 'worktrees'];
+
+/**
+ * Матчим путь ОТНОСИТЕЛЬНО git-dir, а не по `/.git/` в абсолютном пути:
+ * у связанного worktree git-dir — `<main>/.git/worktrees/<name>/`, и старые
+ * регексы `\.git[\\/]index$` его `index` не ловили → петля refresh ↔
+ * update-index возвращалась. `worktrees/` в основном репо — индексы и HEAD
+ * других worktree, к нашему состоянию отношения не имеют.
+ */
+export function isIgnoredGitPath(gitDir: string, p: string): boolean {
+  if (p.endsWith('.lock')) return true;
+  const rel = path.relative(gitDir, p).split(path.sep).join('/');
+  if (!rel || rel.startsWith('..')) return false;
+  if (GIT_WATCH_IGNORED_FILES.has(rel)) return true;
+  const top = rel.split('/')[0];
+  return GIT_WATCH_IGNORED_DIRS.includes(top);
+}
 /**
  * Если в корне репозитория больше этого числа записей верхнего уровня —
  * worktreeWatcher НЕ запускается. На профильных каталогах chokidar пытается
@@ -151,10 +161,16 @@ export class FileWatcher {
 
       try {
         const gitDir = resolveGitDir(repoPath);
-        const gitWatcher = chokidarWatch(gitDir, {
+        // У worktree ветки/теги живут в общем git-dir основного репо — без
+        // этих путей коммит из терминала в worktree не будил бы refresh.
+        const commonDir = resolveCommonGitDir(repoPath);
+        const watchTargets: string | string[] = commonDir === gitDir
+          ? gitDir
+          : [gitDir, path.join(commonDir, 'refs'), path.join(commonDir, 'packed-refs')];
+        const gitWatcher = chokidarWatch(watchTargets, {
           ignoreInitial: true,
           depth: 3,
-          ignored: GIT_WATCH_IGNORED,
+          ignored: (p: string) => isIgnoredGitPath(gitDir, p),
           awaitWriteFinish: { stabilityThreshold: 50, pollInterval: 20 },
         });
         const worktreeWatcher: FSWatcher | null = isHugeWorktree ? null : chokidarWatch(repoPath, {

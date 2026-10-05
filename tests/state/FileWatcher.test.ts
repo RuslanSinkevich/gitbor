@@ -131,10 +131,10 @@ describe('FileWatcher', () => {
       fw.addRepo(tmpRepo);
       await waitForWatcher(calls => calls.some(c => c.target.endsWith('.git')));
       const gitCall = watchCalls.find(c => c.target.endsWith('.git'));
-      const ignored = (gitCall!.options as { ignored?: RegExp[] }).ignored;
-      expect(ignored).toBeDefined();
+      const ignored = (gitCall!.options as { ignored?: (p: string) => boolean }).ignored;
+      expect(typeof ignored).toBe('function');
 
-      const matches = (p: string) => ignored!.some(re => re.test(p));
+      const matches = (p: string) => ignored!(p);
       // Индекс переписывает наш же `update-index --refresh` — если слушать его,
       // refreshAll запускает сам себя по кругу.
       expect(matches(join(tmpRepo, '.git', 'index'))).toBe(true);
@@ -150,6 +150,20 @@ describe('FileWatcher', () => {
       // Ветка с именем "index" не должна попасть под правило про индекс.
       expect(matches(join(tmpRepo, '.git', 'refs', 'heads', 'index'))).toBe(false);
       fw.dispose();
+    });
+
+    it('связанный worktree: index в .git/worktrees/<name>/ тоже игнорируется', async () => {
+      const { isIgnoredGitPath } = await import('../../src/core/state/FileWatcher');
+      // git-dir worktree лежит в основном репо — `/.git/index` в пути нет,
+      // старые регексы его не ловили и петля refresh ↔ update-index возвращалась.
+      const wtGitDir = join(tmpRepo, '.git', 'worktrees', 'feature');
+      expect(isIgnoredGitPath(wtGitDir, join(wtGitDir, 'index'))).toBe(true);
+      expect(isIgnoredGitPath(wtGitDir, join(wtGitDir, 'logs', 'HEAD'))).toBe(true);
+      expect(isIgnoredGitPath(wtGitDir, join(wtGitDir, 'HEAD'))).toBe(false);
+      // В основном репо чужие worktree не будят refresh.
+      const mainGitDir = join(tmpRepo, '.git');
+      expect(isIgnoredGitPath(mainGitDir, join(mainGitDir, 'worktrees', 'feature', 'index'))).toBe(true);
+      expect(isIgnoredGitPath(mainGitDir, join(mainGitDir, 'worktrees', 'feature', 'HEAD'))).toBe(true);
     });
 
     it('идемпотентность: повторный addRepo не создаёт дублей', async () => {
