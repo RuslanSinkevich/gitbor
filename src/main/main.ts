@@ -22,6 +22,7 @@ import { setupGracefulShutdown } from './gracefulShutdown';
 import { computeAiOrigins } from './cspOrigins';
 import { setupAppUpdater } from './AppUpdater';
 import { AI_ENABLED } from '../core/buildFlags';
+import { resolveGitDir } from '../core/git/gitDir';
 
 let mainWindow: BrowserWindow | null = null;
 let messageBridge: MessageBridge | null = null;
@@ -327,7 +328,7 @@ async function autoOpenRepo(): Promise<void> {
   if (repoRoot) {
     try {
       const services = stateManager.getRegistry().acquire(repoRoot);
-      const gitDir = path.join(repoRoot, '.git');
+      const gitDir = resolveGitDir(repoRoot);
       const journal = new OperationJournal(gitDir);
       const safety = new SafetyNet(services.git);
       const recovery = new RecoveryManager(services.git, journal, safety);

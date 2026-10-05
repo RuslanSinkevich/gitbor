@@ -194,7 +194,8 @@ export function parseRemotes(stdout: string): Remote[] {
   const map = new Map<string, { fetchUrl: string; pushUrl: string }>();
 
   for (const raw of lines(stdout)) {
-    const match = raw.match(/^(\S+)\t(\S+)\s+\((fetch|push)\)$/);
+    // URL может быть локальным путём с пробелами (`D:/My Repos/x`) — не `\S+`.
+    const match = raw.replace(/\r$/, '').match(/^(\S+)\t(.+?)\s+\((fetch|push)\)$/);
     if (!match) continue;
 
     const [, name, url, kind] = match;

@@ -3,6 +3,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { GitExecutor } from './GitExecutor';
 import type { RebaseTodoEntry, RebaseTodoList, RebaseProgress, OperationResult } from './types';
+import { resolveGitDir } from './gitDir';
 
 export class RebaseManager {
   constructor(private readonly git: GitExecutor) {}
@@ -81,7 +82,7 @@ export class RebaseManager {
    */
   async getProgress(): Promise<RebaseProgress> {
     const repoPath = this.git.getCwd();
-    const gitDir = join(repoPath, '.git');
+    const gitDir = resolveGitDir(repoPath);
 
     let dir: string;
     try {

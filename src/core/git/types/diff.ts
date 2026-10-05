@@ -3,6 +3,11 @@ export interface DiffLine {
   content: string;
   oldLineNo: number | null;
   newLineNo: number | null;
+  /**
+   * За строкой в diff шёл `\ No newline at end of file`. Нужен при сборке
+   * патчей для stage/discard hunk: без маркера `git apply` не сходится.
+   */
+  noNewlineAtEnd?: boolean;
 }
 
 export interface DiffHunk {

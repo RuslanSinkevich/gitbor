@@ -58,7 +58,10 @@ export function parseDiff(stdout: string): FileDiff[] {
           diffLine = { type: 'remove', content: line.substring(1), oldLineNo: oldLine++, newLineNo: null };
         } else if (line.startsWith(' ')) {
           diffLine = { type: 'context', content: line.substring(1), oldLineNo: oldLine++, newLineNo: newLine++ };
-        } else if (line === '\\ No newline at end of file') {
+        } else if (line.startsWith('\\')) {
+          // `\ No newline at end of file` (текст локализуется — матчим по `\`).
+          const prev = currentHunk.lines[currentHunk.lines.length - 1];
+          if (prev) prev.noNewlineAtEnd = true;
           continue;
         }
 

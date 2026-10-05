@@ -7,7 +7,7 @@ import { SafetyNet } from '../safety/SafetyNet';
 import { PreflightChecks } from '../safety/PreflightChecks';
 import { StateManager } from '../state/StateManager';
 import { GitErrorClassifier } from '../git/GitErrorClassifier';
-import { resolveStashDropRef } from '../git/stashRef';
+import { resolveStashDropRef, readStashTip } from '../git/stashRef';
 import { mainLogger } from '../utils/Logger';
 
 function simpleResult(exitCode: number, stderr: string): OperationResult {
@@ -290,13 +290,26 @@ export async function push(
     if (remote && branch) {
       args.push(remote, `HEAD:${branch}`);
     } else {
-      args.push('origin', 'HEAD');
+      args.push(remote || await pickDefaultRemote(git), 'HEAD');
     }
   } else {
     if (remote) args.push(remote);
     if (branch) args.push(`HEAD:${branch}`);
   }
   return gitExecSimple(queue, git, state, 'push', args);
+}
+
+/**
+ * Remote по умолчанию: `origin`, если он есть (или remote'ов не видно —
+ * пусть git сам скажет понятную ошибку), иначе первый из списка. Раньше
+ * тут был жёсткий `origin`, и в репо с remote `upstream`/`gitlab` push -u
+ * и удаление тега на remote падали.
+ */
+async function pickDefaultRemote(git: GitExecutor): Promise<string> {
+  const out = (await git.exec(['remote'])).stdout.trim();
+  const remotes = out ? out.split('\n').map(r => r.trim()).filter(Boolean) : [];
+  if (remotes.length === 0 || remotes.includes('origin')) return 'origin';
+  return remotes[0];
 }
 
 export async function stash(
@@ -333,11 +346,6 @@ export async function stash(
     }
     return { success: true, rollbackAvailable: false };
   }, 'refreshAll');
-}
-
-async function readStashTip(git: GitExecutor): Promise<string> {
-  const r = await git.exec(['rev-parse', '-q', '--verify', 'refs/stash']);
-  return r.exitCode === 0 ? r.stdout.trim() : '';
 }
 
 /**
@@ -482,7 +490,7 @@ export async function deleteTag(queue: OperationQueue, git: GitExecutor, state: 
     const r = await git.exec(['tag', '-d', name]);
     if (r.exitCode !== 0) return simpleResult(r.exitCode, r.stderr);
     if (remote) {
-      const rr = await git.exec(['push', 'origin', `:refs/tags/${name}`]);
+      const rr = await git.exec(['push', await pickDefaultRemote(git), `:refs/tags/${name}`]);
       if (rr.exitCode !== 0) return { success: false, error: `Tag deleted locally but failed to delete on remote: ${rr.stderr}`, rollbackAvailable: false };
     }
     return simpleResult(0, '');
@@ -669,27 +677,44 @@ export async function initRepo(queue: OperationQueue, git: GitExecutor, state: S
 
 /* ─── Hunk/line staging (shared diff fetch) ─── */
 
+/** Строка патча; за строкой без `\n` в конце файла — маркер, иначе git apply не сходится. */
+function patchLine(prefix: string, l: DiffLine): string {
+  return l.noNewlineAtEnd ? `${prefix}${l.content}\n\\ No newline at end of file` : prefix + l.content;
+}
+
 function buildHunkPatch(file: string, hunk: DiffHunk): string {
   const lines = hunk.lines.map((l: DiffLine) => {
-    if (l.type === 'add') return '+' + l.content;
-    if (l.type === 'remove') return '-' + l.content;
-    return ' ' + l.content;
+    if (l.type === 'add') return patchLine('+', l);
+    if (l.type === 'remove') return patchLine('-', l);
+    return patchLine(' ', l);
   });
   return [`--- a/${file}`, `+++ b/${file}`, hunk.header, ...lines, ''].join('\n');
 }
 
-function buildLinesPatch(file: string, hunk: DiffHunk, lineIndices: Set<number>): string {
+/**
+ * Патч из выбранных строк ханка. Невыбранные строки должны остаться как в
+ * той стороне, к которой патч применяется:
+ *  - stage (forward, к индексу = old-сторона): невыбранное удаление — контекст,
+ *    невыбранное добавление — выкидываем;
+ *  - unstage (`--reverse`, к индексу = new-сторона): наоборот — невыбранное
+ *    добавление (оно уже в индексе) — контекст, невыбранное удаление — выкидываем.
+ * Раньше reverse строился как forward, и `git apply` падал на смешанных ханках.
+ */
+function buildLinesPatch(file: string, hunk: DiffHunk, lineIndices: Set<number>, reverse = false): string {
   let oldCount = 0, newCount = 0;
   const patchLines: string[] = [];
+  const keepAsContext = reverse ? 'add' : 'remove';
 
   hunk.lines.forEach((l, i) => {
     if (l.type === 'context') {
-      patchLines.push(' ' + l.content); oldCount++; newCount++;
-    } else if (l.type === 'remove') {
-      if (lineIndices.has(i)) { patchLines.push('-' + l.content); oldCount++; }
-      else { patchLines.push(' ' + l.content); oldCount++; newCount++; }
-    } else if (l.type === 'add') {
-      if (lineIndices.has(i)) { patchLines.push('+' + l.content); newCount++; }
+      patchLines.push(patchLine(' ', l)); oldCount++; newCount++;
+      return;
+    }
+    if (lineIndices.has(i)) {
+      if (l.type === 'remove') { patchLines.push(patchLine('-', l)); oldCount++; }
+      else { patchLines.push(patchLine('+', l)); newCount++; }
+    } else if (l.type === keepAsContext) {
+      patchLines.push(patchLine(' ', l)); oldCount++; newCount++;
     }
   });
 
@@ -746,7 +771,7 @@ export async function stageLines(
   return queue.enqueueWrite('stageLines', async () => {
     const hunk = await getDiffHunk(git, file, hunkIndex, reverse);
     if (!hunk) return { success: false, error: 'Hunk not found', rollbackAvailable: false };
-    return applyPatch(git, state, buildLinesPatch(file, hunk, new Set(lineIndices)), reverse);
+    return applyPatch(git, state, buildLinesPatch(file, hunk, new Set(lineIndices), reverse), reverse);
   });
 }
 

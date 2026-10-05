@@ -9,6 +9,7 @@ import {
   tryRemoveStaleLock,
   type LockWaiterOptions,
 } from './LockWaiter';
+import { resolveGitDir } from '../git/gitDir';
 
 /**
  * Pre-flight проверки ПЕРЕД destructive операцией. Цель: не входить
@@ -79,7 +80,7 @@ export class PreflightChecks {
     }
 
     const issues: PreflightIssue[] = [];
-    const gitDir = join(repoPath, '.git');
+    const gitDir = resolveGitDir(repoPath);
 
     await this.checkLock(gitDir, repoPath, issues, opts);
     await this.checkStateFiles(gitDir, operation, issues);

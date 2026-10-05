@@ -1,6 +1,7 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { GitExecutor } from './GitExecutor';
+import { resolveGitDir } from './gitDir';
 
 /** Status of an active bisect session. */
 export interface BisectStatus {
@@ -74,7 +75,7 @@ export class BisectManager {
 
   /** Checks if a bisect session is active. */
   isActive(): boolean {
-    const gitDir = join(this.git.getCwd(), '.git');
+    const gitDir = resolveGitDir(this.git.getCwd());
     return existsSync(join(gitDir, 'BISECT_LOG'));
   }
 }

@@ -2,6 +2,7 @@ import { readdir, readFile, rename, chmod, stat } from 'fs/promises';
 import { join } from 'path';
 import { GitExecutor } from './GitExecutor';
 import { isSafeFilename } from '../utils/pathSecurity';
+import { resolveCommonGitDir } from './gitDir';
 
 /** Known git hook names. */
 const KNOWN_HOOKS = [
@@ -27,7 +28,7 @@ export class HooksManager {
 
   /** Returns the hooks directory path. */
   private getHooksDir(): string {
-    return join(this.git.getCwd(), '.git', 'hooks');
+    return join(resolveCommonGitDir(this.git.getCwd()), 'hooks');
   }
 
   /** Lists all hooks with their enabled status and content. */

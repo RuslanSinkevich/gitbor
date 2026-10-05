@@ -12,7 +12,8 @@ import { OperationJournal } from './OperationJournal';
 import { GitErrorClassifier } from '../git/GitErrorClassifier';
 import { mainLogger } from '../utils/Logger';
 import { recordErrorClass } from './SafetyStats';
-import { resolveStashDropRef } from '../git/stashRef';
+import { resolveStashDropRef, readStashTip } from '../git/stashRef';
+import { resolveGitDir } from '../git/gitDir';
 
 export interface WrapOptions {
   autoStash?: boolean;
@@ -47,7 +48,7 @@ export class SafetyNet {
   ) {}
 
   private getJournal(): OperationJournal {
-    const gitDir = join(this.git.getCwd(), '.git');
+    const gitDir = resolveGitDir(this.git.getCwd());
     return new OperationJournal(gitDir);
   }
 
@@ -95,10 +96,14 @@ export class SafetyNet {
       // `-u`: auto-stash забирает и новые (untracked) файлы. Без него новые
       // файлы остаются в рабочей копии и «протекают» между ветками при
       // checkout/pull — осознанно включаем по умолчанию.
+      // Сверяем refs/stash до/после: если git «нечего откладывать» (exit 0,
+      // например изменения только внутри подмодуля), `stash@{0}` — это ЧУЖОЙ
+      // пользовательский стэш, и после операции мы бы его применили и удалили.
+      const tipBefore = await readStashTip(this.git);
       const stashResult = await this.git.exec(['stash', 'push', '-u', '-m', stashMsg]);
       if (stashResult.exitCode === 0) {
-        const hashResult = await this.git.exec(['rev-parse', 'stash@{0}']);
-        autoStashHash = hashResult.stdout.trim();
+        const tipAfter = await readStashTip(this.git);
+        if (tipAfter && tipAfter !== tipBefore) autoStashHash = tipAfter;
       } else {
         // Stash push сам упал — это уже могла быть транзитная причина (lock).
         const classified = GitErrorClassifier.classify(stashResult.stderr);
@@ -172,10 +177,7 @@ export class SafetyNet {
       // legacy: тупой rollback. Только если опт-ин.
       if (legacyAutoRollback) {
         try {
-          await this.git.exec(['reset', '--hard', headHash]);
-          if (branchName !== 'HEAD') {
-            await this.git.exec(['checkout', branchName]);
-          }
+          await this.restoreHead(headHash, branchName);
           if (autoStashHash) {
             await this.tryRestoreAutoStash(autoStashHash);
           }
@@ -280,19 +282,26 @@ export class SafetyNet {
 
     const { headHash, branchName, autoStashHash } = entry.savedState;
 
-    await this.git.exec(['reset', '--hard', headHash]);
+    await this.restoreHead(headHash, branchName);
 
-    if (branchName !== 'HEAD') {
-      await this.git.exec(['checkout', branchName]);
-    }
+    // apply → drop (как после успешной операции). Если apply упал, стэш
+    // остаётся в списке — юзер увидит его в «Отложенных».
+    if (autoStashHash) await this.tryRestoreAutoStash(autoStashHash);
+  }
 
-    if (autoStashHash) {
-      try {
-        await this.git.exec(['stash', 'apply', autoStashHash]);
-      } catch {
-        // stash apply may conflict — user will see in status
-      }
-    }
+  /**
+   * Вернуть HEAD в сохранённое состояние. Сначала checkout, потом reset:
+   * если операция успела переключить ветку, `reset --hard` до checkout
+   * сдвинул бы ЧУЖУЮ ветку на старый коммит. `exec` не кидает на exit≠0 —
+   * проверяем коды сами, иначе откат «успешен», а репо не тронуто.
+   */
+  private async restoreHead(headHash: string, branchName: string): Promise<void> {
+    const co = branchName !== 'HEAD'
+      ? await this.git.exec(['checkout', '-f', branchName])
+      : await this.git.exec(['checkout', '-f', '--detach', headHash]);
+    if (co.exitCode !== 0) throw new GitError('Rollback checkout failed', 'checkout', co.exitCode, co.stderr);
+    const reset = await this.git.exec(['reset', '--hard', headHash]);
+    if (reset.exitCode !== 0) throw new GitError('Rollback reset failed', 'reset', reset.exitCode, reset.stderr);
   }
 
   async restoreAutoStash(stashHash: string): Promise<void> {
@@ -338,7 +347,7 @@ export class SafetyNet {
   }
 
   private isConflictSessionActive(): boolean {
-    const gitDir = join(this.git.getCwd(), '.git');
+    const gitDir = resolveGitDir(this.git.getCwd());
     if (existsSync(join(gitDir, 'MERGE_HEAD'))) return true;
     if (existsSync(join(gitDir, 'CHERRY_PICK_HEAD'))) return true;
     if (existsSync(join(gitDir, 'REVERT_HEAD'))) return true;

@@ -1,9 +1,9 @@
-import * as path from 'path';
 import * as fs from 'fs/promises';
 import { watch as chokidarWatch, type FSWatcher } from 'chokidar';
 import { StateManager } from './StateManager';
 import { isDangerousRepoRoot } from '../utils/repoPathGuard';
 import { mainLogger } from '../utils/Logger';
+import { resolveGitDir } from '../git/gitDir';
 
 const GIT_DEBOUNCE_MS = 120;
 const WORKTREE_DEBOUNCE_MS = 200;
@@ -150,7 +150,7 @@ export class FileWatcher {
       if (this.watchers.get(repoPath)?.gitWatcher) return;
 
       try {
-        const gitDir = path.join(repoPath, '.git');
+        const gitDir = resolveGitDir(repoPath);
         const gitWatcher = chokidarWatch(gitDir, {
           ignoreInitial: true,
           depth: 3,

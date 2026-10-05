@@ -35,3 +35,13 @@ export async function resolveStashDropRef(
   }
   return null;
 }
+
+/**
+ * Текущая вершина `refs/stash` ('' — стэшей нет). `git stash push` при
+ * «нечего откладывать» выходит с кодом 0, поэтому факт создания стэша
+ * проверяем сдвигом этого ref'а, а не exit-кодом/stdout (он локализован).
+ */
+export async function readStashTip(git: StashListExec): Promise<string> {
+  const r = await git.exec(['rev-parse', '-q', '--verify', 'refs/stash']);
+  return r.exitCode === 0 ? r.stdout.trim() : '';
+}

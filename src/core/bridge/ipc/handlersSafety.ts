@@ -1,5 +1,6 @@
 import type { HandlerTable } from './types';
 import { mainLogger } from '../../utils/Logger';
+import { resolveGitDir } from '../../git/gitDir';
 
 /**
  * Safety-handler'ы для команд `safetyResolve` / `killGitProcess` /
@@ -17,9 +18,8 @@ export const ipcHandlersSafety: HandlerTable = {
     try {
       const { RecoveryManager } = await import('../../safety/RecoveryManager');
       const { OperationJournal } = await import('../../safety/OperationJournal');
-      const { join } = await import('path');
       const services = ctx.sm.getActiveServices();
-      const journal = new OperationJournal(join(services.git.getCwd(), '.git'));
+      const journal = new OperationJournal(resolveGitDir(services.git.getCwd()));
       const rm = new RecoveryManager(services.git, journal, services.safety);
       await rm.killGitProcess(cmd.pid);
       mainLogger.info(`safety: user killed git pid=${cmd.pid}`);
@@ -33,7 +33,7 @@ export const ipcHandlersSafety: HandlerTable = {
       const { unlinkSync, existsSync } = await import('fs');
       const { join } = await import('path');
       const services = ctx.sm.getActiveServices();
-      const lockPath = join(services.git.getCwd(), '.git', 'index.lock');
+      const lockPath = join(resolveGitDir(services.git.getCwd()), 'index.lock');
       if (existsSync(lockPath)) {
         unlinkSync(lockPath);
         mainLogger.info(`safety: user removed .git/index.lock`);
@@ -58,9 +58,8 @@ export const ipcHandlersSafety: HandlerTable = {
     try {
       const { RecoveryManager } = await import('../../safety/RecoveryManager');
       const { OperationJournal } = await import('../../safety/OperationJournal');
-      const { join } = await import('path');
       const services = ctx.sm.getActiveServices();
-      const journal = new OperationJournal(join(services.git.getCwd(), '.git'));
+      const journal = new OperationJournal(resolveGitDir(services.git.getCwd()));
       const rm = new RecoveryManager(services.git, journal, services.safety);
       await rm.executeRecovery(cmd.action);
       await ctx.sm.refreshAll();

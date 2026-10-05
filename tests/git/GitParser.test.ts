@@ -215,6 +215,13 @@ describe('parseRemotes', () => {
     expect(remotes[0].pushUrl).toBe('git@github.com:user/repo.git');
   });
 
+  it('keeps local-path URLs with spaces', () => {
+    const input = 'backup\tD:/My Repos/app.git (fetch)\r\nbackup\tD:/My Repos/app.git (push)';
+    const remotes = parseRemotes(input);
+    expect(remotes).toHaveLength(1);
+    expect(remotes[0].fetchUrl).toBe('D:/My Repos/app.git');
+  });
+
   it('handles multiple remotes', () => {
     const input = [
       'origin\thttps://github.com/a/b.git (fetch)',

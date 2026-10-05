@@ -1,5 +1,6 @@
 import { readFile } from 'fs/promises';
 import { join } from 'path';
+import { resolveCommonGitDir } from './gitDir';
 
 const HOOK_MARKERS = [/Conventional Commits/i, /commitlint/i, /\^\(feat\|fix\|docs/i];
 
@@ -7,7 +8,7 @@ const HOOK_MARKERS = [/Conventional Commits/i, /commitlint/i, /\^\(feat\|fix\|do
 export async function detectConventionalCommits(repoPath: string): Promise<boolean> {
   const paths = [
     join(repoPath, '.husky', 'commit-msg'),
-    join(repoPath, '.git', 'hooks', 'commit-msg'),
+    join(resolveCommonGitDir(repoPath), 'hooks', 'commit-msg'),
   ];
   for (const path of paths) {
     try {

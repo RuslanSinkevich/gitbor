@@ -8,6 +8,7 @@ import { findGitProcesses } from './GitProcessDetector';
 import { cleanupTmpFiles } from './AtomicWrite';
 import { mainLogger } from '../utils/Logger';
 import { resolveStashDropRef } from '../git/stashRef';
+import { resolveGitDir } from '../git/gitDir';
 
 const AUTO_STASH_PREFIX = '[GitBor auto-stash]';
 
@@ -29,7 +30,7 @@ export class RecoveryManager {
 
   async checkOnStartup(): Promise<RecoveryReport> {
     const issues: RecoveryIssue[] = [];
-    const gitDir = join(this.git.getCwd(), '.git');
+    const gitDir = resolveGitDir(this.git.getCwd());
 
     cleanupTmpFiles(gitDir);
     cleanupTmpFiles(this.git.getCwd());
@@ -50,9 +51,13 @@ export class RecoveryManager {
       case 'rollback':
         await this.safetyNet.rollback(action.journalEntryId);
         break;
-      case 'abort_merge':
-        await this.git.exec(['merge', '--abort']);
+      case 'abort_merge': {
+        // SafetyNet предлагает abort_merge и для конфликтов cherry-pick/revert —
+        // там `merge --abort` молча ничего не делает (нет MERGE_HEAD).
+        const kind = await this.activeSequencerOp();
+        await this.run([kind ?? 'merge', '--abort'], `${kind ?? 'merge'} --abort`);
         break;
+      }
       case 'continue_merge': {
         const unresolved = await this.git.exec(['diff', '--name-only', '--diff-filter=U']);
         if (unresolved.stdout.trim()) {
@@ -62,13 +67,12 @@ export class RecoveryManager {
         }
         // Cherry-pick (в т.ч. серия) — только `cherry-pick --continue`, иначе
         // `commit` закоммитит текущий pick и не продвинет секвенсер.
-        const cp = await this.git.exec(['rev-parse', '--verify', 'CHERRY_PICK_HEAD']);
-        if (cp.exitCode === 0) {
-          const r = await this.git.exec(['cherry-pick', '--continue'], { env: { GIT_EDITOR: 'true' } });
-          if (r.exitCode !== 0) throw new Error(`cherry-pick --continue failed: ${r.stderr}`);
+        const kind = await this.activeSequencerOp();
+        if (kind) {
+          await this.run([kind, '--continue'], `${kind} --continue`, { GIT_EDITOR: 'true' });
           break;
         }
-        await this.git.exec(['commit', '--no-edit']);
+        await this.run(['commit', '--no-edit'], 'commit');
         break;
       }
       case 'continue_cherry_pick': {
@@ -83,16 +87,19 @@ export class RecoveryManager {
         break;
       }
       case 'abort_rebase':
-        await this.git.exec(['rebase', '--abort']);
+        await this.run(['rebase', '--abort'], 'rebase --abort');
         break;
       case 'continue_rebase':
-        await this.git.exec(['rebase', '--continue']);
+        await this.run(['rebase', '--continue'], 'rebase --continue', { GIT_EDITOR: 'true' });
         break;
       case 'remove_lock':
         this.removeLockFile();
         break;
       case 'restore_stash':
-        await this.safetyNet.restoreAutoStash(action.stashHash);
+        // Осиротевший auto-stash: вернуть изменения и убрать запись, иначе
+        // диалог восстановления будет всплывать на каждом старте.
+        await this.applyStashOnly(action.stashHash);
+        await this.dropStashByHash(action.stashHash);
         break;
       case 'apply_stash_only':
         await this.applyStashOnly(action.stashHash);
@@ -168,6 +175,19 @@ export class RecoveryManager {
     // существует только как симметрия API, чтобы main мог дать ответ
     // на безусловный retry без сложной логики.
     return { success: true, rollbackAvailable: false };
+  }
+
+  /** `exec` не кидает на exit≠0 — без проверки UI считал бы действие успешным. */
+  private async run(args: string[], label: string, env?: Record<string, string>): Promise<void> {
+    const r = await this.git.exec(args, env ? { env } : undefined);
+    if (r.exitCode !== 0) throw new Error(`${label} failed: ${r.stderr.trim()}`);
+  }
+
+  /** Активная секвенсер-операция с конфликтом (не merge). */
+  private async activeSequencerOp(): Promise<'cherry-pick' | 'revert' | null> {
+    if ((await this.git.exec(['rev-parse', '-q', '--verify', 'CHERRY_PICK_HEAD'])).exitCode === 0) return 'cherry-pick';
+    if ((await this.git.exec(['rev-parse', '-q', '--verify', 'REVERT_HEAD'])).exitCode === 0) return 'revert';
+    return null;
   }
 
   private async applyStashOnly(hash: string): Promise<void> {
@@ -284,16 +304,16 @@ export class RecoveryManager {
   }
 
   private removeLockFile(): void {
-    const lockPath = join(this.git.getCwd(), '.git', 'index.lock');
+    const lockPath = join(resolveGitDir(this.git.getCwd()), 'index.lock');
+    let ageMs: number;
     try {
-      const stat = statSync(lockPath);
-      const ageMs = Date.now() - stat.mtimeMs;
-      if (ageMs < 2000) {
-        throw new Error('Lock file is fresh — git may still be running');
-      }
-      unlinkSync(lockPath);
+      ageMs = Date.now() - statSync(lockPath).mtimeMs;
     } catch {
-      // lock gone, too fresh, or fs error — skip
+      return; // lock уже пропал — цель достигнута
     }
+    // Раньше эта ошибка глоталась тем же catch: юзер жал «Удалить lock»,
+    // ничего не происходило и ничего не сообщалось.
+    if (ageMs < 2000) throw new Error('Lock file is fresh — git may still be running. Try again in a few seconds.');
+    unlinkSync(lockPath);
   }
 }

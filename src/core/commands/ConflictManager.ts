@@ -10,6 +10,7 @@ import {
   MergeState,
   OperationResult,
 } from '../git/types';
+import { resolveGitDir } from '../git/gitDir';
 
 export class ConflictManager {
   constructor(
@@ -193,7 +194,7 @@ export class ConflictManager {
   async detectConflictResolution(): Promise<
     { inProgress: false } | { inProgress: true; kind: 'merge' | 'cherry-pick' | 'revert' | 'rebase' | 'unmerged-paths' }
   > {
-    const gitDir = join(this.git.getCwd(), '.git');
+    const gitDir = resolveGitDir(this.git.getCwd());
     if (existsSync(join(gitDir, 'MERGE_HEAD'))) return { inProgress: true, kind: 'merge' };
     if (existsSync(join(gitDir, 'CHERRY_PICK_HEAD'))) return { inProgress: true, kind: 'cherry-pick' };
     if (existsSync(join(gitDir, 'REVERT_HEAD'))) return { inProgress: true, kind: 'revert' };
@@ -285,7 +286,7 @@ export class ConflictManager {
    * и UU.
    */
   async isMergeInProgress(): Promise<boolean> {
-    const gitDir = join(this.git.getCwd(), '.git');
+    const gitDir = resolveGitDir(this.git.getCwd());
     return existsSync(join(gitDir, 'MERGE_HEAD'));
   }
 

@@ -50,6 +50,10 @@ interface MockGitOptions {
   uuFiles?: string[];
   /** Stash apply exit. */
   stashApplyExit?: number;
+  /** Уже существующий стэш пользователя (вершина refs/stash до операции). */
+  preexistingStash?: string;
+  /** stash push вышел с 0, но ничего не отложил («No local changes to save»). */
+  stashPushNoop?: boolean;
 }
 
 function makeMockGit(opts: MockGitOptions = {}): ScriptedExec {
@@ -62,7 +66,10 @@ function makeMockGit(opts: MockGitOptions = {}): ScriptedExec {
     stashHash = 'stashhash',
     uuFiles = [],
     stashApplyExit = 0,
+    preexistingStash = '',
+    stashPushNoop = false,
   } = opts;
+  let stashCreated = false;
 
   const exec = vi.fn(async (args: string[]): Promise<GitExecResult> => {
     const key = args.join(' ');
@@ -79,10 +86,13 @@ function makeMockGit(opts: MockGitOptions = {}): ScriptedExec {
       return { stdout: uncommitted, stderr: '', exitCode: 0, duration: 1 };
     }
     if (key.startsWith('stash push')) {
+      if (stashPushExit === 0 && !stashPushNoop) stashCreated = true;
       return { stdout: '', stderr: stashPushStderr, exitCode: stashPushExit, duration: 1 };
     }
-    if (key === 'rev-parse stash@{0}') {
-      return { stdout: stashHash + '\n', stderr: '', exitCode: 0, duration: 1 };
+    if (key === 'rev-parse -q --verify refs/stash') {
+      // До push — пользовательский стэш (или пусто), после — наш auto-stash.
+      const tip = stashCreated ? stashHash : preexistingStash;
+      return { stdout: tip ? tip + '\n' : '', stderr: '', exitCode: tip ? 0 : 1, duration: 1 };
     }
     if (key.startsWith('stash apply')) {
       return { stdout: '', stderr: stashApplyExit === 0 ? '' : 'apply fail', exitCode: stashApplyExit, duration: 1 };
@@ -461,12 +471,59 @@ describe('SafetyNet.rollback (via journal)', () => {
     git.exec.mockClear();
     await sn.rollback(id);
 
-    const resetCall = git.exec.mock.calls.find(([args]: [string[]]) => args[0] === 'reset');
-    expect(resetCall).toBeDefined();
-    expect(resetCall![0]).toEqual(['reset', '--hard', 'rollbackhead']);
-    const checkoutCall = git.exec.mock.calls.find(([args]: [string[]]) => args[0] === 'checkout');
-    expect(checkoutCall).toBeDefined();
-    expect(checkoutCall![0]).toEqual(['checkout', 'main']);
+    const calls = git.exec.mock.calls.map(([args]: [string[]]) => args);
+    const resetIdx = calls.findIndex(a => a[0] === 'reset');
+    const checkoutIdx = calls.findIndex(a => a[0] === 'checkout');
+    expect(calls[resetIdx]).toEqual(['reset', '--hard', 'rollbackhead']);
+    expect(calls[checkoutIdx]).toEqual(['checkout', '-f', 'main']);
+    // checkout ДО reset — иначе reset сдвинул бы ветку, на которую успела
+    // переключиться операция.
+    expect(checkoutIdx).toBeLessThan(resetIdx);
+  });
+
+  it('throws when rollback reset fails instead of reporting success', async () => {
+    const { SafetyNet } = await import('../../src/core/safety/SafetyNet');
+    const git = makeMockGit({ headHash: 'h1' });
+    const sn = new SafetyNet(git as never);
+    await sn.wrapDestructive('op', {}, async () => 'ok');
+    const { OperationJournal } = await import('../../src/core/safety/OperationJournal');
+    const id = (await new OperationJournal(gitDir).getAll())[0].id;
+
+    const base = git.exec.getMockImplementation()!;
+    git.exec.mockImplementation(async (args: string[]) =>
+      args[0] === 'reset'
+        ? { stdout: '', stderr: 'fatal: boom', exitCode: 128, duration: 1 }
+        : base(args));
+    await expect(sn.rollback(id)).rejects.toThrow(/reset failed/i);
+  });
+});
+
+describe('SafetyNet auto-stash: чужой стэш не трогаем', () => {
+  it('stash push «нечего откладывать» → user stash не применяется и не удаляется', async () => {
+    const { SafetyNet } = await import('../../src/core/safety/SafetyNet');
+    const git = makeMockGit({
+      uncommitted: ' M submodule\n',
+      preexistingStash: 'userstash',
+      stashPushNoop: true,
+    });
+    const sn = new SafetyNet(git as never);
+
+    const result = await sn.wrapDestructive('checkout', {}, async () => 'ok');
+
+    expect(result.success).toBe(true);
+    const touched = git.exec.mock.calls.some(([args]: [string[]]) =>
+      args[0] === 'stash' && (args[1] === 'apply' || args[1] === 'drop'));
+    expect(touched).toBe(false);
+  });
+
+  it('новый auto-stash после операции применяется и удаляется', async () => {
+    const { SafetyNet } = await import('../../src/core/safety/SafetyNet');
+    const git = makeMockGit({ uncommitted: ' M a.ts\n', preexistingStash: 'userstash', stashHash: 'autostash' });
+    const sn = new SafetyNet(git as never);
+
+    await sn.wrapDestructive('checkout', {}, async () => 'ok');
+
+    expect(git.exec).toHaveBeenCalledWith(['stash', 'apply', 'autostash']);
   });
 });
 

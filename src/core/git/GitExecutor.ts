@@ -74,6 +74,25 @@ export class GitExecutor {
     }
   }
 
+  /**
+   * Окружение для git: сообщения — всегда на английском. GitErrorClassifier
+   * и парсеры матчат английский stderr («CONFLICT», «non-fast-forward»,
+   * «index.lock»…); при `LANG=ru_RU` git переводит их, и ошибки уходили в
+   * `unknown` (конфликт merge не открывал редактор и т.п.). Меняем ТОЛЬКО
+   * LC_MESSAGES — LC_CTYPE (UTF-8 для путей и хуков) остаётся от юзера.
+   */
+  static buildEnv(extra?: Record<string, string>): NodeJS.ProcessEnv {
+    const env: NodeJS.ProcessEnv = { ...process.env };
+    // LC_ALL перекрывает LC_MESSAGES — переносим его в LC_CTYPE и снимаем.
+    if (env.LC_ALL) {
+      env.LC_CTYPE = env.LC_ALL;
+      delete env.LC_ALL;
+    }
+    env.LC_MESSAGES = 'C';
+    delete env.LANGUAGE;
+    return extra ? { ...env, ...extra } : env;
+  }
+
   constructor(private defaultCwd: string) {
     // Logger общий через `mainLogger` singleton: уровень/файл-вывод
     // настраиваются единожды в `main.ts` через `configureMainLogger`.
@@ -99,7 +118,7 @@ export class GitExecutor {
       const proc = execFile(
         'git',
         fullArgs,
-        { cwd, timeout, maxBuffer, windowsHide: true, env: options?.env ? { ...process.env, ...options.env } : undefined },
+        { cwd, timeout, maxBuffer, windowsHide: true, env: GitExecutor.buildEnv(options?.env) },
         (error, stdout, stderr) => {
           this.activeProcesses.delete(proc);
           const duration = Date.now() - startTime;
@@ -170,7 +189,7 @@ export class GitExecutor {
         cwd,
         windowsHide: true,
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: options?.env ? { ...process.env, ...options.env } : undefined,
+        env: GitExecutor.buildEnv(options?.env),
       });
       this.activeProcesses.add(proc);
 
@@ -251,7 +270,7 @@ export class GitExecutor {
     mainLogger.debug(`git exec(stdin): ${this.sanitizeArgs(displayArgs)}  [cwd: ${cwd}]`);
 
     return new Promise<GitExecResult>((resolve, reject) => {
-      const proc = spawn('git', fullArgs, { cwd, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: env ? { ...process.env, ...env } : undefined });
+      const proc = spawn('git', fullArgs, { cwd, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: GitExecutor.buildEnv(env) });
       this.activeProcesses.add(proc);
 
       // Накапливаем чанки в Buffer[] и склеиваем один раз через Buffer.concat:
