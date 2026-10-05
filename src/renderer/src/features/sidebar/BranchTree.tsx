@@ -147,9 +147,11 @@ interface BranchTreeItemProps {
   onSelectBranch?: (name: string) => void;
   /** Имена remote'ов — для модалки «Обновить ветку» без upstream. */
   remoteNames?: string[];
+  /** «Сравнить с текущей»: дифф между этой веткой и текущей. */
+  onCompareBranch?: (branch: string) => void;
 }
 
-export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout, folderExpand, onBranchMove, prefs, selectedBranch, onSelectBranch, remoteNames = [] }: BranchTreeItemProps) {
+export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout, folderExpand, onBranchMove, prefs, selectedBranch, onSelectBranch, remoteNames = [], onCompareBranch }: BranchTreeItemProps) {
   const [expandedInternal, setExpandedInternal] = useState(() => node.branch?.isCurrent ? true : depth < 1);
   const expanded = folderExpand ? folderExpand.isExpanded(node.fullPath) : expandedInternal;
   const toggleExpanded = folderExpand
@@ -215,7 +217,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
             {node.children.map(child => (
               <BranchTreeItem key={child.fullPath} node={child} depth={depth + 1} nested
                 currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu}
-                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} prefs={prefs} selectedBranch={selectedBranch} onSelectBranch={onSelectBranch} remoteNames={remoteNames} />
+                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} prefs={prefs} selectedBranch={selectedBranch} onSelectBranch={onSelectBranch} remoteNames={remoteNames} onCompareBranch={onCompareBranch} />
             ))}
           </div>
         )}
@@ -265,7 +267,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
               onClearSolo: () => prefs.clearSolo(),
               onShowInfo: () => prefs.showInfo(branch),
               onDelete: () => prefs.dropBranch(branch.name),
-            } : {}, remoteNames));
+            } : {}, remoteNames, onCompareBranch));
           }}
 >
           {node.children.length > 0 && (
@@ -316,7 +318,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
             {node.children.map(child => (
               <BranchTreeItem key={child.fullPath} node={child} depth={depth + 1} nested
                 currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu}
-                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} prefs={prefs} selectedBranch={selectedBranch} onSelectBranch={onSelectBranch} remoteNames={remoteNames} />
+                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} prefs={prefs} selectedBranch={selectedBranch} onSelectBranch={onSelectBranch} remoteNames={remoteNames} onCompareBranch={onCompareBranch} />
             ))}
           </div>
         )}

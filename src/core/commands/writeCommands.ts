@@ -308,7 +308,36 @@ export async function stash(
   // остаются в рабочей копии и «протекают» между ветками при checkout.
   if (includeUntracked) args.push('-u');
   if (message) args.push('-m', message);
-  return gitExecSimple(queue, git, state, 'stash', args);
+  return gitWrite(queue, state, 'stash', async (timing) => {
+    const execStart = Date.now();
+    // `git stash push` при «нечего откладывать» (например, только untracked
+    // без `-u`) пишет «No local changes to save» и выходит с кодом 0 —
+    // UI показывал «Изменения отложены», хотя стэш не создан. Сверяем
+    // refs/stash до/после, а не stdout: сообщение git локализовано.
+    const before = await readStashTip(git);
+    const r = await git.exec(args);
+    if (r.exitCode !== 0) {
+      timing.execMs = Date.now() - execStart;
+      return simpleResult(r.exitCode, r.stderr);
+    }
+    const after = await readStashTip(git);
+    timing.execMs = Date.now() - execStart;
+    if (after === before) {
+      return {
+        success: false,
+        error: 'No local changes to save',
+        errorClass: 'stash_empty',
+        severity: 'info',
+        rollbackAvailable: false,
+      };
+    }
+    return { success: true, rollbackAvailable: false };
+  }, 'refreshAll');
+}
+
+async function readStashTip(git: GitExecutor): Promise<string> {
+  const r = await git.exec(['rev-parse', '-q', '--verify', 'refs/stash']);
+  return r.exitCode === 0 ? r.stdout.trim() : '';
 }
 
 /**

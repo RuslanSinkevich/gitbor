@@ -6,6 +6,10 @@ import type { MainEvent } from '../../types';
 import { useAiConfig } from '../ai/useAiConfig';
 import { AiIcon } from '../ai';
 import { AI_ENABLED } from '@core/buildFlags';
+import { loadStoredString, saveStoredString } from '../../shared/uiPersist';
+
+/** Последний выбор «включить новые файлы»; по умолчанию — да, как у auto-stash. */
+const INCLUDE_UNTRACKED_KEY = 'gitbor.stash.includeUntracked';
 
 interface Props {
   onClose: () => void;
@@ -29,7 +33,9 @@ export function StashCreateDialog({ onClose, onSubmit }: Props) {
   const tier2 = t().aiTier2;
   const { config, loaded } = useAiConfig();
   const [value, setValue] = useState('');
-  const [includeUntracked, setIncludeUntracked] = useState(false);
+  const [includeUntracked, setIncludeUntracked] = useState(
+    () => loadStoredString(INCLUDE_UNTRACKED_KEY) !== '0',
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const undoStackRef = useRef<string[]>([]);
@@ -66,6 +72,7 @@ export function StashCreateDialog({ onClose, onSubmit }: Props) {
   }, [aiAvailable]);
 
   const handleSubmit = useCallback(() => {
+    saveStoredString(INCLUDE_UNTRACKED_KEY, includeUntracked ? '1' : '0');
     onSubmit(value.trim(), includeUntracked);
     onClose();
   }, [value, includeUntracked, onSubmit, onClose]);

@@ -258,20 +258,36 @@ describe('writeCommands', () => {
       expect(git.exec).toHaveBeenCalledWith(['stash', 'push', '-u']);
     });
 
+    it('reports stash_empty when git exits 0 but refs/stash did not move', async () => {
+      // «No local changes to save» (например, только untracked без -u) — exit 0.
+      const git = makeScriptedGit({ 'rev-parse': { stdout: 'abc\n' } });
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const r = await Write.stash(asQueue(queue), asGit(git), asState(state));
+      expect(r.success).toBe(false);
+      expect(r.errorClass).toBe('stash_empty');
+    });
+
+    it('succeeds when refs/stash moved', async () => {
+      let tip = 0;
+      const git = makeMockGit();
+      git.exec.mockImplementation(async (args: string[]) => {
+        if (args[0] === 'rev-parse') return { stdout: `tip${tip}\n`, stderr: '', exitCode: 0, duration: 0 };
+        tip++;
+        return { stdout: '', stderr: '', exitCode: 0, duration: 0 };
+      });
+      const queue = makeMockQueue();
+      const state = makeMockState();
+      const r = await Write.stash(asQueue(queue), asGit(git), asState(state), undefined, true);
+      expect(r.success).toBe(true);
+    });
+
     it('omits -u when includeUntracked=false', async () => {
       const git = makeMockGit();
       const queue = makeMockQueue();
       const state = makeMockState();
       await Write.stash(asQueue(queue), asGit(git), asState(state), 'WIP', false);
       expect(git.exec).toHaveBeenCalledWith(['stash', 'push', '-m', 'WIP']);
-    });
-
-    it('returns success when git exits 0', async () => {
-      const git = makeMockGit();
-      const queue = makeMockQueue();
-      const state = makeMockState();
-      const r = await Write.stash(asQueue(queue), asGit(git), asState(state), 'm');
-      expect(r.success).toBe(true);
     });
 
     it('returns failure with stderr when git exits non-zero', async () => {

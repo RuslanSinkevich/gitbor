@@ -1,9 +1,10 @@
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf899d15d4cef8de1';
 
-/** Короткая ревизия: срезаем суффиксы `^`, `^1`, `~N` и берём 7 символов хеша. */
+/** Короткая ревизия: срезаем суффиксы `^`, `^1`, `~N` и берём 7 символов хеша.
+ *  Имена веток (не hex) не обрезаем — `develop → feature/x` читаемее. */
 export function shortRev(rev: string): string {
   const base = rev.replace(/[\^~].*$/, '');
-  return base.length > 7 ? base.slice(0, 7) : base;
+  return /^[0-9a-f]{8,}$/i.test(base) ? base.slice(0, 7) : base;
 }
 
 /** true, если `fromHash` — это первый родитель `toHash` (`<to>^` / `<to>^1`). */

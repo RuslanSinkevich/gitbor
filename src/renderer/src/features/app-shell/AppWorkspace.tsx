@@ -202,6 +202,7 @@ export function AppWorkspace({
                   reveal={sidebarReveal}
                   onShowStashChanges={onShowStashChanges}
                   onMerge={onMerge}
+                  onCompareTo={onCompareTo}
                   showPrompt={showPrompt}
                   requestCheckout={requestCheckout}
                   requestApplyStash={requestApplyStash}

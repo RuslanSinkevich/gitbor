@@ -100,6 +100,15 @@ export function useOperationToasts(
       return;
     }
 
+    // `git stash push` без изменений (или только untracked без `-u`) — не
+    // ошибка, а подсказка: сырой «No local changes to save» юзеру непонятен.
+    if (operation === 'stash' && errorClass === 'stash_empty') {
+      const cmd = lastCommandRef?.current;
+      const withUntracked = cmd?.type === 'stash' && cmd.includeUntracked;
+      addToast(withUntracked ? ops.stashNothing : ops.stashNothingHintUntracked, 'info');
+      return;
+    }
+
     const errorClassResolved = errorClass ?? 'unknown';
     const severity = sevIn ?? classToSeverity(errorClassResolved);
     const source = normalizeSource(srcIn);

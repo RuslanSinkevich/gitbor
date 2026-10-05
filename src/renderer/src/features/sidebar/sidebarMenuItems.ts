@@ -104,6 +104,7 @@ export function getBranchMenuItems(
   requestCheckout: RequestCheckout, onMerge?: (source: string) => void,
   extras: BranchExtrasMenu = {},
   remoteNames: string[] = [],
+  onCompare?: (branch: string) => void,
 ): SgContextMenuItem[] {
   const short = leaf(branch.name);
   const shortCurrent = leaf(currentBranch);
@@ -120,6 +121,15 @@ export function getBranchMenuItems(
       title: tpl(loc.contextMenu.mergeInto, { source: branch.name, target: currentBranch }),
       action: () => onMerge ? onMerge(branch.name) : postCommand({ type: 'merge', branch: branch.name }),
     });
+    // Полная разница между вершинами веток (`git diff <branch>..<current>`):
+    // список файлов в режиме сравнения CommitsView, дифф по клику на файл.
+    if (onCompare) {
+      items.push({
+        label: tpl(loc.contextMenu.compareWithCurrent, { target: shortCurrent || 'HEAD' }),
+        title: `${branch.name} → ${currentBranch || 'HEAD'}`,
+        action: () => onCompare(branch.name),
+      });
+    }
   }
   // Обновить неактивную ЛОКАЛЬНУЮ ветку без переключения:
   // `git fetch <remote> <branch>:<branch>` (fast-forward). Активной и

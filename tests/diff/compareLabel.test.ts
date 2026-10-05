@@ -24,6 +24,11 @@ describe('shortRev', () => {
   it('leaves short refs untouched', () => {
     expect(shortRev('main')).toBe('main');
   });
+
+  it('does not truncate long branch names', () => {
+    expect(shortRev('feature/object-product')).toBe('feature/object-product');
+    expect(shortRev('develop')).toBe('develop');
+  });
 });
 
 describe('isParentOf', () => {
