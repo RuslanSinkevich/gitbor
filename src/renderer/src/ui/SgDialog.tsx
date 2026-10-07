@@ -2,9 +2,10 @@ import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom';
 import { t } from '../i18n';
 
-export type SgDialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'fullscreen';
+/** `wide` — для чтения документов (Markdown и т.п.): почти во всю ширину окна, но не шире 1280. */
+export type SgDialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'wide' | 'fullscreen';
 
-const SIZE_PX: Record<Exclude<SgDialogSize, 'fullscreen'>, number> = {
+const SIZE_PX: Record<Exclude<SgDialogSize, 'fullscreen' | 'wide'>, number> = {
   sm: 380,
   md: 520,
   lg: 720,
@@ -84,7 +85,9 @@ export function SgDialog({
 
   const style: React.CSSProperties = size === 'fullscreen'
     ? { width: 'calc(100vw - 32px)', height: 'calc(100vh - 32px)', maxWidth: 'none' }
-    : { width: size ? SIZE_PX[size] : (width ?? 480) };
+    : size === 'wide'
+      ? { width: 'min(1280px, calc(100vw - 64px))' }
+      : { width: size ? SIZE_PX[size] : (width ?? 480) };
 
   const effectiveFooter = onConfirm
     ? (

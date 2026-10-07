@@ -66,7 +66,7 @@ export function MarkdownPreviewModal({ target, onClose }: Props) {
   }
 
   return (
-    <SgDialog open={open} title={title} onClose={onClose} size="lg">
+    <SgDialog open={open} title={title} onClose={onClose} size="wide">
       {body}
     </SgDialog>
   );
