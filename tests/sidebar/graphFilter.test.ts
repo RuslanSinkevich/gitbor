@@ -99,3 +99,44 @@ describe('applyGraphFilter', () => {
     expect(r.commits.map(x => x.hash).sort()).toEqual(['f1', 'f2', 'm0', 'm1']);
   });
 });
+
+/* Ветка, в которую влили develop (как MISP-298 на скриншоте):
+ *
+ *   feature: F3 ─ M(merge develop) ─ F1 ─ B
+ *                  └─ second parent: D2 ─ D1 ─ B   (develop)
+ */
+describe('applyGraphFilter — solo «только свои» (first-parent)', () => {
+  const repo: Commit[] = [
+    c('F3', ['M']),
+    c('M', ['F1', 'D2']),
+    c('D2', ['D1']),
+    c('F1', ['B']),
+    c('D1', ['B']),
+    c('B', []),
+  ];
+  const brs: Branch[] = [b('feature', 'F3'), b('develop', 'D2')];
+
+  it('own: история влитого develop не попадает', () => {
+    const r = applyGraphFilter(repo, brs, 'feature', new Set(), 'own');
+    expect(r.mode).toBe('solo');
+    expect(r.commits.map(x => x.hash)).toEqual(['F3', 'M', 'F1', 'B']);
+  });
+
+  it('all: вся достижимая история, как раньше', () => {
+    const r = applyGraphFilter(repo, brs, 'feature', new Set(), 'all');
+    expect(r.commits.map(x => x.hash)).toEqual(['F3', 'M', 'D2', 'F1', 'D1', 'B']);
+  });
+
+  it('own: одна полоса — нет «висящей» линии от второго родителя merge', () => {
+    const r = applyGraphFilter(repo, brs, 'feature', new Set(), 'own');
+    expect(r.maxColumns).toBe(1);
+    expect(r.nodes.every(n => n.column === 0)).toBe(true);
+    // В строках — настоящий merge-коммит (меню cherry-pick -m, пометка merge).
+    expect(r.commits[1].parents).toEqual(['F1', 'D2']);
+  });
+
+  it('по умолчанию режим all (обратная совместимость)', () => {
+    const r = applyGraphFilter(repo, brs, 'feature', new Set());
+    expect(r.totalKept).toBe(6);
+  });
+});

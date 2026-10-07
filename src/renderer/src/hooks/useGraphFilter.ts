@@ -7,6 +7,15 @@ import type { Branch, Commit, GraphNode, MergeLink } from '../types';
  * для UI-баннера. computeGraphLayout сейчас возвращает `mergeLinks: []`
  * (поле задумано на будущее), но пробрасываем наружу как есть.
  */
+/**
+ * Режим Solo:
+ *  - `own` — только собственная линия ветки: от вершины по ПЕРВОМУ родителю
+ *    (`git log --first-parent`). Влитые в ветку develop/main не тянут за собой
+ *    всю свою историю — остаются коммиты ветки и сами merge-коммиты.
+ *  - `all` — вся достижимая история (`git log <branch>`).
+ */
+export type SoloMode = 'own' | 'all';
+
 export interface GraphFilterResult {
   /** Отфильтрованный список коммитов (после применения solo/hide). */
   commits: Commit[];
@@ -57,10 +66,11 @@ export function useGraphFilter(
   branches: Branch[],
   soloBranch: string | null,
   hidden: Set<string>,
+  soloMode: SoloMode = 'all',
 ): GraphFilterResult {
   return useMemo(
-    () => applyGraphFilter(commits, branches, soloBranch, hidden),
-    [commits, branches, soloBranch, hidden],
+    () => applyGraphFilter(commits, branches, soloBranch, hidden, soloMode),
+    [commits, branches, soloBranch, hidden, soloMode],
   );
 }
 
@@ -76,6 +86,7 @@ export function applyGraphFilter(
   branches: Branch[],
   soloBranch: string | null,
   hidden: Set<string>,
+  soloMode: SoloMode = 'all',
 ): GraphFilterResult {
   const totalAll = commits.length;
 
@@ -93,6 +104,16 @@ export function applyGraphFilter(
       // Ветка исчезла (удалена/переименована) — не фильтруем, отдаём как есть.
       // Родитель снимет soloBranch через useEffect, если хочет.
       return packResult(commits, 'none', totalAll, totalAll);
+    }
+    if (soloMode === 'own') {
+      const keep = firstParentChain(tip.hash, indexByHash, commits);
+      const filtered = commits.filter(c => keep.has(c.hash));
+      // Вторые родители merge-коммитов в выборку не попали: layout для
+      // отсутствующего родителя тянет полосу до низа графа. Раскладываем по
+      // копиям с одним родителем, а в строках остаются настоящие коммиты
+      // (меню, cherry-pick -m, пометка merge-узла работают как раньше).
+      const layoutInput = filtered.map(c => (c.parents.length > 1 ? { ...c, parents: [c.parents[0]] } : c));
+      return packResult(filtered, 'solo', filtered.length, totalAll, layoutInput);
     }
     const keep = bfsReachable([tip.hash], indexByHash, commits);
     const filtered = commits.filter(c => keep.has(c.hash));
@@ -130,6 +151,7 @@ function packResult(
   mode: 'solo' | 'hide' | 'none',
   totalKept: number,
   totalAll: number,
+  layoutInput: Commit[] = filtered,
 ): GraphFilterResult {
   if (mode === 'none') {
     /* Layout не пересчитываем — оставляем серверный (`state.graphLayout`)
@@ -137,7 +159,7 @@ function packResult(
        чтобы CommitsView подавал в CommitGraph один источник правды.
        Перерасчёт O(n) дешёвый, но удобнее не «прыгать» между двумя ветками. */
   }
-  const layout = computeGraphLayout(filtered);
+  const layout = computeGraphLayout(layoutInput);
   return {
     commits: filtered,
     nodes: layout.nodes,
@@ -168,8 +190,10 @@ function bfsReachable(
       queue.push(h);
     }
   }
-  while (queue.length > 0) {
-    const hash = queue.shift()!;
+  // Указатель вместо queue.shift(): shift сдвигает массив целиком, и на
+  // 50k коммитов BFS становится квадратичным (заметная пауза при solo).
+  for (let head = 0; head < queue.length; head++) {
+    const hash = queue[head];
     const idx = indexByHash.get(hash);
     if (idx === undefined) continue;
     for (const p of commits[idx].parents) {
@@ -178,6 +202,23 @@ function bfsReachable(
         queue.push(p);
       }
     }
+  }
+  return seen;
+}
+
+/** Цепочка первых родителей от вершины (`git log --first-parent`). */
+function firstParentChain(
+  tipHash: string,
+  indexByHash: Map<string, number>,
+  commits: Commit[],
+): Set<string> {
+  const seen = new Set<string>();
+  let hash: string | undefined = tipHash;
+  while (hash && !seen.has(hash)) {
+    const idx = indexByHash.get(hash);
+    if (idx === undefined) break;
+    seen.add(hash);
+    hash = commits[idx].parents[0];
   }
   return seen;
 }

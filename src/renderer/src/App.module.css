@@ -208,4 +208,10 @@
 .graphFilterBannerText { flex: 1; line-height: 1.4; }
 .graphFilterBannerBtn { padding: 1px 8px; font-size: 11px; font-family: inherit; font-weight: 600; background: transparent; color: var(--sg-foreground); border: 1px solid var(--sg-border); border-radius: var(--sg-radius-sm); cursor: pointer; transition: all var(--sg-transition); }
 .graphFilterBannerBtn:hover { background: color-mix(in srgb, var(--sg-foreground) 10%, transparent); }
+/* Переключатель режима Solo: «Только свои / Вся история». */
+.graphFilterSeg { display: inline-flex; border: 1px solid var(--sg-border); border-radius: var(--sg-radius-sm); overflow: hidden; }
+.graphFilterSegBtn { padding: 1px 8px; font-size: 11px; font-family: inherit; background: transparent; color: var(--sg-foreground-muted); border: none; cursor: pointer; transition: all var(--sg-transition); }
+.graphFilterSegBtn + .graphFilterSegBtn { border-left: 1px solid var(--sg-border); }
+.graphFilterSegBtn:hover { color: var(--sg-foreground); background: color-mix(in srgb, var(--sg-foreground) 8%, transparent); }
+.graphFilterSegBtnActive, .graphFilterSegBtnActive:hover { color: var(--sg-primary-foreground); background: var(--sg-primary); font-weight: 600; }
 .graphFilterEmpty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; color: var(--sg-foreground-muted); font-size: 13px; height: 100%; }

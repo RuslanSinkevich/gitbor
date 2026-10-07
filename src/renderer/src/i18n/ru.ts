@@ -122,7 +122,12 @@ export const ru: LocaleMap = {
     branchNoteEdit: 'Редактировать',
   },
   graphFilter: {
-    soloMessage: 'Граф отфильтрован по ветке «{branch}» — {kept} из {total} коммитов',
+    soloMessage: 'Вся история ветки «{branch}» — {kept} из {total} коммитов',
+    soloMessageOwn: 'Только коммиты ветки «{branch}» — {kept} из {total}',
+    soloModeOwn: 'Только свои',
+    soloModeAll: 'Вся история',
+    soloModeOwnHint: 'Собственная линия ветки: её коммиты и merge-коммиты, без истории влитых в неё веток (git log --first-parent)',
+    soloModeAllHint: 'Все коммиты, достижимые из ветки, включая историю влитых в неё develop/main (git log)',
     hideMessage: 'Граф отфильтрован по скрытым веткам — {kept} из {total} коммитов',
     clearSolo: 'Показать все',
     clearHide: 'Снять скрытие',

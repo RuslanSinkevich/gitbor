@@ -120,7 +120,12 @@ export const en = {
     branchNoteEdit: 'Edit',
   },
   graphFilter: {
-    soloMessage: 'Graph filtered by branch \'{branch}\' — {kept} of {total} commits',
+    soloMessage: 'Full history of branch \'{branch}\' — {kept} of {total} commits',
+    soloMessageOwn: 'Only commits of branch \'{branch}\' — {kept} of {total}',
+    soloModeOwn: 'Own commits',
+    soloModeAll: 'Full history',
+    soloModeOwnHint: 'The branch’s own line: its commits and merge commits, without the history of branches merged into it (git log --first-parent)',
+    soloModeAllHint: 'Every commit reachable from the branch, including the history of develop/main merged into it (git log)',
     hideMessage: 'Graph filtered by hidden branches — {kept} of {total} commits',
     clearSolo: 'Show all',
     clearHide: 'Unhide all',

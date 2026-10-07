@@ -31,7 +31,9 @@ const GIT_DEBOUNCE_MAX_MS = 2000;
  * никуда не девается.
  */
 const GIT_WATCH_IGNORED_FILES = new Set(['index', 'FETCH_HEAD', 'COMMIT_EDITMSG']);
-const GIT_WATCH_IGNORED_DIRS = ['objects', 'logs', 'hooks', 'worktrees'];
+// modules/ — git-dir'ы подмодулей (свои objects), lfs/ — LFS-кэш, rr-cache/ —
+// записи rerere: всё большое и к refresh графа не относится.
+const GIT_WATCH_IGNORED_DIRS = ['objects', 'logs', 'hooks', 'worktrees', 'modules', 'lfs', 'rr-cache'];
 
 /**
  * Матчим путь ОТНОСИТЕЛЬНО git-dir, а не по `/.git/` в абсолютном пути:
@@ -169,7 +171,10 @@ export class FileWatcher {
           : [gitDir, path.join(commonDir, 'refs'), path.join(commonDir, 'packed-refs')];
         const gitWatcher = chokidarWatch(watchTargets, {
           ignoreInitial: true,
-          depth: 3,
+          // Без `depth`: ветка `feature/SinkevichRN/MISP-298` — это файл
+          // `refs/heads/feature/SinkevichRN/MISP-298` (4 уровня). При depth=3
+          // коммит в неё из CLI не давал ни одного события и граф не обновлялся.
+          // Тяжёлые поддеревья (objects, modules, lfs…) отсекает `ignored`.
           ignored: (p: string) => isIgnoredGitPath(gitDir, p),
           awaitWriteFinish: { stabilityThreshold: 50, pollInterval: 20 },
         });

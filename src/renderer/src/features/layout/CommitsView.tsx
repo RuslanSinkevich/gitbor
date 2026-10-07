@@ -4,9 +4,12 @@ import { useCommitExplainer } from '../ai';
 import { RightPanelContent } from './RightPanelContent';
 import { SgSplitPane } from '../../ui/SgSplitPane';
 import { postCommand } from '../../api';
-import { buildStorageKey } from '../../shared/uiPersist';
+import { buildStorageKey, loadStoredString, saveStoredString } from '../../shared/uiPersist';
 import { t, tpl } from '../../i18n';
-import { useGraphFilter } from '../../hooks/useGraphFilter';
+import { useGraphFilter, type SoloMode } from '../../hooks/useGraphFilter';
+
+/** Режим фильтра по ветке — глобально, как привычка юзера, а не per-repo. */
+const SOLO_MODE_KEY = 'gitbor.graph.soloMode';
 import type { AppState, CommitDetail } from '../../types';
 import type { ShowContextMenuFn } from '../../hooks/useContextMenu';
 import type { ShowPromptFn } from '../../ui/SgPromptDialog';
@@ -87,7 +90,14 @@ export function CommitsView({
      React.memo CommitGraph. */
   const remoteNames = useMemo(() => state.remotes.map(r => r.name), [state.remotes]);
 
-  const filtered = useGraphFilter(state.commits, state.branches, soloBranch, hidden);
+  const [soloMode, setSoloModeState] = useState<SoloMode>(
+    () => (loadStoredString(SOLO_MODE_KEY) === 'all' ? 'all' : 'own'),
+  );
+  const setSoloMode = (m: SoloMode) => {
+    setSoloModeState(m);
+    saveStoredString(SOLO_MODE_KEY, m);
+  };
+  const filtered = useGraphFilter(state.commits, state.branches, soloBranch, hidden, soloMode);
   /* Если фильтр активен — используем результат фильтра (включая layout).
      Иначе — server-side layout из state.graphLayout (он шире, mergeLinks
      там корректные). Это даёт нулевой overhead при выключенном фильтре. */
@@ -106,11 +116,25 @@ export function CommitsView({
       return (
         <div className={s.graphFilterBanner}>
           <span className={s.graphFilterBannerText}>
-            {tpl(loc.graphFilter.soloMessage, {
+            {tpl(soloMode === 'own' ? loc.graphFilter.soloMessageOwn : loc.graphFilter.soloMessage, {
               branch: soloBranch,
               kept: filtered.totalKept,
               total: filtered.totalAll,
             })}
+          </span>
+          <span className={s.graphFilterSeg} role="group">
+            {(['own', 'all'] as const).map(m => (
+              <button
+                key={m}
+                type="button"
+                className={`${s.graphFilterSegBtn} ${soloMode === m ? s.graphFilterSegBtnActive : ''}`}
+                aria-pressed={soloMode === m}
+                title={m === 'own' ? loc.graphFilter.soloModeOwnHint : loc.graphFilter.soloModeAllHint}
+                onClick={() => setSoloMode(m)}
+              >
+                {m === 'own' ? loc.graphFilter.soloModeOwn : loc.graphFilter.soloModeAll}
+              </button>
+            ))}
           </span>
           <button type="button" className={s.graphFilterBannerBtn} onClick={onClearSolo}>
             {loc.graphFilter.clearSolo}

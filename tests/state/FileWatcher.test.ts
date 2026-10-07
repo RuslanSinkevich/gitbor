@@ -111,7 +111,7 @@ describe('FileWatcher', () => {
       fw.dispose();
     });
 
-    it('git-watcher запускается с ignoreInitial и depth=3', async () => {
+    it('git-watcher запускается с ignoreInitial и без ограничения depth', async () => {
       const { FileWatcher } = await import('../../src/core/state/FileWatcher');
       const sm = makeFakeStateManager();
       const fw = new FileWatcher(sm as never);
@@ -120,7 +120,9 @@ describe('FileWatcher', () => {
       const gitCall = watchCalls.find(c => c.target.endsWith('.git'));
       const opts = gitCall!.options as Record<string, unknown>;
       expect(opts.ignoreInitial).toBe(true);
-      expect(opts.depth).toBe(3);
+      // depth=3 не видел refs/heads/feature/<user>/<task> — коммит из CLI
+      // в такую ветку не обновлял граф.
+      expect(opts.depth).toBeUndefined();
       fw.dispose();
     });
 
@@ -164,6 +166,11 @@ describe('FileWatcher', () => {
       const mainGitDir = join(tmpRepo, '.git');
       expect(isIgnoredGitPath(mainGitDir, join(mainGitDir, 'worktrees', 'feature', 'index'))).toBe(true);
       expect(isIgnoredGitPath(mainGitDir, join(mainGitDir, 'worktrees', 'feature', 'HEAD'))).toBe(true);
+      // Без depth-лимита тяжёлые поддеревья обязаны отсекаться.
+      expect(isIgnoredGitPath(mainGitDir, join(mainGitDir, 'modules', 'sub', 'objects', 'ab'))).toBe(true);
+      expect(isIgnoredGitPath(mainGitDir, join(mainGitDir, 'lfs', 'objects', 'ab'))).toBe(true);
+      // Глубокая ветка — слушаем.
+      expect(isIgnoredGitPath(mainGitDir, join(mainGitDir, 'refs', 'heads', 'feature', 'SinkevichRN', 'MISP-298'))).toBe(false);
     });
 
     it('идемпотентность: повторный addRepo не создаёт дублей', async () => {
