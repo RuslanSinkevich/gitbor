@@ -441,7 +441,7 @@ export const en = {
     /** Sidebar branch menu: branch name in the header, verbs only in items. */
     branchMenu: {
       checkout: 'Switch to',
-      fetch: 'Update from remote',
+      fetch: 'Update branch (fetch)',
       track: 'Create local and track…',
       mergeInto: 'Merge into ‘{target}’…',
       compare: 'Compare',
@@ -460,7 +460,7 @@ export const en = {
       rename: 'Rename…',
       delete: 'Delete…',
     },
-    fetchBranchTitle: "Fetch '{branch}' from remote (fast-forward)",
+    fetchBranchTitle: "Pull new commits of '{branch}' from the server without switching to it",
     fetchBranchPickRemote: 'This branch has no upstream. Pick a remote parent — tracking will be saved after update.',
     fetchBranchRemoteLabel: 'Remote',
     fetchBranchNoRemotes: 'This repository has no remotes. Add a remote and try again.',

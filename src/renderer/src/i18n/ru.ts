@@ -444,7 +444,7 @@ export const ru: LocaleMap = {
     /** Меню ветки в сайдбаре: имя ветки — в заголовке, в пунктах только глаголы. */
     branchMenu: {
       checkout: 'Переключиться',
-      fetch: 'Обновить из remote',
+      fetch: 'Обновить ветку (fetch)',
       track: 'Создать локальную и отслеживать…',
       mergeInto: 'Влить в «{target}»…',
       compare: 'Сравнить',
@@ -463,7 +463,7 @@ export const ru: LocaleMap = {
       rename: 'Переименовать…',
       delete: 'Удалить…',
     },
-    fetchBranchTitle: 'Стянуть «{branch}» из remote (fast-forward)',
+    fetchBranchTitle: 'Подтянуть новые коммиты «{branch}» с сервера, не переключаясь на неё',
     fetchBranchPickRemote: 'У ветки нет upstream. Укажите remote-родителя — после обновления tracking сохранится.',
     fetchBranchRemoteLabel: 'Remote',
     fetchBranchNoRemotes: 'В репозитории нет remote. Добавьте remote и повторите.',
