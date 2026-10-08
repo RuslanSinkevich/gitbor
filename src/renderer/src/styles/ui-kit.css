@@ -129,7 +129,10 @@
   padding: 12px 16px;
   border-bottom: 1px solid var(--sg-border);
 }
-.sg-dialog-title { font-size: 14px; font-weight: 600; }
+/* Длинные имена веток без пробелов (`remote/feature/User/Task`) не переносились
+   по `/`: заголовок распирал диалог, тот прокручивался вбок и обрезал текст
+   слева. min-width:0 даёт flex-элементу сжаться, anywhere — перенос где угодно. */
+.sg-dialog-title { font-size: 14px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 .sg-dialog-close {
   background: none;
   border: none;
