@@ -5,7 +5,7 @@ import type { RequestCheckout } from '../checkout';
 import type { RequestApplyStash } from '../stash';
 import { isAutoStash } from '../stash';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
-import { getTagMenuItems, getStashMenuItems, getRemoteMenuItems } from './sidebarMenuItems';
+import { getTagMenuItems, getStashMenuItems, getRemoteMenuItems, type CompareBranchFn } from './sidebarMenuItems';
 import {
   buildBranchTree, countLeaves, BranchTreeItem,
   type BranchFolderExpand, type BranchPrefsAPI,
@@ -57,11 +57,14 @@ export function Sidebar({
   requestApplyStash, selectedRefHash, branchPrefs, reveal = null,
 }: Props) {
   const loc = t();
-  // «Сравнить с текущей»: что принесёт ветка относительно текущей (от
-  // merge-base). Результат — режим сравнения в CommitsView.
-  const onCompareBranch = useCallback((branch: string) => {
+  // Сравнение с текущей веткой от merge-base, в выбранную сторону.
+  // `compareBranches` показывает, что `branch` принесёт в `base`.
+  const onCompareBranch = useCallback<CompareBranchFn>((branch, direction) => {
+    const current = currentBranch || 'HEAD';
     onSwitchView('commits');
-    postCommand({ type: 'compareBranches', base: currentBranch || 'HEAD', branch });
+    postCommand(direction === 'into-current'
+      ? { type: 'compareBranches', base: current, branch }
+      : { type: 'compareBranches', base: branch, branch: current });
   }, [onSwitchView, currentBranch]);
   const [filter, setFilter] = useState('');
   const [sections, setSections] = useState<SectionState>(() => {
@@ -407,7 +410,7 @@ function StashItem({ stash, loc, active, autoBadge, onSelect, onApply, onContext
 function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, loc, onContextMenu, onSelectRef, onMerge, onCompareBranch, showPrompt, requestCheckout, selectedBranch, onSelectBranch, reveal }: {
   repoPath: string;
   remote: Remote; tree: ReturnType<typeof buildBranchTree>; remoteBranchSig: string; currentBranch: string;
-  loc: ReturnType<typeof t>; onContextMenu: Props['onContextMenu']; onSelectRef?: (hash: string) => void; onMerge?: (source: string) => void; onCompareBranch?: (branch: string) => void; showPrompt: ShowPrompt; requestCheckout: RequestCheckout;
+  loc: ReturnType<typeof t>; onContextMenu: Props['onContextMenu']; onSelectRef?: (hash: string) => void; onMerge?: (source: string) => void; onCompareBranch?: CompareBranchFn; showPrompt: ShowPrompt; requestCheckout: RequestCheckout;
   selectedBranch?: string | null; onSelectBranch?: (name: string) => void;
   reveal?: { nonce: number; innerPaths: string[] } | null;
 }) {

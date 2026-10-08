@@ -6,6 +6,13 @@ import type { ShowPrompt } from '../graph/commitMenuItems';
 import type { RequestCheckout } from '../checkout';
 import type { RequestApplyStash } from '../stash';
 
+/**
+ * Сравнение ветки с текущей:
+ *  - `into-current` — что ветка принесёт в текущую (merge-base..branch);
+ *  - `from-current` — что текущая принесёт в ветку, как pull request (merge-base..current).
+ */
+export type CompareBranchFn = (branch: string, direction: 'into-current' | 'from-current') => void;
+
 type Loc = ReturnType<typeof import('../../i18n').t>;
 
 /** Короткое имя ветки/рефа — последний сегмент после `/` (для компактных
@@ -104,7 +111,7 @@ export function getBranchMenuItems(
   requestCheckout: RequestCheckout, onMerge?: (source: string) => void,
   extras: BranchExtrasMenu = {},
   remoteNames: string[] = [],
-  onCompare?: (branch: string) => void,
+  onCompare?: CompareBranchFn,
 ): SgContextMenuItem[] {
   const short = leaf(branch.name);
   const shortCurrent = leaf(currentBranch);
@@ -121,13 +128,20 @@ export function getBranchMenuItems(
       title: tpl(loc.contextMenu.mergeInto, { source: branch.name, target: currentBranch }),
       action: () => onMerge ? onMerge(branch.name) : postCommand({ type: 'merge', branch: branch.name }),
     });
-    // Что принесёт ветка при слиянии: дифф от merge-base до вершины ветки.
-    // Список файлов — в режиме сравнения CommitsView, дифф по клику на файл.
+    // Сравнение веток от merge-base — в обе стороны, направление прямо в
+    // подписи: «develop → MISP-298» и «MISP-298 → develop» дают разные наборы
+    // файлов. Второй пункт — как pull request из текущей ветки в эту.
     if (onCompare) {
+      const cur = shortCurrent || 'HEAD';
       items.push({
-        label: loc.contextMenu.compareWithCurrent,
-        help: tpl(loc.contextMenu.help.compareWithCurrent, { branch: short, target: shortCurrent || 'HEAD' }),
-        action: () => onCompare(branch.name),
+        label: tpl(loc.contextMenu.compareIntoCurrent, { branch: short, target: cur }),
+        help: tpl(loc.contextMenu.help.compareIntoCurrent, { branch: short, target: cur }),
+        action: () => onCompare(branch.name, 'into-current'),
+      });
+      items.push({
+        label: tpl(loc.contextMenu.compareFromCurrent, { branch: short, target: cur }),
+        help: tpl(loc.contextMenu.help.compareFromCurrent, { branch: short, target: cur }),
+        action: () => onCompare(branch.name, 'from-current'),
       });
     }
   }

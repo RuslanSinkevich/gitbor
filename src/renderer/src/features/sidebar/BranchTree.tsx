@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import type { Branch } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { SgTooltip } from '../../ui/SgTooltip';
-import { getBranchMenuItems, promptTrackRemote } from './sidebarMenuItems';
+import { getBranchMenuItems, promptTrackRemote, type CompareBranchFn } from './sidebarMenuItems';
 import type { ShowPrompt } from '../graph/commitMenuItems';
 import type { RequestCheckout } from '../checkout';
 import {
@@ -148,7 +148,7 @@ interface BranchTreeItemProps {
   /** Имена remote'ов — для модалки «Обновить ветку» без upstream. */
   remoteNames?: string[];
   /** «Сравнить с текущей»: дифф между этой веткой и текущей. */
-  onCompareBranch?: (branch: string) => void;
+  onCompareBranch?: CompareBranchFn;
 }
 
 export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout, folderExpand, onBranchMove, prefs, selectedBranch, onSelectBranch, remoteNames = [], onCompareBranch }: BranchTreeItemProps) {
