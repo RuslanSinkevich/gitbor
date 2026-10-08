@@ -2,7 +2,7 @@ import { useEffect, useRef, useLayoutEffect, useState } from 'react';
 
 export type SgContextMenuItem =
   | { divider: true; label?: undefined; shortcut?: undefined; disabled?: undefined; danger?: undefined; action?: undefined; header?: undefined; submenu?: undefined }
-  | { header: true; label: string; action?: () => void; divider?: undefined; shortcut?: undefined; disabled?: undefined; danger?: undefined; submenu?: undefined }
+  | { header: true; label: string; title?: string; action?: () => void; divider?: undefined; shortcut?: undefined; disabled?: undefined; danger?: undefined; submenu?: undefined }
   | {
       label: string;
       /** Текст нативного тултипа при наведении. Если не задан — берётся `label`.
@@ -95,10 +95,13 @@ function MenuItems({ items, onClose }: MenuItemsProps) {
         ) : item.header ? (
           <div
             key={i}
-            className="sg-context-menu-header"
-            onClick={() => { item.action?.(); onClose(); }}
+            // Без action — просто подпись (имя ветки): не подсвечиваем и не
+            // закрываем меню по клику.
+            className={`sg-context-menu-header${item.action ? '' : ' sg-context-menu-header--static'}`}
+            title={item.title ?? item.label}
+            onClick={item.action ? () => { item.action!(); onClose(); } : undefined}
           >
-            <span>{item.label}</span>
+            <span className="sg-context-menu-item-label">{item.label}</span>
           </div>
         ) : item.submenu && item.submenu.length > 0 ? (
           <SubmenuItem

@@ -106,6 +106,12 @@ export interface BranchExtrasMenu {
   onDelete?: () => void;
 }
 
+/**
+ * Меню ветки в сайдбаре. Имя ветки — один раз, в заголовке (полное — в
+ * подсказке); в пунктах только глаголы, поэтому ширина меню не зависит от
+ * длины имени. Группы по смыслу: перейти/обновить → слить/сравнить →
+ * создать → вид в графе → переименовать/удалить (опасное — последним).
+ */
 export function getBranchMenuItems(
   branch: Branch, currentBranch: string, loc: Loc, showPrompt: ShowPrompt,
   requestCheckout: RequestCheckout, onMerge?: (source: string) => void,
@@ -113,64 +119,84 @@ export function getBranchMenuItems(
   remoteNames: string[] = [],
   onCompare?: CompareBranchFn,
 ): SgContextMenuItem[] {
+  const m = loc.contextMenu.branchMenu;
   const short = leaf(branch.name);
-  const shortCurrent = leaf(currentBranch);
-  const items: SgContextMenuItem[] = [];
-  if (!branch.isCurrent) {
-    items.push({
-      label: tpl(loc.contextMenu.checkout, { branch: short }),
-      title: tpl(loc.contextMenu.checkout, { branch: branch.name }),
-      action: () => requestCheckout(branch.name),
-    });
-    items.push({ divider: true });
-    items.push({
-      label: tpl(loc.contextMenu.mergeInto, { source: short, target: shortCurrent }),
+  const cur = leaf(currentBranch) || 'HEAD';
+  const isLocal = !branch.isRemote;
+  const other = !branch.isCurrent;
+
+  const groups: SgContextMenuItem[][] = [];
+  const header: SgContextMenuItem = { header: true, label: short, title: branch.name };
+
+  // 1. Перейти / обновить
+  const nav: SgContextMenuItem[] = [];
+  if (other && isLocal) nav.push({ label: m.checkout, action: () => requestCheckout(branch.name) });
+  if (branch.isRemote) nav.push({ label: m.track, title: tpl(loc.contextMenu.trackRemoteTitle, { branch: branch.name }), action: () => promptTrackRemote(branch, loc, showPrompt) });
+  // `git fetch <remote> <b>:<b>` — только для неактивной локальной: активную тянут Pull'ом.
+  if (other && isLocal) nav.push({ label: m.fetch, title: tpl(loc.contextMenu.fetchBranchTitle, { branch: branch.name }), action: () => promptFetchBranch(branch, loc, showPrompt, remoteNames) });
+  groups.push(nav);
+
+  // 2. Слить / сравнить (с текущей веткой; сравнение — от merge-base)
+  const integrate: SgContextMenuItem[] = [];
+  if (other) {
+    integrate.push({
+      label: tpl(m.mergeInto, { target: cur }),
       title: tpl(loc.contextMenu.mergeInto, { source: branch.name, target: currentBranch }),
       action: () => onMerge ? onMerge(branch.name) : postCommand({ type: 'merge', branch: branch.name }),
     });
-    // Сравнение веток от merge-base — в обе стороны, направление прямо в
-    // подписи: «develop → MISP-298» и «MISP-298 → develop» дают разные наборы
-    // файлов. Второй пункт — как pull request из текущей ветки в эту.
     if (onCompare) {
-      const cur = shortCurrent || 'HEAD';
-      items.push({
-        label: tpl(loc.contextMenu.compareIntoCurrent, { branch: short, target: cur }),
-        help: tpl(loc.contextMenu.help.compareIntoCurrent, { branch: short, target: cur }),
-        action: () => onCompare(branch.name, 'into-current'),
-      });
-      items.push({
-        label: tpl(loc.contextMenu.compareFromCurrent, { branch: short, target: cur }),
-        help: tpl(loc.contextMenu.help.compareFromCurrent, { branch: short, target: cur }),
-        action: () => onCompare(branch.name, 'from-current'),
+      integrate.push({
+        label: m.compare,
+        submenu: [
+          { label: tpl(m.compareInto, { target: cur }), title: tpl(loc.contextMenu.help.compareIntoCurrent, { branch: short, target: cur }), action: () => onCompare(branch.name, 'into-current') },
+          { label: tpl(m.compareFrom, { target: cur }), title: tpl(loc.contextMenu.help.compareFromCurrent, { branch: short, target: cur }), action: () => onCompare(branch.name, 'from-current') },
+        ],
       });
     }
   }
-  // Обновить неактивную ЛОКАЛЬНУЮ ветку без переключения:
-  // `git fetch <remote> <branch>:<branch>` (fast-forward). Активной и
-  // remote-веткам пункт не показываем — там смысла нет (у remote своя fetch,
-  // активную тянут обычным Pull). Без upstream — модалка выбора remote.
-  if (!branch.isCurrent && !branch.isRemote) {
-    items.push({ divider: true });
-    items.push({
-      label: loc.contextMenu.fetchBranch,
-      title: tpl(loc.contextMenu.fetchBranchTitle, { branch: branch.name }),
-      action: () => promptFetchBranch(branch, loc, showPrompt, remoteNames),
+  groups.push(integrate);
+
+  // 3. Создать
+  groups.push([
+    {
+      label: m.newBranch,
+      action: () => showPrompt({
+        title: tpl(loc.contextMenu.newBranch, { ref: branch.name }),
+        placeholder: 'branch-name',
+        onConfirm: (name) => postCommand({ type: 'createBranch', name, from: branch.name }),
+      }),
+    },
+    {
+      label: m.newTag,
+      action: () => showPrompt({
+        title: tpl(loc.contextMenu.newTag, { ref: branch.name }),
+        placeholder: 'v1.0.0',
+        onConfirm: (name) => postCommand({ type: 'createTag', name, ref: branch.name }),
+      }),
+    },
+  ]);
+
+  // 4. Вид в графе + заметка + копирование
+  const view: SgContextMenuItem[] = [];
+  const graphSub: SgContextMenuItem[] = [];
+  if (extras.onToggleSolo) {
+    graphSub.push({
+      label: extras.isSolo ? m.soloOff : m.solo,
+      action: extras.isSolo && extras.onClearSolo ? extras.onClearSolo : extras.onToggleSolo,
     });
   }
-  // Track Remote Branch (как в Fork): только для remote-веток. Создаёт
-  // локальную ветку с tracking на эту remote и переключается на неё.
-  if (branch.isRemote) {
-    items.push({ divider: true });
-    items.push({
-      label: loc.contextMenu.trackRemote,
-      title: tpl(loc.contextMenu.trackRemoteTitle, { branch: branch.name }),
-      action: () => promptTrackRemote(branch, loc, showPrompt),
-    });
-  }
-  if (!branch.isRemote) {
-    items.push({
-      label: tpl(loc.contextMenu.rename, { name: short }),
-      title: tpl(loc.contextMenu.rename, { name: branch.name }),
+  if (extras.onToggleHide) graphSub.push({ label: extras.isHidden ? m.unhide : m.hide, action: extras.onToggleHide });
+  if (extras.onTogglePin) graphSub.push({ label: extras.isPinned ? m.unpin : m.pin, action: extras.onTogglePin });
+  if (graphSub.length > 0) view.push({ label: m.graph, submenu: graphSub });
+  if (extras.onShowInfo) view.push({ label: m.note, action: extras.onShowInfo });
+  view.push({ label: loc.contextMenu.copyName, action: () => copyToClipboard(branch.name) });
+  groups.push(view);
+
+  // 5. Переименовать / удалить — всегда последними
+  const danger: SgContextMenuItem[] = [];
+  if (isLocal) {
+    danger.push({
+      label: m.rename,
       action: () => showPrompt({
         title: tpl(loc.contextMenu.rename, { name: branch.name }),
         defaultValue: branch.name,
@@ -183,10 +209,9 @@ export function getBranchMenuItems(
         },
       }),
     });
-    if (!branch.isCurrent) {
-      items.push({
-        label: tpl(loc.contextMenu.delete, { name: short }),
-        title: tpl(loc.contextMenu.delete, { name: branch.name }),
+    if (other) {
+      danger.push({
+        label: m.delete,
         danger: true,
         action: () => showPrompt({
           kind: 'confirm',
@@ -202,56 +227,13 @@ export function getBranchMenuItems(
       });
     }
   }
-  items.push({ divider: true });
-  items.push({
-    label: tpl(loc.contextMenu.newBranch, { ref: short }),
-    title: tpl(loc.contextMenu.newBranch, { ref: branch.name }),
-    action: () => showPrompt({
-      title: tpl(loc.contextMenu.newBranch, { ref: branch.name }),
-      placeholder: 'branch-name',
-      onConfirm: (name) => postCommand({ type: 'createBranch', name, from: branch.name }),
-    }),
-  });
-  items.push({
-    label: tpl(loc.contextMenu.newTag, { ref: short }),
-    title: tpl(loc.contextMenu.newTag, { ref: branch.name }),
-    action: () => showPrompt({
-      title: tpl(loc.contextMenu.newTag, { ref: branch.name }),
-      placeholder: 'v1.0.0',
-      onConfirm: (name) => postCommand({ type: 'createTag', name, ref: branch.name }),
-    }),
-  });
+  groups.push(danger);
 
-  if (extras.onTogglePin || extras.onToggleSolo || extras.onToggleHide || extras.onShowInfo) {
-    items.push({ divider: true });
-    if (extras.onTogglePin) {
-      items.push({
-        label: extras.isPinned ? loc.sidebar.unpinBranch : loc.sidebar.pinBranch,
-        action: extras.onTogglePin,
-      });
-    }
-    if (extras.onToggleSolo) {
-      items.push({
-        label: extras.isSolo ? loc.sidebar.clearGraphFilter : loc.sidebar.soloGraph,
-        action: extras.isSolo && extras.onClearSolo ? extras.onClearSolo : extras.onToggleSolo,
-      });
-    }
-    if (extras.onToggleHide) {
-      items.push({
-        label: extras.isHidden ? loc.sidebar.unhideBranch : loc.sidebar.hideBranch,
-        action: extras.onToggleHide,
-      });
-    }
-    if (extras.onShowInfo) {
-      items.push({
-        label: loc.sidebar.branchInfo,
-        action: extras.onShowInfo,
-      });
-    }
+  const items: SgContextMenuItem[] = [header];
+  for (const g of groups) {
+    if (g.length === 0) continue;
+    items.push({ divider: true }, ...g);
   }
-
-  items.push({ divider: true });
-  items.push({ label: loc.contextMenu.copyName, action: () => copyToClipboard(branch.name) });
   return items;
 }
 
