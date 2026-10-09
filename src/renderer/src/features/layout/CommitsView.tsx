@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { CommitGraph, CommitDetails, useMultiSelect } from '../graph';
+import { CommitGraph, CommitDetails, useMultiSelect, BranchesContainingDialog, toWebRepo } from '../graph';
 import { useCommitExplainer } from '../ai';
 import { RightPanelContent } from './RightPanelContent';
 import { SgSplitPane } from '../../ui/SgSplitPane';
@@ -10,7 +10,7 @@ import { useGraphFilter, type SoloMode } from '../../hooks/useGraphFilter';
 
 /** Режим фильтра по ветке — глобально, как привычка юзера, а не per-repo. */
 const SOLO_MODE_KEY = 'gitbor.graph.soloMode';
-import type { AppState, CommitDetail } from '../../types';
+import type { AppState, Commit, CommitDetail } from '../../types';
 import type { ShowContextMenuFn } from '../../hooks/useContextMenu';
 import type { ShowPromptFn } from '../../ui/SgPromptDialog';
 import type { RequestCheckout } from '../checkout';
@@ -89,6 +89,17 @@ export function CommitsView({
      ветки в графе. Без useMemo новый массив на каждый рендер ломал бы
      React.memo CommitGraph. */
   const remoteNames = useMemo(() => state.remotes.map(r => r.name), [state.remotes]);
+  /* Веб-интерфейс репо для «Открыть в Azure DevOps / GitHub / GitLab»: origin,
+     иначе первый remote с распознаваемым адресом. */
+  const webRepo = useMemo(() => {
+    const ordered = [...state.remotes].sort((a, b) => (a.name === 'origin' ? -1 : b.name === 'origin' ? 1 : 0));
+    for (const r of ordered) {
+      const w = toWebRepo(r.fetchUrl || r.pushUrl);
+      if (w) return w;
+    }
+    return null;
+  }, [state.remotes]);
+  const [containingFor, setContainingFor] = useState<Commit | null>(null);
 
   const [soloMode, setSoloModeState] = useState<SoloMode>(
     () => (loadStoredString(SOLO_MODE_KEY) === 'all' ? 'all' : 'own'),
@@ -194,6 +205,8 @@ export function CommitsView({
           onRebase={setRebaseOnto}
           onLoadMore={() => postCommand({ type: 'getGraphData', maxCount: state.commits.length + 50000 })}
           onCompareTo={onCompareTo}
+          webRepo={webRepo}
+          onShowContaining={setContainingFor}
           focusNonce={focusNonce}
           headOnRemote={state.branches.some(b => b.isCurrent && b.upstream) && state.ahead === 0}
           onRevealRef={onRevealRef}
@@ -257,6 +270,11 @@ export function CommitsView({
         storageKey={graphHeightKey}
         left={graphPane}
         right={bottomPane}
+      />
+      <BranchesContainingDialog
+        commit={containingFor}
+        branches={state.branches}
+        onClose={() => setContainingFor(null)}
       />
     </div>
   );

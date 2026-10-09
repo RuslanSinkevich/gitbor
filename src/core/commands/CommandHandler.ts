@@ -495,6 +495,28 @@ export class CommandHandler {
     });
   }
 
+  /**
+   * «В каких ветках есть коммит»: `for-each-ref --contains`. Отвечает на
+   * вопрос «уже попало в develop/stage/prod?». `*\/HEAD` — символические
+   * указатели remote'ов, дублируют ветку — отбрасываем.
+   */
+  async getBranchesContaining(hash: string): Promise<{ local: string[]; remote: string[] }> {
+    return this.queue.enqueueRead('getBranchesContaining', async () => {
+      const r = await this.git.exec([
+        'for-each-ref', '--contains', hash, '--format=%(refname)', 'refs/heads', 'refs/remotes',
+      ]);
+      const local: string[] = [];
+      const remote: string[] = [];
+      if (r.exitCode !== 0) return { local, remote };
+      for (const line of r.stdout.split('\n')) {
+        const ref = line.trim();
+        if (ref.startsWith('refs/heads/')) local.push(ref.slice('refs/heads/'.length));
+        else if (ref.startsWith('refs/remotes/') && !ref.endsWith('/HEAD')) remote.push(ref.slice('refs/remotes/'.length));
+      }
+      return { local, remote };
+    });
+  }
+
   // ─── Reflog ───
   async getReflog(maxCount = 100): Promise<ReflogEntry[]> {
     return this.queue.enqueueRead('getReflog', async () => {

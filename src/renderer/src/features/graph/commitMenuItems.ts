@@ -4,6 +4,7 @@ import type { Commit } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import type { RequestCheckout } from '../checkout';
 import type { ShowPromptFn } from '../../ui/SgPromptDialog';
+import { commitUrl, pullRequestUrl, parsePullRequestId, type WebRepo } from './webLinks';
 
 export type ShowPrompt = ShowPromptFn;
 
@@ -18,8 +19,30 @@ function formatCommitInfo(commit: Commit): string {
   return `${commit.hash.substring(0, 7)} ${commit.subject}\nAuthor: ${commit.authorName}\nDate: ${date}`;
 }
 
+const leaf = (name: string) => name.slice(name.lastIndexOf('/') + 1);
+
+const WEB_HOST_NAME: Record<WebRepo['host'], string> = {
+  azure: 'Azure DevOps',
+  github: 'GitHub',
+  gitlab: 'GitLab',
+};
+
 export type OnRebase = (onto: string) => void;
 
+export interface CommitMenuExtras {
+  /** Веб-интерфейс репозитория (по адресу remote) — для «Открыть в …». */
+  webRepo?: WebRepo | null;
+  /** Окно «В каких ветках есть этот коммит». */
+  onShowContaining?: (commit: Commit) => void;
+}
+
+/**
+ * Меню коммита в графе. Заголовок — короткий хеш и тема (статичный). Корень —
+ * частые действия глаголами; всё, что меняет ТЕКУЩУЮ ветку (влить,
+ * перебазировать, сбросить), — в подменю «В «ветка»», поэтому длинное имя
+ * ветки встречается один раз, а опасное спрятано на шаг глубже. Пояснения —
+ * во всплывающей подсказке (`title`), без значков «!».
+ */
 export function getCommitMenuItems(
   commit: Commit, currentBranch: string, showPrompt: ShowPrompt, requestCheckout: RequestCheckout,
   onRebase?: OnRebase, onCompareTo?: (from: string, to: string) => void,
@@ -29,25 +52,29 @@ export function getCommitMenuItems(
   selectedHashes?: string[],
   /** Сброс мульти-выбора после старта batch cherry-pick. */
   onMultiCherryPickStart?: () => void,
+  extras: CommitMenuExtras = {},
 ): SgContextMenuItem[] {
   const loc = t();
+  const cm = loc.contextMenu;
+  const m = loc.commitMenu;
   const shortHash = commit.hash.substring(0, 7);
+  const cur = leaf(currentBranch) || 'HEAD';
 
   const multiCount = selectedHashes && selectedHashes.length > 1 && selectedHashes.includes(commit.hash)
     ? selectedHashes.length
     : 0;
   const cherryPickItem: SgContextMenuItem = multiCount > 0
     ? {
-      label: tpl(loc.contextMenu.cherryPickMany, { count: multiCount }),
-      help: loc.contextMenu.help.cherryPickMany,
+      label: tpl(cm.cherryPickMany, { count: multiCount }),
+      title: cm.help.cherryPickMany,
       action: () => {
         onMultiCherryPickStart?.();
         postCommand({ type: 'cherryPickMany', hashes: selectedHashes! });
       },
     }
     : {
-      label: loc.contextMenu.cherryPick,
-      help: loc.contextMenu.help.cherryPick,
+      label: m.cherryPick,
+      title: cm.help.cherryPick,
       action: () => postCommand({
         type: 'cherryPick',
         hash: commit.hash,
@@ -55,118 +82,137 @@ export function getCommitMenuItems(
       }),
     };
 
-  const items: SgContextMenuItem[] = [];
+  const groups: SgContextMenuItem[][] = [];
 
-  const branchRefs = commit.refs.filter(r => r.type === 'branch' || r.type === 'remote');
-  for (const ref of branchRefs) {
-    items.push({ header: true, label: ref.name, action: () => requestCheckout(ref.name) });
-  }
-  if (branchRefs.length > 0) items.push({ divider: true });
-
-  // Редко используемые пункты вынесены в подменю «Дополнительно», чтобы не
-  // перегружать корневое меню. Порядок: создание аннотированной метки,
-  // интерактивный rebase, патч, сравнение с локальными, копирование инфо.
-  const moreItems: SgContextMenuItem[] = [
-    {
-      label: loc.contextMenu.newAnnotatedTag,
-      action: () => showPrompt({
-        title: loc.contextMenu.newAnnotatedTag,
-        placeholder: 'v1.0.0',
-        onConfirm: (name) => showPrompt({
-          title: loc.contextMenu.tagMessageTitle,
-          placeholder: 'Release v1.0.0',
-          onConfirm: (message) => postCommand({ type: 'createTag', name, ref: commit.hash, message }),
-        }),
-      }),
-    },
-    {
-      label: tpl(loc.contextMenu.interactiveRebaseToHere, { branch: currentBranch }),
-      help: loc.contextMenu.help.interactiveRebaseToHere,
-      action: onRebase ? () => onRebase(commit.hash) : undefined,
-      disabled: !onRebase,
-    },
-    { label: loc.contextMenu.saveAsPatch, help: loc.contextMenu.help.saveAsPatch, action: () => postCommand({ type: 'saveAsPatch', hash: commit.hash }) },
-    // «Сравнить с локальными» — выбранный коммит против рабочей копии
-    // (toHash === 'WORKING') через onCompareTo. Результат открывается в режиме
-    // сравнения CommitsView. Пункт показываем только когда сравнение доступно
-    // (граф-вью).
-    ...(onCompareTo ? [
-      { label: loc.contextMenu.compareToLocal, help: loc.contextMenu.help.compareToLocal, action: () => onCompareTo(commit.hash, 'WORKING') },
-    ] as SgContextMenuItem[] : []),
-    { label: loc.contextMenu.copyCommitInfo, shortcut: 'Ctrl+Shift+C', action: () => copyToClipboard(formatCommitInfo(commit)) },
-  ];
-
-  items.push(
-    {
-      label: tpl(loc.contextMenu.newBranch, { ref: shortHash }),
-      shortcut: 'Ctrl+Shift+B',
-      action: () => showPrompt({
-        title: tpl(loc.contextMenu.newBranch, { ref: shortHash }),
-        label: loc.contextMenu.newBranch.replace(/\s*'{ref}'.*/, ''),
-        placeholder: 'branch-name',
-        onConfirm: (name) => postCommand({ type: 'createBranch', name, from: commit.hash }),
-      }),
-    },
-    {
-      label: tpl(loc.contextMenu.newTag, { ref: shortHash }),
-      shortcut: 'Ctrl+Shift+T',
-      action: () => showPrompt({
-        title: tpl(loc.contextMenu.newTag, { ref: shortHash }),
-        placeholder: 'v1.0.0',
-        onConfirm: (name) => postCommand({ type: 'createTag', name, ref: commit.hash }),
-      }),
-    },
-    { divider: true },
-
-    { label: tpl(loc.contextMenu.mergeInto, { source: shortHash, target: currentBranch }), help: loc.contextMenu.help.mergeInto, action: () => postCommand({ type: 'startMerge', source: commit.hash, options: { noCommit: false, ffOnly: false, squash: false } }) },
-    { label: tpl(loc.contextMenu.rebaseToHere, { branch: currentBranch }), help: loc.contextMenu.help.rebaseToHere, action: () => postCommand({ type: 'rebaseTo', onto: commit.hash }) },
-    { divider: true },
-
-    ...(isCurrentHead(commit) && commit.parents.length > 0 && !headOnRemote ? [
-      { label: loc.contextMenu.uncommitToStaging, help: loc.contextMenu.help.uncommitToStaging, action: () => postCommand({ type: 'resetTo', hash: commit.parents[0], mode: 'soft' }) },
-      { divider: true },
-    ] as SgContextMenuItem[] : []),
-
-    {
-      label: tpl(loc.contextMenu.resetToHere, { branch: currentBranch }),
-      submenu: [
-        { label: loc.contextMenu.resetSoft, help: loc.contextMenu.help.resetSoft, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'soft' }) },
-        { label: loc.contextMenu.resetMixed, help: loc.contextMenu.help.resetMixed, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'mixed' }) },
-        {
-          label: loc.contextMenu.resetHard,
-          danger: true,
-          help: loc.contextMenu.help.resetHard,
-          action: () => showPrompt({
-            kind: 'confirm',
-            title: loc.dialog.resetHardTitle,
-            message: loc.dialog.resetHardMessage,
-            confirmLabel: loc.contextMenu.resetHard,
-            danger: true,
-            onConfirm: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'hard' }),
-          }),
-        },
-      ],
-    },
-    { divider: true },
-
-    { label: loc.contextMenu.checkoutCommit, help: loc.contextMenu.help.checkoutCommit, action: () => requestCheckout(commit.hash) },
+  // 1. Частое: скопировать / применить / откатить
+  groups.push([
+    { label: cm.copySha, shortcut: 'Ctrl+C', action: () => copyToClipboard(commit.hash) },
+    { label: m.copyMessage, action: () => copyToClipboard(commit.subject) },
     cherryPickItem,
     {
-      label: loc.contextMenu.revert,
-      help: loc.contextMenu.help.revert,
+      label: m.revert,
+      title: cm.help.revert,
       action: () => postCommand({
         type: 'revert',
         hash: commit.hash,
         ...(commit.parents.length > 1 ? { mainline: 1 } : {}),
       }),
     },
-    { divider: true },
+  ]);
 
-    { label: loc.contextMenu.copySha, shortcut: 'Ctrl+C', action: () => copyToClipboard(commit.hash) },
-    { divider: true },
+  // 2. Создать
+  groups.push([
+    {
+      label: m.newBranch,
+      shortcut: 'Ctrl+Shift+B',
+      action: () => showPrompt({
+        title: tpl(cm.newBranch, { ref: shortHash }),
+        label: cm.newBranch.replace(/\s*'{ref}'.*/, ''),
+        placeholder: 'branch-name',
+        onConfirm: (name) => postCommand({ type: 'createBranch', name, from: commit.hash }),
+      }),
+    },
+    {
+      label: m.newTag,
+      shortcut: 'Ctrl+Shift+T',
+      action: () => showPrompt({
+        title: tpl(cm.newTag, { ref: shortHash }),
+        placeholder: 'v1.0.0',
+        onConfirm: (name) => postCommand({ type: 'createTag', name, ref: commit.hash }),
+      }),
+    },
+  ]);
 
-    { label: loc.contextMenu.more, submenu: moreItems },
+  // 3. Текущая ветка и переключение
+  const branchSub: SgContextMenuItem[] = [];
+  if (isCurrentHead(commit) && commit.parents.length > 0 && !headOnRemote) {
+    branchSub.push(
+      { label: cm.uncommitToStaging, title: cm.help.uncommitToStaging, action: () => postCommand({ type: 'resetTo', hash: commit.parents[0], mode: 'soft' }) },
+      { divider: true },
+    );
+  }
+  branchSub.push(
+    { label: m.mergeHere, title: cm.help.mergeInto, action: () => postCommand({ type: 'startMerge', source: commit.hash, options: { noCommit: false, ffOnly: false, squash: false } }) },
+    { label: m.rebaseHere, title: cm.help.rebaseToHere, action: () => postCommand({ type: 'rebaseTo', onto: commit.hash }) },
+    {
+      label: m.rebaseInteractive,
+      title: cm.help.interactiveRebaseToHere,
+      action: onRebase ? () => onRebase(commit.hash) : undefined,
+      disabled: !onRebase,
+    },
+    { divider: true },
+    {
+      label: m.resetHere,
+      submenu: [
+        { label: cm.resetSoft, title: cm.help.resetSoft, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'soft' }) },
+        { label: cm.resetMixed, title: cm.help.resetMixed, action: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'mixed' }) },
+        {
+          label: cm.resetHard,
+          danger: true,
+          title: cm.help.resetHard,
+          action: () => showPrompt({
+            kind: 'confirm',
+            title: loc.dialog.resetHardTitle,
+            message: loc.dialog.resetHardMessage,
+            confirmLabel: cm.resetHard,
+            danger: true,
+            onConfirm: () => postCommand({ type: 'resetTo', hash: commit.hash, mode: 'hard' }),
+          }),
+        },
+      ],
+    },
   );
+  const nav: SgContextMenuItem[] = [
+    { label: tpl(m.onBranch, { branch: cur }), submenu: branchSub },
+    { label: m.checkout, title: cm.help.checkoutCommit, action: () => requestCheckout(commit.hash) },
+  ];
+  // Локальные ветки на этом коммите — явные пункты вместо скрытого клика по заголовку.
+  for (const ref of commit.refs.filter(r => r.type === 'branch').slice(0, 3)) {
+    nav.push({ label: tpl(cm.checkout, { branch: leaf(ref.name) }), title: ref.name, action: () => requestCheckout(ref.name) });
+  }
+  groups.push(nav);
 
+  // 4. Где этот коммит: ветки, веб-интерфейс, PR
+  const where: SgContextMenuItem[] = [];
+  if (extras.onShowContaining) where.push({ label: m.containing, action: () => extras.onShowContaining!(commit) });
+  const web = extras.webRepo;
+  if (web) {
+    where.push({ label: tpl(m.openWeb, { host: WEB_HOST_NAME[web.host] }), action: () => window.open(commitUrl(web, commit.hash), '_blank') });
+    const prId = parsePullRequestId(commit.subject);
+    if (prId) where.push({ label: tpl(m.openPr, { id: prId }), action: () => window.open(pullRequestUrl(web, prId), '_blank') });
+  }
+  groups.push(where);
+
+  // 5. Ещё — редкое
+  groups.push([{
+    label: m.more,
+    submenu: [
+      {
+        label: cm.newAnnotatedTag,
+        action: () => showPrompt({
+          title: cm.newAnnotatedTag,
+          placeholder: 'v1.0.0',
+          onConfirm: (name) => showPrompt({
+            title: cm.tagMessageTitle,
+            placeholder: 'Release v1.0.0',
+            onConfirm: (message) => postCommand({ type: 'createTag', name, ref: commit.hash, message }),
+          }),
+        }),
+      },
+      ...(onCompareTo ? [
+        { label: cm.compareToLocal, title: cm.help.compareToLocal, action: () => onCompareTo(commit.hash, 'WORKING') },
+      ] as SgContextMenuItem[] : []),
+      { label: cm.saveAsPatch, title: cm.help.saveAsPatch, action: () => postCommand({ type: 'saveAsPatch', hash: commit.hash }) },
+      { label: cm.copyCommitInfo, shortcut: 'Ctrl+Shift+C', action: () => copyToClipboard(formatCommitInfo(commit)) },
+    ],
+  }]);
+
+  const items: SgContextMenuItem[] = [
+    { header: true, label: `${shortHash} · ${commit.subject}`, title: `${commit.hash}\n${commit.subject}` },
+  ];
+  for (const g of groups) {
+    if (g.length === 0) continue;
+    items.push({ divider: true }, ...g);
+  }
   return items;
 }

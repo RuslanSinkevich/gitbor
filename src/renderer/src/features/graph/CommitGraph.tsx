@@ -4,6 +4,7 @@ import type { Commit, GraphNode, MergeLink } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { ROW_HEIGHT, COL_WIDTH, LEFT_PAD, NODE_RADIUS, MERGE_RADIUS, DESC_PAD, colX, formatCommitDate } from './graphConstants';
 import { getCommitMenuItems, type ShowPrompt, type OnRebase } from './commitMenuItems';
+import type { WebRepo } from './webLinks';
 import type { RequestCheckout } from '../checkout';
 import { groupBranchPaths, getNodeCircles, getMergeLinkPaths, type BranchPathData, type NodeCircle } from './branchPaths';
 import { buildRefBadges } from './refBadges';
@@ -107,9 +108,13 @@ interface Props {
   focusNonce?: number;
   /** Двойной клик по коммиту — показать ветку/тег в сайдбаре, без checkout. */
   onRevealRef?: (hash: string) => void;
+  /** Веб-интерфейс репо (Azure/GitHub/GitLab) — пункты «Открыть в …» в меню коммита. */
+  webRepo?: WebRepo | null;
+  /** «В каких ветках есть этот коммит». */
+  onShowContaining?: (commit: Commit) => void;
 }
 
-function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, selectedHashes = EMPTY_HASH_SET, onMultiSelect, onSelectMany, orderCommits, onMultiCherryPickStart, currentBranch, remoteNames, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, onCompareTo, headOnRemote = false, focusNonce, onRevealRef }: Props) {
+function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selectedHash, onSelect, selectedHashes = EMPTY_HASH_SET, onMultiSelect, onSelectMany, orderCommits, onMultiCherryPickStart, currentBranch, remoteNames, repoPath, onContextMenu, showPrompt, requestCheckout, onRebase, onLoadMore, onCompareTo, headOnRemote = false, focusNonce, onRevealRef, webRepo, onShowContaining }: Props) {
   const loc = t();
   const graphWidth = LEFT_PAD * 2 + (maxColumns + 1) * COL_WIDTH + 12;
   const totalHeight = commits.length * ROW_HEIGHT;
@@ -362,6 +367,7 @@ function CommitGraphImpl({ commits, graphNodes, maxColumns, mergeLinks, selected
                   onContextMenu(e, getCommitMenuItems(
                     commit, currentBranch, showPrompt, requestCheckout, onRebase, onCompareTo,
                     headOnRemote, sortedSelected, onMultiCherryPickStart,
+                    { webRepo, onShowContaining },
                   ));
                 }}>
                 <div className={s.rowDesc} style={{ paddingLeft: descLeft }}>

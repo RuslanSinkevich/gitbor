@@ -61,6 +61,14 @@ export const ipcHandlersState: HandlerTable = {
       return null;
     }
   },
+  getBranchesContaining: async (cmd, ctx) => {
+    try {
+      return await ctx.ch.getBranchesContaining(cmd.hash);
+    } catch (err) {
+      mainLogger.error(`getBranchesContaining: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
+  },
   getFileBlame: async (cmd, ctx) => {
     const blame = await ctx.ch.getFileBlame(cmd.file, cmd.hash);
     ctx.send({ type: 'fileBlame', data: blame, file: cmd.file });

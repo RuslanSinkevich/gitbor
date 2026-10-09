@@ -41,6 +41,10 @@ function labeled(items: SgContextMenuItem[]): LabeledItem[] {
 function byLabel(items: SgContextMenuItem[], label: string): LabeledItem | undefined {
   return labeled(items).find((i) => i.label === label);
 }
+/** Пункты корня (без заголовка и разделителей). */
+function rootItems(items: SgContextMenuItem[]): LabeledItem[] {
+  return items.filter((i): i is LabeledItem => 'label' in i && !!i.label && !('header' in i && i.header));
+}
 
 const noop = () => {};
 
@@ -87,11 +91,11 @@ describe('getCommitMenuItems — «Сравнить с локальными»', 
     expect(byLabel(items, loc.contextMenu.compareToLocal)).toBeUndefined();
   });
 
-  it('имеет пояснение (help)', () => {
+  it('пояснение — во всплывающей подсказке', () => {
     const loc = t();
     const { items } = build(makeCommit(), { onCompareTo: vi.fn() });
     const item = byLabel(items, loc.contextMenu.compareToLocal);
-    expect(item!.help).toBe(loc.contextMenu.help.compareToLocal);
+    expect(item!.title).toBe(loc.contextMenu.help.compareToLocal);
   });
 });
 
@@ -100,7 +104,7 @@ describe('getCommitMenuItems — cherry-pick / revert', () => {
     const loc = t();
     const commit = makeCommit();
     const { items } = build(commit);
-    byLabel(items, loc.contextMenu.cherryPick)!.action!();
+    byLabel(items, loc.commitMenu.cherryPick)!.action!();
     expect(postCommand).toHaveBeenCalledWith({ type: 'cherryPick', hash: commit.hash });
   });
 
@@ -108,7 +112,7 @@ describe('getCommitMenuItems — cherry-pick / revert', () => {
     const loc = t();
     const commit = makeCommit({ parents: ['p1', 'p2'] });
     const { items } = build(commit);
-    byLabel(items, loc.contextMenu.cherryPick)!.action!();
+    byLabel(items, loc.commitMenu.cherryPick)!.action!();
     expect(postCommand).toHaveBeenCalledWith({ type: 'cherryPick', hash: commit.hash, mainline: 1 });
   });
 
@@ -116,7 +120,7 @@ describe('getCommitMenuItems — cherry-pick / revert', () => {
     const loc = t();
     const commit = makeCommit({ parents: ['p1', 'p2'] });
     const { items } = build(commit);
-    byLabel(items, loc.contextMenu.revert)!.action!();
+    byLabel(items, loc.commitMenu.revert)!.action!();
     expect(postCommand).toHaveBeenCalledWith({ type: 'revert', hash: commit.hash, mainline: 1 });
   });
 });
@@ -126,42 +130,33 @@ describe('getCommitMenuItems — множественный cherry-pick', () => 
     const loc = t();
     const commit = makeCommit({ hash: 'bbbbbbb' });
     const selected = ['aaaaaaa', 'bbbbbbb', 'ccccccc'];
-    const showPrompt = vi.fn();
-    const requestCheckout = vi.fn();
     const onStart = vi.fn();
     const items = getCommitMenuItems(
-      commit, 'main', showPrompt, requestCheckout, undefined, undefined, false, selected, onStart,
+      commit, 'main', vi.fn(), vi.fn(), undefined, undefined, false, selected, onStart,
     );
 
-    const label = tpl(loc.contextMenu.cherryPickMany, { count: 3 });
-    const item = byLabel(items, label);
+    const item = byLabel(items, tpl(loc.contextMenu.cherryPickMany, { count: 3 }));
     expect(item).toBeTruthy();
     item!.action!();
     expect(onStart).toHaveBeenCalledOnce();
     expect(postCommand).toHaveBeenCalledWith({ type: 'cherryPickMany', hashes: selected });
     // Одиночного пункта при этом быть не должно.
-    expect(byLabel(items, loc.contextMenu.cherryPick)).toBeUndefined();
+    expect(byLabel(items, loc.commitMenu.cherryPick)).toBeUndefined();
   });
 
   it('остаётся одиночным, если кликнутый коммит вне мульти-выбора', () => {
     const loc = t();
     const commit = makeCommit({ hash: 'zzzzzzz' });
-    const selected = ['aaaaaaa', 'bbbbbbb'];
-    const showPrompt = vi.fn();
-    const requestCheckout = vi.fn();
-    const items = getCommitMenuItems(commit, 'main', showPrompt, requestCheckout, undefined, undefined, false, selected);
-
-    expect(byLabel(items, loc.contextMenu.cherryPick)).toBeTruthy();
+    const items = getCommitMenuItems(commit, 'main', vi.fn(), vi.fn(), undefined, undefined, false, ['aaaaaaa', 'bbbbbbb']);
+    expect(byLabel(items, loc.commitMenu.cherryPick)).toBeTruthy();
     expect(byLabel(items, tpl(loc.contextMenu.cherryPickMany, { count: 2 }))).toBeUndefined();
   });
 
   it('остаётся одиночным при выборе из одного коммита', () => {
     const loc = t();
     const commit = makeCommit({ hash: 'aaaaaaa' });
-    const showPrompt = vi.fn();
-    const requestCheckout = vi.fn();
-    const items = getCommitMenuItems(commit, 'main', showPrompt, requestCheckout, undefined, undefined, false, ['aaaaaaa']);
-    expect(byLabel(items, loc.contextMenu.cherryPick)).toBeTruthy();
+    const items = getCommitMenuItems(commit, 'main', vi.fn(), vi.fn(), undefined, undefined, false, ['aaaaaaa']);
+    expect(byLabel(items, loc.commitMenu.cherryPick)).toBeTruthy();
   });
 });
 
@@ -170,7 +165,7 @@ describe('getCommitMenuItems — reset submenu', () => {
     const loc = t();
     const commit = makeCommit();
     const { items, showPrompt } = build(commit);
-    const resetParent = labeled(items).find((i) => i.label === tpl(loc.contextMenu.resetToHere, { branch: 'main' }));
+    const resetParent = byLabel(items, loc.commitMenu.resetHere);
     expect(resetParent?.submenu).toBeTruthy();
     const sub = resetParent!.submenu!;
 
@@ -216,7 +211,7 @@ describe('getCommitMenuItems — interactive rebase', () => {
     const onRebase = vi.fn();
     const commit = makeCommit();
     const { items } = build(commit, { onRebase });
-    const item = byLabel(items, tpl(loc.contextMenu.interactiveRebaseToHere, { branch: 'main' }));
+    const item = byLabel(items, loc.commitMenu.rebaseInteractive);
     expect(item!.disabled).toBeFalsy();
     item!.action!();
     expect(onRebase).toHaveBeenCalledWith(commit.hash);
@@ -225,8 +220,7 @@ describe('getCommitMenuItems — interactive rebase', () => {
   it('задизейблен, когда onRebase не передан', () => {
     const loc = t();
     const { items } = build(makeCommit(), {});
-    const item = byLabel(items, tpl(loc.contextMenu.interactiveRebaseToHere, { branch: 'main' }));
-    expect(item!.disabled).toBe(true);
+    expect(byLabel(items, loc.commitMenu.rebaseInteractive)!.disabled).toBe(true);
   });
 });
 
@@ -237,6 +231,14 @@ describe('getCommitMenuItems — copy', () => {
     const { items } = build(commit);
     byLabel(items, loc.contextMenu.copySha)!.action!();
     expect(copyToClipboard).toHaveBeenCalledWith(commit.hash);
+  });
+
+  it('«Копировать сообщение» копирует тему коммита', () => {
+    const loc = t();
+    const commit = makeCommit();
+    const { items } = build(commit);
+    byLabel(items, loc.commitMenu.copyMessage)!.action!();
+    expect(copyToClipboard).toHaveBeenCalledWith(commit.subject);
   });
 
   it('«Копировать информацию о коммите» включает hash, subject и автора', () => {
@@ -251,55 +253,106 @@ describe('getCommitMenuItems — copy', () => {
   });
 });
 
-describe('getCommitMenuItems — подменю «Дополнительно»', () => {
-  it('редкие пункты вынесены в подменю, а частые остаются в корне', () => {
-    const loc = t();
+describe('getCommitMenuItems — структура (лаконичное меню)', () => {
+  it('заголовок — короткий хеш и тема, без действия', () => {
     const commit = makeCommit();
-    const { items } = build(commit, { onRebase: noop, onCompareTo: vi.fn() });
-
-    const more = items.find(
-      (i): i is LabeledItem => 'label' in i && i.label === loc.contextMenu.more,
-    );
-    expect(more?.submenu).toBeTruthy();
-    const subLabels = labeled(more!.submenu!).map((i) => i.label);
-
-    expect(subLabels).toContain(loc.contextMenu.newAnnotatedTag);
-    expect(subLabels).toContain(tpl(loc.contextMenu.interactiveRebaseToHere, { branch: 'main' }));
-    expect(subLabels).toContain(loc.contextMenu.saveAsPatch);
-    expect(subLabels).toContain(loc.contextMenu.compareToLocal);
-    expect(subLabels).toContain(loc.contextMenu.copyCommitInfo);
-
-    // Частые остаются в корне (не внутри «Дополнительно»).
-    const rootLabels = items
-      .filter((i): i is LabeledItem => 'label' in i && !!i.label && i.label !== loc.contextMenu.more)
-      .map((i) => i.label);
-    expect(rootLabels).toContain(loc.contextMenu.cherryPick);
-    expect(rootLabels).toContain(loc.contextMenu.checkoutCommit);
-    expect(rootLabels).toContain(loc.contextMenu.copySha);
-    expect(rootLabels).toContain(tpl(loc.contextMenu.rebaseToHere, { branch: 'main' }));
+    const { items } = build(commit);
+    expect(items[0]).toMatchObject({ header: true, label: `${commit.hash.slice(0, 7)} · ${commit.subject}` });
+    expect((items[0] as { action?: unknown }).action).toBeUndefined();
   });
-});
 
-describe('getCommitMenuItems — пояснения (help) на неочевидных пунктах', () => {
-  it('ключевые опасные/непонятные пункты снабжены подсказкой', () => {
+  it('частое — в корне; изменение текущей ветки — в «В «main»»; редкое — в «Ещё»', () => {
+    const loc = t();
+    const { items } = build(makeCommit(), { onRebase: noop, onCompareTo: vi.fn() });
+    const root = rootItems(items);
+    const rootLabels = root.map((i) => i.label);
+    for (const l of [loc.contextMenu.copySha, loc.commitMenu.cherryPick, loc.commitMenu.revert, loc.commitMenu.checkout]) {
+      expect(rootLabels).toContain(l);
+    }
+
+    const onBranch = root.find((i) => i.label === tpl(loc.commitMenu.onBranch, { branch: 'main' }));
+    const branchSub = labeled(onBranch!.submenu!).map((i) => i.label);
+    expect(branchSub).toEqual(expect.arrayContaining([
+      loc.commitMenu.mergeHere, loc.commitMenu.rebaseHere, loc.commitMenu.rebaseInteractive, loc.commitMenu.resetHere,
+    ]));
+    // Меняющее текущую ветку не торчит в корне.
+    expect(rootLabels).not.toContain(loc.commitMenu.resetHere);
+    expect(rootLabels).not.toContain(loc.commitMenu.mergeHere);
+
+    const more = root.find((i) => i.label === loc.commitMenu.more);
+    expect(labeled(more!.submenu!).map((i) => i.label)).toEqual(expect.arrayContaining([
+      loc.contextMenu.newAnnotatedTag, loc.contextMenu.saveAsPatch, loc.contextMenu.compareToLocal, loc.contextMenu.copyCommitInfo,
+    ]));
+  });
+
+  it('имя текущей ветки — один раз и коротким', () => {
+    const items = getCommitMenuItems(makeCommit(), 'feature/SinkevichRN/MISP-298', vi.fn(), vi.fn());
+    const all = labeled(items).map((i) => i.label);
+    expect(all.filter((l) => l.includes('MISP-298'))).toHaveLength(1);
+    expect(all.some((l) => l.includes('feature/SinkevichRN'))).toBe(false);
+  });
+
+  it('пояснения — во всплывающей подсказке, значков «!» (help) нет', () => {
     const loc = t();
     const commit = makeCommit({ refs: [{ name: 'main', type: 'head' }] });
     const { items } = build(commit, { onRebase: noop, onCompareTo: vi.fn() });
-
-    const expectHelp = (label: string, help: string) => {
+    const expectTitle = (label: string, help: string) => {
       const item = byLabel(items, label);
       expect(item, `нет пункта: ${label}`).toBeTruthy();
-      expect(item!.help, `нет help у: ${label}`).toBe(help);
+      expect(item!.title, `нет подсказки у: ${label}`).toBe(help);
     };
+    expectTitle(loc.commitMenu.rebaseHere, loc.contextMenu.help.rebaseToHere);
+    expectTitle(loc.commitMenu.rebaseInteractive, loc.contextMenu.help.interactiveRebaseToHere);
+    expectTitle(loc.commitMenu.mergeHere, loc.contextMenu.help.mergeInto);
+    expectTitle(loc.commitMenu.cherryPick, loc.contextMenu.help.cherryPick);
+    expectTitle(loc.commitMenu.revert, loc.contextMenu.help.revert);
+    expectTitle(loc.contextMenu.uncommitToStaging, loc.contextMenu.help.uncommitToStaging);
+    expectTitle(loc.commitMenu.checkout, loc.contextMenu.help.checkoutCommit);
+    expect(labeled(items).some((i) => !!i.help)).toBe(false);
+  });
+});
 
-    expectHelp(tpl(loc.contextMenu.rebaseToHere, { branch: 'main' }), loc.contextMenu.help.rebaseToHere);
-    expectHelp(tpl(loc.contextMenu.interactiveRebaseToHere, { branch: 'main' }), loc.contextMenu.help.interactiveRebaseToHere);
-    expectHelp(tpl(loc.contextMenu.mergeInto, { source: commit.hash.substring(0, 7), target: 'main' }), loc.contextMenu.help.mergeInto);
-    expectHelp(loc.contextMenu.cherryPick, loc.contextMenu.help.cherryPick);
-    expectHelp(loc.contextMenu.revert, loc.contextMenu.help.revert);
-    expectHelp(loc.contextMenu.uncommitToStaging, loc.contextMenu.help.uncommitToStaging);
-    expectHelp(loc.contextMenu.checkoutCommit, loc.contextMenu.help.checkoutCommit);
-    expectHelp(loc.contextMenu.saveAsPatch, loc.contextMenu.help.saveAsPatch);
-    expectHelp(loc.contextMenu.compareToLocal, loc.contextMenu.help.compareToLocal);
+describe('getCommitMenuItems — где коммит: ветки, веб, PR', () => {
+  const az = { host: 'azure' as const, base: 'https://tfs/C/P/_git/R' };
+
+  it('«В каких ветках есть» зовёт onShowContaining', () => {
+    const loc = t();
+    const onShowContaining = vi.fn();
+    const commit = makeCommit();
+    const items = getCommitMenuItems(commit, 'main', vi.fn(), vi.fn(), undefined, undefined, false, undefined, undefined, { onShowContaining });
+    byLabel(items, loc.commitMenu.containing)!.action!();
+    expect(onShowContaining).toHaveBeenCalledWith(commit);
+  });
+
+  it('«Открыть в Azure DevOps» и «Открыть запрос на вытягивание N» у merge-коммита PR', () => {
+    const loc = t();
+    const open = vi.fn();
+    vi.stubGlobal('window', { open });
+    const commit = makeCommit({ subject: 'Объединенный запрос на вытягивание 12054: feat: x' });
+    const items = getCommitMenuItems(commit, 'main', vi.fn(), vi.fn(), undefined, undefined, false, undefined, undefined, { webRepo: az });
+    byLabel(items, tpl(loc.commitMenu.openWeb, { host: 'Azure DevOps' }))!.action!();
+    expect(open).toHaveBeenCalledWith(`https://tfs/C/P/_git/R/commit/${commit.hash}`, '_blank');
+    byLabel(items, tpl(loc.commitMenu.openPr, { id: '12054' }))!.action!();
+    expect(open).toHaveBeenCalledWith('https://tfs/C/P/_git/R/pullrequest/12054', '_blank');
+    vi.unstubAllGlobals();
+  });
+
+  it('без веб-адреса пунктов «Открыть…» нет; у обычного коммита нет пункта PR', () => {
+    const loc = t();
+    const webPrefix = loc.commitMenu.openWeb.split('{')[0];
+    const prPrefix = loc.commitMenu.openPr.split('{')[0];
+    const plain = getCommitMenuItems(makeCommit(), 'main', vi.fn(), vi.fn());
+    expect(labeled(plain).some((i) => i.label.startsWith(webPrefix))).toBe(false);
+    const withWeb = getCommitMenuItems(makeCommit(), 'main', vi.fn(), vi.fn(), undefined, undefined, false, undefined, undefined, { webRepo: az });
+    expect(labeled(withWeb).some((i) => i.label.startsWith(prPrefix))).toBe(false);
+  });
+
+  it('локальная ветка на коммите — явный пункт «Переключить на …»', () => {
+    const loc = t();
+    const requestCheckout = vi.fn();
+    const commit = makeCommit({ refs: [{ name: 'feature/x/task', type: 'branch' }] });
+    const items = getCommitMenuItems(commit, 'main', vi.fn(), requestCheckout);
+    byLabel(items, tpl(loc.contextMenu.checkout, { branch: 'task' }))!.action!();
+    expect(requestCheckout).toHaveBeenCalledWith('feature/x/task');
   });
 });

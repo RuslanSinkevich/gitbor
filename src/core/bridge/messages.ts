@@ -48,6 +48,8 @@ type RendererCommandCore =
    * legacy CP1251 файлах не превращается в кракозябры.
    */
   | { type: 'getFileText'; file: string; hash: string }
+  /** Ветки (локальные и remote), в которые входит коммит. Ответ — через invoke. */
+  | { type: 'getBranchesContaining'; hash: string }
   | { type: 'getFileBlame'; file: string; hash?: string }
   | { type: 'getFileHistory'; file: string }
   | { type: 'addRemote'; name: string; url: string }
