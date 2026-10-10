@@ -1,24 +1,26 @@
-> Русская версия: [docs/ru/architecture.md](ru/architecture.md)
+> English version: [docs/en/architecture.md](en/architecture.md)
 
-## Overview
+# Архитектура GitBor
 
-GitBor is a 4-layer Electron application. Dependencies flow downward only.
+## Обзор
 
-## Layers
+GitBor — четырёхслойное приложение на Electron. Зависимости направлены только вниз.
+
+## Слои
 
 ```
 Renderer (React) → Preload (contextBridge) → Main (Node.js) → Git binary
 ```
 
-- **Renderer** — React 18, Vite, CSS Modules. Feature folders: graph, sidebar, changes (with extracted `fileTreeModel.ts`), diff, merge, blame, file-history, rebase, repo-manager, repo-tabs, toolbar, titlebar, layout, ssh, settings, ai. State is driven by `useAppState` (a facade over `useRepoSlices` + `useRunningOps` + `useStateSubscription`) plus `useMenuActions`, `useKeyboardShortcuts`, `useOperationToasts`, `useDiffState`, `useTheme`, `useToasts`, `useContextMenu`, `useDialogs`, `useAutoFetch`.
+- **Renderer** — React 18, Vite, CSS Modules. Папки фич: graph, sidebar, changes (с вынесенным `fileTreeModel.ts`), diff, merge, blame, file-history, rebase, repo-manager, repo-tabs, toolbar, titlebar, layout, ssh, settings, ai. Состояние ведёт `useAppState` (фасад над `useRepoSlices` + `useRunningOps` + `useStateSubscription`) плюс `useMenuActions`, `useKeyboardShortcuts`, `useOperationToasts`, `useDiffState`, `useTheme`, `useToasts`, `useContextMenu`, `useDialogs`, `useAutoFetch`.
 
-- **Preload** — `contextBridge.exposeInMainWorld('gitBorAPI', …)` exposes `invoke`, `onEvent`, and `platform` to the isolated renderer.
+- **Preload** — `contextBridge.exposeInMainWorld('gitBorAPI', …)` отдаёт в изолированный renderer `invoke`, `onEvent` и `platform`.
 
-- **Main process** — Services are initialized in `main.ts`: `RepoServicesRegistry` (per-repo `GitExecutor` / `OperationQueue` / `SafetyNet`), `StateManager` (facade over `RepoSlicesStore` + `RepoStateRefresher` + `RepoEventBus`), `CommandHandler`, `MessageBridge` (with handlers split into `bridge/ipc/`), `FileWatcher`, `WorkerPool` for parser offload, `AiConfigStore` + `AiService` + `AiHandlers` for AI commit messages. IPC is routed through `MessageBridge`. No native menu — `Menu.setApplicationMenu(null)`. All menus and keyboard shortcuts live in the renderer.
+- **Main process** — Сервисы инициализируются в `main.ts`: `RepoServicesRegistry` (per-repo `GitExecutor` / `OperationQueue` / `SafetyNet`), `StateManager` (фасад над `RepoSlicesStore` + `RepoStateRefresher` + `RepoEventBus`), `CommandHandler`, `MessageBridge` (с разнесёнными хендлерами в `bridge/ipc/`), `FileWatcher`, `WorkerPool` для офлоада парсеров, `AiConfigStore` + `AiService` + `AiHandlers` для генерации commit message. IPC обрабатывается через `MessageBridge`. Нативное меню убрано — `Menu.setApplicationMenu(null)`. Все меню и шорткаты — в renderer.
 
-- **Git** — Invoked as a child process via `execFile('git', args)`. `GitExecutor` handles execution, timeout, env passing, and logging. `cwd` is fixed at construction — each repo gets its own `GitExecutor` so switching the active repo never drags one executor between paths.
+- **Git** — Запускается дочерним процессом через `execFile('git', args)`. `GitExecutor` отвечает за выполнение, таймаут, передачу env и логирование. `cwd` фиксируется на конструкторе — на репо приходится свой `GitExecutor`, чтобы переключение активного репо не «таскало» один executor между путями.
 
-## Data Flow
+## Поток данных
 
 ```
 User clicks button in React
@@ -35,171 +37,171 @@ User clicks button in React
   → React re-renders with new stagedFiles
 ```
 
-## Core Modules
+## Модули core
 
-Modules under `src/core/`:
+Модули в `src/core/`:
 
-| Module | Role |
-|--------|------|
-| **GitExecutor** | Runs Git via `execFile`, ~30s timeout, env support, logs to file. Sensitive args (messages, passphrases) redacted via `sanitizeArgs`. `cwd` is set in constructor — each repo gets its own executor; switching repos happens at the `RepoServicesRegistry` level, not via `setCwd`. `killAll()` SIGTERMs only this repo's inflight processes. `execBuffer(args)` is a parallel API that returns raw `Buffer`s instead of UTF-8 strings — used by `getFileDiff` / `getFileText`, where the source file may be in a legacy single-byte encoding (CP1251/CP866) and `execFile`'s default `utf8` decoding would corrupt Cyrillic into mojibake. |
-| **RepoServicesRegistry** | Per-repo services registry: `Map<repoPath, { git, queue, safety }>` plus a bootstrap set for clone/init when no repo is open. `acquire(repoPath)` lazily creates services, `release(repoPath)` kills inflight processes. This breaks global serialization: a long `git pull` on repo A no longer blocks operations on repo B. |
-| **GitParser** | Pure parsers: `parseCommits`, `parseBranches`, `parseTags`, `parseStatus`, `parseFileChanges`. Big stdouts (status > 256 KB, log > 512 KB) are offloaded to `WorkerPool`. |
-| **GraphLayout** | Lane assignment for commit graph layout. Computed inside a worker thread when `commits.length > 2000`. |
-| **WorkerPool** | `worker_threads` pool (2 workers, round-robin) for CPU-heavy tasks: `parseStatus`, `parseCommits`, `computeGraphLayout`. Small inputs run inline (size threshold). On `error` / non-zero `exit` the slot is removed and a fresh worker is spawned via `setImmediate` — a dead worker never lingers in the pool. |
-| **DiffParser** | Turns unified diff text into `FileDiff` / `DiffHunk` / `DiffLine`. |
-| **ConflictParser** | Parses conflict markers for the merge editor. |
-| **GitConfig** | Reads/writes `user.name`, `user.email` (local/global scope). |
-| **StateManager** | Thin facade. Public surface (`getState`, `getActiveServices`, `getGit`, `getRegistry`, `refresh*`, `switchRepo`, `setRepoPath`, `setOpenRepos`, `clearRepo`, `subscribe`, `onRepoSwitch`, `onRepoClose`, `notifyRepoClose`, `invalidateGraphCache`, `setOperationRunning`) is preserved 1:1, but the body now delegates to three independent classes (see below). |
-| **RepoSlicesStore** | `Map<repoPath, RepoSlice>` + shared `meta` (`openRepos`, `activeRepoIndex`) + the mirror function that exposes the active slice as a single `AppState`. Extracted from `StateManager`. |
-| **RepoStateRefresher** | All async `refresh*` methods (`refreshAll`, `refreshStatus`, `refreshCommits`, `refreshBranches`, ...). Each method takes `repoPath` and updates a specific slice; before any work it checks `isRepoTracked(repoPath)` so a background refresh can never resurrect a just-closed repo. Owns `runSwitchRepoColdPhase` and `invalidateGraphCache`. |
-| **RepoEventBus** | Three subscription channels: `state` (any change), `switch` (active repo changed), `close` (repo removed). Used by `MessageBridge`, `FileWatcher`, recovery flows. |
-| **repoSlice** | The `RepoSlice` interface + `emptyRepoSlice` / `mirrorRepoSliceToAppState` / git-format constants (`GIT_LOG_FORMAT`, `GIT_REF_FORMAT`, `GIT_TAG_REF_FORMAT`, `GIT_STASH_FORMAT`) + `hashGitStdout` for `git log` deduplication. |
-| **CommandHandler** | Orchestrates Git work; delegates to `readCommands` / `writeCommands`. All executors (`git`/`queue`/`safety` plus `RebaseManager`/`ConflictManager`/...) are looked up per-call via `state.getActiveServices()` — no mutable class fields tied to a single repo. `openRepo` throws `AppError('repoErrors.notARepo', { path })` with a localization code when the path is not a Git repo. |
-| **MessageBridge** | Electron IPC: a thin ~150-line wrapper. Accepts `RendererCommand`, looks up the handler in `ipcCommandHandlers` (aggregated from `bridge/ipc/handlersState.ts`, `handlersGitOps.ts`, `handlersRepoExtras.ts`, `handlersAi.ts`). Catches `AppError` and emits an `error`-event with `code`+`data` for renderer-side translation. Sends `graphData` with reference-based deduplication (`sentGraphByRepo`) — repeatedly toggling A→B→A doesn't push megabytes of JSON over IPC. |
-| **bridge/ipc/** | IPC handler submodules: `helpers.ts` (`runTracked`/`op`/`opWithPostMerge`/`errOnFail`/`mergeStateAfter`), `ready.ts`, `handlersState.ts` (lifecycle, diff/blame/history), `handlersGitOps.ts` (push/pull/fetch/commit/stage/merge/rebase), `handlersRepoExtras.ts` (LFS, worktrees, hooks, stats, bisect, repo-tabs, settings, SSH), `handlersAi.ts`. `op`/`opWithPostMerge` snapshot `repoPath` BEFORE starting and pass it into both `operationStart` and `operationEnd` so a tab switch between events doesn't break the per-repo running flag. |
-| **OperationQueue** | Per-repo: read ops parallel, writes serialized. A separate queue per repo means blocking one repo cannot block another. |
-| **SafetyNet** | Per-repo. Auto-stash before risky operations; rollback paths on failure. |
-| **FileWatcher** | Per-repo `chokidar` watchers (`.git` + worktree, created lazily via `setImmediate` after a pre-scan). The worktree watcher is NOT started when `isDangerousRepoRoot(path)` is true (home, drive root, `C:\Windows`...) or when there are > 1000 top-level entries — otherwise an `EPERM`/`EACCES` cascade on `AppData`/`OneDrive` would crash main. Strict race-guard: if the repo is closed while async pre-scan is still running, no new watchers are created (or they are closed immediately). `chokidar.on('error')` swallows EPERM, depth=3, debounce: 50ms `.git`, 200ms worktree. |
-| **repoPathGuard** | `isDangerousRepoRoot(path)` — checks whether a path is "dangerous" (drive root / home / Windows / `Program Files` / `node_modules` / etc.). Used by `FileWatcher` to skip the worktree watcher. Opening such folders is no longer hard-blocked — the user is allowed to look at any directory on purpose. |
-| **AppError** | Structured error with a localization code (`code`) and template params (`data`) plus a technical fallback. `MessageBridge` turns it into an `error`-event with `code`/`data`; the renderer translates via `locale.repoErrors[code]` and interpolates `data`. Replaces "English-only strings that nobody translates". |
-| **gitActivityStore** | Journal of git operations (start/append/finish) with `repoPath` per entry. `activityContext.ts` uses `AsyncLocalStorage` so `GitExecutor.exec` can attribute every command to its active operation without explicit id propagation. The renderer filters by the active tab's `repoPath`; cap = 100 entries; stdout/stderr truncated to `OUTPUT_CAP_BYTES = 16 KiB` with a `[truncated...]` marker. |
-| **Logger** | Levelled logging (`silent`/`error`/`warn`/`info`/`debug`) with stdout/stderr split and an optional `WriteStream` to `<userData>/logs/YYYY-MM-DD.log`. Singleton `mainLogger` is the single source of level for all modules. `configureMainLogger({ isProduction })` is called from `main.ts` after `app.whenReady`: prod → `silent` (silent in both console and file), dev → `debug`. ENV `GITBOR_LOG_LEVEL` overrides the default — convenient for debugging on a packaged build at the user side. All ad-hoc `console.warn/error` in core (FileWatcher, WorkerPool, AiService, etc.) were migrated to `mainLogger`. Direct `console.error` remains only inside `process.on('unhandledRejection'/'uncaughtException')` — that is the last-resort handler that must run BEFORE `configureMainLogger`. |
-| **SshKeyManager** | Lists, generates, deletes SSH keys in `~/.ssh/`. Two-step passphrase generation (no passphrase in argv). |
-| **ReflogParser** | Parses `git reflog` output into structured entries. |
-| **BisectManager** | Manages `git bisect` sessions: start, good, bad, skip, reset. |
-| **HooksManager** | Lists, toggles (enable/disable), reads git hooks content. |
-| **WorktreeManager** | Lists, adds, removes git worktrees. |
-| **LfsManager** | Git LFS status, track/untrack patterns, list managed files. |
-| **pathSecurity** | Path validation: `safePath` (traversal + symlink via `realpathSync.native` + Windows case-insensitive), `isSafeFilename`. |
-| **textEncoding** | `decodeGitText(buf)` — decodes git stdout bytes into a JS string with a fixed heuristic: BOM check (UTF-8 / UTF-16 LE / UTF-16 BE) → strict UTF-8 via `TextDecoder('utf-8', { fatal: true })` → CP1251 (`windows-1251`) → CP866 (`ibm866`). The CP866 fallback kicks in only when the CP1251 result contains > 2% control characters. Used by `getFileDiff` and `getFileText` so legacy `.sql` / `.cs` / `.pas` files saved on Russian Windows render readably instead of mojibake. No external dep — relies on Node's full-ICU `TextDecoder`. |
-| **AtomicWrite** | Atomic file writes via tmp+rename with fsync. Windows retry uses `Atomics.wait` (no busy-spin). |
-| **AiService** | Facade over `AiProvider`. `isConfigured()` checks the active mode (`openai-compatible` requires `baseUrl + model`; `qwen-web` requires `qwenWebToken + model`). `generateCommitMessage` builds prompts with the configured `aiResponseLanguage`, calls the provider, and post-processes the result (strips ```` ``` ```` fences and surrounding quotes). |
-| **AiHandlers** | Per-`requestId` `AbortController` map. `getConfig` masks the secret (`apiKey` / `qwenWebToken` → `••••••••`) before sending to the renderer. `setConfig` merges secrets: a masked or empty value from the UI means "keep the previous secret". `cancelAll()` aborts every inflight generation on shutdown. |
-| **AiConfigStore** | Persistent config in `{userData}/ai-config.json` with `version: 3` (`migrateToV3` upgrades older files on load). Atomic write via `atomicWriteJSON`. Secrets are encrypted via Electron `safeStorage` (DPAPI / Keychain / libsecret); when unavailable, falls back to a `plain:` prefix so keys remain readable for diagnostics. `clear()` writes an empty entry rather than deleting the file. |
-| **OpenAiCompatibleProvider** | `/v1/chat/completions` with SSE streaming. Used by OpenAI, Ollama, LM Studio, DeepSeek, Groq. Reports `usage` and `finishReason` (`stop`/`length`/`error`/`aborted`). |
-| **QwenWebProvider** | Unofficial bridge to `chat.qwen.ai`. Two-step flow: `POST /api/v2/chats/new` to create a chat id, then `POST /api/v2/chat/completions?chat_id=…` with SSE. Uses the session token from `localStorage` (no DashScope API key). Falls back to `qwen3-max` for unknown model ids. |
+| Модуль | Назначение |
+|--------|------------|
+| **GitExecutor** | Запуск Git через `execFile`, таймаут ~30 с, поддержка env, лог в файл. Чувствительные аргументы (сообщения, пароли) редактируются через `sanitizeArgs`. `cwd` задаётся на конструкторе — переключение между репо происходит на уровне `RepoServicesRegistry`, а не `setCwd`. `killAll()` шлёт SIGTERM активным процессам только своего репо. `execBuffer(args)` — параллельный API, возвращает stdout/stderr как `Buffer` без декодирования в utf-8: используется `getFileDiff` / `getFileText`, где содержимое исходного файла может быть в legacy-кодировке (CP1251/CP866), и дефолтный utf-8 у `execFile` превратил бы кириллицу в кракозябры. |
+| **RepoServicesRegistry** | Реестр per-repo сервисов: `Map<repoPath, { git, queue, safety }>` + bootstrap-набор для clone/init без открытого репо. `acquire(repoPath)` создаёт сервисы лениво, `release(repoPath)` убивает inflight процессы. Это разрывает глобальную сериализацию: длинный `git pull` на репо A не блокирует операции на репо B. |
+| **GitParser** | Чистые парсеры: `parseCommits`, `parseBranches`, `parseTags`, `parseStatus`, `parseFileChanges`. Большие выводы (статус > 256 KB, log > 512 KB) офлоадятся в `WorkerPool`. |
+| **GraphLayout** | Распределение дорожек для раскладки графа коммитов. Вычисляется в worker thread при `commits.length > 2000`. |
+| **WorkerPool** | Пул `worker_threads` (2 worker'а, round-robin) для CPU-тяжёлых задач: `parseStatus`, `parseCommits`, `computeGraphLayout`. Маленькие inputs обрабатываются inline (порог по размеру). При `error`/нештатном `exit` slot удаляется и через `setImmediate` спаунится новый — мёртвый worker никогда не остаётся в пуле. |
+| **DiffParser** | Преобразует unified diff в `FileDiff` / `DiffHunk` / `DiffLine`. |
+| **ConflictParser** | Разбор conflict markers для merge editor. |
+| **GitConfig** | Чтение/запись `user.name`, `user.email` (local/global scope). |
+| **StateManager** | Тонкий фасад. Публичная поверхность (`getState`, `getActiveServices`, `getGit`, `getRegistry`, `refresh*`, `switchRepo`, `setRepoPath`, `setOpenRepos`, `clearRepo`, `subscribe`, `onRepoSwitch`, `onRepoClose`, `notifyRepoClose`, `invalidateGraphCache`, `setOperationRunning`) сохранена 1:1, тело делегирует в три независимых класса (см. ниже). |
+| **RepoSlicesStore** | `Map<repoPath, RepoSlice>` + общий `meta` (`openRepos`, `activeRepoIndex`) + mirror-функция, которая показывает активный slice как единый `AppState`. Вынесено из `StateManager`. |
+| **RepoStateRefresher** | Все async `refresh*` методы (`refreshAll`, `refreshStatus`, `refreshCommits`, `refreshBranches`, ...). Каждый принимает `repoPath` и обновляет конкретный slice; перед работой проверяется `isRepoTracked(repoPath)`, чтобы фоновый refresh не «оживил» только что закрытый репо. Содержит `runSwitchRepoColdPhase` и `invalidateGraphCache`. |
+| **RepoEventBus** | Три канала подписок: `state` (любое изменение), `switch` (сменился активный репо), `close` (репо удалили). Используется `MessageBridge`, `FileWatcher`, recovery-флоу. |
+| **repoSlice** | `RepoSlice` тип + `emptyRepoSlice` / `mirrorRepoSliceToAppState` / git-format константы (`GIT_LOG_FORMAT`, `GIT_REF_FORMAT`, `GIT_TAG_REF_FORMAT`, `GIT_STASH_FORMAT`) + `hashGitStdout` для дедупа `git log`. |
+| **CommandHandler** | Оркестрирует работу с Git; делегирует в `readCommands` / `writeCommands`. Все исполнители (`git`/`queue`/`safety` + `RebaseManager`/`ConflictManager`/...) берутся per-call через `state.getActiveServices()` — никаких mutable polей класса с привязкой к одному репо. На `openRepo` бросается `AppError('repoErrors.notARepo', { path })` с локализационным кодом, если путь не Git-репо. |
+| **MessageBridge** | Electron IPC: тонкая обёртка ~150 строк. Принимает `RendererCommand`, ищет хендлер в `ipcCommandHandlers` (агрегат из `bridge/ipc/handlersState.ts`, `handlersGitOps.ts`, `handlersRepoExtras.ts`, `handlersAi.ts`). Ловит `AppError` и шлёт `error`-event с `code`+`data` для локализации в renderer. Шлёт `graphData` с дедупом по ссылкам (`sentGraphByRepo`) — повторное переключение A→B→A не гонит мегабайты JSON через IPC. |
+| **bridge/ipc/** | Подмодули IPC-хендлеров: `helpers.ts` (`runTracked`/`op`/`opWithPostMerge`/`errOnFail`/`mergeStateAfter`), `ready.ts`, `handlersState.ts` (lifecycle, diff/blame/history), `handlersGitOps.ts` (push/pull/fetch/commit/stage/merge/rebase), `handlersRepoExtras.ts` (LFS, worktrees, hooks, stats, bisect, repo-tabs, settings, SSH), `handlersAi.ts`. `op`/`opWithPostMerge` снимают `repoPath` ДО старта операции и шлют его в `operationStart`/`operationEnd`, чтобы переключение вкладки между событиями не сломало per-repo running-флаг. |
+| **OperationQueue** | Per-repo: read-операции параллельно, write — сериализованы. Отдельная очередь на каждое репо означает, что блокировка одного репо не блокирует другое. |
+| **SafetyNet** | Per-repo. Авто-stash перед рискованными операциями; откат при сбое. |
+| **FileWatcher** | Per-repo `chokidar` watcher'ы (`.git` + worktree, создаются лениво через `setImmediate` с pre-scan). Worktree-watcher НЕ запускается при `isDangerousRepoRoot(path)` (домашка, корень диска, `C:\Windows`...) или при > 1000 top-level entries — иначе `EPERM`/`EACCES`-каскад на `AppData`/`OneDrive` рушит main. Чёткий race-guard: если репо закрыли пока async pre-scan ещё идёт — новые watcher'ы не создаются (или сразу закрываются). `chokidar.on('error')` глушит EPERM, depth=3, debounce: 50мс `.git`, 200мс worktree. |
+| **repoPathGuard** | `isDangerousRepoRoot(path)` — проверка «опасности» пути (drive root / home / Windows / `Program Files` / `node_modules` / т.п.). Используется в `FileWatcher` для отключения worktree-watcher. Сам факт открытия таких папок больше не блокируется — пользователь может намеренно посмотреть на любую директорию. |
+| **AppError** | Структурированная ошибка с локализационным кодом (`code`) и параметрами шаблона (`data`) + technical fallback. `MessageBridge` превращает в `error`-event с `code`/`data`; renderer переводит через `locale.repoErrors[code]` и интерполирует. Альтернатива «строкам на английском, которые не переведены». |
+| **gitActivityStore** | Журнал git-операций (start/append/finish) с `repoPath` per entry. `activityContext.ts` использует `AsyncLocalStorage`, чтобы `GitExecutor.exec` мог привязать выполненную команду к активной операции без явной передачи id. Renderer фильтрует журнал по `repoPath` активной вкладки; кэп = 100 entries; stdout/stderr обрезаются до `OUTPUT_CAP_BYTES = 16 KiB` с маркером `[truncated...]`. |
+| **Logger** | Уровневое логирование (`silent`/`error`/`warn`/`info`/`debug`) с разделением stdout/stderr и опциональным `WriteStream` в `<userData>/logs/YYYY-MM-DD.log`. Singleton `mainLogger` — один источник уровня для всех модулей. `configureMainLogger({ isProduction })` настраивается из `main.ts` после `app.whenReady`: prod → `silent` (тишина и в console, и в файл), dev → `debug`. ENV `GITBOR_LOG_LEVEL` перебивает дефолт — для дебага у юзера в собранной версии. Все случайные `console.warn/error` в core (FileWatcher, WorkerPool, AiService и т. п.) переведены на `mainLogger`. Прямой `console.error` остался только в `process.on('unhandledRejection'/'uncaughtException')` — это последний рубеж, который должен сработать ДО `configureMainLogger`. |
+| **SshKeyManager** | Список, генерация, удаление SSH-ключей в `~/.ssh/`. Двухшаговая генерация (пароль не в argv). |
+| **ReflogParser** | Парсит вывод `git reflog` в структурированные записи. |
+| **BisectManager** | Управляет сессиями `git bisect`: start, good, bad, skip, reset. |
+| **HooksManager** | Список, вкл/выкл (toggle), чтение содержимого git hooks. |
+| **WorktreeManager** | Список, добавление, удаление git worktrees. |
+| **LfsManager** | Статус Git LFS, track/untrack паттернов, список управляемых файлов. |
+| **pathSecurity** | Валидация путей: `safePath` (traversal + symlink через `realpathSync.native` + регистронезависимость на Windows), `isSafeFilename`. |
+| **textEncoding** | `decodeGitText(buf)` — декодирует bytes из git stdout в JS-строку фиксированной эвристикой: BOM (UTF-8 / UTF-16 LE / UTF-16 BE) → строгий UTF-8 через `TextDecoder('utf-8', { fatal: true })` → CP1251 (`windows-1251`) → CP866 (`ibm866`). Откат на CP866 включается только если результат CP1251 содержит > 2% управляющих символов. Используется в `getFileDiff` и `getFileText`, чтобы legacy `.sql`/`.cs`/`.pas`-файлы с русской Windows читались нормально, а не как кракозябры. Без внешних зависимостей — опирается на full-ICU `TextDecoder` в Node. |
+| **AtomicWrite** | Атомарная запись через tmp+rename с fsync. Retry на Windows через `Atomics.wait` (без busy-spin). |
+| **AiService** | Фасад над `AiProvider`. `isConfigured()` проверяет активный режим (`openai-compatible` требует `baseUrl + model`; `qwen-web` требует `qwenWebToken + model`). `generateCommitMessage` строит промпты с учётом `aiResponseLanguage`, зовёт провайдер и постпроцессит результат (срезает ```` ``` ```` и обрамляющие кавычки). |
+| **AiHandlers** | Map из `requestId → AbortController`. `getConfig` маскирует секрет (`apiKey` / `qwenWebToken` → `••••••••`) перед отправкой в renderer. `setConfig` мёрджит секреты: маскированное или пустое значение от UI значит «оставь предыдущий секрет». `cancelAll()` отменяет все inflight генерации при выключении. |
+| **AiConfigStore** | Хранилище конфига в `{userData}/ai-config.json` с `version: 3` (`migrateToV3` обновляет старые файлы при загрузке). Atomic write через `atomicWriteJSON`. Секреты шифруются Electron `safeStorage` (DPAPI / Keychain / libsecret); если key store недоступен — fallback на префикс `plain:`, чтобы ключ оставался читаемым для диагностики. `clear()` пишет пустую запись, а не удаляет файл. |
+| **OpenAiCompatibleProvider** | `/v1/chat/completions` с SSE-стримом. OpenAI, Ollama, LM Studio, DeepSeek, Groq. Возвращает `usage` и `finishReason` (`stop`/`length`/`error`/`aborted`). |
+| **QwenWebProvider** | Неофициальный мост к `chat.qwen.ai`. Двушаговый флоу: `POST /api/v2/chats/new` для chat_id, потом `POST /api/v2/chat/completions?chat_id=…` с SSE. Сессионный токен из `localStorage` (без официального API-ключа DashScope). Для неизвестных id моделей фолбэк на `qwen3-max`. |
 
-## Renderer Modules
+## Модули renderer
 
-Feature folders under `src/renderer/src/features/`:
+Папки возможностей в `src/renderer/src/features/`:
 
-| Area | Contents |
-|------|----------|
+| Область | Содержимое |
+|---------|------------|
 | **graph/** | `CommitGraph` (virtualized), `CommitDetails`, `branchPaths`. |
-| **sidebar/** | Sidebar: `BranchTree` (current branch as a green dot, no text badge), tags, stashes, remotes, submodules. |
-| **changes/** | `LocalChanges` (tree, folder context menu applies to all files inside), `CommitBar` (subject + description), `FileTree` + extracted pure helpers in `fileTreeModel.ts` (`buildFileTree`, `collectFiles`). |
-| **diff/** | `DiffPanel`, `DiffView`, `DiffHunkView`, `DiffSideBySide` (each hunk = `.hunkBlock` with `HunkActionsOverlay` shown on `:hover`/`:focus-within` — Fork-style; no persistent `@@` header bar; no `+`/`−` text prefix in line content — color-only), `HunkActionsOverlay` (shared Stage / Discard / Unstage panel — single source of truth for both inline and split), `ImageDiff`, `MarkdownPreviewModal` (lazy chunk — renders `.md` content via the shared `Markdown` parser; backed by the `getFileText` IPC), `useDiffCopyMenu` (right-click Copy: current `window.getSelection()` text, or row content via `data-diff-line` attribute set in all three view modes). |
+| **sidebar/** | Sidebar: `BranchTree` (current branch — зелёная точка вместо текстового бейджа), tags, stashes, remotes, submodules. |
+| **changes/** | `LocalChanges` (tree, контекстное меню по папкам применяет действия ко всем файлам внутри), `CommitBar` (subject + description), `FileTree` + вынесенные pure-helpers в `fileTreeModel.ts` (`buildFileTree`, `collectFiles`). |
+| **diff/** | `DiffPanel`, `DiffView`, `DiffHunkView`, `DiffSideBySide` (каждый hunk = `.hunkBlock` с `HunkActionsOverlay` поверх блока при `:hover` / `:focus-within` — как в Fork; без постоянной шапки `@@` с кнопками; без префиксов `+`/`−` в тексте строк — только цвет), `HunkActionsOverlay` (общий компонент Stage / Discard / Unstage — одна точка правды для inline и split), `ImageDiff`, `MarkdownPreviewModal` (lazy-чанк — рендерит `.md`-файл через общий `Markdown`-парсер; backend — IPC `getFileText`), `useDiffCopyMenu` (ПКМ «Копировать»: текущее выделение из `window.getSelection()` либо содержимое строки через атрибут `data-diff-line`, проставленный во всех трёх режимах). |
 | **merge/** | `MergeDialog`, `MergeEditor`, `MergeBanner`, `ConflictPanel`. |
-| — | **`AppDialogs.tsx`** — all modal dialogs extracted from `App.tsx` for cleaner separation of concerns. |
+| — | **`AppDialogs.tsx`** — все модальные диалоги вынесены из `App.tsx` для разделения ответственности. |
 | **blame/** | `BlameView`. |
 | **file-history/** | `FileHistory`. |
 | **rebase/** | `RebaseEditor`. |
-| **repo-manager/** | `RepoManager`, recent repositories. |
-| **repo-tabs/** | Multi-repo tabs. The `+` tab opens `RepoManager`; clicking the active tab again also opens it. Highlight on the `+` button when manager is active. |
-| **toolbar/** | Fetch, Pull, Push, Stash (opens `SgPromptDialog` with `allowEmpty` — empty value = `git stash` without `-m`). |
-| **titlebar/** | `TitleBar` with custom `MenuBar` component. |
+| **repo-manager/** | `RepoManager`, недавние репозитории. |
+| **repo-tabs/** | Вкладки для нескольких репозиториев. Вкладка «+» открывает `RepoManager`; повторный клик по активной вкладке — тоже открывает. Подсветка кнопки «+», когда менеджер активен. |
+| **toolbar/** | Fetch, Pull, Push, Stash (открывает `SgPromptDialog` с `allowEmpty` — пустое значение = `git stash` без `-m`). |
+| **titlebar/** | `TitleBar` с кастомным компонентом `MenuBar`. |
 | **layout/** | `CommitsView`, `ChangesView`, `RightPanelContent`. |
-| **ssh/** | `SshKeysDialog` — SSH key management UI. |
-| **settings/** | `RepoSettingsDialog` — repository user.name/email settings. |
-| **ai/** | `AiSettingsDialog` (preset `select` with Cloud/Local/Web optgroups + Custom; switches between OpenAI-compatible and Qwen Web modes), `AiGenerateButton` (in `CommitBar`), `useAiConfig` hook, `presets.ts` with `detectPreset(mode, baseUrl, model)`, `errors.ts` for translating `AiError.kind` to UI messages. |
+| **ssh/** | `SshKeysDialog` — UI управления SSH-ключами. |
+| **settings/** | `RepoSettingsDialog` — настройки user.name/email репозитория. |
+| **ai/** | `AiSettingsDialog` (нативный `select` пресетов с optgroup Cloud/Local/Web + Custom; переключение между OpenAI-compatible и Qwen Web), `AiGenerateButton` (в `CommitBar`), хук `useAiConfig`, `presets.ts` с `detectPreset(mode, baseUrl, model)`, `errors.ts` для перевода `AiError.kind` в UI-сообщения. |
 | **reflog/** | `ReflogDialog`, `ReflogTable`, `ReflogRow`, `ActionBadge`. |
 | **bisect/** | `BisectDialog`, `BisectStartForm`, `BisectActiveSession`. |
 | **hooks/** | `HooksDialog`, `HookItem`. |
 | **worktrees/** | `WorktreesDialog`, `WorktreeItem`, `AddWorktreeForm`. |
 | **lfs/** | `LfsDialog`, `LfsPatternList`, `LfsFileList`. |
-| **gitignore/** | `GitignoreDialog`, templates. |
+| **gitignore/** | `GitignoreDialog`, шаблоны. |
 
-Custom hooks under `src/renderer/src/hooks/`:
+Кастомные хуки в `src/renderer/src/hooks/`:
 
-| Hook | Role |
-|------|------|
-| **useAppState** | Thin facade. Composes the three hooks below, holds transient state (`commitDetail`, `mergeState`, `error`, `viewOverride`, `rebase`, `recovery`, `pendingOpenDiff`/`MergeEditor`), assembles the derived `AppState`, exposes `switchRepoFast` and `resetTransientState`. The public surface (return shape) didn't change — `App.tsx` and consumers don't notice the split. |
-| **useRepoSlices** | `slices: Map<repoPath, RepoSlice>` + `meta` (`openRepos`, `activeRepoIndex`) + helpers (`replaceSlice`, `updateSlice`, `removeSlice`, `applyMetaPatch`). Swapping the active tab is just `setActiveRepoIndex(i)` — UI re-renders against the new slice (or `EMPTY_SLICE` if unpopulated). |
-| **useRunningOps** | Per-repo `runningOpsByRepo: Map<repoPath, operation>`. Exposes `getCurrentOp(repoPath)` so `state.isOperationRunning` can be derived from the active tab only. Holds `lastOpResult` for `useOperationToasts`. |
-| **useStateSubscription** | The single `onMainEvent` listener and dispatcher: routes `stateUpdate`, `graphData`, `repoSwitch`, `repoClose`, `commitDetail`, `mergeState`, `rebaseProgress`, `recoveryIssues`, `error`, `operationStart`/`operationEnd`, `openDiff`, `openMergeEditor` to the corresponding hook setters. Created once per session — no re-subscription on prop changes. |
-| **useMenuActions** | Unified handler for menu bar actions (dispatch by action string). |
-| **useKeyboardShortcuts** | Maps keyboard shortcuts (Ctrl+O, Ctrl+Shift+F, F5, etc.) to menu actions. Skips in input/textarea/contentEditable. |
-| **useOperationToasts** | Auto-shows toast notifications for git operation results. |
-| **useDiffState** | Manages current diff target (file + hash). |
-| **useTheme** | Dark/light theme toggle with localStorage persistence. |
-| **useToasts** | Toast notification queue with auto-dismiss. |
-| **useContextMenu** | Context menu state (position + items). |
-| **useDialogs** | Centralized dialog visibility states (about, ssh, reflog, bisect, hooks, worktrees, lfs, gitignore, ai). |
-| **useAutoFetch** | Periodic background `fetch` for the active repo (configurable interval). |
-| **useAiConfig** | Loads/saves `AiProviderConfig`; exposes `testConnection` and `generateCommitMessage` with streaming `onChunk`. |
+| Хук | Назначение |
+|-----|------------|
+| **useAppState** | Тонкий фасад. Композирует три хука ниже, держит transient state (`commitDetail`, `mergeState`, `error`, `viewOverride`, `rebase`, `recovery`, `pendingOpenDiff`/`MergeEditor`), собирает derived `AppState`, отдаёт `switchRepoFast` и `resetTransientState`. Публичная поверхность (форма return) не изменилась — `App.tsx` и потребители ничего не замечают. |
+| **useRepoSlices** | `slices: Map<repoPath, RepoSlice>` + `meta` (`openRepos`, `activeRepoIndex`) + helpers (`replaceSlice`, `updateSlice`, `removeSlice`, `applyMetaPatch`). Переключение вкладки — это просто `setActiveRepoIndex(i)`, UI ререндерит срез нового репо (или `EMPTY_SLICE`, если ещё нет данных). |
+| **useRunningOps** | Per-repo `runningOpsByRepo: Map<repoPath, operation>`. Отдаёт `getCurrentOp(repoPath)`, чтобы `state.isOperationRunning` зависел только от активной вкладки. Держит `lastOpResult` для `useOperationToasts`. |
+| **useStateSubscription** | Единственный `onMainEvent` listener и dispatcher: маршрутизирует `stateUpdate`, `graphData`, `repoSwitch`, `repoClose`, `commitDetail`, `mergeState`, `rebaseProgress`, `recoveryIssues`, `error`, `operationStart`/`operationEnd`, `openDiff`, `openMergeEditor` в нужные сеттеры. Создаётся один раз за сессию — без переподписок при смене props. |
+| **useMenuActions** | Единый обработчик для действий кастомного меню (dispatch по строке). |
+| **useKeyboardShortcuts** | Привязка клавиш (Ctrl+O, Ctrl+Shift+F, F5 и т.д.) к действиям меню. Пропускает в input/textarea/contentEditable. |
+| **useOperationToasts** | Автоматические тосты по результатам git-операций. |
+| **useDiffState** | Управление текущим diff target (file + hash). |
+| **useTheme** | Переключение тёмной/светлой темы с сохранением в localStorage. |
+| **useToasts** | Очередь тост-уведомлений с автоскрытием. |
+| **useContextMenu** | Состояние контекстного меню (позиция + пункты). |
+| **useDialogs** | Централизованное состояние видимости диалогов (about, ssh, reflog, bisect, hooks, worktrees, lfs, gitignore, ai). |
+| **useAutoFetch** | Периодический фоновый `fetch` для активного репо (настраиваемый интервал). |
+| **useAiConfig** | Загружает/сохраняет `AiProviderConfig`; отдаёт `testConnection` и `generateCommitMessage` со стримингом через `onChunk`. |
 
-## AI Module
+## AI-модуль
 
-`src/core/ai/`. The module is independent: providers live behind a small `AiProvider` interface, the rest of the app talks to `AiHandlers` over IPC.
+`src/core/ai/`. Модуль независим: провайдеры — за маленьким интерфейсом `AiProvider`, остальная часть приложения общается с `AiHandlers` через IPC.
 
-- **Modes** — `openai-compatible` (any `/v1/chat/completions` endpoint: OpenAI, Ollama, LM Studio, DeepSeek, Groq) and `qwen-web` (chat.qwen.ai via session token).
-- **`AiProviderConfig`** — `mode`, `baseUrl`, `apiKey`, `qwenWebToken?`, `model`, `aiResponseLanguage` (`auto`/`en`/`ru`; legacy `commitLanguage` kept for v2 migration), `headers?`, `timeoutMs?`.
-- **Prompts** (`prompts.ts`) — `buildCommitSystemPrompt(language)` includes language-specific rules; `buildCommitUserPrompt(diff, language)` truncates the diff to `MAX_DIFF_CHARS = 6000` (head 70% + tail 20% with a `[diff truncated, N chars omitted]` marker in the middle); the user prompt repeats the language hint because small/quantized local models often forget the system prompt.
-- **`AiService.generateCommitMessage`** — calls the provider, then `postProcessCommit` strips ```` ``` ```` fences and surrounding quotes (models love to wrap the answer even when asked for plain text).
-- **Streaming** — both providers stream via SSE (`onChunk(delta)`). The renderer renders chunks live in the commit subject field.
-- **Cancellation** — `AiHandlers` keeps a `Map<requestId, AbortController>`. The UI calls `aiCancel(requestId)` when the user clicks Stop or closes the dialog.
-- **Persistence** — `AiConfigStore` writes `{userData}/ai-config.json` atomically (`atomicWriteJSON`). Secrets are encrypted via Electron `safeStorage` with `enc:`-prefix; if the system key store is unavailable, we fall back to `plain:`-prefix and log a warning.
-- **Secret masking** — `AiHandlers.getConfig` returns the config with `apiKey`/`qwenWebToken` replaced by `••••••••` so the renderer never sees the real value. `setConfig` uses `mergeSecrets`: a masked or empty value coming back from the UI is interpreted as "keep the previous secret".
-- **IPC commands** — `aiGetConfig`, `aiSetConfig`, `aiTestConnection`, `aiGenerateCommitMessage`, `aiCancel`. Events: `aiConfig`, `aiTestResult`, `aiChunk`, `aiResult`, `aiError`. Handlers live in `bridge/ipc/handlersAi.ts`.
+- **Режимы** — `openai-compatible` (любой `/v1/chat/completions` endpoint: OpenAI, Ollama, LM Studio, DeepSeek, Groq) и `qwen-web` (chat.qwen.ai через сессионный токен).
+- **`AiProviderConfig`** — `mode`, `baseUrl`, `apiKey`, `qwenWebToken?`, `model`, `aiResponseLanguage` (`auto`/`en`/`ru`; устаревшее `commitLanguage` оставлено для миграции с v2), `headers?`, `timeoutMs?`.
+- **Промпты** (`prompts.ts`) — `buildCommitSystemPrompt(language)` добавляет правила под язык; `buildCommitUserPrompt(diff, language)` обрезает diff до `MAX_DIFF_CHARS = 6000` (head 70% + tail 20% с маркером `[diff truncated, N chars omitted]` посередине); user-промпт повторяет language-инструкцию, потому что мелкие/квантизованные локальные модели часто «забывают» system prompt.
+- **`AiService.generateCommitMessage`** — зовёт провайдер, потом `postProcessCommit` срезает ```` ``` ```` и обрамляющие кавычки (модели любят оборачивать ответ, даже когда просишь plain text).
+- **Streaming** — оба провайдера стримят через SSE (`onChunk(delta)`). Renderer выводит чанки live в поле subject коммита.
+- **Cancellation** — `AiHandlers` держит `Map<requestId, AbortController>`. UI зовёт `aiCancel(requestId)` при клике Stop или закрытии диалога.
+- **Persistence** — `AiConfigStore` пишет `{userData}/ai-config.json` атомарно (`atomicWriteJSON`). Секреты шифруются Electron `safeStorage` с префиксом `enc:`; если системное key store недоступно — fallback на `plain:` с предупреждением в лог.
+- **Маскирование секретов** — `AiHandlers.getConfig` возвращает конфиг с `apiKey`/`qwenWebToken`, заменёнными на `••••••••`, чтобы renderer никогда не видел настоящее значение. `setConfig` использует `mergeSecrets`: маскированное или пустое значение из UI трактуется как «оставь предыдущий секрет».
+- **IPC-команды** — `aiGetConfig`, `aiSetConfig`, `aiTestConnection`, `aiGenerateCommitMessage`, `aiCancel`. События: `aiConfig`, `aiTestResult`, `aiChunk`, `aiResult`, `aiError`. Хендлеры в `bridge/ipc/handlersAi.ts`.
 
-## IPC Protocol
+## Протокол IPC
 
-`RendererCommand` defines 45+ command types; `MainEvent` defines 30+ event types. Canonical definitions live in `src/core/bridge/messages.ts`. The renderer imports types from `src/renderer/src/types/index.ts` which re-exports from `@core/git/types` and `@core/bridge/messages`.
+`RendererCommand` задаёт 45+ типов команд; `MainEvent` — 30+ типов событий. Канонические определения в `src/core/bridge/messages.ts`. Renderer импортирует типы из `src/renderer/src/types/index.ts`, который реэкспортирует из `@core/git/types` и `@core/bridge/messages`.
 
-## State Management
+## Управление состоянием
 
-**In main**, `StateManager` is a thin facade. It composes:
+**В main** `StateManager` — тонкий фасад. Композирует:
 
-- `RepoSlicesStore` — per-repo slices (`slicesByRepo`) plus shared `meta` (`openRepos`, `activeRepoIndex`).
-- `RepoStateRefresher` — all async `refresh*` methods. `RepoStateRefresher.runSwitchRepoColdPhase(repoPath)` is the heavy work after a tab switch (full status + log + branches + tags); cheap `mirror+notify` happens immediately in `switchRepo`.
-- `RepoEventBus` — three channels: `state` (any change), `switch` (active repo changed), `close` (repo removed).
+- `RepoSlicesStore` — per-repo срезы (`slicesByRepo`) + общий `meta` (`openRepos`, `activeRepoIndex`).
+- `RepoStateRefresher` — все async `refresh*`. `RepoStateRefresher.runSwitchRepoColdPhase(repoPath)` — это тяжёлая работа после смены вкладки (полный status + log + branches + tags); дешёвый `mirror+notify` срабатывает мгновенно в `switchRepo`.
+- `RepoEventBus` — три канала: `state` (любое изменение), `switch` (сменился активный репо), `close` (репо удалили).
 
-Each meaningful change of the active repo emits `stateUpdate` (without `commits`/`graphLayout` — those flow separately via `graphData` with `repoPath` and reference-based deduplication in `MessageBridge.sentGraphByRepo`). Slices for inactive repos update silently — when the user returns to the tab, `switchRepo` instantly mirrors the fresh slice into `state`.
+При каждом значимом изменении активного репо в renderer уходит `stateUpdate` (без `commits`/`graphLayout` — они отдельно через `graphData` с `repoPath` и дедупом по ссылкам в `MessageBridge.sentGraphByRepo`). Срезы НЕ-активных репо обновляются молча — когда юзер вернётся на вкладку, `switchRepo` мгновенно отзеркалит свежий slice.
 
-**In the renderer** `useAppState` is also a thin facade. It composes:
+**В renderer** `useAppState` — тоже тонкий фасад. Композирует:
 
-- `useRepoSlices` — `slices: Map<repoPath, RepoSlice>` plus a global `meta`.
-- `useRunningOps` — `runningOpsByRepo: Map<repoPath, operation>`. `state.isOperationRunning` and `state.currentOperation` are derived ONLY from the active tab. This fixes "I switched to B while fetch is running on A — buttons on B should not be disabled".
-- `useStateSubscription` — single `onMainEvent` listener / dispatcher created once per session.
+- `useRepoSlices` — `slices: Map<repoPath, RepoSlice>` плюс глобальный `meta`.
+- `useRunningOps` — `runningOpsByRepo: Map<repoPath, operation>`. `state.isOperationRunning` и `state.currentOperation` берутся ИСКЛЮЧИТЕЛЬНО от активной вкладки. Это решает «переключился на B пока fetch идёт на A — кнопки на B не должны быть disabled».
+- `useStateSubscription` — единственный `onMainEvent` listener / dispatcher, создаётся один раз за сессию.
 
-Switching tabs immediately renders the new repo's slice (or empty if not populated yet) — no field of another repo can ever leak into `state`. Additionally:
+При смене вкладки UI мгновенно показывает срез нового репо (или пусто, если ещё не наполнено) — никаких полей чужого репо в state быть не может. Дополнительно:
 
-- `translateError(code, data, fallback)` — translates `error`-events with a localization code (`repoErrors.notARepo`, ...) via `t()` + `tpl()`. If the code is not in the locale, falls back to the `message` from main.
-- `GitActivityIndicator` / `GitActivityDialog` accept `repoPath` as a prop and filter the snapshot by it: the activity log on tab A doesn't show operations from B, and vice versa.
+- `translateError(code, data, fallback)` — переводит `error`-events с локализационным кодом (`repoErrors.notARepo`, ...) через `t()` + `tpl()`. Если кода нет в локали — fallback на `message` от main.
+- `GitActivityIndicator` / `GitActivityDialog` принимают `repoPath` как props и фильтруют snapshot по нему: на вкладке репо A не видно операций B, и наоборот.
 
-## Session Persistence
+## Сохранение сессии
 
-Open tabs survive restart. State lives in renderer's `localStorage` (`sg-open-repos` — array of paths, capped at 50; `sg-last-active-repo` — string). Helpers in `features/repo-manager/recentRepos.ts`: `loadOpenRepos` / `saveOpenRepos` / `clearOpenRepos`.
+Открытые табы переживают перезапуск. Состояние хранится в renderer'ском `localStorage` (`sg-open-repos` — массив путей, ограничение 50; `sg-last-active-repo` — строка). Хелперы в `features/repo-manager/recentRepos.ts`: `loadOpenRepos` / `saveOpenRepos` / `clearOpenRepos`.
 
-- On every change of `state.openRepos`, `App.tsx` flushes the path list to `sg-open-repos`.
-- On startup, `App.tsx` reads `sg-open-repos` and re-opens each repo via `invokeCommand({type:'openRepo'})` (sequential, failures are silently dropped — the next save rewrites the list without the missing path). The active tab is restored separately by matching `sg-last-active-repo` against the populated `state.openRepos` (path comparison is case-insensitive and slash-normalized via `sameRepoPath`).
-- `sg-last-active-repo` is kept as a single-tab fallback for users whose `sg-open-repos` is empty (older sessions before this feature).
+- На каждое изменение `state.openRepos` `App.tsx` пишет актуальный список путей в `sg-open-repos`.
+- На старте `App.tsx` читает `sg-open-repos` и переоткрывает каждый репо через `invokeCommand({type:'openRepo'})` (последовательно, ошибки тихо игнорим — следующий save перепишет список без отсутствующего пути). Активный таб восстанавливается отдельным эффектом по `sg-last-active-repo`, сравнение пути нечувствительно к регистру и нормализует слэши через `sameRepoPath`.
+- `sg-last-active-repo` остаётся как single-tab fallback для юзеров с пустым `sg-open-repos` (старые сессии до этой фичи).
 
-`autoOpenRepo()` in `main.ts` (which probes `process.cwd()` for a git repo) is now **dev-only** (`return` if `app.isPackaged`). Without this guard, a packaged build launched from a Start Menu shortcut would resolve `cwd` to `%USERPROFILE%` (or the shortcut's "start in" dir) and silently auto-open whatever git repo happened to live there — masking the real persisted session.
+`autoOpenRepo()` в `main.ts` (probe `process.cwd()` на git-репо) теперь **только в dev** (`return` если `app.isPackaged`). Без этого guard'а упакованный билд из ярлыка Start Menu резолвил бы `cwd` в `%USERPROFILE%` (или «start in» ярлыка) и тихо открывал любой git-репо, оказавшийся там, маскируя реальную сохранённую сессию.
 
-## Startup
+## Стартап
 
-`app.whenReady` parallelizes the two heaviest startup steps:
+`app.whenReady` параллелит два самых тяжёлых шага старта:
 
-- `createWindow()` — Electron GPU init + `BrowserWindow` allocation.
-- `initServices()` — `git --version` probe, `RepoServicesRegistry`, `StateManager`, `MessageBridge`, `FileWatcher`, AI services.
+- `createWindow()` — Electron GPU-init + аллокация `BrowserWindow`.
+- `initServices()` — probe `git --version`, `RepoServicesRegistry`, `StateManager`, `MessageBridge`, `FileWatcher`, AI-сервисы.
 
-Both run concurrently. `messageBridge.attach(mainWindow)` is called after `createWindow` resolves but before `loadWindow()`, so `ipcMain.handle('gitbor:command')` is registered by the time React mounts and fires the first `postCommand`. `autoOpenRepo()` is not awaited — it kicks off in the background and pushes events through the already-attached bridge. Cuts ~0.5–1.5 s off cold-start on Windows.
+Оба идут одновременно. `messageBridge.attach(mainWindow)` дёргается после resolve `createWindow`, но ДО `loadWindow()` — так `ipcMain.handle('gitbor:command')` уже зарегистрирован к моменту, когда React монтируется и шлёт первый `postCommand`. `autoOpenRepo()` не awaited — стартует в фоне и пушит события через уже подключённый bridge. На холодном старте Windows — экономия ~0.5–1.5 с.
 
-## Logging
+## Логирование
 
-A two-sided system: both main and renderer log only in dev mode. In production the console stays silent — the user sees no noise in DevTools, and a packaged build does not pollute system stdout.
+Двухсторонняя система: main и renderer пишут логи только в dev-режиме. В production console молчит — пользователь не видит шума в DevTools, а собранный билд не сорит в системный stdout.
 
 **Main** — `src/core/utils/Logger.ts`:
 
-- Singleton `mainLogger` with levels `silent` < `error` < `warn` < `info` < `debug`. ERROR/WARN go to `console.error` (stderr), DEBUG/INFO to `console.log` (stdout).
-- `configureMainLogger({ isProduction })` is called from `main.ts` after `app.whenReady`. Defaults: `app.isPackaged` → `silent`, dev → `debug`. ENV `GITBOR_LOG_LEVEL=warn|info|debug|...` overrides the default — useful for debugging a packaged build on the user side without rebuilding.
-- The file log `<userData>/logs/YYYY-MM-DD.log` is opened only at non-silent level (in prod nothing is written).
-- All ad-hoc `console.warn/error` in core (FileWatcher, WorkerPool, handlersState, AiService, OpenAiCompatibleProvider, GitExecutor) were migrated to `mainLogger`. Direct `console.error` remains **only** in `process.on('unhandledRejection'/'uncaughtException')` — that is the last-resort handler that must work before `configureMainLogger`, so it can't be tied to the logger.
+- Singleton `mainLogger` с уровнями `silent` < `error` < `warn` < `info` < `debug`. ERROR/WARN идут в `console.error` (stderr), DEBUG/INFO — в `console.log` (stdout).
+- `configureMainLogger({ isProduction })` вызывается из `main.ts` после `app.whenReady`. По умолчанию: `app.isPackaged` → `silent`, dev → `debug`. ENV `GITBOR_LOG_LEVEL=warn|info|debug|...` перебивает дефолт — удобно для дебага у пользователя в собранной версии без пересборки.
+- Файл-лог `<userData>/logs/YYYY-MM-DD.log` открывается только при не-silent уровне (в prod не пишется ничего).
+- Все случайные `console.warn/error` в core (FileWatcher, WorkerPool, handlersState, AiService, OpenAiCompatibleProvider, GitExecutor) переведены на `mainLogger`. Прямой `console.error` остался **только** в `process.on('unhandledRejection'/'uncaughtException')` — это последний рубеж, который должен сработать до `configureMainLogger`, поэтому привязывать его к logger'у нельзя.
 
 **Renderer** — `src/renderer/src/shared/logger.ts`:
 
-- Prefix `[GitBor]`. All methods (`debug`/`log`/`info`/`warn`/`error`) are no-ops in a Vite production build (`import.meta.env.DEV === false`). In dev — plain `console.*`.
-- Used in `api.ts` (IPC error/warn) and `ErrorBoundary.tsx` (UI crash). Real UI errors flow through ErrorBoundary + the IPC `error` channel into main, where they end up in `mainLogger.error`.
+- Префикс `[GitBor]`. Все методы (`debug`/`log`/`info`/`warn`/`error`) — no-op в production-сборке Vite (`import.meta.env.DEV === false`). В dev — обычные `console.*`.
+- Используется в `api.ts` (IPC error/warn) и `ErrorBoundary.tsx` (UI краш). Реальные UI-ошибки идут через ErrorBoundary + IPC `error`-канал в main, где попадают в `mainLogger.error`.
 
-**`perf.ts`** (both main and renderer) is a separate diagnostic tool with its own opt-in (`GITBOR_PERF=1` / `window.__GITBOR_PERF__ = true`). Not to be confused with the logging system: perf is enabled manually for measurements.
+**`perf.ts`** (main и renderer) — отдельный диагностический инструмент с собственным opt-in (`GITBOR_PERF=1` / `window.__GITBOR_PERF__ = true`). Не путать с системой логов: perf включается вручную для замеров.

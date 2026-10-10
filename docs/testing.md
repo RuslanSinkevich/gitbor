@@ -1,61 +1,61 @@
-> Русская версия: [docs/ru/testing.md](ru/testing.md)
+> English version: [docs/en/testing.md](en/testing.md)
 
-# Testing GitBor
+# Тестирование GitBor
 
-## Stack
+## Стек
 
-| Component | Version |
-|-----------|---------|
-| Framework | [Vitest](https://vitest.dev/) 4.x |
-| Config | `vitest.config.ts` (project root) |
-| Tests | `tests/**/*.test.ts` |
-| Environment | Node.js (no DOM) |
+| Компонент | Версия |
+|-----------|--------|
+| Фреймворк | [Vitest](https://vitest.dev/) 4.x |
+| Конфиг | `vitest.config.ts` (корень проекта) |
+| Тесты | `tests/**/*.test.ts` |
+| Среда | Node.js (без DOM) |
 
 ---
 
-## Quick Start
+## Быстрый старт
 
 ```bash
-# Install dependencies (if not done yet)
+# Установка зависимостей (если ещё не установлены)
 npm install
 
-# Run all tests
+# Запуск всех тестов
 npm test
 
-# Same thing directly
+# То же самое напрямую
 npx vitest run
 
-# Watch mode (re-runs on file changes)
+# Watch-режим (перезапуск при изменении файлов)
 npx vitest
 
-# Run a specific file
+# Запуск конкретного файла
 npx vitest run tests/git/GitParser.test.ts
 
-# Run by name pattern
+# Запуск по шаблону имени
 npx vitest run --reporter=verbose GitParser
 ```
 
 ---
 
-## Test Structure
+## Структура тестов
 
 ```
 tests/
-├── git/                          # Git parsers & managers
-│   ├── GitParser.test.ts         # Commits, branches, tags, stash, remotes, status
-│   ├── DiffParser.test.ts        # Unified diff parsing
-│   ├── ConflictParser.test.ts    # Conflict markers (<<<<<<< / >>>>>>>)
-│   ├── ReflogParser.test.ts      # git reflog output
-│   ├── BlameParser.test.ts       # git blame output
-│   ├── SubmoduleParser.test.ts   # Submodule status & .gitmodules
-│   ├── FileHistoryParser.test.ts # File history entries
-│   ├── GraphLayout.test.ts       # Commit graph layout algorithm
-│   ├── BisectManager.test.ts     # BisectStatus interface contract
-│   ├── HooksManager.test.ts      # HookInfo interface contract
-│   ├── LfsManager.test.ts        # LfsStatus interface contract
-│   ├── WorktreeManager.test.ts   # Worktree list/add/remove with mocked GitExecutor
-│   ├── GitExecutor.test.ts       # sanitizeArgs redaction logic
-│   └── RebaseManager.test.ts     # Interactive rebase: todo parsing, GIT_SEQUENCE_EDITOR
+├── git/                          # Парсеры и менеджеры Git
+│   ├── GitParser.test.ts         # Коммиты, ветки, теги, stash, remotes, status
+│   ├── DiffParser.test.ts        # Парсинг unified diff
+│   ├── ConflictParser.test.ts    # Парсинг конфликт-маркеров (<<<<<<< / >>>>>>>)
+│   ├── ReflogParser.test.ts      # Парсинг git reflog
+│   ├── BlameParser.test.ts       # Парсинг git blame
+│   ├── SubmoduleParser.test.ts   # Парсинг submodule status и .gitmodules
+│   ├── FileHistoryParser.test.ts # Парсинг истории файла
+│   ├── GraphLayout.test.ts       # Алгоритм раскладки графа коммитов
+│   ├── BisectManager.test.ts     # Контракт интерфейса BisectStatus
+│   ├── HooksManager.test.ts      # Контракт интерфейса HookInfo
+│   ├── LfsManager.test.ts        # Контракт интерфейса LfsStatus
+│   ├── WorktreeManager.test.ts   # Worktree list/add/remove с мокнутым GitExecutor
+│   ├── GitExecutor.test.ts       # Логика sanitizeArgs (редактирование чувствительных данных)
+│   └── RebaseManager.test.ts     # Интерактивный rebase: парсинг todo, GIT_SEQUENCE_EDITOR
 │
 ├── commands/
 │   ├── writeCommands.test.ts     # stageFile (--), commit, push, initRepo, checkout, clone
@@ -63,533 +63,590 @@ tests/
 │   └── ConflictManager.test.ts   # completeMerge, resolveWithOurs/Theirs, merge, predictConflicts
 │
 ├── state/
-│   ├── StateManager.test.ts      # Multi-repo snapshots, tokens, listeners, isRepoTracked guard
+│   ├── StateManager.test.ts      # Мульти-репо снимки, токены, подписчики, isRepoTracked гард
 │   └── repoSlice.test.ts         # emptyRepoSlice, mirrorRepoSliceToAppState, hashGitStdout, GIT_*_FORMAT
 │
 ├── services/
 │   └── RepoServicesRegistry.test.ts # Per-repo lifecycle: acquire/release, kill, isolation A↔B
 │
 ├── activity/
-│   └── GitActivityStore.test.ts  # start/append/finish, per-repo, cap=100, stdout/stderr truncation
+│   └── GitActivityStore.test.ts  # start/append/finish, per-repo, кэп 100, обрезка stdout/stderr
 │
 ├── utils/
-│   ├── pathSecurity.test.ts      # safePath traversal, isSafeFilename validation
+│   ├── pathSecurity.test.ts      # safePath traversal, isSafeFilename
 │   ├── repoPathGuard.test.ts     # isDangerousRepoRoot (home/Windows/Program Files/...)
 │   ├── AppError.test.ts          # AppError code/data/fallback, instanceof Error
-│   └── Logger.test.ts            # Levels (silent/error/warn/info/debug), stdout/stderr split, configureMainLogger
+│   └── Logger.test.ts            # Уровни (silent/error/warn/info/debug), stdout/stderr split, configureMainLogger
 │
 ├── safety/
-│   ├── OperationQueue.test.ts    # Operation queue (read/write, serialization, errors)
-│   ├── AtomicWrite.test.ts       # Atomic file writes (sync + async)
-│   └── OperationJournal.test.ts  # WAL journal (lifecycle, cleanup, concurrency)
+│   ├── OperationQueue.test.ts    # Очередь операций (read/write, сериализация, ошибки)
+│   ├── AtomicWrite.test.ts       # Атомарная запись файлов (sync + async)
+│   └── OperationJournal.test.ts  # WAL-журнал (lifecycle, cleanup, concurrency)
 │
 ├── bridge/
-│   ├── messages.test.ts          # IPC contracts (RendererCommand, MainEvent)
-│   └── helpers.test.ts           # ipc/helpers: op/opWithPostMerge repoPath snapshot, errOnFail, runTracked
+│   ├── messages.test.ts          # IPC-контракты (RendererCommand, MainEvent)
+│   └── helpers.test.ts           # ipc/helpers: op/opWithPostMerge снимок repoPath, errOnFail, runTracked
 │
 ├── ai/
-│   ├── AiConfigStore.test.ts     # Provider config, encryption via safeStorage, qwen-web persistence
-│   ├── AiHandlers.test.ts        # AI IPC handlers (mask secrets, mergeSecrets, cancel)
+│   ├── AiConfigStore.test.ts     # Конфиг провайдера, шифрование через safeStorage, persistence qwen-web
+│   ├── AiHandlers.test.ts        # IPC хендлеры AI (mask secrets, mergeSecrets, cancel)
 │   ├── AiService.test.ts         # generateCommitMessage, testConnection
-│   ├── OpenAiCompatibleProvider.test.ts # SSE parser, finishReason, usage
-│   ├── QwenWebProvider.test.ts   # constructor, testConnection, SSE stream, RateLimited, abort, fallback model
-│   ├── presets.test.ts           # detectPreset (openai-compatible, qwen-web, trailing-slash normalization)
+│   ├── OpenAiCompatibleProvider.test.ts # SSE-парсер, finishReason, usage
+│   ├── QwenWebProvider.test.ts   # constructor, testConnection, SSE-стрим, RateLimited, abort, fallback модели
+│   ├── presets.test.ts           # detectPreset (openai-compatible, qwen-web, нормализация trailing slashes)
 │   └── prompts.test.ts           # buildCommitSystemPrompt (auto/en/ru) / buildCommitUserPrompt
 │
 ├── changes/
-│   └── fileTree.test.ts          # buildFileTree / collectFiles (pure helpers from fileTreeModel.ts)
+│   └── fileTree.test.ts          # buildFileTree / collectFiles (pure-helpers из fileTreeModel.ts)
 │
 └── i18n/
-    ├── i18n.test.ts              # Localization completeness (en ↔ ru keys, placeholders)
-    └── tpl.test.ts               # Template interpolator {key}
+    ├── i18n.test.ts              # Полнота локализации (en ↔ ru ключи, плейсхолдеры)
+    └── tpl.test.ts               # Шаблонный интерполятор {key}
 ```
 
 ---
 
-## What Is Tested
+## Что тестируется — подробно
 
 ### 1. GitParser (`tests/git/GitParser.test.ts`)
 
-Module: `src/core/git/GitParser.ts`
+Модуль: `src/core/git/GitParser.ts`
 
-| Function | Scenarios |
-|----------|-----------|
-| `parseRefs` | HEAD → branch, bare HEAD, tag, remote, local branch, multiple refs |
-| `parseCommits` | Single commit, GPG status G/N, multiple parents, root commit, empty input, insufficient fields |
-| `parseBranches` | Local branches, remote branches, current branch (`*`), missing upstream |
-| `parseTags` | Normal tags, empty, skipping nameless entries |
-| `parseStashes` | Stash entries with index/hash/message |
-| `parseRemotes` | fetch/push URLs, multiple remotes |
-| `parseStatus` | Staged/unstaged modifications, `MM` (both), untracked (`??`), staged add (`A`), delete (`D`), conflicts (`UU`, `AA`), multiple files |
-| `parseFileChanges` | Modification, addition, deletion, rename (`R100`), copy (`C100`) |
+| Функция | Что проверяется |
+|---------|----------------|
+| `parseRefs` | HEAD → branch, bare HEAD, тег, remote, локальная ветка, несколько ref-ов |
+| `parseCommits` | Одиночный коммит, GPG-статус G/N, multiple parents, root commit, пустой ввод, строки с недостаточным числом полей |
+| `parseBranches` | Локальные ветки, remote-ветки, текущая ветка (`*`), отсутствие upstream |
+| `parseTags` | Обычные теги, пустые, пропуск строк без имени |
+| `parseStashes` | Запись stash с index/hash/message |
+| `parseRemotes` | fetch/push URL, несколько remote-ов |
+| `parseStatus` | Staged/unstaged модификации, `MM` (обе), untracked (`??`), staged add (`A`), delete (`D`), конфликты (`UU`, `AA`), несколько файлов |
+| `parseFileChanges` | Модификация, добавление, удаление, переименование (`R100`), копирование (`C100`) |
+
+**<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> тестов / <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлов — всё зелёное.**
 
 ### 2. DiffParser (`tests/git/DiffParser.test.ts`)
 
-Module: `src/core/git/DiffParser.ts`
+Модуль: `src/core/git/DiffParser.ts`
 
-- Simple modification (context + remove + add lines)
-- New file (`/dev/null` → `b/file`)
-- Deleted file (`a/file` → `/dev/null`)
-- Rename (`rename from`/`rename to`)
-- Binary files (`Binary files`)
-- Multiple files in one diff
-- Multiple hunks (`@@ ... @@`)
-- Correct line numbers per hunk
+- Простая модификация (context + remove + add)
+- Новый файл (`/dev/null` → `b/file`)
+- Удалённый файл (`a/file` → `/dev/null`)
+- Переименование (`rename from`/`rename to`)
+- Бинарные файлы (`Binary files`)
+- Несколько файлов в одном diff
+- Несколько hunk-ов (`@@ ... @@`)
+- Корректные номера строк в каждом hunk
 
 ### 3. ConflictParser (`tests/git/ConflictParser.test.ts`)
 
-Module: `src/core/git/ConflictParser.ts`
+Модуль: `src/core/git/ConflictParser.ts`
 
-- Single conflict (`<<<<<<< / ======= / >>>>>>>`)
-- Multiple conflicts in one file
-- diff3 format (3 sections: ours / base / theirs)
-- Empty sides
-- Incomplete markers (graceful — no crash)
-- Conflict not at start of file
+- Один конфликт (`<<<<<<< / ======= / >>>>>>>`)
+- Несколько конфликтов в одном файле
+- Формат diff3 (3 секции: ours / base / theirs)
+- Пустые стороны конфликта
+- Неполные маркеры (graceful — не крашится)
+- Конфликт не в начале файла
 
 ### 4. ReflogParser (`tests/git/ReflogParser.test.ts`)
 
-Module: `src/core/git/ReflogParser.ts`
+Модуль: `src/core/git/ReflogParser.ts`
 
-- `reflogArgs()` — correct git arguments with `--format` and `-n`
-- `parseReflog()` — checkout, commit, messages with/without colon
-- Multiple entries
-- Index extraction from `HEAD@{N}`
-- Empty/invalid input
+- `reflogArgs()` — корректные аргументы git с `--format` и `-n`
+- `parseReflog()` — checkout, commit, сообщения с/без двоеточия
+- Несколько записей
+- Извлечение индекса из `HEAD@{N}`
+- Пустой/невалидный ввод
 
 ### 5. BlameParser (`tests/git/BlameParser.test.ts`)
 
-Module: `src/core/git/BlameParser.ts`
+Модуль: `src/core/git/BlameParser.ts`
 
-- Empty input
-- Single blame block (hash, author, date, line content)
-- Multiple lines
-- Empty content lines
+- Пустой ввод
+- Одиночный блок blame (hash, author, date, line content)
+- Несколько строк
+- Пустые строки контента
 
 ### 6. SubmoduleParser (`tests/git/SubmoduleParser.test.ts`)
 
-Module: `src/core/git/SubmoduleParser.ts`
+Модуль: `src/core/git/SubmoduleParser.ts`
 
-**`parseSubmoduleStatus`:** clean (` `), modified (`+`), uninitialized (`-`), conflict (`U`), multiple submodules.
+**`parseSubmoduleStatus`:**
+- Чистый субмодуль (` ` — статус "clean")
+- Модифицированный (`+` — "modified")
+- Неинициализированный (`-` — "uninitialized")
+- Конфликт (`U` — "conflict")
+- Несколько субмодулей
 
-**`parseGitmodules`:** empty input, path+URL pairs, multiple submodules, orphan entries without URL.
+**`parseGitmodules`:**
+- Пустой ввод
+- Пары path + URL
+- Несколько субмодулей
+- Orphan-записи без URL (игнорируются)
 
 ### 7. FileHistoryParser (`tests/git/FileHistoryParser.test.ts`)
 
-Module: `src/core/git/FileHistoryParser.ts`
+Модуль: `src/core/git/FileHistoryParser.ts`
 
-- Empty input
-- Single entry (hash, shortHash, subject, authorName, authorDate, status)
-- Multiple entries (separated by `\n\n`)
-- Default status `M` when missing
+- Пустой ввод
+- Одна запись (hash, shortHash, subject, authorName, authorDate, status)
+- Несколько записей (разделитель `\n\n`)
+- Дефолтный статус `M` при отсутствии
 
 ### 8. GraphLayout (`tests/git/GraphLayout.test.ts`)
 
-Module: `src/core/git/GraphLayout.ts`
+Модуль: `src/core/git/GraphLayout.ts`
 
-- Empty commit array
-- Linear chain (all nodes in column 0)
-- Simple branch and merge
-- Unique colors per column
-- Unknown parent handling (no crash)
+- Пустой массив коммитов
+- Линейная цепочка (каждый node.column = 0)
+- Простое ветвление и merge
+- Уникальные цвета у разных колонок
+- Обработка unknown parent (без ошибок)
 
 ### 9. WorktreeManager (`tests/git/WorktreeManager.test.ts`)
 
-Module: `src/core/git/WorktreeManager.ts`
+Модуль: `src/core/git/WorktreeManager.ts`
 
-- `list()` — parses porcelain output (main, linked, detached, bare worktrees)
-- `add()` — calls `git worktree add` with branch
-- `remove()` — calls `git worktree remove`
+- `list()` — парсинг porcelain вывода (main, linked, detached, bare worktrees)
+- `add()` — вызов `git worktree add` с веткой
+- `remove()` — вызов `git worktree remove`
 
 ### 9a. GitExecutor (`tests/git/GitExecutor.test.ts`)
 
-Module: `src/core/git/GitExecutor.ts`
-
-- `sanitizeArgs` redacts values after `-m`, `-C`, `-N` flags
-- Preserves non-sensitive arguments
-- Handles edge cases (flag at end, multiple sensitive flags)
+- `sanitizeArgs` — редактирование значений после `-m`, `-C`, `-N`
+- Сохранение нечувствительных аргументов
 
 ### 9b. RebaseManager (`tests/git/RebaseManager.test.ts`)
 
-Module: `src/core/git/RebaseManager.ts`
-
-- `getTodoList` — parses log output, handles empty
-- `executeRebase` — sets `GIT_SEQUENCE_EDITOR` with `cp`, filters dropped entries
-- `continueRebase`, `abortRebase` — correct git arguments
+- `getTodoList` — парсинг лога, пустой лог
+- `executeRebase` — `GIT_SEQUENCE_EDITOR` с `cp`, фильтрация drop
+- `continueRebase`, `abortRebase`
 
 ### 9c. writeCommands (`tests/commands/writeCommands.test.ts`)
 
-Module: `src/core/commands/writeCommands.ts`
-
-- `stageFile` — uses `--` separator, handles filenames starting with `-`
-- `stageAll`, `unstageFile` — correct arguments
-- `commit` — message, amend, failure handling
-- `initRepo` — uses parent dir as cwd
-- `push` — force, upstream options
-- `checkout`, `discardFileChanges`, `cloneRepo`
+- `stageFile` — разделитель `--`, имена файлов на `-`
+- `commit` — сообщение, amend, ошибки
+- `initRepo` — cwd из родительского каталога
+- `push`, `checkout`, `discardFileChanges`, `cloneRepo`
 
 ### 9d. ConflictManager (`tests/commands/ConflictManager.test.ts`)
 
-Module: `src/core/commands/ConflictManager.ts`
-
-- `completeMerge` — checks commit exitCode, handles unresolved conflicts
-- `resolveWithOurs` / `resolveWithTheirs` — uses `--` before paths
-- `merge` — clean merge, options passing
-- `predictConflicts` — error handling
+- `completeMerge` — проверка exitCode коммита, неразрешённые конфликты
+- `resolveWithOurs`/`resolveWithTheirs` — `--` перед путями
+- `merge`, `predictConflicts`
 
 ### 9e. pathSecurity (`tests/utils/pathSecurity.test.ts`)
 
-Module: `src/core/utils/pathSecurity.ts`
-
-- `safePath` — normal paths, traversal attempts, absolute paths, nested, filenames with `..`
-- `isSafeFilename` — safe names, separators, `..`, special chars, empty
+- `safePath` — обычные пути, traversal, absolute, вложенные, `..` в именах
+- `isSafeFilename` — безопасные имена, разделители, спецсимволы, пустая строка
 
 ### 10. OperationQueue (`tests/safety/OperationQueue.test.ts`)
 
-Module: `src/core/safety/OperationQueue.ts`
+Модуль: `src/core/safety/OperationQueue.ts`
 
-- Initial state (no write running, empty queue)
-- Read/write execution
-- Write serialization (strict ordering)
-- Parallel reads (start simultaneously)
-- Status listener notifications
-- Listener unsubscription
-- Error propagation
-- Queue recovery after error
+- Начальное состояние (нет записи, очередь пуста)
+- Выполнение read/write операций
+- Сериализация write-операций (строгий порядок)
+- Параллельные read-операции (стартуют одновременно)
+- Уведомления слушателей при начале/окончании
+- Отписка слушателя
+- Проброс ошибок из операций
+- Продолжение работы очереди после ошибки
 
-### 11. i18n Completeness (`tests/i18n/i18n.test.ts`)
+### 11. i18n (`tests/i18n/i18n.test.ts`)
 
-Modules: `src/renderer/src/i18n/en.ts`, `src/renderer/src/i18n/ru.ts`
+Модули: `src/renderer/src/i18n/en.ts`, `src/renderer/src/i18n/ru.ts`
 
-- Same key count en ↔ ru
-- Every en key exists in ru
-- Every ru key exists in en
-- No empty strings in en
-- No empty strings in ru
-- Template placeholders `{name}` match between languages
-- All top-level sections present in both languages
+- Одинаковое количество ключей en ↔ ru
+- Каждый ключ en существует в ru
+- Каждый ключ ru существует в en
+- Нет пустых строк в en
+- Нет пустых строк в ru
+- Плейсхолдеры `{name}` совпадают между языками
+- Все верхнеуровневые секции присутствуют в обоих языках
 
-### 12. Template Interpolator (`tests/i18n/tpl.test.ts`)
+### 12. Шаблонный интерполятор (`tests/i18n/tpl.test.ts`)
 
-- Single placeholder `{name}`
-- Multiple placeholders
-- Numeric values
-- Missing keys (stay as `{key}`)
-- No placeholders (returned as-is)
-- Repeated placeholders
-- Empty template
+Модуль: утилита `tpl()` из i18n
+
+- Одиночная подстановка `{name}`
+- Несколько подстановок
+- Числовые значения
+- Отсутствующие ключи (остаются как `{key}`)
+- Строка без плейсхолдеров (возвращается как есть)
+- Повторяющиеся плейсхолдеры
+- Пустой шаблон
 
 ### 13. RepoServicesRegistry (`tests/services/RepoServicesRegistry.test.ts`)
 
-Module: `src/core/services/RepoServicesRegistry.ts`
+Модуль: `src/core/services/RepoServicesRegistry.ts`
 
-- `acquire(repoPath)` is idempotent (same call returns the same services object)
-- `acquire` for different paths yields different `git`/`queue`/`safety`
-- `bootstrap()` is a singleton (used for clone/init without an open repo)
-- `release(repoPath)` calls `git.killAll()` and removes from the map; second `release` is a no-op
-- `disposeAll()` cleans repo services, bootstrap, and listeners
-- `onAnyOperationStatusChange` fires for per-repo queue write events
-- **Isolation**: a long write on repo A does not block a write on repo B (the key invariant)
+- `acquire(repoPath)` идемпотентен (повторный вызов возвращает тот же объект сервисов)
+- `acquire` для разных путей даёт разные `git`/`queue`/`safety`
+- `bootstrap()` — singleton (для clone/init без открытого репо)
+- `release(repoPath)` зовёт `git.killAll()` и удаляет из map; повторный `release` — no-op
+- `disposeAll()` чистит репо-сервисы, bootstrap и listeners
+- `onAnyOperationStatusChange` дёргается при write-операциях per-repo очереди
+- **Изоляция**: длинный write на репо A не блокирует write на репо B (главный инвариант)
 
 ### 14. repoSlice (`tests/state/repoSlice.test.ts`)
 
-Module: `src/core/state/repoSlice.ts`
+Модуль: `src/core/state/repoSlice.ts`
 
-- `emptyRepoSlice()` returns a fresh object (arrays not shared between calls)
-- `mirrorRepoSliceToAppState` copies repo-specific fields and does NOT touch meta (`openRepos`/`activeRepoIndex`/running flags)
-- `hashGitStdout` is deterministic, different inputs produce different md5
-- Contracts of `GIT_LOG_FORMAT` (8 NUL fields), `GIT_REF_FORMAT` (4), `GIT_TAG_REF_FORMAT` (2), `GIT_STASH_FORMAT` (`%gd`/`%gs`)
+- `emptyRepoSlice()` возвращает свежий объект (массивы не shared между вызовами)
+- `mirrorRepoSliceToAppState` копирует репо-поля и НЕ трогает meta (`openRepos`/`activeRepoIndex`/running-флаги)
+- `hashGitStdout` детерминирован, разные строки → разные md5
+- Контракт `GIT_LOG_FORMAT` (8 NUL-полей), `GIT_REF_FORMAT` (4), `GIT_TAG_REF_FORMAT` (2), `GIT_STASH_FORMAT` (`%gd`/`%gs`)
 
 ### 15. AppError (`tests/utils/AppError.test.ts`)
 
-Module: `src/core/utils/AppError.ts`
+Модуль: `src/core/utils/AppError.ts`
 
-- `code` and `data` are preserved for IPC propagation
-- `fallback` becomes `message`, otherwise `message = code`
-- `data` defaults to an empty object
-- Inherits `Error` → catchable in `try/catch`, `name === 'AppError'`
+- `code` и `data` сохраняются для прокидывания через IPC
+- `fallback` идёт в `message`, иначе `message = code`
+- `data` по умолчанию — пустой объект
+- Наследует `Error` → ловится в catch-блоках, `name === 'AppError'`
 
 ### 16. GitActivityStore (`tests/activity/GitActivityStore.test.ts`)
 
-Module: `src/core/activity/GitActivityStore.ts`
+Модуль: `src/core/activity/GitActivityStore.ts`
 
-- `start(operation, repoPath)` creates a running entry with `repoPath` (the renderer filters by it)
-- `appendCommand` on an unknown id is a no-op (does not throw)
-- `finish` sets `success`/`error` status and `finishedAt`
-- `clear` emits a `cleared` event; `subscribe` returns an unsubscribe
-- Newest first (unshift), cap of 100 entries
-- Truncates stdout/stderr > 16 KiB to OUTPUT_CAP_BYTES with a `[truncated...]` marker
+- `start(operation, repoPath)` создаёт running-entry с `repoPath` (рендерер фильтрует по нему)
+- `appendCommand` для несуществующего id — no-op (не throw)
+- `finish` ставит status `success`/`error` и `finishedAt`
+- `clear` эмитит `cleared` событие; `subscribe` возвращает unsubscribe
+- Newest first (unshift), кэп 100 entries
+- Обрезка stdout/stderr > 16 KiB до OUTPUT_CAP_BYTES с маркером `[truncated...]`
 
 ### 17. ipc/helpers (`tests/bridge/helpers.test.ts`)
 
-Module: `src/core/bridge/ipc/helpers.ts`
+Модуль: `src/core/bridge/ipc/helpers.ts`
 
-- **Key invariant**: `op` snapshots `repoPath` BEFORE starting the operation; switching tabs between `operationStart` and `operationEnd` does not change `repoPath` in the end event (this fixes "the other tab gets stuck waiting")
-- `op` propagates `error` from the result into the end event
-- `op` works correctly with empty `repoPath` (clone before `openRepo`)
-- `opWithPostMerge` sends `mergeState` after `operationEnd`
-- `errOnFail` only emits `error` when `success = false`
-- `mergeStateAfter` always emits `mergeState`
-- `runTracked` writes to `gitActivityStore` (start + finish), including `error` on throw
+- **Главный инвариант**: `op` снимает `repoPath` ДО старта операции; переключение вкладки между `operationStart` и `operationEnd` не меняет `repoPath` в end-евенте (это и фиксит «другая вкладка впала в ожидание»)
+- `op` пробрасывает `error` от результата в end-евент
+- `op` корректно работает с пустым `repoPath` (clone до `openRepo`)
+- `opWithPostMerge` шлёт `mergeState` после `operationEnd`
+- `errOnFail` шлёт `error`-евент только при `success = false`
+- `mergeStateAfter` всегда шлёт `mergeState`
+- `runTracked` пишет в `gitActivityStore` (start + finish), включая `error` при throw
 
 ### 18. Logger (`tests/utils/Logger.test.ts`)
 
-Module: `src/core/utils/Logger.ts`
+Модуль: `src/core/utils/Logger.ts`
 
-- Levels `silent`/`error`/`warn`/`info`/`debug` correctly filter messages
-- ERROR/WARN go to `console.error` (stderr), DEBUG/INFO to `console.log` (stdout)
-- Prefix + time + tag (`[T] HH:MM:SS WARN: msg`)
-- `configureMainLogger({ isProduction: true })` → `silent` (silent in prod)
-- `configureMainLogger({ isProduction: false })` → `debug` (everything visible in dev)
-- ENV `GITBOR_LOG_LEVEL=warn` overrides the default
-- Invalid `GITBOR_LOG_LEVEL` is ignored (falls back to `isProduction`)
+- Уровни `silent`/`error`/`warn`/`info`/`debug` корректно фильтруют сообщения
+- ERROR/WARN идут в `console.error` (stderr), DEBUG/INFO — в `console.log` (stdout)
+- Префикс + время + тэг (`[T] HH:MM:SS WARN: msg`)
+- `configureMainLogger({ isProduction: true })` → `silent` (тишина в prod)
+- `configureMainLogger({ isProduction: false })` → `debug` (всё видно в dev)
+- ENV `GITBOR_LOG_LEVEL=warn` перебивает дефолт
+- Невалидный `GITBOR_LOG_LEVEL` игнорируется (фолбэк на `isProduction`)
 
 ### 19. repoPathGuard (`tests/utils/repoPathGuard.test.ts`)
 
-Module: `src/core/utils/repoPathGuard.ts`
+Модуль: `src/core/utils/repoPathGuard.ts`
 
-- Empty/non-string path → `dangerous: true`
-- Current user home directory, drive root (`C:\`, `/`), `\Users` root → `dangerous`
-- Windows system roots: `C:\Windows`, `C:\Program Files`, `C:\ProgramData`
-- POSIX system roots: `/etc`, `/usr`, `/var`, `/home`, `/Users`
-- Normal project paths → `dangerous: false`
+- Пустой/не-string путь → `dangerous: true`
+- Home directory (текущего пользователя), drive root (`C:\`, `/`), `\Users` корень → `dangerous`
+- Windows-системные: `C:\Windows`, `C:\Program Files`, `C:\ProgramData`
+- POSIX-системные: `/etc`, `/usr`, `/var`, `/home`, `/Users`
+- Обычные проектные пути → `dangerous: false`
 
-### 20. AI providers and presets
+### 20. AI-провайдеры и presets
 
 **`tests/ai/AiConfigStore.test.ts`** — `src/core/ai/AiConfigStore.ts`:
 
-- Persists OpenAI-compatible config; encrypts `apiKey` via injected `CryptoProvider` (mock for `safeStorage`)
-- Persists Qwen Web config: stores `qwenWebTokenEncrypted`, restores `mode: 'qwen-web'`, baseUrl forced to `https://chat.qwen.ai`
-- Falls back to `plain:` prefix when `isEncryptionAvailable()` returns false (or `encryptString` throws)
-- `clear()` writes an empty entry, doesn't delete the file
-- `commitLanguage` round-trips through `auto`/`en`/`ru`; invalid values normalize to `auto`
+- Сохраняет OpenAI-compatible конфиг; шифрует `apiKey` через инжектированный `CryptoProvider` (мок для `safeStorage`)
+- Сохраняет Qwen Web конфиг: пишет `qwenWebTokenEncrypted`, восстанавливает `mode: 'qwen-web'`, baseUrl принудительно `https://chat.qwen.ai`
+- Fallback на префикс `plain:` когда `isEncryptionAvailable()` возвращает false (или `encryptString` бросает)
+- `clear()` пишет пустую запись, не удаляет файл
+- `commitLanguage` round-trip через `auto`/`en`/`ru`; невалидные значения нормализуются в `auto`
 
 **`tests/ai/AiHandlers.test.ts`** — `src/core/ai/AiHandlers.ts`:
 
-- `getConfig` masks `apiKey` and `qwenWebToken` (returns `••••••••`) so the renderer never sees the real value
-- `setConfig` with a masked key from the UI keeps the previous secret (`mergeSecrets`)
-- `setConfig(null)` clears both the in-memory service and the on-disk store
-- `generateCommitMessage` routes `requestId → AbortController`; `cancel(requestId)` aborts the right one; `cancelAll()` aborts everything
-- Empty model response with `finish_reason: 'length'` throws a friendly `AiError('parse')` mentioning `max_tokens`
+- `getConfig` маскирует `apiKey` и `qwenWebToken` (возвращает `••••••••`), чтобы renderer никогда не видел реальное значение
+- `setConfig` с маскированным ключом из UI оставляет предыдущий секрет (`mergeSecrets`)
+- `setConfig(null)` чистит in-memory сервис и on-disk хранилище
+- `generateCommitMessage` маршрутизирует `requestId → AbortController`; `cancel(requestId)` отменяет нужный; `cancelAll()` отменяет всё
+- Пустой ответ модели с `finish_reason: 'length'` бросает понятный `AiError('parse')` с упоминанием `max_tokens`
 
 **`tests/ai/AiService.test.ts`** — `src/core/ai/AiService.ts`:
 
-- `isConfigured` returns false for missing model; for `qwen-web` requires `qwenWebToken`; for `openai-compatible` requires `baseUrl`
-- `generateCommitMessage` builds prompts via `commitLanguage`, post-processes the response (strips ```` ``` ```` and surrounding quotes)
+- `isConfigured` возвращает false при отсутствии модели; для `qwen-web` требует `qwenWebToken`; для `openai-compatible` требует `baseUrl`
+- `generateCommitMessage` строит промпты по `commitLanguage`, постпроцессит ответ (срезает ```` ``` ```` и обрамляющие кавычки)
 
 **`tests/ai/OpenAiCompatibleProvider.test.ts`** — `src/core/ai/providers/OpenAiCompatibleProvider.ts`:
 
-- SSE parsing across chunk boundaries, `[DONE]` termination, `usage` and `finish_reason` mapping
-- HTTP errors carry `status` in `AiError`; abort propagates through `signal`
+- SSE-парсинг через границы чанков, термин `[DONE]`, мэппинг `usage` и `finish_reason`
+- HTTP-ошибки несут `status` в `AiError`; abort прокидывается через `signal`
 
 **`tests/ai/QwenWebProvider.test.ts`** — `src/core/ai/providers/QwenWebProvider.ts`:
 
-- Constructor rejects wrong mode, missing token, missing model
-- `testConnection` calls `POST /api/v2/chats/new` with `Bearer` token and times out after 10s
-- Streaming flow: create chat → SSE chat completions; emits `onChunk` for `delta.content`
-- `code: 'RateLimited'` in payload becomes `AiError('http', 429)`
-- Empty stream (likely expired token) becomes `AiError('parse')` with a hint to refresh the token in `chat.qwen.ai → localStorage.token`
-- Unknown model id falls back to `qwen3-max` (the whitelist in `qwenWebModels.ts`)
-- External `signal.abort()` cancels the inflight `fetch`
+- Конструктор отвергает неверный mode, отсутствие токена, отсутствие модели
+- `testConnection` зовёт `POST /api/v2/chats/new` с `Bearer` токеном и таймаутом 10с
+- Streaming-флоу: создание чата → SSE chat completions; эмитит `onChunk` для `delta.content`
+- `code: 'RateLimited'` в payload превращается в `AiError('http', 429)`
+- Пустой стрим (вероятно истёкший токен) превращается в `AiError('parse')` с подсказкой обновить токен в `chat.qwen.ai → localStorage.token`
+- Неизвестный id модели даёт fallback на `qwen3-max` (whitelist в `qwenWebModels.ts`)
+- Внешний `signal.abort()` отменяет inflight `fetch`
 
 **`tests/ai/presets.test.ts`** — `src/renderer/src/features/ai/presets.ts`:
 
-- `detectPreset('openai-compatible', baseUrl, model)` matches presets normalized for trailing slashes
-- `detectPreset('qwen-web', _, model)` returns `qwen-web` only when `model` matches the preset's default; else `custom`
-- Unknown URL → `custom`
+- `detectPreset('openai-compatible', baseUrl, model)` мэтчит пресеты с нормализацией trailing slashes
+- `detectPreset('qwen-web', _, model)` возвращает `qwen-web` только если `model` равен дефолтной модели пресета; иначе `custom`
+- Неизвестный URL → `custom`
 
 **`tests/ai/prompts.test.ts`** — `src/core/ai/prompts.ts`:
 
-- `buildCommitSystemPrompt('auto')` does not add a language line
-- `buildCommitSystemPrompt('en')` adds the English instruction; `'ru'` adds both Russian and English variants plus the rule to keep technical English terms untranslated
-- `buildCommitUserPrompt` includes the diff verbatim when ≤ `MAX_DIFF_CHARS = 6000`; truncates with a `[diff truncated, N chars omitted]` marker preserving head and tail
+- `buildCommitSystemPrompt('auto')` не добавляет language-инструкцию
+- `buildCommitSystemPrompt('en')` добавляет английскую инструкцию; `'ru'` добавляет и русскую, и английскую плюс правило сохранять технические английские термины непереведёнными
+- `buildCommitUserPrompt` включает diff verbatim при ≤ `MAX_DIFF_CHARS = 6000`; обрезает с маркером `[diff truncated, N chars omitted]`, сохраняя head и tail
 
 ### 21. fileTree (`tests/changes/fileTree.test.ts`)
 
-Module: `src/renderer/src/features/changes/fileTreeModel.ts`
+Модуль: `src/renderer/src/features/changes/fileTreeModel.ts`
 
-- `buildFileTree` builds a folder tree from a flat `FileStatus[]`
-- Folders are sorted before files; case-insensitive natural ordering inside each level
-- Trailing slashes in `path` are normalized
-- `collectFiles(node)` flattens all files under a node — used by the folder context menu (stage/unstage/discard/delete on a whole folder)
-
----
-
-## Coverage Summary
-
-| Layer | Modules | Tests |
-|-------|---------|-------|
-| Git parsers | GitParser, DiffParser, ConflictParser, ReflogParser, BlameParser, SubmoduleParser, FileHistoryParser | ~90 |
-| Graph | GraphLayout | ~5 |
-| Git managers | WorktreeManager, GitExecutor (sanitizeArgs), RebaseManager | ~18 |
-| Commands | writeCommands, readCommands, ConflictManager | ~32 |
-| Utils | pathSecurity, repoPathGuard, AppError, Logger | ~40 |
-| Safety | OperationQueue, AtomicWrite, OperationJournal, RecoveryManager, LongPathSuggester | ~32 |
-| i18n | Key completeness en↔ru, tpl | ~15 |
-| Managers | BisectManager, HooksManager, LfsManager (contracts) | ~10 |
-| State | StateManager (multi-repo, isRepoTracked guard), repoSlice | ~10 |
-| Services | RepoServicesRegistry (lifecycle, isolation) | ~7 |
-| Activity | GitActivityStore (per-repo, cap, truncation) | ~13 |
-| IPC | messages contracts, ipc/helpers (op repoPath snapshot), MessageBridge.handleCommand, handlersGitOps | ~40 |
-| AI | AiConfigStore, AiHandlers, AiService, OpenAiCompatibleProvider, QwenWebProvider, prompts, presets | ~80 |
-| Changes | fileTree (buildFileTree, collectFiles) | ~11 |
-| Repo Manager | recentRepos (invalid path filtering) | ~3 |
-| Main | gracefulShutdown | ~5 |
-| **Total** | **<!-- TESTS_FILES -->81<!-- /TESTS_FILES --> files** | **<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT -->** |
+- `buildFileTree` строит folder-tree из плоского `FileStatus[]`
+- Папки сортируются перед файлами; case-insensitive natural ordering на каждом уровне
+- Trailing slashes в `path` нормализуются
+- `collectFiles(node)` плющит все файлы под нодой — используется контекстным меню по папкам (stage/unstage/discard/delete на всю папку)
 
 ---
 
-## Manual Testing for Git Features
+## Конфигурация Vitest
 
-Features that require a real Git repository need manual testing:
+Файл `vitest.config.ts` в корне проекта:
 
-### Reflog
+```ts
+import { defineConfig } from 'vitest/config';
+import { resolve } from 'path';
 
-1. Open GitBor → Repository → Reflog
-2. Verify the table shows HEAD history (checkout, commit, merge, etc.)
-3. Click SHA — copies to clipboard
-4. Click "Restore" — confirmation dialog, then `git reset --hard` to selected commit
-
-### Git Bisect
-
-1. Open Repository → Bisect
-2. Enter bad commit SHA (has the bug) and good commit SHA (no bug)
-3. Click "Start" — git checks out the midpoint
-4. Inspect code, click "Good" or "Bad"
-5. Repeat until the culprit commit is found
-6. Click "Abort" at any time for `git bisect reset`
-
-### Git Hooks
-
-1. Open Repository → Git Hooks
-2. Lists hooks from `.git/hooks/` (excluding `.sample`)
-3. Toggle on/off — renames file with/without `.disabled` suffix
-4. Click hook name to expand and view contents
-
-### Signed Commits (GPG/SSH)
-
-1. Configure: `git config commit.gpgsign true`
-2. Make a commit — it appears in the graph with ✓ Signed badge (green)
-3. Badge colors: green = verified (G), orange = untrusted (U/X/Y), red = bad (B/R)
-
-### Worktrees
-
-1. Open Repository → Worktrees
-2. Lists main and additional worktrees
-3. Click "Add" — specify path and branch (or create new)
-4. Remove button with confirmation (cannot remove main worktree)
-
-### Git LFS
-
-1. Ensure `git lfs` is installed (`git lfs install`)
-2. Open Repository → Git LFS
-3. Status: shows whether LFS is installed
-4. Tracked patterns: list from `.gitattributes`
-5. Add pattern (e.g. `*.psd`) — added to `.gitattributes`
-6. File list: all LFS-managed files
+export default defineConfig({
+  test: {
+    globals: true,
+    include: ['tests/**/*.test.ts'],
+    environment: 'node',
+    testTimeout: 10000,
+    coverage: {
+      provider: 'v8',
+      include: ['src/core/**/*.ts'],
+      exclude: ['src/core/**/types/**'],
+      reporter: ['text', 'text-summary'],
+    },
+  },
+  resolve: {
+    alias: {
+      '@core': resolve(__dirname, 'src/core'),
+    },
+  },
+});
+```
 
 ---
 
-## Adding New Tests
+## Как добавить новый тест
 
-1. Create a file in `tests/` with `.test.ts` suffix
-2. Import the module under test:
+1. Создай файл в `tests/` с суффиксом `.test.ts`:
+
+```
+tests/
+  git/MyNewParser.test.ts
+```
+
+2. Импортируй тестируемый модуль:
 
 ```ts
 import { describe, it, expect } from 'vitest';
-import { myFunction } from '../../src/core/path/MyModule';
+import { myFunction } from '../../src/core/git/MyNewParser';
 ```
 
-3. Write tests:
+3. Напиши тесты:
 
 ```ts
 describe('myFunction', () => {
   it('returns empty for empty input', () => {
     expect(myFunction('')).toEqual([]);
   });
+
+  it('parses valid input', () => {
+    const result = myFunction('...');
+    expect(result).toHaveLength(1);
+    expect(result[0].field).toBe('expected');
+  });
 });
 ```
 
-4. Run: `npx vitest run tests/path/MyModule.test.ts`
+4. Запусти:
+
+```bash
+npx vitest run tests/git/MyNewParser.test.ts
+```
+
+---
+
+## Советы
+
+- **Тестируй парсеры отдельно от Git.** Парсеры принимают строку и возвращают объект — не нужен реальный репозиторий.
+- **Используй `\x00` (NUL)** для полей, разделённых `--format='%H%x00%P%x00...'`.
+- **Не мокай Git.** Для менеджеров (BisectManager, WorktreeManager) лучше тестировать контракт интерфейса, а интеграционные тесты — отдельно в реальном repo.
+- **i18n-тесты ловят забытые переводы.** Если добавил ключ в `en.ts` — тест упадёт, пока не добавишь его в `ru.ts`.
+
+---
+
+## Покрытие
+
+На данный момент покрыты:
+
+| Слой | Модули | Тестов |
+|------|--------|--------|
+| Git-парсеры | GitParser, DiffParser, ConflictParser, ReflogParser, BlameParser, SubmoduleParser, FileHistoryParser | ~90 |
+| Граф | GraphLayout | ~5 |
+| Git-менеджеры | WorktreeManager, GitExecutor (sanitizeArgs), RebaseManager | ~18 |
+| Команды | writeCommands, readCommands, ConflictManager | ~32 |
+| Утилиты | pathSecurity, repoPathGuard, AppError, Logger | ~40 |
+| Safety | OperationQueue, AtomicWrite, OperationJournal, RecoveryManager, LongPathSuggester | ~32 |
+| i18n | Полнота ключей en↔ru, tpl | ~14 |
+| Менеджеры | BisectManager, HooksManager, LfsManager (контракты) | ~6 |
+| State | StateManager (мульти-репо, isRepoTracked гард), repoSlice | ~10 |
+| Services | RepoServicesRegistry (lifecycle, isolation) | ~7 |
+| Activity | GitActivityStore (per-repo, кэп, обрезка) | ~13 |
+| IPC | messages контракты, ipc/helpers (snapshot repoPath), MessageBridge.handleCommand, handlersGitOps | ~40 |
+| AI | AiConfigStore, AiHandlers, AiService, OpenAiCompatibleProvider, QwenWebProvider, prompts, presets | ~80 |
+| Changes | fileTree (buildFileTree, collectFiles) | ~11 |
+| Repo Manager | recentRepos (фильтрация невалидных путей) | ~3 |
+| Main | gracefulShutdown | ~5 |
+| **Итого** | **<!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлов** | **<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT -->** |
+
+---
+
+## Ручное тестирование новых фич
+
+Для фич, которые требуют реального Git-репозитория (Reflog, Bisect, Hooks, Worktrees, LFS), ручное тестирование:
+
+### Reflog
+
+1. Откройте GitBor → Репозиторий → Reflog
+2. Убедитесь, что таблица показывает историю HEAD (checkout, commit, merge и т.д.)
+3. Нажмите SHA — он скопируется в буфер обмена
+4. Нажмите "Восстановить" — появится подтверждение, после чего `git reset --hard` до выбранного коммита
+
+### Git Bisect
+
+1. Откройте Репозиторий → Bisect
+2. Введите SHA плохого коммита (где баг есть) и хорошего (где его нет)
+3. Нажмите "Start" — git переключится на средний коммит
+4. Проверьте код и нажмите "Хороший" или "Плохой"
+5. Повторяйте до нахождения виновного коммита
+6. В любой момент можно нажать "Отмена" для `git bisect reset`
+
+### Git Hooks
+
+1. Откройте Репозиторий → Git Hooks
+2. Список показывает хуки из `.git/hooks/` (без `.sample`)
+3. Toggle вкл/выкл — переименовывает файл с/без `.disabled`
+4. Клик по имени раскрывает содержимое хука
+
+### Подписанные коммиты (GPG/SSH)
+
+1. Настройте подпись: `git config commit.gpgsign true`
+2. Сделайте коммит — он появится в графе с бейджем ✓ Signed (зелёный)
+3. Бейджи: зелёный = верифицирован (G), оранжевый = ненадёжный (U/X/Y), красный = плохой (B/R)
+
+### Рабочие деревья (Worktrees)
+
+1. Откройте Репозиторий → Рабочие деревья
+2. Список показывает основное и дополнительные worktree
+3. Нажмите "Добавить" — укажите путь и ветку (или создайте новую)
+4. Для удаления — кнопка с подтверждением (основное нельзя удалить)
+
+### Git LFS
+
+1. Убедитесь, что `git lfs` установлен (`git lfs install`)
+2. Откройте Репозиторий → Git LFS
+3. Статус: показывает, установлен ли LFS
+4. Отслеживаемые паттерны: список из `.gitattributes`
+5. Добавьте паттерн (например `*.psd`) — он добавится в `.gitattributes`
+6. Список файлов: все файлы, управляемые LFS
 
 ---
 
 ## CI/CD
 
-Two complementary workflows:
+Два workflow дополняют друг друга:
 
-**`.github/workflows/ci.yml`** — runs on `push` to `main`/`develop`:
+**`.github/workflows/ci.yml`** — запускается на `push` в `main`/`develop`:
 
 ```yaml
-# Matrix: ubuntu-latest, windows-latest, macos-latest with Node 20
+# Матрица: ubuntu-latest, windows-latest, macos-latest с Node 20
 steps:
-  - npm ci                              # Install root deps
-  - npm ci (src/renderer)               # Install renderer deps
-  - npm run lint                        # ESLint check
-  - npx tsc -p tsconfig.main.json       # TypeScript check (main + core)
-  - npx tsc -b (src/renderer)           # TypeScript check (renderer)
-  - npm test                            # Vitest (<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> files)
-  - npm run build:renderer              # Vite build
+  - npm ci                              # Установка зависимостей корня
+  - npm ci (src/renderer)               # Установка зависимостей renderer
+  - npm run lint                        # ESLint проверка
+  - npx tsc -p tsconfig.main.json       # TypeScript (main + core)
+  - npx tsc -b (src/renderer)           # TypeScript (renderer)
+  - npm test                            # Vitest (<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлах)
+  - npm run build:renderer              # Vite сборка
   - npm run build:main                  # tsc main process
 ```
 
-**`.github/workflows/pr.yml`** — gate on `pull_request` to `main` (Windows-only, Node 22):
+**`.github/workflows/pr.yml`** — гейт на `pull_request` в `main` (windows-only, Node 22):
 
 ```yaml
 build:
   runs-on: windows-latest
-  steps: same as ci.yml (lint / tsc / test / build)
+  steps: то же, что в ci.yml (lint / tsc / test / build)
 e2e:
   needs: build
   runs-on: windows-latest
   steps:
     - npm ci (root + renderer)
     - npm run build
-    - npx playwright test                # 4 specs
-    - upload tests-e2e/_report on failure
+    - npx playwright test                # 4 спека
+    - upload tests-e2e/_report при failure
 ```
 
-`npm test` runs `vitest run` — single pass with exit code 0 on success, 1 on failure. `npm run e2e` runs Playwright; specs are `test.skip(process.platform !== 'win32')` so they're a no-op on Mac/Linux.
+`npm test` выполняет `vitest run` — однократный прогон, exit-код 0 при успехе, 1 при ошибках. `npm run e2e` запускает Playwright; спеки помечены `test.skip(process.platform !== 'win32')`, на Mac/Linux это no-op.
 
 ### E2E (Playwright + Electron)
 
-4 specs in `tests-e2e/`:
+4 спека в `tests-e2e/`:
 
-| Spec | Scenario |
+| Спек | Сценарий |
 |------|----------|
-| `app-launch.spec.ts` | Application launch, `[data-testid=titlebar]` visible. |
-| `open-repo.spec.ts` | Launch with `cwd=fixture` → autoOpenRepo picks it up → TitleBar + Sidebar + "main" text visible. |
-| `switch-tab.spec.ts` | Launch with fixture A → open fixture B via `window.gitBorAPI.invoke({ type: 'openRepo', path: B })` → click `[data-testid=repo-tab-0]` and `[data-testid=repo-tab-1]`. |
-| `safety-flow.spec.ts` | Fresh `.git/index.lock` → SafetyDialog with `remove_lock`/`cancel`; merge conflict → no rollback + MergeBanner; fetch from unreachable host → toast with Retry; orphaned auto-stash → recovery at startup. |
+| `app-launch.spec.ts` | Запуск приложения, видимость `[data-testid=titlebar]`. |
+| `open-repo.spec.ts` | Запуск с `cwd=fixture` → autoOpenRepo подхватывает → TitleBar + Sidebar + текст «main» в Sidebar. |
+| `switch-tab.spec.ts` | Запуск с фикстурой A → открытие фикстуры B через `window.gitBorAPI.invoke({ type: 'openRepo', path: B })` → клик по `[data-testid=repo-tab-0]` и `[data-testid=repo-tab-1]`. |
+| `safety-flow.spec.ts` | Свежий `.git/index.lock` → SafetyDialog с `remove_lock`/`cancel`; merge с конфликтом → без rollback + MergeBanner; fetch с недостижимого хоста → toast с Retry; осиротевший auto-stash → recovery при старте. |
 
-Helpers in `tests-e2e/helpers.ts`: `launchApp({ cwd? })` and `makeFixtureRepo(prefix)` (creates a temp git repo with an initial commit, cleanup in `finally`).
+Хелперы в `tests-e2e/helpers.ts`: `launchApp({ cwd? })` и `makeFixtureRepo(prefix)` (создаёт пустой git-репо в temp-каталоге с initial commit, cleanup в `finally`).
 
-### Pre-commit and pre-push hooks
+### Pre-commit и pre-push хуки
 
-`.husky/pre-commit` (lightweight, ~1–2s):
+`.husky/pre-commit` (лёгкий, ~1–2 сек):
 
-1. `npx lint-staged` — `eslint --fix` on staged `*.{ts,tsx}` files (auto-fix and re-stage).
-2. If any TS/TSX is staged, project-wide `npx tsc --noEmit -p tsconfig.main.json && npx tsc --noEmit -p src/renderer/tsconfig.json` (per-file `tsc` is meaningless — types depend on the whole project).
+1. `npx lint-staged` — `eslint --fix` на staged `*.{ts,tsx}` файлах (авто-фикс + re-stage).
+2. Если есть staged TS/TSX — project-wide `npx tsc --noEmit -p tsconfig.main.json && npx tsc --noEmit -p src/renderer/tsconfig.json` (per-file `tsc` бессмыслен — типы зависят от всего проекта).
 
-`.husky/pre-push` (~5–7s):
+`.husky/pre-push` (~5–7 сек):
 
-1. `npm test` (Vitest, <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> files) — full suite to catch regressions before they reach the remote.
-2. Bypass: `SKIP_TESTS=1 git push` — for branches that touch only docs/configs and have no code under test.
+1. `npm test` (Vitest, <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлах) — полный набор перед пушем в remote.
+2. Bypass: `SKIP_TESTS=1 git push` — для веток, где менялись только doc/config и тесты прогонять не из чего.
 
-Split rationale: keep commits cheap (lint-staged + tsc), put the full test suite at push time where the latency is acceptable and the safety net catches red trees before they hit the remote.
+Логика разделения: коммит держим дешёвым (lint-staged + tsc), полный тестовый прогон уезжает в pre-push, где задержка приемлема и страхует от пуша красного.
 
-### Coverage
-
-```bash
-npm run test:coverage    # Vitest with v8 coverage
-```
-
-Configuration in `vitest.config.ts` under `test.coverage`.
-
-### Bundle analyzer
+### Покрытие
 
 ```bash
-npm run analyze          # Builds with rollup-plugin-visualizer → bundle-analysis/bundle-<today>.html
+npm run test:coverage    # Vitest с v8 coverage
 ```
 
-Sets `GITBOR_ANALYZE=1` so `vite.config.ts` enables the visualizer treemap (gzip + brotli sizes, `open: false`).
+Конфигурация в `vitest.config.ts` в секции `test.coverage`.
+
+### Анализ бандла
+
+```bash
+npm run analyze          # Сборка с rollup-plugin-visualizer → bundle-analysis/bundle-<today>.html
+```
+
+Выставляет `GITBOR_ANALYZE=1`, после чего `vite.config.ts` подключает treemap визуализатора (gzip + brotli размеры, `open: false`).

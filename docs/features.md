@@ -1,307 +1,307 @@
-> Русская версия: [docs/ru/features.md](ru/features.md)
+> English version: [docs/en/features.md](en/features.md)
 
-## Features
+# Возможности GitBor
 
-### Commit Graph
+## Граф коммитов
 
-- Virtualized scroll — renders only visible rows, handles 15000+ commits smoothly
-- Branch coloring — each branch lane gets a unique color
-- Click on commit — loads details + auto-selects first file diff
-- **Double click on commit** — reveals the nearest named ref in the sidebar (BFS towards descendants until a branch/tag is found): opens the section, expands the ancestor folders and scrolls the row into view. No checkout
-- **Auto-focus after write operations** — after commit / push / pull / checkout / fetchBranch / merge / cherry-pick / revert / rebase / reset / restoreReflog / createBranch the graph seeks to the resulting tip. `fetchBranch` / `createBranch` focus their own branch, not HEAD; if the tip is outside the loaded window, `Load more` runs and the seek repeats once the new page arrives
-- Search commits (Ctrl+F) — by subject, author, or hash prefix
-- **Author avatars** — small colored circle with author initials in every row; HSL hue is a deterministic hash of the email so the same contributor looks the same everywhere (Cyrillic supported, fallback to email local part)
-- **Remote-only commits dimmed** — commits reachable from `refs/remotes/*` but not from any local branch render at ~0.45 node / ~0.35 line opacity; hover boosts to 0.9 to make them readable
+- Виртуализированная прокрутка — рендер только видимых строк, плавно при 15000+ коммитах
+- Цвета веток — у каждой дорожки ветки свой цвет
+- Клик по коммиту — детали + автоматический выбор diff первого файла
+- **Двойной клик по коммиту** — показывает ближайший именованный ref в сайдбаре (BFS к потомкам до первой ветки/тега): раскрывает секцию, папки-предки и доскролливает строку. Checkout не делается
+- **Автофокус после write-операций** — после commit / push / pull / checkout / fetchBranch / merge / cherry-pick / revert / rebase / reset / restoreReflog / createBranch граф встаёт на получившийся tip. `fetchBranch` / `createBranch` фокусируют свою ветку, а не HEAD; если tip вне загруженного окна — срабатывает `Load more`, и скролл повторяется на новой порции
+- Поиск коммитов (Ctrl+F) — по теме коммита, автору или префиксу хеша
+- **Аватары авторов** — цветной кружок с инициалами в каждой строке графа; HSL-цвет рассчитывается детерминированно от email, так что один и тот же автор выглядит одинаково везде (кириллица поддерживается, fallback на local-part email)
+- **Remote-only коммиты приглушены** — коммиты, достижимые из `refs/remotes/*`, но не из локальных веток, рендерятся с opacity 0.45 на узле и 0.35 на линиях; на hover поднимаются до 0.9
 
-### Ahead/Behind Indicators
+## Индикаторы ahead/behind
 
-- Pull button shows a `behind` badge — how many commits the current branch's upstream has that you have not pulled yet
-- Push button shows an `ahead` badge — how many local commits are not on the upstream yet
-- Counts > 99 render as `99+`; the badge disappears at zero
-- Fetch button stays badge-free (it is not branch-scoped)
-- Tooltip on Pull/Push expands the number into a localized phrase
+- Кнопка Pull показывает бейдж `behind` — сколько коммитов upstream текущей ветки ещё не подтянуто
+- Кнопка Push показывает бейдж `ahead` — сколько локальных коммитов не отправлено в upstream
+- Числа > 99 показываются как `99+`; бейдж скрыт при нуле
+- Кнопка Fetch без бейджа (она не привязана к ветке)
+- Tooltip на Pull/Push расшифровывает число в локализованной строке
 
-### Branch / Tag / Stash Sidebar
+## Боковая панель: ветки / теги / stash
 
-- Tree view with collapsible folders (feature/user/branch)
-- Single click — scrolls graph to branch head commit, loads details + diff
-- Double click — checkout branch (remote branch → Track dialog). On a hybrid «branch + folder» node (both `release` and `release/1.0` exist) the first double click expands the children, checkout happens on the second
-- Double click on a folder always expands it — the two `click` events no longer collapse it back
-- Hybrid «branch + folder» rows get their own arrow in the left padding, so names stay aligned
-- After checkout / track the current branch is selected, its ancestor folders are expanded and the row is scrolled into view — it no longer hides inside a collapsed folder
-- Right-click — context menu: checkout, merge, rename, delete, new branch/tag
-- Cannot delete the currently checked-out branch (option hidden)
-- **Current branch marker** — green dot next to the name (no text badge cluttering the row)
-- **Hover-actions per branch** (Fork-style): pin / solo / hide / note icons appear on hover; active state stays visible without hover so you can see filter state at a glance. Per-repo state, stored in `localStorage`
-- **Solo graph filter** — click the filter icon on a branch to limit the graph to commits reachable from that branch tip (client-side BFS, no extra git calls). Banner over the graph shows the kept/total count and a "Show all" button to clear
-- **Hide branch from graph** — eye-off icon completely removes the branch's commits from the graph (BFS-subtraction: a commit stays visible if any non-hidden local branch can reach it). Same banner with "Unhide all" to clear; if every branch is hidden the graph shows an empty-state with "Show all branches"
-- **Branch notes** — info icon opens a textarea modal for free-form per-branch notes (links, ticket numbers, intent). Hover the icon — a tooltip shows the first 200 characters. Notes are stored locally per repo (`sg-branch-notes:<repo>`), never written to git config
+- Дерево со сворачиваемыми папками (feature/user/branch)
+- Один клик — прокрутка графа к head ветки, детали + diff
+- Двойной клик — checkout ветки (remote-ветка → диалог Track). У гибрида «ветка + папка» (есть и `release`, и `release/1.0`) первый двойной клик раскрывает детей, checkout — со второго
+- Двойной клик по папке всегда раскрывает её — два события `click` больше не сворачивают её обратно
+- У гибридных строк «ветка + папка» своя стрелка в левом паддинге — имена не сдвигаются
+- После checkout / track текущая ветка выделяется, папки-предки раскрываются, строка доскролливается — больше не прячется внутри свёрнутой папки
+- Правый клик — контекстное меню: checkout, merge, rename, delete, new branch/tag
+- Нельзя удалить текущую ветку (пункт скрыт)
+- **Маркер текущей ветки** — зелёная точка рядом с именем (без текстового бейджа, который раньше засорял строку)
+- **Hover-действия на ветке** (Fork-style): иконки pin / solo / hide / note всплывают при наведении; активное состояние видно всегда, чтобы был понятен текущий фильтр. Состояние — per-repo, сохраняется в `localStorage`
+- **Solo-фильтр графа** — клик по иконке фильтра ограничивает граф коммитами, достижимыми от tip выбранной ветки (BFS на стороне renderer, без дополнительных git-вызовов). Над графом — баннер «оставлено N из M» и кнопка «Показать все»
+- **Скрытие ветки из графа** — иконка «глаз перечёркнут» полностью убирает коммиты ветки из графа (BFS-вычитание: коммит остаётся видимым, если достижим хотя бы из одной нескрытой локальной ветки). Тот же баннер с кнопкой «Снять скрытие»; если скрыты все ветки — empty-state с кнопкой «Показать все ветки»
+- **Заметки по ветке** — иконка info открывает модалку с textarea для произвольной заметки (ссылки на задачи, описание, что делать). При наведении на иконку — tooltip с превью первых 200 символов. Хранятся локально per-repo в `sg-branch-notes:<repo>`, в git config не записываются
 
-### Local Changes
+## Локальные изменения
 
-- Tree view grouped by folders (like Fork)
-- Unstaged section on top, Staged on bottom
-- Per-file actions: stage (+), unstage (-), discard
-- **Folder context menu** — stage / unstage / discard / delete applied to all files inside (works in both Staged and Unstaged sections); folder-level actions go through batch IPC commands (`discardFiles` / `deleteUntrackedFiles`) — one round-trip and one `git checkout -- a b c …` instead of N invokes
-- Stage All / Unstage All buttons
-- Discard All with confirmation dialog
-- Conflict files marked with (!) icon
-- Auto-closes diff panel when file disappears after commit
-- Pure tree helpers (`buildFileTree`, `collectFiles`) extracted to `fileTreeModel.ts` for direct unit testing
+- Дерево с группировкой по папкам (как в Fork)
+- Сверху секция Unstaged, снизу Staged
+- Действия по файлу: stage (+), unstage (-), discard
+- **Контекстное меню по папкам** — stage / unstage / discard / delete применяется ко всем файлам внутри (работает в Staged и Unstaged); папочные действия идут через batch-IPC (`discardFiles` / `deleteUntrackedFiles`) — один round-trip и один `git checkout -- a b c …` вместо N invokes
+- Кнопки Stage All / Unstage All
+- Откатить всё с подтверждением
+- Файлы с конфликтом помечаются иконкой (!)
+- Автоматическое закрытие diff-панели когда файл пропадает после коммита
+- Чистые tree-helpers (`buildFileTree`, `collectFiles`) вынесены в `fileTreeModel.ts` для прямых юнит-тестов
 
-### Commit Bar
+## Панель коммита
 
-- Separate Subject and Description fields (like Fork, GitKraken)
-- Enter in subject moves focus to description
-- Ctrl+Enter commits from either field
-- Amend checkbox
+- Раздельные поля Subject и Description (как в Fork, GitKraken)
+- Enter в subject переводит фокус в description
+- Ctrl+Enter делает коммит из любого поля
+- Чекбокс Amend
 
-### Diff Viewer
+## Просмотр diff
 
-- Two modes: Inline and Split (side-by-side)
-- Syntax highlighting with line numbers
-- No `+`/`−` text prefix in line content — colored background only (cleaner copy-paste)
-- **Hover-overlay hunk actions** (Fork-style): hover a hunk → thin primary frame appears around the block and Stage / Discard… / Unstage buttons float in the top-right corner. No persistent header bar per hunk — diff reads as clean code and fits more blocks per screen.
-- Compact `@@ -old +new @@` header per hunk: dimmed by default, brightens on hover (no sticky background)
-- Ignore Whitespace toggle
-- Theme-aware diff colors — translucent line backgrounds tuned per theme (light text in dark mode, dark text in light mode); no harsh bright blocks in dark mode
-- Supports: working copy diff, staged diff, commit diff, untracked files, root commits
-- **Right-click → Copy**: ПКМ on diff content opens a context menu with **Copy** — either current text selection (`window.getSelection()`) or the hovered line (rows tagged with `data-diff-line`, works in inline/split/whole-file). Local to the diff feature, doesn't conflict with the global App-level context menu
-- **Markdown preview** for `.md` / `.markdown` files: a Markdown-icon button appears in the diff toolbar (and inside `CompareModal`); clicking opens a modal with the file rendered as rich text (not a diff). Content is fetched via `getFileText` IPC — for `WORKING` reads the working copy via `fs.readFile`, for any commit / `STAGED` / `a..b` / `PREV:hash` ref uses `git show <hash>:<file>`. The modal is lazy-loaded (Markdown parser ships as a separate chunk)
-- **Legacy file encodings** — `git diff` output is captured as a `Buffer` (via `GitExecutor.execBuffer`) and decoded with `decodeGitText` heuristics: BOM (UTF-8 / UTF-16 LE / BE) → strict UTF-8 → CP1251 (Windows Cyrillic) → CP866 (DOS Cyrillic). Cyrillic comments in `.sql` / `.cs` / `.pas` files saved on legacy Windows render as readable text instead of mojibake (` ` and friends). Same heuristic applies to `getFileText` for the Markdown preview
+- Два режима: Inline и Split (side-by-side)
+- Подсветка синтаксиса с номерами строк
+- Без префиксов `+`/`−` в тексте строк — только цветной фон (чище для копипаста)
+- **Hover-кнопки для hunk (как в Fork)**: при наведении на блок изменений вокруг него появляется тонкая рамка, а в правом верхнем углу — плавающие кнопки Применить / Отбросить… / Убрать. Постоянной шапки с кнопками на каждый hunk больше нет — diff читается как чистый код, на экран помещается больше блоков.
+- Компактный заголовок `@@ -старая +новая @@` для каждого hunk: приглушённый по умолчанию, ярче при наведении на блок (без sticky-фона)
+- Переключатель "Без пробелов" (Ignore Whitespace)
+- Цвета diff подстроены под тему — полупрозрачная заливка строк (светлый текст в тёмной теме, тёмный — в светлой); без кричащих ярких блоков в тёмной теме
+- Поддержка: working copy diff, staged diff, commit diff, untracked files, root commits
+- **ПКМ → «Копировать»**: правый клик на diff-содержимом открывает контекстное меню с пунктом **Копировать** — либо текущее выделение (`window.getSelection()`), либо строка под курсором (строки помечены `data-diff-line`, работает в inline / split / whole-file). Меню локальное для diff-фичи, не конфликтует с глобальным контекстным меню `App`
+- **Просмотр Markdown** для `.md` / `.markdown`: в тулбаре diff (и в `CompareModal`) появляется кнопка с Markdown-иконкой; клик открывает модалку с нормальным рендером файла (не diff). Содержимое подтягивается одним IPC `getFileText` — для `WORKING` читаем рабочую копию через `fs.readFile`, для коммита / `STAGED` / диапазона `a..b` / `PREV:hash` — `git show <hash>:<file>`. Модалка lazy-загружается (Markdown-парсер уезжает в отдельный chunk)
+- **Кодировки legacy-файлов** — stdout `git diff` забирается как `Buffer` (через `GitExecutor.execBuffer`) и декодируется эвристикой `decodeGitText`: BOM (UTF-8 / UTF-16 LE/BE) → строгий UTF-8 → CP1251 (Windows Cyrillic) → CP866 (DOS Cyrillic). Кириллические комментарии в `.sql` / `.cs` / `.pas`-файлах со старой Windows читаются нормально, а не превращаются в кракозябры (` ` и компания). Та же эвристика применяется к `getFileText` для модалки markdown-preview
 
-### Merge Conflict Resolution
+## Разрешение merge-конфликтов
 
-- Merge Branch dialog with options: Default, No Fast-Forward, Squash, Don't Commit
-- Conflict prediction before merge
-- Yellow merge-in-progress banner with Abort button (with confirmation)
-- Auto-selects first conflicted file when merge starts
-- Auto-advances to next conflict after resolving one
-- Two-column Merge Editor: Ours (left) vs Theirs (right)
-  - Click on conflict block to select which side to keep
-  - Resolve button writes result and stages file
-- Use Ours / Use Theirs quick actions from context menu
+- Диалог Merge Branch с опциями: Default, No Fast-Forward, Squash, Don't Commit
+- Предсказание конфликтов до merge
+- Жёлтый баннер merge-in-progress с кнопкой Abort (с подтверждением)
+- Автоматический выбор первого конфликтного файла при начале merge
+- Автоматический переход к следующему конфликту после разрешения
+- Двухколоночный Merge Editor: Ours (слева) vs Theirs (справа)
+  - Клик по блоку конфликта — выбор стороны
+  - Resolve записывает результат и ставит файл в stage
+- Быстрые действия Use Ours / Use Theirs из контекстного меню
 
-### File History
+## История файла
 
-- Shows all commits that touched a specific file
-- Accessible via right-click context menu on any file
-- Click entry to view diff at that commit
+- Все коммиты, затронувшие выбранный файл
+- Доступ через контекстное меню по правому клику на файле
+- Клик по записи — diff на этом коммите
 
-### Git Blame
+## Git Blame
 
-- Line-by-line annotation with author, date, commit hash
-- Click hash to navigate to commit
-- Accessible via right-click context menu
+- Построчные аннотации: author, date, commit hash
+- Клик по hash — переход к коммиту
+- Доступ через контекстное меню по правому клику
 
-### Multi-Repository Tabs
+## Вкладки для нескольких репозиториев
 
-- Open multiple repositories simultaneously
-- Tab bar with repo names
-- Quick switch between repos (instant — UI mirrors the cached slice immediately, heavy refresh runs in background)
-- **`+` tab opens RepoManager** — recent repositories, open / clone / init from one place
-- Clicking the active tab again also opens RepoManager
-- Independent per-repo engines: a long `git pull` on repo A never blocks operations on repo B
-- Per-repo running ops: `state.isOperationRunning` is derived from the active tab only; fetch on A doesn't disable buttons on B
-- **Session persistence** — the full list of open tabs is restored on startup, with focus on the last active tab. Stored in `localStorage` (`sg-open-repos` + `sg-last-active-repo`); deleted/missing repos are silently dropped from the list on the next save
+- Несколько репозиториев одновременно
+- Панель вкладок с именами репозиториев
+- Мгновенное переключение между репозиториями (UI отзеркаливает кэшированный slice сразу, тяжёлый refresh — в фоне)
+- **Вкладка «+» открывает RepoManager** — недавние / открыть / clone / init в одном окне
+- Повторный клик по активной вкладке тоже открывает RepoManager
+- Независимые per-repo движки: длинный `git pull` на репо A никогда не блокирует операции на репо B
+- Per-repo running ops: `state.isOperationRunning` зависит только от активной вкладки; fetch на A не отключает кнопки на B
+- **Сохранение сессии** — полный список открытых табов восстанавливается при старте, фокус — на последнем активном. Хранится в `localStorage` (`sg-open-repos` + `sg-last-active-repo`); удалённые/несуществующие репо тихо вылетают из списка при следующем save
 
-### AI Commit Messages
+## AI-сообщения коммитов
 
-- One-click generation from staged diff
-- **Two modes**:
-  - **OpenAI-compatible** — works with OpenAI, Ollama, LM Studio, DeepSeek, Groq, YandexGPT and any other `/v1/chat/completions` endpoint
-  - **Qwen Web** — chat.qwen.ai via session token from `localStorage` (no DashScope API key needed)
-- Streaming (SSE): chunks land in the commit subject field as they arrive
-- **Cancel** button aborts the inflight request via `AbortController`
-- **Test connection** button before saving
-- API key / Qwen token encrypted via Electron `safeStorage` (DPAPI / Keychain / libsecret); fallback to `plain:` prefix if key store is unavailable
-- Diff truncated to 6000 chars (head 70% + tail 20%) to fit the model's context window
-- Accessible via the AI button next to the commit subject
+- Генерация одной кнопкой из staged diff
+- **Два режима**:
+  - **OpenAI-compatible** — работает с OpenAI, Ollama, LM Studio, DeepSeek, Groq, YandexGPT и любым другим `/v1/chat/completions` endpoint
+  - **Qwen Web** — chat.qwen.ai через сессионный токен из `localStorage` (без официального API-ключа DashScope)
+- Streaming (SSE): чанки появляются в поле subject коммита по мере поступления
+- Кнопка **Cancel** прерывает inflight запрос через `AbortController`
+- Кнопка **Test connection** перед сохранением
+- API-ключ / Qwen-токен шифруются Electron `safeStorage` (DPAPI / Keychain / libsecret); fallback на префикс `plain:`, если key store недоступно
+- Diff обрезается до 6000 символов (head 70% + tail 20%), чтобы влезть в контекст модели
+- Доступ через AI-кнопку рядом с полем subject коммита
 
-### AI Settings dialog
+## Диалог настроек AI
 
-- **Six tabs on the left rail**: Connection / Prompts / Features / Behavior / Privacy / Debug. Each section is one file under `src/renderer/src/features/ai/sections/`
-- **Preset list**, in priority order for the import-substitution audience:
-  1. **Local** — Ollama (default), LM Studio, llama.cpp server. Data never leaves the machine
-  2. **Corporate** — Qwen Corporate (vLLM / DashScope), Custom OpenAI-compatible gateway. User supplies baseUrl, system-in-user / strip-think defaults applied automatically for Qwen Corporate
-  3. **No-VPN** — Qwen Web, Qwen API (Alibaba Cloud), DeepSeek
-  4. **Russian** — YandexGPT via Yandex Cloud OpenAI-compatible endpoint (GigaChat in backlog — needs a separate OAuth provider)
-  5. **Foreign** — OpenAI, Anthropic, Groq
-- **Prompts on disk** are English (`DEFAULT_PROMPTS` in `src/core/ai/prompts.ts`). LLMs (including Qwen and YandexGPT) reason better in English. The reply language is added in the last line of the prompt via `resolvePrompt(id, cfg)` based on the **AI response language** setting in Behavior — applies uniformly to every feature, including stash names (git stores stash messages as UTF-8)
-- **Per-feature toggle and per-feature model override** — switch any AI capability off, or point an individual feature (e.g. stash naming) at a cheaper model than the main provider
-- **Privacy gate** — `allowCloudCodeShare` (default `false` for new installs) blocks calls to **foreign** providers (OpenAI / Anthropic / Groq). Local / corporate / no-VPN / Russian providers are always allowed and bypass the gate by design
-- **Config v3** — old `ai-config.json` (v2) is migrated on load: `commitLanguage` becomes `aiResponseLanguage`, `features.commitMessage=true`, `aiEnabled=true`, `allowCloudCodeShare=false` (no implicit cloud opt-in)
+- **6 табов на левом рельсе**: Подключение / Промпты / Возможности / Поведение / Приватность / Диагностика. Каждая секция — отдельный файл в `src/renderer/src/features/ai/sections/`
+- **Список пресетов** в порядке приоритета для импортозамещающего продукта:
+  1. **Локальные** — Ollama (default), LM Studio, llama.cpp server. Данные не покидают компьютер
+  2. **Корпоративные** — Qwen Corporate (vLLM / DashScope), Custom OpenAI-совместимый gateway. Пользователь сам прописывает baseUrl; для Qwen Corporate автоматом включаются system-in-user и strip-think
+  3. **Без VPN** — Qwen Web, Qwen API (Alibaba Cloud), DeepSeek
+  4. **Российские** — YandexGPT через OpenAI-совместимый endpoint Yandex Cloud (GigaChat в backlog — нужен отдельный OAuth-провайдер)
+  5. **Зарубежные** — OpenAI, Anthropic, Groq
+- **Промпты на диске** — на английском (`DEFAULT_PROMPTS` в `src/core/ai/prompts.ts`). LLM (включая Qwen и YandexGPT) делают reasoning лучше на английском. Язык ответа добавляется в конец промпта через `resolvePrompt(id, cfg)` по настройке **Язык ответа AI** в разделе «Поведение» — действует на все фичи одинаково, в том числе на stash naming (git хранит сообщения stash как UTF-8)
+- **Per-feature toggle и per-feature model override** — отключить любую AI-фичу или направить отдельную фичу (например stash naming) на более дешёвую модель, не меняя основной провайдер
+- **Privacy gate** — `allowCloudCodeShare` (по умолчанию `false` для свежих установок) блокирует вызовы **зарубежных** провайдеров (OpenAI / Anthropic / Groq). Локальные / корпоративные / без-VPN / российские провайдеры всегда разрешены и проходят без gate
+- **Конфиг v3** — старый `ai-config.json` (v2) мигрируется при загрузке: `commitLanguage` становится `aiResponseLanguage`, `features.commitMessage=true`, `aiEnabled=true`, `allowCloudCodeShare=false` (без неявного opt-in в облако)
 
-### AI Helpers
+## AI-помощники
 
-Beyond commit messages, the same provider / privacy settings power five extra helpers. Each is a separate `AiFeatureId` (`explainCommit` / `stashName` / `explainReflog` / `analyzeConflict` / `semanticSearch`), can be toggled off in the **Features** tab, and can point at its own model override. All prompts live in `src/core/ai/prompts.ts` (English by default; response language appended via `resolvePrompt`).
+Помимо сообщений коммитов, те же настройки провайдера / приватности питают ещё пять помощников. Каждый — отдельный `AiFeatureId` (`explainCommit` / `stashName` / `explainReflog` / `analyzeConflict` / `semanticSearch`), отключается в табе **Возможности** и может иметь собственный model override. Все промпты лежат в `src/core/ai/prompts.ts` (по умолчанию английские; язык ответа дописывается через `resolvePrompt`).
 
-- **Commit Explainer** — **Explain** button in the Commit Details panel. The model returns a fixed three-section summary (`What changed` / `Why` / `Watch out for`), high-level, not a line-by-line walkthrough. Useful for reviewing PRs, old releases and merge commits.
-- **Smart Stash Naming** — **Suggest** button next to the name field in the stash dialog; proposes a 3-7 word lowercase name from the uncommitted diff. The field stays editable; Suggest only seeds it. Re-click to regenerate.
-- **Reflog Explainer** — **Explain reflog** button in the Reflog dialog. Turns raw reflog lines into a plain `Timeline` / `Lost commits` / `Recovery` story, grouping low-level actions and flagging strandable commits with the exact recovery command.
-- **Conflict Helper** — **Explain conflict** button in the merge editor toolbar. Explains the selected hunk in four sections (`Ours` / `Theirs` / `Risk` / `What to check`) — it does **not** auto-resolve; the choice stays with the user.
-- **Semantic Search (MVP)** — the commit-graph search (Ctrl+F) understands an `ai:` prefix. The query + a recent slice of history (subject + body) is sent to the model, which reranks commits by meaning (`SEMANTIC_SEARCH_SYSTEM_PROMPT`). No embeddings yet — only the most recent N commits are considered; full-history indexed search is on the roadmap.
+- **Объяснение коммита** — кнопка **Explain** в панели Commit Details. Модель возвращает фиксированную сводку из трёх секций (`What changed` / `Why` / `Watch out for`), на высоком уровне, без построчного разбора. Удобно при ревью PR, старых релизов и merge-коммитов.
+- **Умное имя stash** — кнопка **Suggest** рядом с полем имени в диалоге stash; предлагает имя из 3-7 слов в нижнем регистре по незакоммиченному diff. Поле остаётся редактируемым; Suggest только подставляет вариант. Повторный клик — перегенерация.
+- **Объяснение reflog** — кнопка **Explain reflog** в диалоге Reflog. Превращает сырые строки reflog в понятную историю `Timeline` / `Lost commits` / `Recovery`, группируя низкоуровневые действия и помечая «потерянные» коммиты точной командой восстановления.
+- **Помощник по конфликтам** — кнопка **Explain conflict** в тулбаре редактора слияния. Объясняет выбранный hunk в четырёх секциях (`Ours` / `Theirs` / `Risk` / `What to check`) — он **не** разрешает конфликт сам; выбор остаётся за пользователем.
+- **Семантический поиск (MVP)** — поиск по графу коммитов (Ctrl+F) понимает префикс `ai:`. Запрос + свежий срез истории (subject + body) отправляются модели, которая переранжирует коммиты по смыслу (`SEMANTIC_SEARCH_SYSTEM_PROMPT`). Embeddings пока нет — учитываются только последние N коммитов; индексируемый поиск по всей истории — в планах.
 
-Common behavior: streaming where it makes sense, a second click on the active button cancels the inflight request, provider errors surface inline without blocking the UI, and the **Debug** tab always shows the exact request/response. Foreign providers (OpenAI / Anthropic / Groq) stay blocked unless the Privacy switch is on.
+Общее поведение: streaming там, где это уместно; повторный клик по активной кнопке отменяет inflight-запрос; ошибки провайдера показываются inline и не блокируют UI; таб **Диагностика** всегда показывает точный запрос/ответ. Зарубежные провайдеры (OpenAI / Anthropic / Groq) остаются заблокированы, пока не включён переключатель приватности.
 
-### Interactive Rebase
+## Интерактивный rebase
 
-- Rebase editor with pick/reword/edit/squash/fixup/drop actions
-- Rebase progress banner with step counter and Continue/Skip/Abort buttons
-- Accessible from commit context menu
-- Empty / loading states render the full editor frame with a Cancel button — the modal is always closeable
+- Редактор rebase с действиями pick/reword/edit/squash/fixup/drop
+- Баннер прогресса rebase с номером шага и кнопками Continue/Skip/Abort
+- Доступ из контекстного меню коммита
+- В состояниях «загрузка» и «нет коммитов» модалка рендерится с полным фреймом и кнопкой Отмена — её всегда можно закрыть
 
-### Cherry-pick / Revert on Merge Commits
+## Cherry-pick / Revert на merge-коммитах
 
-- For non-merge commits the context menu runs `git cherry-pick <hash>` / `git revert --no-edit <hash>` as usual
-- For merge commits (`commit.parents.length > 1`) the menu auto-passes `-m 1` (mainline = first parent) — no more `commit is a merge but no -m option was given` failure
+- Для обычных коммитов меню запускает `git cherry-pick <hash>` / `git revert --no-edit <hash>` как раньше
+- Для merge-коммитов (`commit.parents.length > 1`) меню автоматически передаёт `-m 1` (mainline = первый родитель) — больше нет ошибки `commit is a merge but no -m option was given`
 - IPC payload: `{ type: 'cherryPick' | 'revert', hash, mainline?: 1 }`
 
-### Toolbar
+## Панель инструментов
 
-- Quick actions: Fetch, Pull, Push, Stash, Stash Pop
-- **Stash dialog** — name field with `allowEmpty`; empty value runs `git stash` without `-m`
-- Disabled during running operations on the active repo only (other tabs stay interactive)
+- Быстрые действия: Fetch, Pull, Push, Stash, Stash Pop
+- **Stash-диалог** — поле имени с `allowEmpty`; пустое значение = `git stash` без `-m`
+- Отключаются на время операций ТОЛЬКО на активном репо (другие вкладки остаются интерактивными)
 
-### Custom Menu Bar
+## Кастомное меню
 
-- HTML/CSS menu in the renderer (native Electron menu fully removed)
-- Menus: File, Edit, View, Repository, Branch, Help
-- Edit menu: Undo, Redo, Cut, Copy, Paste
-- Keyboard shortcuts via `useKeyboardShortcuts` hook (Ctrl+O, Ctrl+Shift+F, F5, etc.)
-- Smooth hover behavior across all platforms
+- HTML/CSS меню в рендерере (нативное меню Electron полностью удалено)
+- Разделы: Файл, Правка, Вид, Репозиторий, Ветка, Справка
+- Правка: Отменить, Повторить, Вырезать, Копировать, Вставить
+- Клавиатурные шорткаты через хук `useKeyboardShortcuts` (Ctrl+O, Ctrl+Shift+F, F5 и т.д.)
+- Стабильное поведение при наведении на всех платформах
 
-### SSH Keys Manager
+## Менеджер SSH-ключей
 
-- View all SSH keys from `~/.ssh/`
-- Generate new keys (Ed25519 or RSA) with passphrase
-- Copy public key to clipboard
-- Delete keys
-- Accessible via File → Configure SSH Keys...
+- Просмотр всех SSH-ключей из `~/.ssh/`
+- Генерация новых ключей (Ed25519 или RSA) с паролем
+- Копирование публичного ключа в буфер обмена
+- Удаление ключей
+- Доступ: Файл → Настройка SSH-ключей...
 
-### Repository Settings
+## Настройки репозитория
 
-- View/edit `user.name` and `user.email` for current repository
-- Toggle between global and local git credentials
-- Accessible via Repository → Repository Settings...
+- Просмотр/редактирование `user.name` и `user.email` для текущего репозитория
+- Переключение между глобальными и локальными git-данными
+- Доступ: Репозиторий → Настройки репозитория...
 
-### Confirmation Dialogs
+## Подтверждения опасных действий
 
-- Destructive actions require confirmation: delete branch, delete tag, drop stash, remove remote, hard reset, discard changes, abort merge
+- Удаление ветки, тега, stash, remote, hard reset, откат изменений, abort merge — требуют подтверждения
 
-### Toast Notifications
+## Уведомления (Toast)
 
-- Success/error notifications for Git operations (fetch, pull, push, commit, etc.)
-- Dark text on colored backgrounds for both themes
+- Успех/ошибка для Git-операций (fetch, pull, push, commit и т.д.)
+- Тёмный текст на цветном фоне для обеих тем
 
-### Git Activity Log
+## Журнал git-активности
 
-- Per-repo journal of git invocations (start / append / finish)
-- Shows raw `git ...` commands, stdout/stderr, exit code, duration
-- `gitActivityStore` keeps the last 100 entries; stdout/stderr truncated to 16 KiB with a `[truncated...]` marker
-- `activityContext.ts` (`AsyncLocalStorage`) attributes every `GitExecutor.exec` call to its operation without manual id propagation
-- Indicator in the title bar shows how many ops are running on the active repo
+- Per-repo лог git-вызовов (start / append / finish)
+- Показывает сырые `git ...` команды, stdout/stderr, exit-код, длительность
+- `gitActivityStore` хранит последние 100 записей; stdout/stderr обрезаются до 16 KiB с маркером `[truncated...]`
+- `activityContext.ts` (`AsyncLocalStorage`) привязывает каждый `GitExecutor.exec` к своей операции без ручной передачи id
+- Индикатор в title bar показывает количество текущих операций на активном репо
 
-### Repository Statistics
+## Статистика репозитория
 
-- Contributors with commit counts and lines added/removed per author
-- Activity heatmap per contributor
-- Per-author stats are cached on disk (`AuthorStatsCache`) — second open is instant
-- Accessible via Repository → Statistics
+- Контрибьюторы со счётчиками коммитов и lines added/removed по автору
+- Heatmap активности по контрибьютору
+- Per-author статистика кэшируется на диске (`AuthorStatsCache`) — повторное открытие мгновенно
+- Доступ: Репозиторий → Статистика
 
-### Reflog Viewer
+## Reflog
 
-- Full `git reflog` history with action badges (checkout, commit, merge, etc.)
-- Copy commit SHA to clipboard
-- Restore (hard reset) to any reflog entry with confirmation
-- Accessible via Repository → Reflog...
+- Полная история `git reflog` с цветными бейджами действий (checkout, commit, merge и т.д.)
+- Копирование SHA в буфер обмена
+- Восстановление (hard reset) до любой записи с подтверждением
+- Доступ: Репозиторий → Reflog...
 
-### Git Bisect
+## Git Bisect
 
-- Start bisect with bad/good commit hashes
-- Interactive session: Mark Good, Mark Bad, Skip
-- Shows current commit hash, estimated steps remaining
-- Real-time git output log
-- Abort bisect at any time
-- Accessible via Repository → Bisect...
+- Запуск bisect с указанием плохого/хорошего коммита
+- Интерактивная сессия: Хороший, Плохой, Пропустить
+- Показывает текущий коммит, оценку оставшихся шагов
+- Лог вывода git в реальном времени
+- Отмена bisect в любой момент
+- Доступ: Репозиторий → Bisect...
 
-### Git Hooks Manager
+## Git Hooks
 
-- Lists all hooks in `.git/hooks/` (excluding `.sample` files)
-- Enable/disable hooks via toggle (renames with `.disabled` suffix)
-- Expand to view hook contents
-- Accessible via Repository → Git Hooks...
+- Список всех хуков в `.git/hooks/` (без `.sample`)
+- Вкл/выкл хуков через toggle (переименование с `.disabled`)
+- Раскрытие для просмотра содержимого
+- Доступ: Репозиторий → Git Hooks...
 
-### Signed Commits (GPG/SSH)
+## Подписанные коммиты (GPG/SSH)
 
-- Shows ✓ Signed badge on verified commits in the graph
-- Supports: Good (G), Bad (B), Untrusted (U), Expired (X), Revoked (R)
-- Color-coded: green (verified), orange (untrusted/expired), red (bad/revoked)
+- Бейдж ✓ Signed на проверенных коммитах в графе
+- Поддержка: Good (G), Bad (B), Untrusted (U), Expired (X), Revoked (R)
+- Цветовая кодировка: зелёный (верифицирован), оранжевый (ненадёжный), красный (плохой)
 
-### Git Worktrees
+## Рабочие деревья (Worktrees)
 
-- List all worktrees with branch, path, and SHA
-- Add new worktree (existing or new branch)
-- Remove worktree with confirmation
-- Main worktree marked with badge
-- Accessible via Repository → Worktrees...
+- Список всех worktree с веткой, путём и SHA
+- Добавление нового worktree (существующая или новая ветка)
+- Удаление worktree с подтверждением
+- Основное worktree отмечено бейджем
+- Доступ: Репозиторий → Рабочие деревья...
 
-### Git LFS
+## Git LFS
 
-- Shows LFS installation status
-- Lists tracked patterns from `.gitattributes`
-- Add/remove tracking patterns
-- Lists all LFS-managed files with OID
-- Accessible via Repository → Git LFS...
+- Показ статуса установки LFS
+- Список отслеживаемых паттернов из `.gitattributes`
+- Добавление/удаление паттернов отслеживания
+- Список всех LFS-файлов с OID
+- Доступ: Репозиторий → Git LFS...
 
-### .gitignore Editor
+## Редактор .gitignore
 
-- Create or edit `.gitignore` from the UI
-- Predefined templates: Node.js, Python, Java, C/C++, Rust, Go, IDE, OS
-- Click templates to add/remove patterns
-- Manual editing in built-in textarea
-- Warning if existing `.gitignore` will be overwritten
-- Accessible via Repository → .gitignore...
+- Создание или редактирование `.gitignore` из интерфейса
+- Готовые шаблоны: Node.js, Python, Java, C/C++, Rust, Go, IDE, OS
+- Клик по шаблону добавляет/убирает паттерны
+- Ручное редактирование в текстовом поле
+- Предупреждение при перезаписи существующего файла
+- Доступ: Репозиторий → .gitignore...
 
-### Compare Two Commits
+## Сравнение двух коммитов
 
-- Right-click a commit → "Compare From Here"
-- Right-click another commit → "Compare with 'abc1234'" to see file changes between them
+- ПКМ по коммиту → «Сравнить отсюда»
+- ПКМ по другому коммиту → «Сравнить с abc1234» — список изменённых файлов между ними
 
-### Arrow Key Navigation
+## Навигация стрелками
 
-- Use ↑/↓ arrows to navigate between commits in the graph
-- Auto-scrolls to keep the selected commit visible
+- ↑/↓ для перемещения между коммитами в графе
+- Автоматическая прокрутка к выбранному коммиту
 
-### Shell Integration
+## Интеграция с системой
 
-- Open in File Explorer (Ctrl+Alt+O)
-- Open in Terminal (Ctrl+Alt+T)
-- Refresh (F5)
+- Открыть в проводнике (Ctrl+Alt+O)
+- Открыть в терминале (Ctrl+Alt+T)
+- Обновить (F5)
 
-### Error Boundary
+## Защита от ошибок
 
-- React ErrorBoundary catches unhandled UI errors
-- Shows "Something went wrong" with a Reload button instead of a blank screen
+- React ErrorBoundary ловит необработанные ошибки UI
+- Показывает "Что-то пошло не так" с кнопкой перезагрузки вместо пустого экрана
 
-### i18n
+## i18n
 
-- English and Russian UI
-- Language toggle in title bar
+- Интерфейс на English и Russian
+- Переключатель языка в title bar
 
-### Themes
+## Темы
 
-- Dark and Light mode
-- Theme toggle in title bar
-- CSS variables (`--sg-*`) for consistent theming
+- Тёмная и светлая тема
+- Переключатель темы в title bar
+- CSS variables (`--sg-*`) для единообразной темизации
 
-### Windows long-path auto-suggest
+## Авто-подсказка core.longpaths на Windows
 
-- On Windows, when git fails with `Filename too long`, a single dialog offers to enable `git config --global core.longpaths true` (per-session single-shot, "Enable / Not now / Learn more")
-- `LongPathSuggester` hooks `GitExecutor.setStderrInspector` and skips when the option is already enabled globally
-- Bypassed entirely on macOS / Linux
+- На Windows при ошибке git `Filename too long` показывается single-shot диалог: «Включить / Не сейчас / Подробнее»
+- На «Включить» — `git config --global core.longpaths true` без перезапуска; pre-check пропускает диалог если опция уже выставлена глобально
+- `LongPathSuggester` подключён через `GitExecutor.setStderrInspector` и no-op на macOS / Linux
 
-### Distribution
+## Дистрибуция
 
-- Electron-builder config for Windows (NSIS + portable), macOS (DMG), Linux (AppImage + deb + rpm)
-- Build: `npm run dist:win`, `npm run dist:mac`, `npm run dist:linux`
+- Конфигурация electron-builder для Windows (NSIS + portable), macOS (DMG), Linux (AppImage + deb + rpm)
+- Сборка: `npm run dist:win`, `npm run dist:mac`, `npm run dist:linux`

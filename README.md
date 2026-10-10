@@ -1,20 +1,20 @@
 # GitBor
 
-> Русская версия: [docs/ru/](docs/ru/)
+> English version: [docs/en/README.md](docs/en/README.md)
 
-Free cross-platform desktop Git client built on Electron. A Fork/GitKraken/SourceTree alternative. Source is MIT-licensed but the repository is not publicly hosted.
+Бесплатный кроссплатформенный десктопный Git-клиент на Electron. Альтернатива Fork/GitKraken/SourceTree. Исходники открыты под лицензией MIT.
 
-Part of the Sky Platform ecosystem.
+Часть экосистемы Sky Platform.
 
-## Screenshot
+## Внешний вид
 
-Visual overview: commit graph, branch sidebar (Russian UI), and diff viewer.
+Скриншот интерфейса: граф коммитов, боковая панель (ветки), панель деталей коммита и просмотр diff (локализация на русском).
 
-![GitBor — main window](docs/images/gitbor-screenshot.png)
+![GitBor — внешний вид](docs/images/gitbor-screenshot.png)
 
 ---
 
-## Quick Start
+## Быстрый старт
 
 ```bash
 cd gitbor
@@ -22,26 +22,27 @@ npm install
 npm run dev
 ```
 
-`npm run dev` starts Vite (renderer on port 5188) and Electron (main process) via `concurrently`.
+`npm run dev` запускает Vite (renderer на порту 5188) и Electron (main process) через `concurrently`.
 
-### Build
-
-```bash
-npm run build        # Build renderer + main
-npm start            # Run the built app
-```
-
-### Tests & Lint
+### Сборка
 
 ```bash
-npm test             # Run all tests (Vitest)
-npx vitest           # Watch mode
-npm run lint         # ESLint check
-npm run lint:fix     # ESLint auto-fix
-npm run format       # Prettier format
+npm run build        # Сборка renderer + main
+npm start            # Запуск собранного приложения
 ```
 
-### Distribution
+### Тесты и линтинг
+
+```bash
+npm test             # Запуск всех тестов (Vitest)
+npm run test:coverage # Тесты с покрытием
+npx vitest           # Watch-режим
+npm run lint         # ESLint проверка
+npm run lint:fix     # ESLint с автофиксом
+npm run format       # Prettier форматирование
+```
+
+### Дистрибуция
 
 ```bash
 npm run dist:win     # Windows (NSIS + portable)
@@ -51,41 +52,43 @@ npm run dist:linux   # Linux (AppImage + deb + rpm)
 
 ---
 
-## Stack
+## Стек
 
-| Component | Technology |
+| Компонент | Технология |
 |-----------|-----------|
 | Desktop runtime | Electron 40 |
 | UI | React 18, TypeScript 5.9, Vite 6 |
-| Styles | CSS Modules, `--sg-*` custom properties |
-| File watcher | chokidar 4 |
-| Tests | Vitest 4.1 (unit, <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> files / <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> tests), Playwright 1.59 (E2E, Windows) |
+| Стили | CSS Modules, CSS-переменные `--sg-*` |
+| Файловый наблюдатель | chokidar 4 |
+| Тесты | Vitest 4.1 (unit, <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлов / <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> тестов), Playwright 1.59 (E2E, Windows) |
 | DX | husky 9 + lint-staged 17 (pre-commit) + `npm test` (pre-push), `npm run analyze` (rollup-plugin-visualizer) |
-| Git | System git via `PATH` (`execFile('git', …)` in `GitExecutor`) |
+| Линтинг | ESLint 10 (flat config) + Prettier |
+| CI | GitHub Actions: `ci.yml` (push, 3 ОС, Node 20) + `pr.yml` (PR, Windows, Node 22, +e2e) |
+| Git | Системный git из `PATH` (`execFile('git', …)` в `GitExecutor`) |
 
 ---
 
-## Architecture
+## Архитектура
 
-4 layers, dependencies flow downward only:
+4 слоя, зависимости идут только вниз:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
 │  Renderer Process (React)                                │
-│  UI: Menu, Sidebar, Graph, Changes, Diff, Merge, SSH    │
+│  UI: Меню, Sidebar, Graph, Changes, Diff, Merge, SSH    │
 ├──────────────────────────────────────────────────────────┤
 │  Preload Script                                          │
-│  contextBridge (secure IPC bridge)                       │
+│  contextBridge (безопасный мост IPC)                     │
 ├──────────────────────────────────────────────────────────┤
 │  Main Process (Node.js)                                  │
 │  Application + Safety + Git Layer + SSH Key Manager      │
 ├──────────────────────────────────────────────────────────┤
 │  System Git                                              │
-│  resolved from PATH (execFile('git', …))                 │
+│  берётся из PATH (execFile('git', …))                    │
 └──────────────────────────────────────────────────────────┘
 ```
 
-### Data Flow
+### Поток данных
 
 ```
 App.tsx → api.invoke() → preload (ipcRenderer) → MessageBridge (ipcMain)
@@ -94,181 +97,185 @@ App.tsx → api.invoke() → preload (ipcRenderer) → MessageBridge (ipcMain)
 
 ---
 
-## Project Structure
+## Структура проекта
 
 ```
 gitbor/
 ├── src/
-│   ├── core/                      # Backend (Main Process)
-│   │   ├── bridge/                # IPC bridge
-│   │   │   ├── MessageBridge.ts   # Thin (~150 lines) router: cmd → handler from ipc/
-│   │   │   ├── messages.ts        # RendererCommand / MainEvent contracts
-│   │   │   └── ipc/               # Handler submodules
+│   ├── core/                      # Бэкенд (Main Process)
+│   │   ├── bridge/                # IPC-мост
+│   │   │   ├── MessageBridge.ts   # Тонкий (~150 строк) роутер: cmd → handler из ipc/
+│   │   │   ├── messages.ts        # Контракты RendererCommand / MainEvent
+│   │   │   └── ipc/               # Подмодули хендлеров
 │   │   │       ├── helpers.ts            # op / opWithPostMerge / runTracked / errOnFail
 │   │   │       ├── handlersState.ts      # lifecycle, diff, blame, history
 │   │   │       ├── handlersGitOps.ts     # push, pull, fetch, commit, stage, merge, rebase
 │   │   │       ├── handlersRepoExtras.ts # LFS, worktrees, hooks, stats, bisect, settings, SSH
-│   │   │       └── handlersAi.ts         # AI provider config, generateCommitMessage
-│   │   ├── commands/              # Command orchestration
-│   │   │   ├── CommandHandler.ts  # Main command dispatcher (per-call services lookup)
-│   │   │   ├── ConflictManager.ts # Merge conflicts
-│   │   │   ├── readCommands.ts    # Read operations (log, status, branches)
-│   │   │   └── writeCommands.ts   # Write operations (commit, push, merge)
-│   │   ├── git/                   # Git layer
-│   │   │   ├── GitExecutor.ts     # Run git processes (cwd fixed at construction)
-│   │   │   ├── GitParser.ts       # Parse git output (large stdout offloaded to WorkerPool)
-│   │   │   ├── GitConfig.ts       # Read/write git config (user.name, user.email)
-│   │   │   ├── GraphLayout.ts     # Commit graph layout (worker thread when commits > 2000)
-│   │   │   ├── DiffParser.ts      # Parse unified diff
-│   │   │   ├── ConflictParser.ts  # Parse conflict markers
-│   │   │   ├── BlameParser.ts     # Parse git blame
-│   │   │   ├── FileHistoryParser.ts # File history
-│   │   │   ├── RebaseManager.ts   # Rebase operations
-│   │   │   ├── SubmoduleParser.ts # Parse submodules
-│   │   │   ├── ReflogParser.ts    # Parse git reflog
+│   │   │       └── handlersAi.ts         # Конфиг AI-провайдера, generateCommitMessage
+│   │   ├── commands/              # Оркестратор команд
+│   │   │   ├── CommandHandler.ts  # Главный диспетчер (per-call lookup сервисов)
+│   │   │   ├── ConflictManager.ts # Merge-конфликты
+│   │   │   ├── readCommands.ts    # Команды чтения (log, status, branches)
+│   │   │   └── writeCommands.ts   # Команды записи (commit, push, merge)
+│   │   ├── git/                   # Git-слой
+│   │   │   ├── GitExecutor.ts     # Запуск git-процессов (cwd фиксируется в конструкторе)
+│   │   │   ├── GitParser.ts       # Парсинг вывода git (большие stdout — в WorkerPool)
+│   │   │   ├── GitConfig.ts       # Чтение/запись git config (user.name, user.email)
+│   │   │   ├── GraphLayout.ts     # Раскладка графа (worker thread при commits > 2000)
+│   │   │   ├── DiffParser.ts      # Парсинг unified diff
+│   │   │   ├── ConflictParser.ts  # Парсинг конфликт-маркеров
+│   │   │   ├── BlameParser.ts     # Парсинг git blame
+│   │   │   ├── FileHistoryParser.ts # История файла
+│   │   │   ├── RebaseManager.ts   # Rebase-операции
+│   │   │   ├── SubmoduleParser.ts # Парсинг submodules
+│   │   │   ├── ReflogParser.ts    # Парсинг git reflog
 │   │   │   ├── BisectManager.ts   # Git bisect: start/good/bad/skip/reset
 │   │   │   ├── HooksManager.ts    # Git hooks: list, toggle
 │   │   │   ├── WorktreeManager.ts # Git worktrees: list, add, remove
 │   │   │   ├── LfsManager.ts      # Git LFS: status, track, untrack
-│   │   │   └── types/             # Types: Commit, Branch, Tag, GraphNode, etc.
-│   │   ├── ai/                    # AI module (commit message generation)
-│   │   │   ├── AiService.ts       # Facade: ensureProvider + generateCommitMessage
-│   │   │   ├── AiHandlers.ts      # Per-requestId AbortController, mask secrets
-│   │   │   ├── AiConfigStore.ts   # Persistent config in {userData}/ai-config.json
+│   │   │   └── types/             # Типы: Commit, Branch, Tag, GraphNode и др.
+│   │   ├── ai/                    # AI-модуль (генерация commit message)
+│   │   │   ├── AiService.ts       # Фасад: ensureProvider + generateCommitMessage
+│   │   │   ├── AiHandlers.ts      # Per-requestId AbortController, маскирование секретов
+│   │   │   ├── AiConfigStore.ts   # Хранилище в {userData}/ai-config.json (atomic write)
 │   │   │   ├── prompts.ts         # buildCommitSystemPrompt (auto/en/ru), MAX_DIFF_CHARS
-│   │   │   ├── qwenWebModels.ts   # Whitelist of qwen3-* model ids
+│   │   │   ├── qwenWebModels.ts   # Whitelist id моделей qwen3-*
 │   │   │   ├── types.ts           # AiProviderConfig, AiCompletionResult, AiError
 │   │   │   └── providers/
-│   │   │       ├── base.ts                 # AiProvider interface
+│   │   │       ├── base.ts                 # Интерфейс AiProvider
 │   │   │       ├── OpenAiCompatibleProvider.ts # /v1/chat/completions + SSE
-│   │   │       └── QwenWebProvider.ts          # chat.qwen.ai via session token
-│   │   ├── ssh/                   # SSH key management
-│   │   │   └── SshKeyManager.ts   # List, generate, delete SSH keys
-│   │   ├── safety/                # Data protection layer
-│   │   │   ├── OperationQueue.ts  # Per-repo: reads parallel, writes serial
-│   │   │   ├── OperationJournal.ts # WAL operation journal
+│   │   │       └── QwenWebProvider.ts          # chat.qwen.ai через сессионный токен
+│   │   ├── ssh/                   # Управление SSH-ключами
+│   │   │   └── SshKeyManager.ts   # Список, генерация, удаление SSH-ключей
+│   │   ├── safety/                # Защита данных
+│   │   │   ├── OperationQueue.ts  # Per-repo: read параллельно, write последовательно
+│   │   │   ├── OperationJournal.ts # WAL-журнал операций
 │   │   │   ├── SafetyNet.ts       # Auto-stash + rollback
-│   │   │   ├── AtomicWrite.ts     # Atomic writes (tmp+rename+fsync, Windows retry via Atomics.wait)
-│   │   │   └── RecoveryManager.ts # Startup checks (locks, journal, rebase)
+│   │   │   ├── AtomicWrite.ts     # Атомарная запись (tmp+rename+fsync, retry на Windows через Atomics.wait)
+│   │   │   └── RecoveryManager.ts # Проверки при старте (lock, journal, rebase)
 │   │   ├── services/
 │   │   │   └── RepoServicesRegistry.ts # Map<repoPath, {git, queue, safety}> + bootstrap
 │   │   ├── state/
-│   │   │   ├── StateManager.ts        # Facade over the 3 layers below
+│   │   │   ├── StateManager.ts        # Фасад над тремя слоями ниже
 │   │   │   ├── RepoSlicesStore.ts     # slicesByRepo Map + meta + mirror
-│   │   │   ├── RepoStateRefresher.ts  # All async refresh* + cold phase
-│   │   │   ├── RepoEventBus.ts        # state / switch / close subscription channels
-│   │   │   ├── repoSlice.ts           # RepoSlice type, GIT_*_FORMAT, hashGitStdout
-│   │   │   ├── FileWatcher.ts         # Per-repo chokidar (debounce: .git 50ms, worktree 200ms)
-│   │   │   ├── GraphCache.ts          # Cached graph layouts per repo
-│   │   │   └── AuthorStatsCache.ts    # Cached per-author code stats
+│   │   │   ├── RepoStateRefresher.ts  # Все async refresh* + cold phase
+│   │   │   ├── RepoEventBus.ts        # Каналы подписок: state / switch / close
+│   │   │   ├── repoSlice.ts           # RepoSlice, GIT_*_FORMAT, hashGitStdout
+│   │   │   ├── FileWatcher.ts         # Per-repo chokidar (debounce: .git 50мс, worktree 200мс)
+│   │   │   ├── GraphCache.ts          # Кэш раскладки графа на репо
+│   │   │   └── AuthorStatsCache.ts    # Кэш статистики кода по авторам
 │   │   ├── workers/
-│   │   │   ├── WorkerPool.ts      # 2 workers, round-robin, auto-respawn
+│   │   │   ├── WorkerPool.ts      # 2 worker'а, round-robin, авто-respawn
 │   │   │   └── parserWorker.ts    # parseStatus / parseCommits / computeGraphLayout
 │   │   ├── activity/
-│   │   │   ├── gitActivityStore.ts # Journal of git operations (per-repo, cap 100)
-│   │   │   └── activityContext.ts  # AsyncLocalStorage to attribute exec → operation
+│   │   │   ├── gitActivityStore.ts # Журнал git-операций (per-repo, кэп 100)
+│   │   │   └── activityContext.ts  # AsyncLocalStorage для привязки exec → operation
 │   │   └── utils/
-│   │       ├── Logger.ts          # Singleton mainLogger (silent in prod, debug in dev)
-│   │       ├── AppError.ts        # Structured error: code + data for renderer-side i18n
+│   │       ├── Logger.ts          # Singleton mainLogger (silent в prod, debug в dev)
+│   │       ├── AppError.ts        # Структурированная ошибка: code + data для i18n в renderer
 │   │       ├── pathSecurity.ts    # safePath (traversal + symlink), isSafeFilename
 │   │       └── repoPathGuard.ts   # isDangerousRepoRoot (home, drive root, Windows...)
 │   │
-│   ├── main/                      # Electron entry point
-│   │   └── main.ts                # Window creation, service init, no native menu
+│   ├── main/                      # Точка входа Electron
+│   │   └── main.ts                # Создание окна, инициализация сервисов, без нативного меню
 │   │
 │   ├── preload/
 │   │   └── index.ts               # contextBridge.exposeInMainWorld('gitBorAPI')
 │   │
-│   └── renderer/                  # Frontend (React)
+│   └── renderer/                  # Фронтенд (React)
 │       ├── src/
-│       │   ├── App.tsx            # Root component (composition only)
-│       │   ├── AppDialogs.tsx     # All modal dialogs in one place
-│       │   ├── api.ts             # gitBorAPI wrapper (invoke, onEvent)
-│       │   ├── features/          # Feature modules
-│       │   │   ├── graph/         # Commit graph (virtualized)
-│       │   │   ├── sidebar/       # Sidebar (branches, tags, stash, remotes)
-│       │   │   ├── changes/       # Changed files (tree + fileTreeModel.ts), CommitBar
-│       │   │   ├── diff/          # Diff viewer (inline + split, ignore whitespace)
-│       │   │   ├── merge/         # Merge conflict resolution (ConflictPanel, MergeEditor)
-│       │   │   ├── toolbar/       # Toolbar actions
+│       │   ├── App.tsx            # Корневой компонент (композиция)
+│       │   ├── AppDialogs.tsx     # Все модальные диалоги в одном месте
+│       │   ├── api.ts             # Обёртка над gitBorAPI (invoke, onEvent)
+│       │   ├── features/          # Функциональные модули
+│       │   │   ├── graph/         # Граф коммитов (виртуализированный)
+│       │   │   ├── sidebar/       # Боковая панель (ветки, теги, stash, remotes)
+│       │   │   ├── changes/       # Изменённые файлы (tree + fileTreeModel.ts), CommitBar
+│       │   │   ├── diff/          # Просмотр diff (inline + split, ignore whitespace)
+│       │   │   ├── merge/         # Разрешение конфликтов (ConflictPanel, MergeEditor)
+│       │   │   ├── toolbar/       # Панель инструментов
 │       │   │   ├── blame/         # Git blame
-│       │   │   ├── file-history/  # File history
-│       │   │   ├── rebase/        # Interactive rebase editor
-│       │   │   ├── repo-manager/  # Repository management
-│       │   │   ├── repo-tabs/     # Multi-repo tabs (+ tab opens RepoManager)
-│       │   │   ├── titlebar/      # Custom menu bar (replaces native Electron menu)
+│       │   │   ├── file-history/  # История файла
+│       │   │   ├── rebase/        # Интерактивный rebase-редактор
+│       │   │   ├── repo-manager/  # Управление репозиториями
+│       │   │   ├── repo-tabs/     # Табы репозиториев (вкладка «+» открывает RepoManager)
+│       │   │   ├── titlebar/      # Кастомное меню (замена нативного меню Electron)
 │       │   │   ├── layout/        # CommitsView, ChangesView, RightPanelContent
-│       │   │   ├── ssh/           # SSH Keys Manager dialog
-│       │   │   ├── settings/      # Repository Settings dialog
+│       │   │   ├── ssh/           # Менеджер SSH-ключей
+│       │   │   ├── settings/      # Настройки репозитория
 │       │   │   ├── ai/            # AI: AiSettingsDialog, AiGenerateButton, presets, useAiConfig
-│       │   │   ├── reflog/        # Git Reflog viewer
-│       │   │   ├── bisect/        # Git Bisect UI
-│       │   │   ├── hooks/         # Git Hooks manager
-│       │   │   ├── worktrees/     # Git Worktrees manager
-│       │   │   ├── lfs/           # Git LFS manager
-│       │   │   └── gitignore/     # .gitignore editor
-│       │   ├── ui/                # UI kit (SgButton, SgDialog, SgToast, SgPromptDialog, MenuBar...)
-│       │   ├── hooks/             # React hooks
-│       │   │   ├── useAppState.ts          # Facade over the 3 hooks below
+│       │   │   ├── reflog/        # Git Reflog
+│       │   │   ├── bisect/        # Git Bisect
+│       │   │   ├── hooks/         # Git Hooks
+│       │   │   ├── worktrees/     # Git Worktrees
+│       │   │   ├── lfs/           # Git LFS
+│       │   │   └── gitignore/     # Редактор .gitignore
+│       │   ├── ui/                # UI-kit (SgButton, SgDialog, SgToast, SgPromptDialog, MenuBar...)
+│       │   ├── hooks/             # React-хуки
+│       │   │   ├── useAppState.ts          # Фасад над тремя хуками ниже
 │       │   │   ├── useRepoSlices.ts        # slices Map + meta
 │       │   │   ├── useRunningOps.ts        # Per-repo running ops + lastOpResult
-│       │   │   ├── useStateSubscription.ts # Single onMainEvent listener + dispatcher
-│       │   │   ├── useMenuActions.ts       # Menu/keyboard action dispatcher
-│       │   │   ├── useKeyboardShortcuts.ts # Maps shortcuts to menu actions
-│       │   │   ├── useOperationToasts.ts   # Toast on op result
-│       │   │   ├── useDiffState.ts         # Current diff target
-│       │   │   ├── useTheme.ts             # Dark/light + localStorage
-│       │   │   ├── useToasts.ts            # Toast queue
-│       │   │   ├── useContextMenu.ts       # Context menu state
-│       │   │   ├── useDialogs.ts           # Centralized dialog visibility
-│       │   │   └── useAutoFetch.ts         # Background fetch
-│       │   ├── i18n/              # UI localization (ru, en)
-│       │   ├── styles/            # Global styles, CSS variables, themes
-│       │   ├── types/             # TypeScript types for renderer
+│       │   │   ├── useStateSubscription.ts # Единый onMainEvent + dispatcher
+│       │   │   ├── useMenuActions.ts       # Диспетчер действий меню/клавиатуры
+│       │   │   ├── useKeyboardShortcuts.ts # Привязка шорткатов к меню-действиям
+│       │   │   ├── useOperationToasts.ts   # Тост по результату операции
+│       │   │   ├── useDiffState.ts         # Текущая цель diff
+│       │   │   ├── useTheme.ts             # Тёмная/светлая + localStorage
+│       │   │   ├── useToasts.ts            # Очередь тостов
+│       │   │   ├── useContextMenu.ts       # Состояние контекстного меню
+│       │   │   ├── useDialogs.ts           # Централизованная видимость диалогов
+│       │   │   └── useAutoFetch.ts         # Фоновый fetch
+│       │   ├── i18n/              # Локализация UI (ru, en)
+│       │   ├── styles/            # Глобальные стили, CSS-переменные, темы
+│       │   ├── types/             # TypeScript-типы для renderer
 │       │   └── pages/
-│       │       └── showcase/      # UI Showcase (component demos)
+│       │       └── showcase/      # UI Showcase (демо компонентов)
 │       ├── package.json
 │       └── vite.config.ts
 │
-├── tests/                         # Unit tests (Vitest, <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> files)
-│   ├── git/                       # Parsers, managers
-│   ├── commands/                  # writeCommands (incl. batch discardFiles), readCommands, ConflictManager
-│   ├── state/                     # StateManager (multi-repo), repoSlice
-│   ├── services/                  # RepoServicesRegistry (lifecycle, isolation)
+├── tests/                         # Юнит-тесты (Vitest, <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлах)
+│   ├── git/                       # Парсеры и менеджеры (GitExecutor, RebaseManager, ...)
+│   ├── commands/                  # writeCommands (вкл. batch discardFiles), readCommands, ConflictManager
+│   ├── state/                     # StateManager (мульти-репо), repoSlice
+│   ├── services/                  # RepoServicesRegistry (lifecycle, изоляция)
 │   ├── activity/                  # GitActivityStore
 │   ├── safety/                    # OperationQueue, AtomicWrite, OperationJournal, RecoveryManager, LongPathSuggester
-│   ├── bridge/                    # IPC contracts, ipc/helpers, MessageBridge.handleCommand, handlersGitOps
+│   ├── bridge/                    # IPC-контракты, ipc/helpers, MessageBridge.handleCommand, handlersGitOps
 │   ├── ai/                        # AiConfigStore, AiHandlers, AiService, providers (OpenAI/QwenWeb), prompts, presets
 │   ├── changes/                   # fileTree (buildFileTree, collectFiles)
-│   ├── repo-manager/              # recentRepos (invalid path filtering)
+│   ├── repo-manager/              # recentRepos (фильтрация невалидных путей)
 │   ├── main/                      # gracefulShutdown
 │   ├── utils/                     # pathSecurity, repoPathGuard, AppError, Logger
-│   └── i18n/                      # Localization completeness, tpl
+│   └── i18n/                      # Полнота локализации, tpl
 │
-├── tests-e2e/                     # Playwright E2E (Windows-only, 4 specs)
+├── tests-e2e/                     # Playwright E2E (Windows-only, 4 спека)
 │   ├── helpers.ts                 # launchApp(), makeFixtureRepo()
-│   ├── app-launch.spec.ts         # Smoke: titlebar visible
-│   ├── open-repo.spec.ts          # autoOpenRepo via cwd=fixture
-│   ├── switch-tab.spec.ts         # Multi-repo tab switching
-│   └── safety-flow.spec.ts        # index.lock dialog, merge conflict, retry toast, orphan stash
+│   ├── app-launch.spec.ts         # Smoke: видимость titlebar
+│   ├── open-repo.spec.ts          # autoOpenRepo через cwd=fixture
+│   ├── switch-tab.spec.ts         # Переключение между табами репозиториев
+│   └── safety-flow.spec.ts        # диалог index.lock, конфликт merge, retry-toast, осиротевший stash
 │
-├── docs/                          # Documentation
-│   ├── getting-started.md         # Setup and dev workflow
-│   ├── architecture.md            # Architecture overview
-│   ├── features.md                # Feature list
-│   ├── contributing.md            # Contributing guide
-│   ├── testing.md                 # Testing (Vitest + Playwright)
+├── docs/                          # Документация
+│   ├── getting-started.md         # Установка и рабочий процесс
+│   ├── architecture.md            # Обзор архитектуры
+│   ├── features.md                # Список возможностей
+│   ├── contributing.md            # Руководство по контрибьюции
+│   ├── testing.md                 # Тестирование (Vitest + Playwright)
 │   ├── safety-error-handling.md   # GitErrorClass, SafetyDialog, preflight
-│   ├── BUILD.md                   # Packaging, user-data, auto-update
-│   ├── cross-platform-checklist.md # Cross-platform checklist
-│   └── ru/                        # Russian translations
+│   ├── BUILD.md                   # Пакетинг, пользовательские данные, авто-апдейт
+│   ├── cross-platform-checklist.md # Cross-platform чек-лист
+│   └── ru/                        # Русские переводы
 │
-├── .github/workflows/             # ci.yml (push, 3 OS, Node 20) + pr.yml (PR, Win, Node 22, +e2e)
+├── dist/                          # Результат сборки
+├── .github/workflows/ci.yml       # CI на push (3 ОС, Node 20)
+├── .github/workflows/pr.yml       # PR-гейт (Windows, Node 22, +e2e)
 ├── .husky/pre-commit              # husky 9 + lint-staged 17 + project-wide tsc
-├── .husky/pre-push                # npm test (bypass via SKIP_TESTS=1)
-├── dist/                          # Build output
-├── .gitattributes                 # Line ending normalization
-├── vitest.config.ts               # Vitest configuration
+├── .husky/pre-push                # npm test (bypass через SKIP_TESTS=1)
+├── .gitattributes                 # Нормализация line endings
+├── .editorconfig                  # Единый стиль отступов и EOL
+├── .prettierrc                    # Конфигурация Prettier
+├── eslint.config.mjs              # ESLint flat config
+├── vitest.config.ts               # Конфигурация Vitest + coverage
 ├── playwright.config.ts           # Playwright (Windows-only E2E)
 ├── package.json                   # Electron 40, TypeScript 5.9, Vite 6
 └── tsconfig.json
@@ -276,137 +283,124 @@ gitbor/
 
 ---
 
-## Key Features
+## Ключевые возможности
 
-- **Commit graph** — virtualized scroll, branch coloring, search
-- **Branch/Tag/Stash sidebar** — tree view, checkout, merge, rename, delete; current branch marked with green dot; per-branch hover-actions (pin / solo / hide / note), Solo + Hide graph filters and per-repo branch notes
-- **Local changes** — tree view, stage/unstage/discard per file and per hunk
-- **Folder context menu** — stage / unstage / discard / delete applied to all files inside (Staged/Unstaged sections)
-- **Diff viewer** — inline + split, ignore whitespace, hover-overlay stage/discard/unstage on hunk block (Fork-style); no `+`/`−` text prefix in line content (color-only); right-click → Copy (selection or hovered line); Markdown preview button for `.md` files; legacy encodings (CP1251/CP866) decoded via heuristic so Cyrillic comments in old `.sql` files render readably
-- **Merge conflict resolution** — two-column editor, auto-advance, conflict prediction
-- **File history & Git blame** — per-file commit history, line-by-line annotations
-- **Interactive rebase** — pick/reword/edit/squash/fixup/drop, progress banner
-- **Multi-repo tabs** — independent per-repo engines, the `+` tab opens RepoManager; open tabs and the active one are restored on next launch
-- **Repository Manager** — recent list, open/clone/init; reachable via the `+` tab or by clicking the active tab again
-- **AI commit messages & helpers** — one-click commit message from staged diff plus 5 extra helpers (Explain Commit / Smart Stash Naming / Explain Reflog / Explain Conflict / Semantic Search); OpenAI-compatible (OpenAI/Ollama/LM Studio/DeepSeek/Groq/YandexGPT) and Qwen Web (chat.qwen.ai session token); AI response language `auto`/`en`/`ru`; privacy gate blocks foreign providers by default
-- **Custom menu bar** — HTML/CSS menu with Edit actions, keyboard shortcuts (no native menu)
-- **SSH Keys Manager** — generate, view, copy, delete SSH keys
-- **Repository Settings** — user.name/email, global/local toggle
-- **Stash dialog** — name field with empty-allowed (empty value = `git stash` without `-m`)
-- **Toast notifications** — success/error feedback for all git operations
-- **Confirmation dialogs** — destructive actions require confirmation
-- **Shell integration** — open in Explorer/Terminal, refresh (F5)
-- **Error boundary** — React ErrorBoundary prevents blank screens
-- **Git activity log** — per-repo journal of git invocations (start/append/finish, cap 100, stdout/stderr truncated to 16 KiB)
-- **Repository statistics** — contributors, code stats with cached author heatmaps
-- **Reflog** — HEAD history with restore
-- **Git Bisect** — interactive binary search for buggy commits
-- **Git Hooks** — view and enable/disable hooks
-- **Signed commits** — GPG/SSH verification badges in graph
-- **Worktrees** — manage multiple working trees
-- **Git LFS** — large file tracking
-- **.gitignore editor** — templates for Node, Python, Java, Rust, Go, IDE, OS
-- **Compare two commits** — diff between arbitrary commits
-- **Arrow key navigation** — ↑/↓ in commit graph
-- **i18n** — English and Russian (every UI string covered by `i18n.test.ts`)
-- **Themes** — dark and light mode
-- **Distribution** — electron-builder for Win/Mac/Linux
+- **Граф коммитов** — виртуализированная прокрутка, цвета веток, поиск
+- **Боковая панель** — ветки, теги, stash, remotes; checkout, merge, rename, delete; current branch — зелёная точка; hover-действия per-branch (pin / solo / hide / note), Solo + Hide-фильтры графа и per-repo заметки по ветке
+- **Локальные изменения** — дерево файлов, stage/unstage/discard по файлу и по hunk
+- **Контекстное меню по папкам** — stage / unstage / discard / delete применяется ко всем файлам внутри (Staged/Unstaged)
+- **Просмотр diff** — inline + split, ignore whitespace, hover-кнопки stage/discard/unstage поверх hunk-блока (как в Fork); без префиксов `+`/`−` в тексте строк (только цвет); ПКМ → «Копировать» (выделение или строка под курсором); кнопка «Просмотр Markdown» в тулбаре для `.md`-файлов; legacy-кодировки (CP1251/CP866) декодируются эвристикой, кириллица в старых `.sql`-файлах читается нормально
+- **Разрешение merge-конфликтов** — двухколоночный редактор, авто-переход, предсказание
+- **История файла и Git blame** — построчные аннотации, история по файлу
+- **Интерактивный rebase** — pick/reword/edit/squash/fixup/drop, баннер прогресса
+- **Вкладки репозиториев** — независимые per-repo движки, вкладка «+» открывает RepoManager; список открытых вкладок и активная вкладка восстанавливаются при следующем запуске
+- **Менеджер репозиториев** — недавние / открыть / clone / init; доступ через вкладку «+» или повторный клик по активной вкладке
+- **AI-сообщения коммитов и помощники** — генерация commit message из staged diff плюс 5 доп. помощников (Explain Commit / Smart Stash Naming / Explain Reflog / Explain Conflict / Semantic Search); OpenAI-compatible (OpenAI/Ollama/LM Studio/DeepSeek/Groq/YandexGPT) и Qwen Web (сессионный токен chat.qwen.ai); язык ответов AI `auto`/`en`/`ru`; privacy-гейт по умолчанию блокирует зарубежных провайдеров
+- **Кастомное меню** — HTML/CSS меню с Edit-действиями, горячие клавиши (нативное меню удалено)
+- **Менеджер SSH-ключей** — генерация, просмотр, копирование, удаление
+- **Настройки репозитория** — user.name/email, global/local
+- **Stash-диалог** — поле имени с allowEmpty (пусто = `git stash` без `-m`)
+- **Уведомления (Toast)** — обратная связь для всех git-операций
+- **Подтверждения** — опасные действия требуют подтверждения
+- **Интеграция с системой** — открытие в проводнике/терминале, обновление (F5)
+- **Защита от ошибок** — React ErrorBoundary предотвращает белый экран
+- **Журнал git-активности** — per-repo лог git-вызовов (start/append/finish, кэп 100, обрезка stdout/stderr до 16 KiB)
+- **Статистика репозитория** — контрибьюторы, статистика кода с кэшем по авторам
+- **Reflog** — история HEAD с восстановлением
+- **Git Bisect** — интерактивный поиск виновного коммита
+- **Git Hooks** — просмотр и вкл/выкл хуков
+- **Подписанные коммиты** — бейджи GPG/SSH в графе
+- **Worktrees** — управление рабочими деревьями
+- **Git LFS** — отслеживание больших файлов
+- **Редактор .gitignore** — шаблоны Node, Python, Java, Rust, Go, IDE, OS
+- **Сравнение двух коммитов** — diff между произвольными коммитами
+- **Навигация стрелками** — ↑/↓ в графе коммитов
+- **i18n** — English и Russian (полнота ключей покрыта `i18n.test.ts`)
+- **Темы** — тёмная и светлая
+- **Дистрибуция** — electron-builder для Win/Mac/Linux
 
 ---
 
-## Multi-Repo Engine
+## Multi-Repo движок
 
-Each open repository is a fully independent set of services — a long `git pull` on repo A never blocks operations on repo B.
+Каждое открытое репо — независимый набор сервисов: длинный `git pull` на репо A не блокирует операции на репо B.
 
-- **`RepoServicesRegistry`** — `Map<repoPath, { git, queue, safety }>`. `acquire(repoPath)` lazily creates services with `cwd` fixed at construction; `release(repoPath)` SIGTERMs only that repo's inflight processes.
-- **`StateManager`** = facade over three layers:
-  - `RepoSlicesStore` — `slicesByRepo: Map<repoPath, RepoSlice>` + shared `meta` (`openRepos`, `activeRepoIndex`).
-  - `RepoStateRefresher` — all async `refresh*` methods, with `isRepoTracked(repoPath)` guard so a background refresh cannot resurrect a just-closed repo.
-  - `RepoEventBus` — three subscription channels (state / switch / close).
-- **WorkerPool** — 2 `worker_threads`, round-robin, auto-respawn. `parseStatus`/`parseCommits`/`computeGraphLayout` go through workers when input crosses size thresholds (status > 256 KB, log > 512 KB, layout > 2000 commits).
-- **Renderer mirror** — `useAppState` is a facade over `useRepoSlices` / `useRunningOps` / `useStateSubscription`. `state.isOperationRunning` and `state.currentOperation` are derived from the active tab only — fetch on A doesn't disable buttons on B.
-- **`graphData` deduplication** — `MessageBridge.sentGraphByRepo` skips emitting identical layout payloads, so toggling A→B→A doesn't push megabytes of JSON over IPC.
+- **`RepoServicesRegistry`** — `Map<repoPath, { git, queue, safety }>`. `acquire(repoPath)` лениво создаёт сервисы с `cwd`, фиксированным в конструкторе; `release(repoPath)` шлёт SIGTERM только своим inflight процессам.
+- **`StateManager`** = фасад над тремя слоями:
+  - `RepoSlicesStore` — `slicesByRepo: Map<repoPath, RepoSlice>` + общий `meta` (`openRepos`, `activeRepoIndex`).
+  - `RepoStateRefresher` — все async `refresh*` методы, с гардом `isRepoTracked(repoPath)` — фоновый refresh не «оживит» только что закрытое репо.
+  - `RepoEventBus` — три канала подписок (state / switch / close).
+- **WorkerPool** — 2 `worker_threads`, round-robin, авто-respawn. `parseStatus`/`parseCommits`/`computeGraphLayout` уходят в worker по порогам размера (status > 256 KB, log > 512 KB, layout > 2000 коммитов).
+- **Зеркало в renderer** — `useAppState` — фасад над `useRepoSlices` / `useRunningOps` / `useStateSubscription`. `state.isOperationRunning` и `state.currentOperation` берутся ТОЛЬКО из активной вкладки — fetch на A не отключит кнопки на B.
+- **Дедуп `graphData`** — `MessageBridge.sentGraphByRepo` пропускает идентичные payload'ы, повторное A→B→A не гонит мегабайты JSON через IPC.
 
-## AI Module
+## AI-модуль
 
-- **Providers**:
-  - `OpenAiCompatibleProvider` — `/v1/chat/completions` with SSE streaming, used by OpenAI, Ollama, LM Studio, DeepSeek, Groq.
-  - `QwenWebProvider` — unofficial bridge to `chat.qwen.ai` via session token from `localStorage` (no DashScope API key needed).
-- **`AiConfigStore`** — `{userData}/ai-config.json`, atomic write, API key / Qwen token encrypted via Electron `safeStorage` (DPAPI / Keychain / libsecret); fallback to `plain:` prefix when key store is unavailable.
-- **`AiHandlers`** — per-`requestId` `AbortController`, `cancelAll()` on shutdown, secret masking (`••••••••`) in `getConfig` for the UI.
-- **Prompts** — system + user prompts with AI response language `auto`/`en`/`ru`; diff truncated to `MAX_DIFF_CHARS = 6000` (head 70% + tail 20%).
-- **UI** — `AiSettingsDialog` (preset `select` with Cloud/Local/Web optgroups + Custom), `AiGenerateButton` in the commit bar, hot path through `useAiConfig`.
+- **Провайдеры**:
+  - `OpenAiCompatibleProvider` — `/v1/chat/completions` с SSE-стримом; OpenAI, Ollama, LM Studio, DeepSeek, Groq.
+  - `QwenWebProvider` — неофициальный мост к `chat.qwen.ai` через сессионный токен из `localStorage` (без официального API-ключа DashScope).
+- **`AiConfigStore`** — `{userData}/ai-config.json`, atomic write, API-ключ / Qwen-токен шифруются Electron `safeStorage` (DPAPI / Keychain / libsecret); fallback на префикс `plain:`, если key store недоступен.
+- **`AiHandlers`** — per-`requestId` `AbortController`, `cancelAll()` при выключении, маскирование секретов (`••••••••`) в `getConfig` для UI.
+- **Промпты** — system + user с языком ответов AI `auto`/`en`/`ru`; diff обрезается до `MAX_DIFF_CHARS = 6000` (head 70% + tail 20%).
+- **UI** — `AiSettingsDialog` (нативный `select` пресетов с optgroup Cloud/Local/Web + Custom), `AiGenerateButton` в commit bar, hot path через `useAiConfig`.
 
-## Data Safety
+## Безопасность данных
 
-### 5 Levels of Protection
+### 5 уровней защиты от потери данных
 
-1. **Git reflog** — built-in, 90 days
-2. **Auto-stash** — saves uncommitted changes before destructive operations
-3. **HEAD hash** — saved for rollback
-4. **WAL journal** — `.git/GitBor-journal.json`, begin/complete/fail (with `errorClass`)
-5. **RecoveryManager** — startup checks: lock files (stale `.git/index.lock` is ignored on startup), incomplete operations, rebase, merge
+1. **Git reflog** — встроенный, 90 дней
+2. **Auto-stash** — автоматическое сохранение незакоммиченных изменений перед деструктивными операциями
+3. **HEAD hash** — сохранение для rollback
+4. **WAL-журнал** — `.git/GitBor-journal.json`, begin/complete/fail
+5. **RecoveryManager** — проверки при старте: lock-файлы (stale `.git/index.lock` игнорируется при запуске), незавершённые операции, rebase, merge
 
-### Classified Error Handling
+### Безопасность ввода
 
-`SafetyNet` no longer auto-rolls back on any failure. Stderr is
-classified into `GitErrorClass` (`lock_held` / `conflict` / `dirty_tree` /
-`network` / `auth` / ...). The UI opens a `SafetyDialog` with
-context-aware actions (retry, abort merge, restore stash, kill git
-process, remove lock, rollback). `PreflightChecks` runs before
-destructive operations to detect `index.lock`, intermediate state
-files (`MERGE_HEAD`, `rebase-apply`, etc.), and unmerged paths. See
-[docs/safety-error-handling.md](docs/safety-error-handling.md).
-
-### Input Safety
-
-- **Path traversal protection** — `safePath()` validates all IPC paths via `realpathSync.native` (resolves symlinks, case-insensitive on Windows), preventing access outside the repository
-- **Dangerous root guard** — `isDangerousRepoRoot()` skips the worktree watcher for home / drive root / `C:\Windows` / `Program Files` / `node_modules` (opening such folders is allowed; only the watcher is suppressed to avoid `EPERM` cascades)
-- **Filename validation** — `isSafeFilename()` checks SSH key and git hook names for special characters
-- **`AppError`** — structured error with `code` + `data`; `MessageBridge` ships an `error` event with the code, the renderer translates via `locale.repoErrors[code]`
-- **Log sanitization** — `sanitizeArgs` redacts commit messages and passphrases after `-m` / `-C` / `-N` / `--message`
-- **Shell injection protection** — `openInTerminal` uses `execFile`/`spawn`, never `exec`
-- **Safe clipboard** — `copyToClipboard()` wrapper with error handling
+- **Path traversal protection** — `safePath()` валидирует пути через IPC: `realpathSync.native` для symlink, регистронезависимость на Windows
+- **Гард опасных корней** — `isDangerousRepoRoot()` отключает worktree-watcher для home / drive root / `C:\Windows` / `Program Files` / `node_modules` (открыть такие папки разрешено; гасится только watcher, чтобы не словить EPERM-каскад)
+- **Filename validation** — `isSafeFilename()` проверяет имена SSH-ключей и git hooks на спецсимволы
+- **`AppError`** — структурированная ошибка с `code` + `data`; `MessageBridge` шлёт `error`-event с кодом, renderer переводит через `locale.repoErrors[code]`
+- **Log sanitization** — `sanitizeArgs` редактирует commit-сообщения и passphrases после `-m` / `-C` / `-N` / `--message`
+- **Shell injection protection** — `openInTerminal` использует `execFile`/`spawn`, никогда `exec`
+- **Safe clipboard** — `copyToClipboard()` обёртка с обработкой ошибок
 - **Electron sandbox** — `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`
-- **Atomic writes** — tmp+rename with fsync, Windows retry via `Atomics.wait` (no busy-spin)
+- **Атомарная запись** — tmp+rename с fsync, retry на Windows через `Atomics.wait` (без busy-spin)
 
-### Cross-Platform
+### Кроссплатформенность
 
-- `.gitattributes` for consistent line endings (LF for source, CRLF for .bat/.cmd)
-- Cross-platform paths via `path.join()` / `path.resolve()` throughout the codebase
-- Terminal: fallback chain for Linux (gnome-terminal, konsole, xfce4-terminal, xterm)
-- `NUL` / `/dev/null` auto-selection per platform
+- `.gitattributes` для нормализации line endings (LF для исходников, CRLF для .bat/.cmd)
+- Кроссплатформенные пути через `path.join()` / `path.resolve()` во всём проекте
+- Терминал: fallback chain для Linux (gnome-terminal, konsole, xfce4-terminal, xterm)
+- `NUL` / `/dev/null` автовыбор по платформе
 
-## Logging
+## Логирование
 
-Two-sided system: both main and renderer log only in dev mode; production console stays silent.
+Двухсторонняя система: main и renderer пишут логи только в dev-режиме; в production console молчит.
 
-- **Main** — singleton `mainLogger` with levels `silent`/`error`/`warn`/`info`/`debug`. `configureMainLogger({ isProduction })` in `main.ts` sets default by `app.isPackaged`. `GITBOR_LOG_LEVEL=debug` env var overrides without rebuild.
-- **Renderer** — `[GitBor]` prefix; methods are no-ops in Vite production build (`import.meta.env.DEV === false`).
-- **`perf.ts`** — separate diagnostic tool with its own opt-in (`GITBOR_PERF=1` / `window.__GITBOR_PERF__ = true`).
-
----
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Getting Started](docs/getting-started.md) | Prerequisites, setup, dev workflow, adding features |
-| [Architecture](docs/architecture.md) | 4-layer design, data flow, core & renderer modules |
-| [Features](docs/features.md) | What GitBor can do: graph, diff, merge, blame, etc. |
-| [Contributing](docs/contributing.md) | Code style, conventions, PR checklist |
-| [Testing](docs/testing.md) | Vitest setup, test structure, manual feature testing |
-| [Safety & Error Handling](docs/safety-error-handling.md) | `GitErrorClass`, `SafetyDialog`, preflight, journal |
-| [Build & Distribution](docs/BUILD.md) | Packaging per OS, user-data locations, auto-update |
-
-Russian translations: [`docs/ru/`](docs/ru/)
+- **Main** — singleton `mainLogger` с уровнями `silent`/`error`/`warn`/`info`/`debug`. `configureMainLogger({ isProduction })` в `main.ts` ставит дефолт по `app.isPackaged`. ENV `GITBOR_LOG_LEVEL=debug` перебивает без пересборки.
+- **Renderer** — префикс `[GitBor]`; методы — no-op в production-сборке Vite (`import.meta.env.DEV === false`).
+- **`perf.ts`** — отдельный диагностический инструмент со своим opt-in (`GITBOR_PERF=1` / `window.__GITBOR_PERF__ = true`).
 
 ---
 
-## Status
+## Документация
 
-Version 0.1.19. Backend and UI feature-complete for MVP. <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> unit tests across <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> files (Vitest 4.1) plus 4 Playwright E2E specs (Windows). ESLint + Prettier configured; husky 9 + lint-staged 17 enforce `eslint --fix` and project-wide `tsc --noEmit` on each commit; `npm test` runs in `.husky/pre-push` (bypass via `SKIP_TESTS=1`). CI: `ci.yml` runs lint/typecheck/test/build on Ubuntu / Windows / macOS (Node 20) for push events; `pr.yml` runs the same plus E2E on Windows / Node 22 for pull requests. 0 npm audit vulnerabilities (root + renderer). Not production-tested.
+| Документ | Описание |
+|----------|----------|
+| [Начало работы](docs/getting-started.md) | Установка, настройка, рабочий процесс, добавление фич |
+| [Архитектура](docs/architecture.md) | 4-слойный дизайн, поток данных, модули |
+| [Возможности](docs/features.md) | Что умеет GitBor: граф, diff, merge, blame и др. |
+| [Участие в разработке](docs/contributing.md) | Стиль кода, конвенции, чеклист PR |
+| [Тестирование](docs/testing.md) | Vitest, структура тестов, ручное тестирование фич |
+| [Безопасность и обработка ошибок](docs/safety-error-handling.md) | `GitErrorClass`, `SafetyDialog`, preflight, журнал |
+| [Сборка и дистрибуция](docs/BUILD.md) | Пакетинг по ОС, пути пользовательских данных, авто-обновления |
 
-## License
+---
+
+## Статус
+
+Версия 0.1.19. Бэкенд и UI функционально готовы для MVP. **<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT -->** юнит-тестов в <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлах (Vitest 4.1) плюс 4 Playwright E2E-спека (Windows). ESLint + Prettier настроены; husky 9 + lint-staged 17 на pre-commit гонят `eslint --fix` и project-wide `tsc --noEmit`; `npm test` запускается в `.husky/pre-push` (bypass через `SKIP_TESTS=1`). CI: `ci.yml` (push, lint/typecheck/test/build на Ubuntu / Windows / macOS, Node 20) + `pr.yml` (PR, всё то же плюс E2E на Windows, Node 22). 0 уязвимостей в `npm audit` (root + renderer). Не протестирован в production.
+
+## Лицензия
 
 MIT
