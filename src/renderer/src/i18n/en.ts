@@ -272,6 +272,7 @@ export const en = {
     inline: 'Inline',
     split: 'Split',
     wholeFile: 'Whole File',
+    splitOneSided: 'File is new or fully deleted — nothing to compare against, shown in a single column',
     expand: 'Open in full screen',
     previewMarkdown: 'Preview Markdown',
     previewMarkdownTitle: 'Markdown',

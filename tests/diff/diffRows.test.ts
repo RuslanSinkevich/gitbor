@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { buildSideRows, maxRowContentLength, rowChange, buildChangeMarks } from '../../src/renderer/src/features/diff/diffRows';
+import {
+  buildSideRows, maxRowContentLength, rowChange, buildChangeMarks,
+  isOneSidedDiff, flattenHunkLines, buildLineMarks,
+} from '../../src/renderer/src/features/diff/diffRows';
 import type { DiffHunk, DiffLine } from '../../src/core/git/types';
 
 function ctx(content: string, o: number, n: number): DiffLine {
@@ -115,6 +118,40 @@ describe('rowChange', () => {
   it('classifies context as none', () => {
     const [row] = buildSideRows([hunk([ctx('a', 1, 1)])]);
     expect(rowChange(row)).toBe('none');
+  });
+});
+
+describe('isOneSidedDiff', () => {
+  it('treats added and deleted files as one-sided', () => {
+    expect(isOneSidedDiff({ status: 'added', hunks: [hunk([add('a', 1)])] })).toBe(true);
+    expect(isOneSidedDiff({ status: 'deleted', hunks: [hunk([rem('a', 1)])] })).toBe(true);
+  });
+
+  it('falls back to line types when status is not added/deleted', () => {
+    expect(isOneSidedDiff({ status: 'modified', hunks: [hunk([add('a', 1), add('b', 2)])] })).toBe(true);
+    expect(isOneSidedDiff({ status: 'modified', hunks: [hunk([rem('a', 1), add('A', 1)])] })).toBe(false);
+    expect(isOneSidedDiff({ status: 'modified', hunks: [hunk([ctx('a', 1, 1), add('b', 2)])] })).toBe(false);
+  });
+
+  it('is false for empty diffs', () => {
+    expect(isOneSidedDiff({ status: 'modified', hunks: [] })).toBe(false);
+  });
+});
+
+describe('flattenHunkLines / buildLineMarks', () => {
+  it('flattens hunks and marks only changed lines', () => {
+    const lines = flattenHunkLines([
+      hunk([ctx('a', 1, 1), add('b', 2)]),
+      hunk([rem('c', 5)]),
+    ]);
+    expect(lines.map((l) => l.content)).toEqual(['a', 'b', 'c']);
+    const marks = buildLineMarks(lines);
+    expect(marks.map((m) => m.type)).toEqual(['add', 'remove']);
+    expect(marks[0].ratio).toBeCloseTo(1 / 3);
+  });
+
+  it('returns empty marks for no lines', () => {
+    expect(buildLineMarks([])).toEqual([]);
   });
 });
 

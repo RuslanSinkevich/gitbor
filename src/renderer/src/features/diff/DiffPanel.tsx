@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState, useCallback } from 'react';
 import { t } from '../../i18n';
 import { postCommand } from '../../api';
-import { DiffView, type DiffMode } from './DiffView';
+import { DiffView, type DiffLayout } from './DiffView';
 import { ImageDiff, isImageFile } from './ImageDiff';
 import type { MarkdownPreviewTarget } from './MarkdownPreviewModal';
 import { useFileDiff } from './useFileDiff';
@@ -25,20 +25,38 @@ interface Props {
 
 const MODE_KEY_RO = 'sg-diff-mode-ro';
 const MODE_KEY_RW = 'sg-diff-mode-rw';
+const WHOLE_KEY_RO = 'sg-diff-whole-ro';
+const WHOLE_KEY_RW = 'sg-diff-whole-rw';
 
 /** Read-only diff: коммит, диапазон `a..b`, PREV: — всё кроме рабочей копии. */
 function isReadOnlyHash(hash: string): boolean {
   return hash !== 'WORKING' && hash !== 'STAGED';
 }
 
-function loadMode(readOnly: boolean): DiffMode {
-  const stored = typeof localStorage !== 'undefined'
-    ? localStorage.getItem(readOnly ? MODE_KEY_RO : MODE_KEY_RW)
-    : null;
-  if (stored === 'inline' || stored === 'split' || stored === 'whole') return stored;
-  // Дефолт везде — inline (unified): и для коммита/сравнения, и для рабочей
-  // копии. Сохранённый выбор пользователя (localStorage) приоритетнее.
-  return 'inline';
+interface ViewPrefs {
+  layout: DiffLayout;
+  wholeFile: boolean;
+}
+
+function loadPrefs(readOnly: boolean): ViewPrefs {
+  if (typeof localStorage === 'undefined') return { layout: 'inline', wholeFile: false };
+  const stored = localStorage.getItem(readOnly ? MODE_KEY_RO : MODE_KEY_RW);
+  const whole = localStorage.getItem(readOnly ? WHOLE_KEY_RO : WHOLE_KEY_RW);
+  // Миграция: раньше «весь файл» был третьим режимом рядом с inline/split и
+  // всегда рисовался в две колонки — сохраняем пользователю тот же вид.
+  if (stored === 'whole') return { layout: 'split', wholeFile: whole !== '0' };
+  // Дефолт везде — inline (unified) без полного файла: и для коммита/сравнения,
+  // и для рабочей копии. Сохранённый выбор пользователя приоритетнее.
+  return {
+    layout: stored === 'split' ? 'split' : 'inline',
+    wholeFile: whole === '1',
+  };
+}
+
+function savePrefs(readOnly: boolean, prefs: ViewPrefs): void {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(readOnly ? MODE_KEY_RO : MODE_KEY_RW, prefs.layout);
+  localStorage.setItem(readOnly ? WHOLE_KEY_RO : WHOLE_KEY_RW, prefs.wholeFile ? '1' : '0');
 }
 
 export function DiffPanel({ file, hash, onExpand }: Props) {
@@ -46,21 +64,27 @@ export function DiffPanel({ file, hash, onExpand }: Props) {
   const [ignoreWs, setIgnoreWs] = useState(false);
 
   const readOnly = isReadOnlyHash(hash);
-  const [mode, setMode] = useState<DiffMode>(() => loadMode(readOnly));
+  const [prefs, setPrefs] = useState<ViewPrefs>(() => loadPrefs(readOnly));
   // При переходе read-only ↔ editable (например, файл коммита → рабочая копия)
   // возвращаем дефолт/сохранённый режим для нового контекста.
-  useEffect(() => { setMode(loadMode(readOnly)); }, [readOnly]);
+  useEffect(() => { setPrefs(loadPrefs(readOnly)); }, [readOnly]);
 
-  const handleModeChange = useCallback((next: DiffMode) => {
-    setMode(next);
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(readOnly ? MODE_KEY_RO : MODE_KEY_RW, next);
-    }
+  const updatePrefs = useCallback((patch: Partial<ViewPrefs>) => {
+    setPrefs((prev) => {
+      const next = { ...prev, ...patch };
+      savePrefs(readOnly, next);
+      return next;
+    });
   }, [readOnly]);
+  const handleLayoutChange = useCallback((layout: DiffLayout) => updatePrefs({ layout }), [updatePrefs]);
+  const handleToggleWholeFile = useCallback(
+    () => updatePrefs({ wholeFile: !prefs.wholeFile }),
+    [updatePrefs, prefs.wholeFile],
+  );
 
   const isImage = isImageFile(file);
   const isMarkdown = isMarkdownFile(file);
-  const needsFullContext = mode === 'whole';
+  const needsFullContext = prefs.wholeFile;
   const { diffs, loading, error } = useFileDiff(file, hash, ignoreWs, needsFullContext, !isImage);
 
   const handleToggleWs = useCallback(() => {
@@ -109,7 +133,8 @@ export function DiffPanel({ file, hash, onExpand }: Props) {
       {diffs.map((d, i) => (
         <DiffView key={`${d.path}-${i}`} diff={d} file={file} hash={hash}
           ignoreWs={ignoreWs} onToggleWs={handleToggleWs}
-          mode={mode} onModeChange={handleModeChange}
+          layout={prefs.layout} onLayoutChange={handleLayoutChange}
+          wholeFile={prefs.wholeFile} onToggleWholeFile={handleToggleWholeFile}
           onExpand={onExpand ? () => onExpand(file, hash) : undefined}
           onPreviewMarkdown={isMarkdown ? handlePreviewMarkdown : undefined}
         />

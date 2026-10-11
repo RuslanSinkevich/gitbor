@@ -5,6 +5,7 @@ import { SgIconButton } from '../../ui/SgIconButton';
 import { DiffHunkView } from './DiffHunkView';
 import { DiffSideBySide } from './DiffSideBySide';
 import { useDiffCopyMenu } from './useDiffCopyMenu';
+import { isOneSidedDiff } from './diffRows';
 
 // Полоса-обзор изменений (overview ruler) для inline/split — некритичный chrome,
 // грузим отдельным чанком. До загрузки контент уже виден в обычном скроллере
@@ -32,7 +33,8 @@ import s from './DiffView.module.css';
 // раздувать главный бандл.
 const DiffWholeFile = lazy(() => import('./DiffWholeFile').then((m) => ({ default: m.DiffWholeFile })));
 
-export type DiffMode = 'inline' | 'split' | 'whole';
+/** Раскладка diff: одна колонка (unified) или две (оригинал/изменённый). */
+export type DiffLayout = 'inline' | 'split';
 
 interface Props {
   diff: FileDiff;
@@ -40,8 +42,14 @@ interface Props {
   hash: string;
   ignoreWs?: boolean;
   onToggleWs?: () => void;
-  mode: DiffMode;
-  onModeChange: (mode: DiffMode) => void;
+  layout: DiffLayout;
+  onLayoutChange: (layout: DiffLayout) => void;
+  /**
+   * «Весь файл» — независимый переключатель поверх раскладки: показывает файл
+   * целиком (full-context) в выбранной раскладке, а не только изменённые hunks.
+   */
+  wholeFile: boolean;
+  onToggleWholeFile: () => void;
   /** Открыть текущий файл в полноэкранной модалке. Скрыто, если не задано. */
   onExpand?: () => void;
   /**
@@ -59,10 +67,19 @@ const STATUS_CLS: Record<string, string> = {
   copied: s.statusRenamed,
 };
 
-export function DiffView({ diff, file, hash, ignoreWs, onToggleWs, mode, onModeChange, onExpand, onPreviewMarkdown }: Props) {
+export function DiffView({
+  diff, file, hash, ignoreWs, onToggleWs,
+  layout, onLayoutChange, wholeFile, onToggleWholeFile,
+  onExpand, onPreviewMarkdown,
+}: Props) {
   const loc = t();
   const isWorkingCopy = hash === 'WORKING';
   const isStaged = hash === 'STAGED';
+  // Новый/удалённый файл: одна сторона пустая → две колонки не нужны ни в
+  // split, ни в «весь файл». Выбор пользователя не трогаем, просто не применяем.
+  const oneSided = useMemo(() => isOneSidedDiff(diff), [diff]);
+  const split = layout === 'split' && !oneSided;
+  const showWhole = wholeFile && !diff.tooLargeForWhole;
 
   // ПКМ-меню «Копировать»: либо текущее выделение, либо строка под курсором.
   // Меню локальное — не дёргает host-level useContextMenu из App.
@@ -120,31 +137,32 @@ export function DiffView({ diff, file, hash, ignoreWs, onToggleWs, mode, onModeC
           <SgIconButton
             size="sm"
             tooltip={loc.diff.inline}
-            aria-pressed={mode === 'inline'}
-            className={mode === 'inline' ? s.iconBtnActive : ''}
-            onClick={() => onModeChange('inline')}
+            aria-pressed={!split}
+            className={!split ? s.iconBtnActive : ''}
+            onClick={() => onLayoutChange('inline')}
           >
             <InlineIcon />
           </SgIconButton>
           <SgIconButton
             size="sm"
-            tooltip={loc.diff.split}
-            aria-pressed={mode === 'split'}
-            className={mode === 'split' ? s.iconBtnActive : ''}
-            onClick={() => onModeChange('split')}
+            tooltip={oneSided ? loc.diff.splitOneSided : loc.diff.split}
+            aria-pressed={split}
+            className={split ? s.iconBtnActive : ''}
+            disabled={oneSided}
+            onClick={() => onLayoutChange('split')}
           >
             <SplitIcon />
           </SgIconButton>
-          <SgIconButton
-            size="sm"
-            tooltip={loc.diff.wholeFile}
-            aria-pressed={mode === 'whole'}
-            className={mode === 'whole' ? s.iconBtnActive : ''}
-            onClick={() => onModeChange('whole')}
-          >
-            <WholeFileIcon />
-          </SgIconButton>
         </div>
+        <SgIconButton
+          size="sm"
+          tooltip={loc.diff.wholeFile}
+          aria-pressed={wholeFile}
+          className={wholeFile ? s.iconBtnActive : ''}
+          onClick={onToggleWholeFile}
+        >
+          <WholeFileIcon />
+        </SgIconButton>
         {onPreviewMarkdown && (
           <SgIconButton size="sm" tooltip={loc.diff.previewMarkdown} onClick={onPreviewMarkdown}>
             <MarkdownIcon />
@@ -161,29 +179,29 @@ export function DiffView({ diff, file, hash, ignoreWs, onToggleWs, mode, onModeC
         <div className={s.binary}>{loc.diff.binaryFile}</div>
       ) : diff.hunks.length === 0 ? (
         <div className={s.empty}>{loc.diff.noChanges}</div>
-      ) : mode === 'inline' ? (
-        <MinimapScroll version={`${diff.path}|${ignoreWs}|inline`}>
-          <div className={s.hunks}>
-            {diff.hunks.map((hunk, i) => (
-              <DiffHunkView key={i} hunk={hunk} hunkIndex={i} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
-            ))}
-          </div>
-        </MinimapScroll>
-      ) : mode === 'split' ? (
-        <MinimapScroll version={`${diff.path}|${ignoreWs}|split`}>
-          <DiffSideBySide hunks={diff.hunks} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
-        </MinimapScroll>
-      ) : diff.tooLargeForWhole ? (
-        <>
-          <div className={s.wholeBanner}>{loc.diff.tooLargeForWhole}</div>
-          <MinimapScroll version={`${diff.path}|${ignoreWs}|toolarge`}>
-            <DiffSideBySide hunks={diff.hunks} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
-          </MinimapScroll>
-        </>
-      ) : (
+      ) : showWhole ? (
         <Suspense fallback={<div className={s.empty}>{loc.diff.loading}</div>}>
-          <DiffWholeFile hunks={diff.hunks} />
+          <DiffWholeFile hunks={diff.hunks} unified={!split} />
         </Suspense>
+      ) : (
+        <>
+          {wholeFile && diff.tooLargeForWhole && (
+            <div className={s.wholeBanner}>{loc.diff.tooLargeForWhole}</div>
+          )}
+          {split ? (
+            <MinimapScroll version={`${diff.path}|${ignoreWs}|split`}>
+              <DiffSideBySide hunks={diff.hunks} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
+            </MinimapScroll>
+          ) : (
+            <MinimapScroll version={`${diff.path}|${ignoreWs}|inline`}>
+              <div className={s.hunks}>
+                {diff.hunks.map((hunk, i) => (
+                  <DiffHunkView key={i} hunk={hunk} hunkIndex={i} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
+                ))}
+              </div>
+            </MinimapScroll>
+          )}
+        </>
       )}
     </div>
   );

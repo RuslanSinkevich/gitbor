@@ -77,7 +77,8 @@ Right-click a commit. The header shows the short hash and subject; explanations 
 
 ### Diff Viewer
 
-- Two modes: Inline and Split (side-by-side)
+- Two layouts: Inline and Split (side-by-side) + an independent **Whole File** toggle (the full file in the chosen layout — one or two columns)
+- New and fully deleted files are always shown in a single column (Split is disabled for them — nothing to compare against); same in the fullscreen compare modal
 - Syntax highlighting with line numbers
 - No `+`/`−` text prefix in line content — colored background only (cleaner copy-paste)
 - **Hover-overlay hunk actions** (Fork-style): hover a hunk → thin primary frame appears around the block and Stage / Discard… / Unstage buttons float in the top-right corner. No persistent header bar per hunk — diff reads as clean code and fits more blocks per screen.

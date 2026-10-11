@@ -4,6 +4,8 @@ import { SgDialog } from '../../ui/SgDialog';
 import { SgIconButton } from '../../ui/SgIconButton';
 import { DiffWholeFile } from './DiffWholeFile';
 import { DiffSideBySide } from './DiffSideBySide';
+import { DiffHunkView } from './DiffHunkView';
+import { isOneSidedDiff } from './diffRows';
 import { ImageDiff, isImageFile } from './ImageDiff';
 import type { MarkdownPreviewTarget } from './MarkdownPreviewModal';
 import { useFileDiff } from './useFileDiff';
@@ -71,14 +73,25 @@ export function CompareModal({ target, onClose }: Props) {
       <div className={s.modalDiff} onContextMenu={onContextMenu}>
         {menuNode}
         <div className={s.wholeBanner}>{loc.diff.tooLargeForWhole}</div>
-        <DiffSideBySide hunks={firstDiff.hunks} file={file} />
+        {isOneSidedDiff(firstDiff) ? (
+          <div className={s.diffScroll}>
+            <div className={s.hunks}>
+              {firstDiff.hunks.map((hunk, i) => (
+                <DiffHunkView key={i} hunk={hunk} hunkIndex={i} file={file} isWorkingCopy={false} />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <DiffSideBySide hunks={firstDiff.hunks} file={file} />
+        )}
       </div>
     );
   } else {
+    // Новый/удалённый файл — вторая колонка была бы пустой, показываем одну.
     body = (
       <div className={s.modalDiff} onContextMenu={onContextMenu}>
         {menuNode}
-        <DiffWholeFile hunks={firstDiff.hunks} />
+        <DiffWholeFile hunks={firstDiff.hunks} unified={isOneSidedDiff(firstDiff)} />
       </div>
     );
   }

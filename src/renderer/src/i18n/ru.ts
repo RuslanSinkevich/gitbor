@@ -274,6 +274,7 @@ export const ru: LocaleMap = {
     inline: 'В строку',
     split: 'Разделить',
     wholeFile: 'Весь файл',
+    splitOneSided: 'Файл новый или удалён целиком — сравнивать не с чем, показан в одну колонку',
     expand: 'Открыть на весь экран',
     previewMarkdown: 'Просмотр Markdown',
     previewMarkdownTitle: 'Markdown',

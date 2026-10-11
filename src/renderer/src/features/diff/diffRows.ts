@@ -1,4 +1,43 @@
-import type { DiffHunk, DiffLine } from '../../types';
+import type { DiffHunk, DiffLine, FileDiff } from '../../types';
+
+/**
+ * Файл новый или удалён целиком — одна из сторон сравнения пустая. Раскладывать
+ * такой diff в две колонки бессмысленно (половина экрана — штриховка), поэтому
+ * все виды (split, весь файл, модалка) рендерят его в одну колонку.
+ */
+export function isOneSidedDiff(diff: Pick<FileDiff, 'status' | 'hunks'>): boolean {
+  if (diff.status === 'added' || diff.status === 'deleted') return true;
+  // Страховка на случай, если статус не распознан парсером: смотрим на сами строки.
+  let adds = false, removes = false;
+  for (const h of diff.hunks) {
+    for (const l of h.lines) {
+      if (l.type === 'context') return false;
+      if (l.type === 'add') adds = true;
+      else removes = true;
+      if (adds && removes) return false;
+    }
+  }
+  return adds !== removes;
+}
+
+/** Плоский список строк всех hunks — для одноколоночного (unified) whole-file вида. */
+export function flattenHunkLines(hunks: DiffHunk[]): DiffLine[] {
+  const out: DiffLine[] = [];
+  for (const h of hunks) for (const l of h.lines) out.push(l);
+  return out;
+}
+
+/** Метки миникарты для unified-вида: по одной на каждую добавленную/удалённую строку. */
+export function buildLineMarks(lines: DiffLine[]): ChangeMark[] {
+  const total = lines.length;
+  if (total === 0) return [];
+  const marks: ChangeMark[] = [];
+  for (let i = 0; i < total; i++) {
+    const tp = lines[i].type;
+    if (tp !== 'context') marks.push({ ratio: i / total, heightRatio: 1 / total, type: tp });
+  }
+  return marks;
+}
 
 export type SideCellType = 'add' | 'remove' | 'context' | 'empty';
 
