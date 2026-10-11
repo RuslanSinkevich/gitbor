@@ -17,7 +17,7 @@
 
 ## Что вне scope
 
-- **Apple Developer ID** — реальная подпись + нотаризация требует платной учётки, не настраиваем. `mac.identity: null` + `mac.notarize: false` явно.
+- **Apple Developer ID** — реальная подпись + нотаризация требует платной учётки, не настраиваем. `mac.identity: "-"` + `mac.notarize: false` явно.
 - **Bundled git** — GitBor использует системный git (`PATH`-lookup в `GitExecutor`). На Windows нужен Git for Windows, на macOS — Xcode CLT или brew, на Linux — пакет менеджера. `checkGitAvailable` + `showGitNotFoundMessage` ловят отсутствие git на старте.
 - **Cross-build из CI** — релизы macOS/Linux собираются на соответствующих runners. Подписанный macOS-билд с Windows-runner невозможен (нужен codesign из Xcode).
 

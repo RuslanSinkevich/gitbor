@@ -68,7 +68,7 @@ both — `GitBor-X.Y.Z-x64.dmg` (Intel) and `GitBor-X.Y.Z-arm64.dmg` (Apple
 Silicon). Locally, both architectures: `npx electron-builder --mac --x64 --arm64`
 (the name is set the same way as in `release.yml`, via `--config.dmg.artifactName`).
 
-Code signing: ad-hoc (`mac.identity: null`). For Developer ID signing,
+Code signing: ad-hoc (`mac.identity: "-"`). For Developer ID signing,
 unset `CSC_IDENTITY_AUTO_DISCOVERY: false` in CI and provide:
 
 - `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` (notarization)
@@ -235,7 +235,7 @@ Builds are not signed: Windows shows SmartScreen, macOS shows a Gatekeeper warni
 ### Platform limits
 
 - **Windows:** only the NSIS installer auto-updates; the portable build does not.
-- **macOS:** without a Developer ID signature and notarization auto-update is unreliable (`mac.identity: null`, `mac.notarize: false`).
+- **macOS:** without a Developer ID signature and notarization auto-update is unreliable (`mac.identity: "-"`, `mac.notarize: false`).
 - **Linux:** AppImage updates; `.deb` / `.rpm` do not (only via your own apt / yum repository).
 
 ## Known limitations
@@ -255,9 +255,14 @@ Builds are not signed: Windows shows SmartScreen, macOS shows a Gatekeeper warni
 `npm install` first; `png2icons` and `pngjs` are dev-deps used by
 `build:icons`.
 
-**macOS DMG won't open ("damaged")** — the build is ad-hoc signed.
-Right-click → Open or `xattr -d com.apple.quarantine GitBor.app` to
-bypass Gatekeeper for development.
+**macOS: "GitBor is damaged"** — this is what a fully unsigned build looks
+like (`mac.identity: null`, up to and including 0.1.23): electron-builder
+modifies the bundle, Electron's original ad-hoc signature breaks, and
+Gatekeeper on Apple Silicon treats the app as damaged. Right-click → Open does
+not help; only clearing quarantine does: `xattr -cr /Applications/GitBor.app`.
+With `mac.identity: "-"` the build is ad-hoc signed and macOS shows the usual
+"cannot verify the developer" instead: System Settings → Privacy & Security →
+Open Anyway.
 
 **Linux AppImage won't launch** — make sure the AppImage file has
 `chmod +x`. On Ubuntu 24.04+ AppImage requires `libfuse2`:

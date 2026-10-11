@@ -69,7 +69,7 @@
       "entitlementsInherit": "build/entitlements.mac.plist",
       "notarize": false,
       "icon": "resources/icon.icns",
-      "identity": null
+      "identity": "-"
     },
     "linux": {
       "target": [

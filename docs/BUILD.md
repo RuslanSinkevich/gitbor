@@ -69,7 +69,7 @@ npm run dist:mac
 (Apple Silicon). Локально обе архитектуры: `npx electron-builder --mac --x64 --arm64`
 (имя задаётся так же, как в `release.yml`, через `--config.dmg.artifactName`).
 
-Подпись кода: ad-hoc (`mac.identity: null`). Для подписи Developer ID
+Подпись кода: ad-hoc (`mac.identity: "-"`). Для подписи Developer ID
 сними `CSC_IDENTITY_AUTO_DISCOVERY: false` в CI и предоставь:
 
 - `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` (нотаризация)
@@ -236,7 +236,7 @@ session, физически в `<userData>/Local Storage/`). Префиксы к
 ### Ограничения по платформам
 
 - **Windows:** автообновление — только у NSIS-установщика; портативная версия не обновляется.
-- **macOS:** без подписи Developer ID и нотаризации автообновление ненадёжно (`mac.identity: null`, `mac.notarize: false`).
+- **macOS:** без подписи Developer ID и нотаризации автообновление ненадёжно (`mac.identity: "-"`, `mac.notarize: false`).
 - **Linux:** обновляется AppImage; `.deb` / `.rpm` — нет (только через свой apt / yum-репозиторий).
 
 ## Известные ограничения
@@ -255,9 +255,14 @@ session, физически в `<userData>/Local Storage/`). Префиксы к
 сначала запусти `npm install`; `png2icons` и `pngjs` — это dev-deps,
 используемые `build:icons`.
 
-**macOS DMG не открывается ("damaged")** — сборка подписана ad-hoc.
-Правый клик → Open или `xattr -d com.apple.quarantine GitBor.app`,
-чтобы обойти Gatekeeper для разработки.
+**macOS: «Приложение повреждено»** — так выглядит сборка совсем без подписи
+(`mac.identity: null`, было до 0.1.23 включительно): electron-builder правит
+бандл, исходная ad-hoc подпись Electron ломается, и Gatekeeper на Apple Silicon
+считает приложение повреждённым. «Правый клик → Открыть» тут не помогает,
+только снятие карантина: `xattr -cr /Applications/GitBor.app`.
+С `mac.identity: "-"` сборка подписана ad-hoc, и macOS вместо этого пишет
+«не удалось проверить разработчика»: Системные настройки → Конфиденциальность
+и безопасность → «Всё равно открыть».
 
 **Linux AppImage не запускается** — убедись, что у файла AppImage есть
 `chmod +x`. На Ubuntu 24.04+ AppImage требует `libfuse2`:
