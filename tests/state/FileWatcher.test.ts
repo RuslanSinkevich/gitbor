@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, mkdirSync } from 'fs';
+import { mkdtempSync, rmSync, mkdirSync, realpathSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { EventEmitter } from 'events';
@@ -59,6 +59,14 @@ vi.mock('../../src/core/utils/Logger', () => ({
 
 let tmpRepo: string;
 
+/**
+ * На macOS os.tmpdir() — это /var/folders/..., а /var для isDangerousRepoRoot
+ * системный путь: FileWatcher честно не создаёт watcher'ы, и тесты падают.
+ * Реальный путь — /private/var/folders/..., под запрет он не попадает.
+ * На Windows и Linux realpath ничего не меняет.
+ */
+const safeTmpDir = realpathSync(tmpdir());
+
 function makeFakeStateManager() {
   return {
     invalidateGraphCache: vi.fn(),
@@ -79,7 +87,7 @@ function waitForWatcher(predicate: (calls: typeof watchCalls) => boolean): Promi
 }
 
 beforeEach(() => {
-  tmpRepo = mkdtempSync(join(tmpdir(), 'gitbor-fw-'));
+  tmpRepo = mkdtempSync(join(safeTmpDir, 'gitbor-fw-'));
   // создаём .git, чтобы директория выглядела как репо
   mkdirSync(join(tmpRepo, '.git'));
   watchCalls.length = 0;
@@ -208,7 +216,7 @@ describe('FileWatcher', () => {
       const sm = makeFakeStateManager();
       const fw = new FileWatcher(sm as never);
 
-      const otherRepo = mkdtempSync(join(tmpdir(), 'gitbor-fw-other-'));
+      const otherRepo = mkdtempSync(join(safeTmpDir, 'gitbor-fw-other-'));
       mkdirSync(join(otherRepo, '.git'));
       try {
         fw.addRepo(tmpRepo);
