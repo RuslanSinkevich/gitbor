@@ -1,18 +1,6 @@
 <!-- ru -->
-- Обновления теперь приходят с GitHub Releases
-- Появились сборки для macOS — Intel и Apple Silicon
-- Граф сам обновляется после коммитов из терминала в ветки вида feature/имя/задача
-- Сравнение веток в обе стороны — «что принесёт в текущую» и «как в pull request»
-- Фильтр по ветке: «Только свои» коммиты или «Вся история»
-- Короткие меню ветки и коммита; «В каких ветках есть коммит», «Открыть в Azure DevOps»
-- Стэш забирает новые файлы и больше не сообщает об успехе, если откладывать нечего
-- Исправлены auto-stash, откат операций и работа в worktree
+- macOS: исправлена ошибка «Приложение повреждено» при запуске
+- «Весь файл» в диффе работает и в одну, и в две колонки; новые и удалённые файлы показываются в одну колонку
 <!-- en -->
-- Updates now come from GitHub Releases
-- macOS builds are now available — Intel and Apple Silicon
-- The graph refreshes after terminal commits to branches like feature/name/task
-- Compare branches both ways — "what it brings into current" and "like a pull request"
-- Branch filter: "Own commits" or "Full history"
-- Shorter branch and commit menus; "Branches containing this commit", "Open in Azure DevOps"
-- Stash includes new files and no longer reports success when there is nothing to stash
-- Fixes for auto-stash, operation rollback and worktrees
+- macOS: fixed the "app is damaged" error on launch
+- "Whole file" in the diff works in both inline and split layouts; new and deleted files are shown in a single column
