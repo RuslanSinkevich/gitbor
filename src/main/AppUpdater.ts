@@ -7,7 +7,7 @@ import { BUILD_FLAVOR } from '../core/buildFlags';
 import {
   collectUpdateArtifactNames,
   decideUpdateAcceptance,
-  resolveUpdateFeedUrl,
+  resolveUpdateFeed,
 } from './updateFlavor';
 import { parseReleaseNotes, type ReleaseNotes } from './releaseNotes';
 
@@ -61,22 +61,23 @@ function isPortableBuild(): boolean {
 }
 
 /**
- * electron-builder зашивает publish.url в app-update.yml; на Linux/macOS
- * без рантайм-override updater искал бы не тот latest-*.yml. No-AI — всегда
- * каталог no_ai (win/no_ai и т.п.), иначе скачается чужой Setup (регрессия 0.1.17).
- * Политика URL — resolveUpdateFeedUrl (покрыта тестами).
+ * Feed задаём в рантайме, а не берём из app-update.yml: там зашит бакет.
+ * По умолчанию — GitHub Releases, No-AI читает свой канал noai.yml, иначе
+ * скачается чужой Setup (регрессия 0.1.17). GITBOR_UPDATE_BASE_URL включает
+ * старый generic feed через бакет. Политика — resolveUpdateFeed (покрыта тестами).
  */
 function configurePlatformFeedUrl(): void {
-  const url = resolveUpdateFeedUrl({
-    platform: process.platform,
-    flavor: BUILD_FLAVOR,
-    baseUrl: process.env.GITBOR_UPDATE_BASE_URL,
-  });
-  autoUpdater.setFeedURL({ provider: 'generic', url });
+  autoUpdater.setFeedURL(
+    resolveUpdateFeed({
+      platform: process.platform,
+      flavor: BUILD_FLAVOR,
+      baseUrl: process.env.GITBOR_UPDATE_BASE_URL,
+    }),
+  );
 }
 
 /**
- * Auto-update через Yandex Object Storage (generic provider).
+ * Auto-update через GitHub Releases (запасной путь — бакет, см. configurePlatformFeedUrl).
  * Поддержка: packaged Windows NSIS и Linux AppImage. Пропускаем dev,
  * Windows-portable и deb (apt). Feed-URL — по платформе
  * (см. configurePlatformFeedUrl). UI — в renderer (i18n).
@@ -103,7 +104,7 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
   configurePlatformFeedUrl();
 
   // `error` нужен: иначе unhandled rejection из недр electron-updater'а
-  // на недоступный бакет / битый latest.yml вылетает в main process.
+  // на недоступный feed / битый latest.yml вылетает в main process.
   autoUpdater.on('error', (err) => {
     mainLogger.warn(`appUpdater: ${err.message}`);
   });
@@ -152,7 +153,7 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
       }
       return;
     }
-    // Заметки — из latest.yml в бакете (build/release-notes.md при сборке).
+    // Заметки — из latest.yml релиза (build/release-notes.md при сборке).
     // Сайт — только запасной вариант для старых релизов без releaseNotes.
     const bundled = parseReleaseNotes(info.releaseNotes);
     const notesPromise = bundled ? Promise.resolve(bundled) : fetchReleaseNotes(info.version);

@@ -1,7 +1,8 @@
 name: Release
 
 # Сборка установщиков на GitHub Actions (для публичного репозитория — бесплатно).
-#  - push тега vX.Y.Z  → собирает все варианты и прикладывает их к GitHub Release;
+#  - push тега vX.Y.Z  → собирает все варианты и прикладывает их к GitHub Release
+#    вместе с latest*.yml / noai*.yml — по ним приложение находит обновления;
 #  - ручной запуск (Actions → Release → Run workflow) → только артефакты сборки,
 #    без публикации релиза: удобно, чтобы проверить, что всё собирается.
 # Сборки не подписаны: Windows покажет SmartScreen, macOS — предупреждение Gatekeeper.
@@ -75,12 +76,15 @@ jobs:
             macOS)   TARGET="--mac --x64 --arm64" ;;
           esac
           if [ "${{ matrix.flavor }}" = "no-ai" ]; then
+            # Свой канал обновлений: noai.yml / noai-linux.yml / noai-mac.yml,
+            # чтобы No AI никогда не увидел обычный Setup (регрессия 0.1.17).
             echo "OUT_DIR=release/no_ai" >> "$GITHUB_ENV"
             npx electron-builder $TARGET --publish never \
               --config.directories.output=release/no_ai \
               --config.productName="GitBor No AI" \
               --config.appId=ru.gitbor.app.noai \
               --config.extraMetadata.name=gitbor-noai \
+              --config.publish.channel=noai \
               '--config.nsis.artifactName=GitBor-NoAI-Setup-${version}.${ext}' \
               '--config.portable.artifactName=GitBor-NoAI-Portable-${version}.${ext}' \
               '--config.dmg.artifactName=GitBor-NoAI-${version}-${arch}.${ext}' \
@@ -91,11 +95,15 @@ jobs:
               '--config.dmg.artifactName=GitBor-${version}-${arch}.${ext}'
           fi
 
-      - name: Collect installers
+      - name: Collect installers and update metadata
         run: |
           mkdir -p out
-          find "$OUT_DIR" -maxdepth 1 -type f \( -name '*.exe' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' -o -name '*.dmg' \) \
-            ! -name '*.blockmap' -exec cp {} out/ \;
+          # Установщики, blockmap для дифф-обновлений и канальные yml
+          # (latest.yml / latest-linux.yml / latest-mac.yml, noai*.yml).
+          find "$OUT_DIR" -maxdepth 1 -type f \( \
+            -name '*.exe' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' -o -name '*.dmg' \
+            -o -name '*.blockmap' -o -name 'latest*.yml' -o -name 'noai*.yml' \
+          \) -exec cp {} out/ \;
           ls -la out
 
       - name: Upload build artifacts
@@ -106,10 +114,21 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Release notes body
+        if: startsWith(github.ref, 'refs/tags/v')
+        # build/release-notes.md: блоки <!-- ru --> / <!-- en -->. Маркеры
+        # оставляем (сайт gitbor.ru делит по ним языки), добавляем заголовки.
+        run: |
+          tr -d '\r' < build/release-notes.md \
+            | sed -e 's/^<!-- ru -->$/<!-- ru -->\n### Что нового/' \
+                  -e "s/^<!-- en -->\$/\n<!-- en -->\n### What's new/" \
+            > release-body.md
+          cat release-body.md
+
       - name: Attach to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: out/*
           fail_on_unmatched_files: true
-          generate_release_notes: true
+          body_path: release-body.md

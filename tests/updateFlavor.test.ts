@@ -6,8 +6,11 @@ import {
   decideUpdateAcceptance,
   isNoAiArtifactName,
   isUpdateArtifactMatchingFlavor,
+  resolveUpdateChannel,
+  resolveUpdateFeed,
   resolveUpdateFeedDir,
   resolveUpdateFeedUrl,
+  GITHUB_UPDATE_REPO,
 } from '../src/main/updateFlavor';
 
 /** Реальные имена из бакета / electron-builder artifactName. */
@@ -219,6 +222,34 @@ describe('resolveUpdateFeedDir / resolveUpdateFeedUrl', () => {
         baseUrl: 'https://example.test/stable/',
       }),
     ).toBe('https://example.test/stable/win/');
+  });
+});
+
+describe('resolveUpdateChannel / resolveUpdateFeed (GitHub Releases)', () => {
+  it('no-ai читает noai.yml, standard — latest.yml', () => {
+    expect(resolveUpdateChannel('no-ai')).toBe('noai');
+    expect(resolveUpdateChannel('standard')).toBe('latest');
+  });
+
+  it('по умолчанию — github provider со своим каналом на каждую flavor', () => {
+    for (const platform of ['win32', 'darwin', 'linux'] as const) {
+      expect(resolveUpdateFeed({ platform, flavor: 'no-ai' })).toEqual({
+        provider: 'github',
+        ...GITHUB_UPDATE_REPO,
+        channel: 'noai',
+      });
+      expect(resolveUpdateFeed({ platform, flavor: 'standard' })).toEqual({
+        provider: 'github',
+        ...GITHUB_UPDATE_REPO,
+        channel: 'latest',
+      });
+    }
+  });
+
+  it('baseUrl → запасной generic feed, no-ai остаётся в no_ai', () => {
+    expect(
+      resolveUpdateFeed({ platform: 'linux', flavor: 'no-ai', baseUrl: 'https://example.test/stable' }),
+    ).toEqual({ provider: 'generic', url: 'https://example.test/stable/linux/no_ai/' });
   });
 });
 

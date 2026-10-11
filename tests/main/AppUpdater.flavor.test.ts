@@ -52,7 +52,7 @@ vi.mock('../../src/core/utils/Logger', () => ({
 
 // Импорт после моков
 const { setupAppUpdater, runManualUpdateCheck } = await import('../../src/main/AppUpdater');
-const { resolveUpdateFeedUrl } = await import('../../src/main/updateFlavor');
+const { resolveUpdateFeedUrl, GITHUB_UPDATE_REPO } = await import('../../src/main/updateFlavor');
 
 const AI_SETUP = {
   version: '0.1.19',
@@ -91,17 +91,38 @@ describe('AppUpdater flavor gates (no-ai build)', () => {
     vi.useRealTimers();
   });
 
-  it('ставит feed на платформенный */no_ai и autoDownload=false', () => {
+  it('по умолчанию feed — GitHub Releases, канал noai, autoDownload=false', () => {
     vi.useFakeTimers();
     setupAppUpdater(() => {});
     expect(autoUpdaterMock.autoDownload).toBe(false);
-    // Не хардкодить win/: на Linux CI/VM feed — linux/no_ai (регрессия сборки в VM).
     expect(autoUpdaterMock.setFeedURL).toHaveBeenCalledWith({
-      provider: 'generic',
-      url: resolveUpdateFeedUrl({ platform: process.platform, flavor: 'no-ai' }),
+      provider: 'github',
+      ...GITHUB_UPDATE_REPO,
+      channel: 'noai',
     });
     // стартовый check через таймер — не сейчас
     expect(autoUpdaterMock.checkForUpdates).not.toHaveBeenCalled();
+  });
+
+  it('GITBOR_UPDATE_BASE_URL → запасной generic feed на платформенный */no_ai', () => {
+    vi.useFakeTimers();
+    const prev = process.env.GITBOR_UPDATE_BASE_URL;
+    process.env.GITBOR_UPDATE_BASE_URL = 'https://example.test/stable';
+    try {
+      setupAppUpdater(() => {});
+      // Не хардкодить win/: на Linux CI/VM feed — linux/no_ai (регрессия сборки в VM).
+      expect(autoUpdaterMock.setFeedURL).toHaveBeenCalledWith({
+        provider: 'generic',
+        url: resolveUpdateFeedUrl({
+          platform: process.platform,
+          flavor: 'no-ai',
+          baseUrl: 'https://example.test/stable',
+        }),
+      });
+    } finally {
+      if (prev === undefined) delete process.env.GITBOR_UPDATE_BASE_URL;
+      else process.env.GITBOR_UPDATE_BASE_URL = prev;
+    }
   });
 
   it('REGRESSION: update-available с AI Setup → НЕ downloadUpdate', () => {

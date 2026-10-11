@@ -61,6 +61,37 @@ export function resolveUpdateFeedDir(platform: string, flavor: string): string {
   return noAi ? 'linux/no_ai' : 'linux';
 }
 
+/** Репозиторий, в Releases которого CI (release.yml) выкладывает сборки. */
+export const GITHUB_UPDATE_REPO = { owner: 'RuslanSinkevich', repo: 'gitbor' } as const;
+
+/**
+ * Канал на GitHub Releases: обе flavor лежат в одном релизе, поэтому
+ * No-AI читает свой noai.yml (noai-linux.yml / noai-mac.yml), standard —
+ * latest.yml. Имена задаются при сборке через publish.channel.
+ */
+export function resolveUpdateChannel(flavor: string): 'latest' | 'noai' {
+  return flavor === 'no-ai' ? 'noai' : 'latest';
+}
+
+export type UpdateFeed =
+  | { provider: 'github'; owner: string; repo: string; channel: string }
+  | { provider: 'generic'; url: string };
+
+/**
+ * Источник обновлений: по умолчанию GitHub Releases. GITBOR_UPDATE_BASE_URL
+ * (baseUrl) возвращает старый generic feed — запасной путь через бакет.
+ */
+export function resolveUpdateFeed(opts: {
+  platform: string;
+  flavor: string;
+  baseUrl?: string;
+}): UpdateFeed {
+  if (opts.baseUrl) {
+    return { provider: 'generic', url: resolveUpdateFeedUrl(opts) };
+  }
+  return { provider: 'github', ...GITHUB_UPDATE_REPO, channel: resolveUpdateChannel(opts.flavor) };
+}
+
 /** Полный generic feed URL для electron-updater.setFeedURL. */
 export function resolveUpdateFeedUrl(opts: {
   platform: string;
