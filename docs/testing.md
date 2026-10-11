@@ -39,72 +39,56 @@ npx vitest run --reporter=verbose GitParser
 
 ## Структура тестов
 
-```
-tests/
-├── git/                          # Парсеры и менеджеры Git
-│   ├── GitParser.test.ts         # Коммиты, ветки, теги, stash, remotes, status
-│   ├── DiffParser.test.ts        # Парсинг unified diff
-│   ├── ConflictParser.test.ts    # Парсинг конфликт-маркеров (<<<<<<< / >>>>>>>)
-│   ├── ReflogParser.test.ts      # Парсинг git reflog
-│   ├── BlameParser.test.ts       # Парсинг git blame
-│   ├── SubmoduleParser.test.ts   # Парсинг submodule status и .gitmodules
-│   ├── FileHistoryParser.test.ts # Парсинг истории файла
-│   ├── GraphLayout.test.ts       # Алгоритм раскладки графа коммитов
-│   ├── BisectManager.test.ts     # Контракт интерфейса BisectStatus
-│   ├── HooksManager.test.ts      # Контракт интерфейса HookInfo
-│   ├── LfsManager.test.ts        # Контракт интерфейса LfsStatus
-│   ├── WorktreeManager.test.ts   # Worktree list/add/remove с мокнутым GitExecutor
-│   ├── GitExecutor.test.ts       # Логика sanitizeArgs (редактирование чувствительных данных)
-│   └── RebaseManager.test.ts     # Интерактивный rebase: парсинг todo, GIT_SEQUENCE_EDITOR
-│
-├── commands/
-│   ├── writeCommands.test.ts     # stageFile (--), commit, push, initRepo, checkout, clone
-│   ├── readCommands.test.ts      # log, status, branches, tags, stashes, remotes
-│   └── ConflictManager.test.ts   # completeMerge, resolveWithOurs/Theirs, merge, predictConflicts
-│
-├── state/
-│   ├── StateManager.test.ts      # Мульти-репо снимки, токены, подписчики, isRepoTracked гард
-│   └── repoSlice.test.ts         # emptyRepoSlice, mirrorRepoSliceToAppState, hashGitStdout, GIT_*_FORMAT
-│
-├── services/
-│   └── RepoServicesRegistry.test.ts # Per-repo lifecycle: acquire/release, kill, isolation A↔B
-│
-├── activity/
-│   └── GitActivityStore.test.ts  # start/append/finish, per-repo, кэп 100, обрезка stdout/stderr
-│
-├── utils/
-│   ├── pathSecurity.test.ts      # safePath traversal, isSafeFilename
-│   ├── repoPathGuard.test.ts     # isDangerousRepoRoot (home/Windows/Program Files/...)
-│   ├── AppError.test.ts          # AppError code/data/fallback, instanceof Error
-│   └── Logger.test.ts            # Уровни (silent/error/warn/info/debug), stdout/stderr split, configureMainLogger
-│
-├── safety/
-│   ├── OperationQueue.test.ts    # Очередь операций (read/write, сериализация, ошибки)
-│   ├── AtomicWrite.test.ts       # Атомарная запись файлов (sync + async)
-│   └── OperationJournal.test.ts  # WAL-журнал (lifecycle, cleanup, concurrency)
-│
-├── bridge/
-│   ├── messages.test.ts          # IPC-контракты (RendererCommand, MainEvent)
-│   └── helpers.test.ts           # ipc/helpers: op/opWithPostMerge снимок repoPath, errOnFail, runTracked
-│
-├── ai/
-│   ├── AiConfigStore.test.ts     # Конфиг провайдера, шифрование через safeStorage, persistence qwen-web
-│   ├── AiHandlers.test.ts        # IPC хендлеры AI (mask secrets, mergeSecrets, cancel)
-│   ├── AiService.test.ts         # generateCommitMessage, testConnection
-│   ├── OpenAiCompatibleProvider.test.ts # SSE-парсер, finishReason, usage
-│   ├── QwenWebProvider.test.ts   # constructor, testConnection, SSE-стрим, RateLimited, abort, fallback модели
-│   ├── presets.test.ts           # detectPreset (openai-compatible, qwen-web, нормализация trailing slashes)
-│   └── prompts.test.ts           # buildCommitSystemPrompt (auto/en/ru) / buildCommitUserPrompt
-│
-├── changes/
-│   └── fileTree.test.ts          # buildFileTree / collectFiles (pure-helpers из fileTreeModel.ts)
-│
-└── i18n/
-    ├── i18n.test.ts              # Полнота локализации (en ↔ ru ключи, плейсхолдеры)
-    └── tpl.test.ts               # Шаблонный интерполятор {key}
-```
+Тесты лежат в `tests/`, по папке на слой приложения (`git/`, `commands/`,
+`safety/`, `state/`, `bridge/`, `ai/`, `graph/`, `sidebar/`, …); общие
+моки — в `tests/_mocks/`. Таблица ниже собирается автоматически командой
+`npm run docs:counts` по реальному прогону — руками её не правим.
 
----
+<!-- TESTS_TABLE_RU -->
+
+| Папка | Файлов | Тестов |
+|---|---:|---:|
+| `tests/git/` | 19 | 210 |
+| `tests/ai/` | 10 | 149 |
+| `tests/safety/` | 9 | 103 |
+| `tests/commands/` | 5 | 90 |
+| `tests/state/` | 7 | 84 |
+| `tests/graph/` | 5 | 69 |
+| `tests/utils/` | 7 | 69 |
+| `tests/bridge/` | 4 | 50 |
+| `tests/` (корень) | 1 | 46 |
+| `tests/sidebar/` | 6 | 41 |
+| `tests/main/` | 4 | 31 |
+| `tests/diff/` | 3 | 24 |
+| `tests/ssh/` | 1 | 22 |
+| `tests/ui/` | 2 | 19 |
+| `tests/changes/` | 1 | 17 |
+| `tests/hooks/` | 1 | 15 |
+| `tests/i18n/` | 2 | 14 |
+| `tests/activity/` | 1 | 12 |
+| `tests/repo-manager/` | 1 | 12 |
+| `tests/services/` | 1 | 11 |
+| `tests/errors/` | 1 | 9 |
+| `tests/workers/` | 1 | 7 |
+| `tests/shared/` | 1 | 5 |
+| `tests/merge/` | 1 | 4 |
+| `tests/features/` | 1 | 3 |
+| **Итого** | **95** | **1116** |
+
+<!-- /TESTS_TABLE_RU -->
+
+### Интеграционные тесты на реальном git
+
+Часть тестов создаёт временный репозиторий и гоняет настоящий `git` — там,
+где важно поведение самого git, а не наших моков:
+
+- `tests/commands/stageLines.integration.test.ts` — построчный stage /
+  unstage (включая `--reverse` на смешанных блоках) и stage блока в файле без
+  перевода строки в конце.
+- `tests/git/gitDir.test.ts` — разрешение git-dir для обычного репо и
+  связанного worktree (`gitdir:` + `commondir`).
+- `tests/state/FileWatcher.test.ts` — что слушает и что игнорирует watcher
+  (`index`, `worktrees/`, глубокие ветки `refs/heads/feature/user/task`).
 
 ## Что тестируется — подробно
 
@@ -123,7 +107,7 @@ tests/
 | `parseStatus` | Staged/unstaged модификации, `MM` (обе), untracked (`??`), staged add (`A`), delete (`D`), конфликты (`UU`, `AA`), несколько файлов |
 | `parseFileChanges` | Модификация, добавление, удаление, переименование (`R100`), копирование (`C100`) |
 
-**<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> тестов / <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлов — всё зелёное.**
+**<!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> тестов / <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> файлов — всё зелёное.**
 
 ### 2. DiffParser (`tests/git/DiffParser.test.ts`)
 
@@ -496,27 +480,8 @@ npx vitest run tests/git/MyNewParser.test.ts
 
 ## Покрытие
 
-На данный момент покрыты:
-
-| Слой | Модули | Тестов |
-|------|--------|--------|
-| Git-парсеры | GitParser, DiffParser, ConflictParser, ReflogParser, BlameParser, SubmoduleParser, FileHistoryParser | ~90 |
-| Граф | GraphLayout | ~5 |
-| Git-менеджеры | WorktreeManager, GitExecutor (sanitizeArgs), RebaseManager | ~18 |
-| Команды | writeCommands, readCommands, ConflictManager | ~32 |
-| Утилиты | pathSecurity, repoPathGuard, AppError, Logger | ~40 |
-| Safety | OperationQueue, AtomicWrite, OperationJournal, RecoveryManager, LongPathSuggester | ~32 |
-| i18n | Полнота ключей en↔ru, tpl | ~14 |
-| Менеджеры | BisectManager, HooksManager, LfsManager (контракты) | ~6 |
-| State | StateManager (мульти-репо, isRepoTracked гард), repoSlice | ~10 |
-| Services | RepoServicesRegistry (lifecycle, isolation) | ~7 |
-| Activity | GitActivityStore (per-repo, кэп, обрезка) | ~13 |
-| IPC | messages контракты, ipc/helpers (snapshot repoPath), MessageBridge.handleCommand, handlersGitOps | ~40 |
-| AI | AiConfigStore, AiHandlers, AiService, OpenAiCompatibleProvider, QwenWebProvider, prompts, presets | ~80 |
-| Changes | fileTree (buildFileTree, collectFiles) | ~11 |
-| Repo Manager | recentRepos (фильтрация невалидных путей) | ~3 |
-| Main | gracefulShutdown | ~5 |
-| **Итого** | **<!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлов** | **<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT -->** |
+Актуальные числа по папкам — в таблице раздела «Структура тестов» выше
+(<!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> файлах).
 
 ---
 
@@ -573,9 +538,9 @@ npx vitest run tests/git/MyNewParser.test.ts
 
 ## CI/CD
 
-Два workflow дополняют друг друга:
+Тесты гоняют два workflow; ещё два собирают установщики (`release.yml` — по тегу `vX.Y.Z`, `release-pack.yml` — ручной smoke-пакетинг), см. [BUILD.md](BUILD.md).
 
-**`.github/workflows/ci.yml`** — запускается на `push` в `main`/`develop`:
+**`.github/workflows/ci.yml`** — запускается на `push` и `pull_request` в `main`/`develop`:
 
 ```yaml
 # Матрица: ubuntu-latest, windows-latest, macos-latest с Node 20
@@ -585,7 +550,7 @@ steps:
   - npm run lint                        # ESLint проверка
   - npx tsc -p tsconfig.main.json       # TypeScript (main + core)
   - npx tsc -b (src/renderer)           # TypeScript (renderer)
-  - npm test                            # Vitest (<!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлах)
+  - npm test                            # Vitest (<!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> файлах)
   - npm run build:renderer              # Vite сборка
   - npm run build:main                  # tsc main process
 ```
@@ -630,7 +595,7 @@ e2e:
 
 `.husky/pre-push` (~5–7 сек):
 
-1. `npm test` (Vitest, <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлах) — полный набор перед пушем в remote.
+1. `npm test` (Vitest, <!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> файлах) — полный набор перед пушем в remote.
 2. Bypass: `SKIP_TESTS=1 git push` — для веток, где менялись только doc/config и тесты прогонять не из чего.
 
 Логика разделения: коммит держим дешёвым (lint-staged + tsc), полный тестовый прогон уезжает в pre-push, где задержка приемлема и страхует от пуша красного.

@@ -19,6 +19,7 @@
     "lint": "eslint src/ tests/",
     "lint:fix": "eslint src/ tests/ --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"tests/**/*.ts\"",
+    "docs:counts": "node scripts/update-test-counts.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "pack": "npm run build && electron-builder --dir",

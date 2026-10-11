@@ -12,6 +12,20 @@
 - Search commits (Ctrl+F) — by subject, author, or hash prefix
 - **Author avatars** — small colored circle with author initials in every row; HSL hue is a deterministic hash of the email so the same contributor looks the same everywhere (Cyrillic supported, fallback to email local part)
 - **Remote-only commits dimmed** — commits reachable from `refs/remotes/*` but not from any local branch render at ~0.45 node / ~0.35 line opacity; hover boosts to 0.9 to make them readable
+- **Refreshes by itself** — commits, checkouts and fetches made in a terminal or another app show up without F5, including branches with folders (`feature/name/task`) and linked worktrees
+
+### Commit Menu
+
+Right-click a commit. The header shows the short hash and subject; explanations for non-obvious items are in tooltips.
+
+- **Frequent items at the root** — Copy SHA, Copy message, Cherry-pick (or "Cherry-pick N commits" with multi-select), Revert
+- **Create** — New branch from here (Ctrl+Shift+B), New tag (Ctrl+Shift+T)
+- **"On ‘current branch’" ▸** — everything that changes the current branch: move the last commit back to staged, merge this commit, rebase (regular and interactive), reset to this commit (soft / mixed / hard with confirmation)
+- **Check out commit** and explicit "Switch to ‘branch’" items for local branches on this commit
+- **Branches containing it** — a dialog: key branches (develop, stage, prod, main, master, release…) with ✓ / ✗ on top, every branch that contains the commit below. A branch counts as containing the commit if its local or remote copy does
+- **Open in Azure DevOps / GitHub / GitLab** — the commit page in the browser; the URL is built from the remote URL (Azure DevOps — cloud and on-prem TFS with a collection). Not shown for unknown hosts
+- **Open pull request N** — on merge commits whose message has a PR number ("Merged PR …", "Merge pull request #…", "See merge request …!N", and the Russian Azure wording)
+- **More ▸** — annotated tag, compare with the working copy, save as patch, copy commit info
 
 ### Ahead/Behind Indicators
 
@@ -29,11 +43,16 @@
 - Double click on a folder always expands it — the two `click` events no longer collapse it back
 - Hybrid «branch + folder» rows get their own arrow in the left padding, so names stay aligned
 - After checkout / track the current branch is selected, its ancestor folders are expanded and the row is scrolled into view — it no longer hides inside a collapsed folder
-- Right-click — context menu: checkout, merge, rename, delete, new branch/tag
-- Cannot delete the currently checked-out branch (option hidden)
+- **Branch menu** (right-click) — the branch name once in the header, only actions in items, so the menu stays narrow for any name length. Groups: Switch to / Update branch (fetch) → Merge into ‘current’ / Compare ▸ → New branch / tag from here → In graph ▸ (show only this, hide, pin), Note, Copy name → Rename / Delete (always last, delete in red)
+- **Update branch (fetch)** — pulls new commits of an inactive branch from the server without switching to it (fast-forward only); without an upstream it asks for the remote and remembers it
+- **Remote branch** — "Create local and track…": a local branch with tracking, then switches to it; long names wrap in the dialog instead of being cut off
+- The current branch has no Switch, Update, Merge, Compare or Delete items
 - **Current branch marker** — green dot next to the name (no text badge cluttering the row)
 - **Hover-actions per branch** (Fork-style): pin / solo / hide / note icons appear on hover; active state stays visible without hover so you can see filter state at a glance. Per-repo state, stored in `localStorage`
-- **Solo graph filter** — click the filter icon on a branch to limit the graph to commits reachable from that branch tip (client-side BFS, no extra git calls). Banner over the graph shows the kept/total count and a "Show all" button to clear
+- **Branch filter for the graph (Solo)** — shows only the selected branch, without extra git calls. The banner above the graph has a mode switch and a "Show all" button:
+  - **Own commits** (default) — the branch's own line by first parent (`git log --first-parent`): its commits and merge commits without the history of develop / main merged into it. Drawn as one straight lane
+  - **Full history** — every commit reachable from the branch (`git log <branch>`)
+  - The chosen mode is remembered
 - **Hide branch from graph** — eye-off icon completely removes the branch's commits from the graph (BFS-subtraction: a commit stays visible if any non-hidden local branch can reach it). Same banner with "Unhide all" to clear; if every branch is hidden the graph shows an empty-state with "Show all branches"
 - **Branch notes** — info icon opens a textarea modal for free-form per-branch notes (links, ticket numbers, intent). Hover the icon — a tooltip shows the first 200 characters. Notes are stored locally per repo (`sg-branch-notes:<repo>`), never written to git config
 
@@ -41,7 +60,7 @@
 
 - Tree view grouped by folders (like Fork)
 - Unstaged section on top, Staged on bottom
-- Per-file actions: stage (+), unstage (-), discard
+- Per-file actions: stage (+), unstage (-), discard; in the diff — per hunk and per line (including unstaging selected lines and files without a trailing newline)
 - **Folder context menu** — stage / unstage / discard / delete applied to all files inside (works in both Staged and Unstaged sections); folder-level actions go through batch IPC commands (`discardFiles` / `deleteUntrackedFiles`) — one round-trip and one `git checkout -- a b c …` instead of N invokes
 - Stage All / Unstage All buttons
 - Discard All with confirmation dialog
@@ -67,7 +86,7 @@
 - Theme-aware diff colors — translucent line backgrounds tuned per theme (light text in dark mode, dark text in light mode); no harsh bright blocks in dark mode
 - Supports: working copy diff, staged diff, commit diff, untracked files, root commits
 - **Right-click → Copy**: ПКМ on diff content opens a context menu with **Copy** — either current text selection (`window.getSelection()`) or the hovered line (rows tagged with `data-diff-line`, works in inline/split/whole-file). Local to the diff feature, doesn't conflict with the global App-level context menu
-- **Markdown preview** for `.md` / `.markdown` files: a Markdown-icon button appears in the diff toolbar (and inside `CompareModal`); clicking opens a modal with the file rendered as rich text (not a diff). Content is fetched via `getFileText` IPC — for `WORKING` reads the working copy via `fs.readFile`, for any commit / `STAGED` / `a..b` / `PREV:hash` ref uses `git show <hash>:<file>`. The modal is lazy-loaded (Markdown parser ships as a separate chunk)
+- **Markdown preview** for `.md` / `.markdown` files: a Markdown-icon button appears in the diff toolbar (and inside `CompareModal`); clicking opens a wide modal (up to 1280 px) with the file rendered as rich text (not a diff). Content is fetched via `getFileText` IPC — for `WORKING` reads the working copy via `fs.readFile`, for any commit / `STAGED` / `a..b` / `PREV:hash` ref uses `git show <hash>:<file>`. The modal is lazy-loaded (Markdown parser ships as a separate chunk)
 - **Legacy file encodings** — `git diff` output is captured as a `Buffer` (via `GitExecutor.execBuffer`) and decoded with `decodeGitText` heuristics: BOM (UTF-8 / UTF-16 LE / BE) → strict UTF-8 → CP1251 (Windows Cyrillic) → CP866 (DOS Cyrillic). Cyrillic comments in `.sql` / `.cs` / `.pas` files saved on legacy Windows render as readable text instead of mojibake (` ` and friends). Same heuristic applies to `getFileText` for the Markdown preview
 
 ### Merge Conflict Resolution
@@ -159,8 +178,8 @@ Common behavior: streaming where it makes sense, a second click on the active bu
 
 ### Toolbar
 
-- Quick actions: Fetch, Pull, Push, Stash, Stash Pop
-- **Stash dialog** — name field with `allowEmpty`; empty value runs `git stash` without `-m`
+- Quick actions: Fetch, Pull, Push, Stash, Stash pop
+- **"Stash changes" dialog** — the name is optional (empty = `git stash` without `-m`), AI name suggestion button; "Include new files" is on by default and remembered. When there is nothing to stash (e.g. only new files without the checkbox), a hint is shown instead of a false "Changes stashed"
 - Disabled during running operations on the active repo only (other tabs stay interactive)
 
 ### Custom Menu Bar
@@ -263,10 +282,15 @@ Common behavior: streaming where it makes sense, a second click on the active bu
 - Warning if existing `.gitignore` will be overwritten
 - Accessible via Repository → .gitignore...
 
-### Compare Two Commits
+### Compare
 
-- Right-click a commit → "Compare From Here"
-- Right-click another commit → "Compare with 'abc1234'" to see file changes between them
+- **Two branches** — branch menu → Compare ▸:
+  - "What it brings into ‘current’" — this branch's changes since it diverged from the current one
+  - "What ‘current’ brings here (like a PR)" — the same as a pull request from the current branch into this one
+  - Comparison starts at the merge base, not tip to tip, so new commits of the other branch never look "deleted"
+- **Commit vs working copy** — commit menu → More ▸ → Compare with local changes
+- **Two file versions** — in "File history": pick a base version and compare with another
+- The result is a file list in the "Changes" tab, diff on click; a banner above the tabs says "Comparing: what X brings into Y" with the number of commits unique to each branch
 
 ### Arrow Key Navigation
 
@@ -301,7 +325,14 @@ Common behavior: streaming where it makes sense, a second click on the active bu
 - `LongPathSuggester` hooks `GitExecutor.setStderrInspector` and skips when the option is already enabled globally
 - Bypassed entirely on macOS / Linux
 
+### Auto-update
+
+- The installed version checks GitHub Releases, downloads updates in the background and offers to restart
+- The update dialog lists "what's new" in the UI language (it travels with the update in `latest*.yml`)
+- The No AI build only updates to No AI, the regular build only to regular
+- Manual check: About → "Check for updates". The portable version does not auto-update
+
 ### Distribution
 
-- Electron-builder config for Windows (NSIS + portable), macOS (DMG), Linux (AppImage + deb + rpm)
-- Build: `npm run dist:win`, `npm run dist:mac`, `npm run dist:linux`
+- Windows (NSIS installer + portable), macOS (DMG for Intel and Apple Silicon), Linux (AppImage + deb + rpm); every platform has a No AI variant
+- Releases are built by GitHub Actions on a `vX.Y.Z` tag; locally — `npm run dist:win` / `dist:mac` / `dist:linux`

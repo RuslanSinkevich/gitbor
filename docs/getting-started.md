@@ -2,85 +2,81 @@
 
 # Начало работы (GitBor)
 
-Руководство для разработчиков GitBor — настольного Git-клиента на Electron (в духе Fork или GitKraken).
+Руководство для разработчиков GitBor — настольного Git-клиента на Electron.
 
 ## Требования
 
-- Node.js 22+ (соответствует PR-гейту; CI matrix крутит на Node 20)
+- Node.js 22+ (на нём работают PR-гейт и сборка релизов; CI-матрица дополнительно проверяет Node 20)
 - npm 10+
-- `git` в PATH
+- `git` в `PATH`
 
 ## Быстрый старт
 
 ```bash
-cd gitbor
 npm install
+npm install --prefix src/renderer
 npm run dev
 ```
 
 `npm run dev` через `concurrently`:
 
 1. Запускает dev-сервер Vite на порту **5188** (renderer).
-2. Запускает компилятор TypeScript (`tsc`) для main process и Electron.
+2. Собирает main process (`tsc -p tsconfig.main.json`) и запускает Electron, когда Vite готов.
 
-Vite отдаёт React renderer. `tsc` собирает TypeScript main process в `dist/`. В режиме разработки Electron загружает renderer с URL Vite.
+В режиме разработки Electron грузит renderer с адреса Vite, main process — из `dist/main/`.
 
 ## Структура проекта
 
 | Путь | Назначение |
 |------|------------|
-| `src/core/` | Backend main process: `git/`, `commands/`, `bridge/` (с подмодулями `ipc/`), `safety/`, `state/` (StateManager + RepoSlicesStore + RepoStateRefresher + RepoEventBus), `services/` (RepoServicesRegistry), `workers/` (parserWorker + WorkerPool), `activity/`, `ai/` (AiService + providers), `ssh/`, `utils/` (Logger, AppError, pathSecurity, repoPathGuard) |
-| `src/main/` | Точка входа Electron: `main.ts`, `i18n/` |
+| `src/core/` | Main process: `git/` (GitExecutor, парсеры, менеджеры, `gitDir.ts`, `stashRef.ts`), `commands/`, `bridge/` (MessageBridge + `ipc/handlers*.ts`), `safety/`, `state/` (StateManager, RepoSlicesStore, RepoStateRefresher, RepoEventBus, FileWatcher), `services/` (RepoServicesRegistry), `workers/`, `activity/`, `ai/`, `ssh/`, `errors/`, `repoSummary/`, `utils/` |
+| `src/main/` | Точка входа Electron: `main.ts`, автообновление (`AppUpdater.ts`, `updateFlavor.ts`, `releaseNotes.ts`), `gracefulShutdown.ts`, `cspOrigins.ts` |
 | `src/preload/` | `contextBridge` — `index.ts` |
-| `src/renderer/` | React UI: `App.tsx`, `AppDialogs.tsx`, `features/` (graph / sidebar / changes / diff / merge / blame / file-history / rebase / repo-manager / repo-tabs / toolbar / titlebar / layout / ssh / settings / ai / reflog / bisect / hooks / worktrees / lfs / gitignore), `hooks/` (useAppState фасад + useRepoSlices + useRunningOps + useStateSubscription + ...), `ui/`, `api.ts`, `types/`, `i18n/`, `styles/` |
-| `tests/` | Тесты (Vitest): `git/`, `commands/`, `state/`, `services/`, `activity/`, `safety/`, `bridge/`, `ai/`, `changes/`, `utils/`, `i18n/` |
-| `docs/` | Документация |
-| `dist/` | Собранный вывод |
+| `src/renderer/src/` | React UI: `App.tsx`, `AppDialogs.tsx`, `api.ts`, `features/` (по папке на фичу: graph, sidebar, changes, diff, merge, stash, checkout, rebase, reflog, bisect, blame, file-history, repo-manager, repo-tabs, toolbar, titlebar, layout, settings, ssh, ai, safety, statistics, worktrees, lfs, hooks, gitignore, git-activity, support, app-shell), `hooks/`, `ui/`, `i18n/`, `styles/`, `types/` |
+| `tests/` | Vitest: юнит-тесты и интеграционные тесты на реальном git (по папке на слой) |
+| `tests-e2e/` | Playwright E2E (Windows) |
+| `docs/` | Документация (английская — в `docs/en/`) |
+| `build/` | Ресурсы сборки: иконки, NSIS-скрипт, `release-notes.md` |
+| `scripts/` | Иконки, флаги сборки, `update-test-counts.mjs` |
 
-## Рабочий процесс разработки
+## Рабочий процесс
 
-- **Main process:** После изменений в коде main process пересоберите `npx tsc -p tsconfig.main.json` и перезапустите Electron. Vite HMR не перезагружает main process.
-- **Renderer:** Правки в `src/renderer/` подхватываются Vite HMR без полного перезапуска.
-- **Полный перезапуск:** Остановите всё, что слушает порт 5188, при необходимости пересоберите, затем снова `npm run dev`.
+- **Main process.** После правок пересоберите `npx tsc -p tsconfig.main.json` и перезапустите Electron — Vite HMR main не перезагружает.
+- **Renderer.** Правки в `src/renderer/` подхватываются Vite HMR без перезапуска.
+- **Проверки перед коммитом.** Хук pre-commit запускает `eslint --fix` и `tsc --noEmit` для main и renderer, pre-push — `npm test` (пропустить: `SKIP_TESTS=1`).
 
-## Добавление новой возможности (пошагово)
+## Как добавить новую команду (IPC от начала до конца)
 
-Пример: новая команда по IPC от начала до конца.
+1. **Типы** — расширьте типы в `src/core/git/types/`. Renderer получает их через реэкспорт в `src/renderer/src/types/index.ts`, отдельно дублировать не нужно.
+2. **Контракт IPC** — добавьте вариант в `RendererCommand` (и, если ответ идёт событием, в `MainEvent`) в `src/core/bridge/messages.ts`.
+3. **Логика git** — функция в `src/core/commands/readCommands.ts` (чтение) или `writeCommands.ts` (запись) через `queue.enqueueRead()` / `enqueueWrite()`.
+4. **CommandHandler** — метод в `src/core/commands/CommandHandler.ts`, который её вызывает.
+5. **Хендлер** — запись в подходящей таблице `src/core/bridge/ipc/handlers*.ts` (`State`, `GitOps`, `RepoExtras`, `Safety`, `Shell`, `Ai`, `AppUpdate`). Для операций используйте `op` / `opWithPostMerge` из `helpers.ts`: они фиксируют `repoPath` до старта, и переключение вкладки во время операции ничего не ломает. Если ответ нужен как результат вызова (без события), просто верните значение из хендлера.
+6. **Renderer** — `postCommand()` (событие в ответ) или `invokeCommand()` (результат вызова) из `src/renderer/src/api.ts`; ответы-события слушайте через `onMainEvent()`.
+7. **Только чтение?** Добавьте тип команды в `NON_RETRYABLE_TYPES` в `api.ts`, чтобы кнопка «Повторить» в тосте не перезапускала её вместо настоящей операции.
 
-1. **Types** — Добавьте или расширьте типы в `src/core/git/types/` и при необходимости отразите или используйте их в `src/renderer/src/types/`.
-2. **IPC contract** — Добавьте варианты `RendererCommand` и `MainEvent` в `src/core/bridge/messages.ts` и согласуйте с `src/renderer/src/types/ipc.ts`.
-3. **Git / domain logic** — Реализуйте в `src/core/commands/readCommands.ts` или `writeCommands.ts` (или в подходящем модуле команд). Берите сервисы per-call через `state.getActiveServices()` — никаких полей класса с привязкой к одному репо.
-4. **Handler** — Добавьте метод в `src/core/commands/CommandHandler.ts`, который вызывает новую логику.
-5. **Bridge** — Добавьте хендлер в один из файлов `src/core/bridge/ipc/handlers*.ts` (state, gitOps, repoExtras, ai). Используйте `op` / `opWithPostMerge` из `helpers.ts`, чтобы `repoPath` снимался ДО старта операции (переключение вкладки между событиями не должно ломать per-repo running-флаг).
-6. **Renderer API** — Вызывайте из UI через `postCommand()` в `src/renderer/src/api.ts`.
-7. **UI** — Подписывайтесь через `onMainEvent()` в React-компоненте (или хуке) для ответов и обновлений. Для per-repo операций маршрутизируйте событие по `repoPath`, чтобы оно попало в нужный slice.
+### Как добавить AI-провайдера
 
-### Добавление AI-провайдера
-
-Если нужно подключить ещё один AI-бэкенд:
-
-1. Реализуйте `AiProvider` (`src/core/ai/providers/base.ts`) — `testConnection` и `complete(options)` с SSE-стримом через `onChunk`.
-2. Добавьте новый mode в `AiConnectionMode` в `src/core/ai/types.ts`.
-3. Добавьте ветку в `AiService.ensureProvider()`, чтобы инстанцировать его.
-4. Добавьте пресет в `src/renderer/src/features/ai/presets.ts` и label-ключ в обоих `en.ts` / `ru.ts`.
-5. Подключите хранение секретов в `AiConfigStore` (шифровать через `safeStorage`, fallback на `plain:`).
+1. Реализуйте `AiProvider` (`src/core/ai/providers/base.ts`): `testConnection` и `complete(options)` со стримом через `onChunk`.
+2. Добавьте режим в `AiConnectionMode` (`src/core/ai/types.ts`) и ветку в `AiService.ensureProvider()`.
+3. Добавьте пресет в `src/renderer/src/features/ai/presets.ts` и подписи в `en.ts` / `ru.ts`.
+4. Секреты храните через `AiConfigStore` (шифрование `safeStorage`, запасной префикс `plain:`).
 
 ## Сборка
 
 ```bash
-npm run build   # Renderer + main
-npm start       # Run the packaged output
+npm run build   # renderer + main
+npm start       # запуск собранного приложения
 ```
 
-Для дистрибутивных инсталляторов, пакетинга по платформам, путей
-пользовательских данных (`<userData>` на Win/Mac/Linux) и настройки
-авто-обновлений — см. [BUILD.md](BUILD.md).
+Установщики, релизы на GitHub, автообновление и пути пользовательских данных — в [BUILD.md](BUILD.md).
 
 ## Устранение неполадок
 
 | Проблема | Что сделать |
 |----------|-------------|
-| Port 5188 in use | Завершите процесс, занявший порт, или задайте другое значение `VITE_DEV_PORT`. |
-| TypeScript errors in main | Проверьте `tsconfig.main.json` и пути; исправьте типы до опоры на `dist/`. |
-| HMR not updating UI | Перезагрузите окно Electron (например **Ctrl+R**). |
-| Main changes seem ignored | Пересоберите через `tsc` для main config и перезапустите Electron. |
+| Порт 5188 занят | Завершите процесс на порту или задайте другой `VITE_DEV_PORT`. |
+| Ошибки TypeScript в main | Проверьте `tsconfig.main.json` и пути; исправьте типы до запуска. |
+| HMR не обновляет UI | Перезагрузите окно Electron (**Ctrl+R**). |
+| Правки main не видны | Пересоберите `npx tsc -p tsconfig.main.json` и перезапустите Electron. |
+| `npm ci` падает с ERESOLVE | В репозитории есть `.npmrc` с `legacy-peer-deps` — запускайте из корня проекта. |

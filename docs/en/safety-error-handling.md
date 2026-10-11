@@ -42,7 +42,7 @@ the UI. The backend prepares options, it does not make the decision.
 | `dirty_tree` | Local changes would be overwritten | `rollback`, `cancel` |
 | `merge_in_progress` | Merge in progress | `continue_merge`, `abort_merge`, `cancel` |
 | `rebase_in_progress` | Rebase in progress | `abort_rebase`, `manual_continue`, `cancel` |
-| `cherry_pick_in_progress` | Cherry-pick in progress | `continue_merge`, `abort_merge`, `cancel` |
+| `cherry_pick_in_progress` | Cherry-pick in progress | `continue_cherry_pick`, `abort_merge`, `cancel` |
 | `revert_in_progress` | Revert in progress | `continue_merge`, `abort_merge`, `cancel` |
 | `unmerged_paths` | Unresolved conflicts | `continue_merge`, `abort_merge`, `cancel` |
 | `network` | Network error | `retry`, `cancel` |
@@ -54,6 +54,47 @@ the UI. The backend prepares options, it does not make the decision.
 
 When `SavedState.autoStashHash` holds a stash, `apply_stash_only` and
 `drop_stash` are appended to the list (the user can pull it back right away).
+
+For a cherry-pick conflict "Continue" is `continue_cherry_pick`
+(`git cherry-pick --continue`), and "Abort merge" (`abort_merge`) detects the
+active operation itself: with `CHERRY_PICK_HEAD` / `REVERT_HEAD` it runs
+`cherry-pick --abort` / `revert --abort`, otherwise `merge --abort`.
+
+## Auto-stash and rollback
+
+- **Was a stash created?** Before an operation SafetyNet runs
+  `git stash push -u`. When there is nothing to stash (e.g. changes only inside
+  a submodule) git exits with 0 and creates no stash. So creation is detected
+  by `refs/stash` moving (`readStashTip` before and after), not by the exit
+  code — otherwise `stash@{0}` would be the user's own stash, applied and
+  dropped after the operation. The manual "Stash" uses the same check to tell
+  success from "nothing to stash".
+- **Rollback order.** `rollback` first runs `checkout -f` to the saved branch
+  (or `--detach` to the saved commit), then `reset --hard`. The other way round
+  `reset` would move the branch the operation had switched to. Exit codes are
+  checked: a failure is shown as an error, not a false success. After rollback
+  the auto-stash is applied and dropped.
+
+## Recovery actions
+
+`RecoveryManager.executeRecovery` runs the action chosen in the dialog and
+checks the exit code of every git command — a failure goes to the UI.
+
+- `remove_lock` — removes `index.lock`, but not if it is younger than 2
+  seconds (git may still be running): then a "try again in a few seconds"
+  message is shown.
+- `restore_stash` (an orphaned auto-stash on startup) — applies and drops the
+  stash so the dialog does not come back on every launch.
+
+## Git dir and locale
+
+- All state files (`MERGE_HEAD`, `rebase-merge/`, `index.lock`, the journal,
+  hooks) are located via `resolveGitDir()` / `resolveCommonGitDir()`
+  (`src/core/git/gitDir.ts`). In linked worktrees and submodules `.git` is a
+  `gitdir: …` file, and the former `join(repo, '.git')` could not find them.
+- `GitErrorClassifier` recognizes classes from English stderr, so
+  `GitExecutor` always runs git with `LC_MESSAGES=C`. Without it, under a
+  Russian locale a merge conflict was treated as an "unknown error".
 
 ## Pre-flight checks
 

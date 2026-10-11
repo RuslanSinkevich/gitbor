@@ -43,7 +43,7 @@ UI (Renderer)          IPC          WriteCommand       Preflight    SafetyNet   
 | `dirty_tree` | Local changes would be overwritten | `rollback`, `cancel` |
 | `merge_in_progress` | Merge in progress | `continue_merge`, `abort_merge`, `cancel` |
 | `rebase_in_progress` | Rebase in progress | `abort_rebase`, `manual_continue`, `cancel` |
-| `cherry_pick_in_progress` | Cherry-pick in progress | `continue_merge`, `abort_merge`, `cancel` |
+| `cherry_pick_in_progress` | Cherry-pick in progress | `continue_cherry_pick`, `abort_merge`, `cancel` |
 | `revert_in_progress` | Revert in progress | `continue_merge`, `abort_merge`, `cancel` |
 | `unmerged_paths` | Unresolved conflicts | `continue_merge`, `abort_merge`, `cancel` |
 | `network` | Network error | `retry`, `cancel` |
@@ -55,6 +55,47 @@ UI (Renderer)          IPC          WriteCommand       Preflight    SafetyNet   
 
 Если в `SavedState.autoStashHash` есть стэш — к списку добавляются
 `apply_stash_only` и `drop_stash` (юзер может сразу его подтянуть).
+
+Для конфликта cherry-pick «Продолжить» — это `continue_cherry_pick`
+(`git cherry-pick --continue`), а «Отменить слияние» (`abort_merge`) сам
+определяет активную операцию: при `CHERRY_PICK_HEAD` / `REVERT_HEAD` выполняется
+`cherry-pick --abort` / `revert --abort`, иначе `merge --abort`.
+
+## Auto-stash и откат
+
+- **Создан ли стэш.** Перед операцией SafetyNet делает `git stash push -u`.
+  Если откладывать нечего (например, изменения только внутри подмодуля), git
+  выходит с кодом 0 и стэш не создаёт. Поэтому факт создания проверяется по
+  сдвигу `refs/stash` (`readStashTip` до и после), а не по коду выхода —
+  иначе `stash@{0}` оказывался бы чужим пользовательским стэшем и после
+  операции применялся и удалялся. Тем же способом ручной «Отложить» отличает
+  успех от «нечего откладывать».
+- **Порядок отката.** `rollback` сначала делает `checkout -f` на сохранённую
+  ветку (или `--detach` на сохранённый коммит), затем `reset --hard`. В
+  обратном порядке `reset` сдвинул бы ветку, на которую операция успела
+  переключиться. Коды выхода проверяются: при сбое показывается ошибка, а не
+  ложный успех. Auto-stash после отката применяется и удаляется.
+
+## Действия восстановления
+
+`RecoveryManager.executeRecovery` выполняет выбранное в диалоге действие и
+проверяет код выхода каждой git-команды — при сбое ошибка уходит в UI.
+
+- `remove_lock` — удаляет `index.lock`, но не моложе 2 секунд (git, возможно,
+  ещё работает): тогда показывается сообщение «попробуйте через несколько
+  секунд».
+- `restore_stash` (осиротевший auto-stash при старте) — применяет и удаляет
+  стэш, чтобы диалог не появлялся при каждом запуске.
+
+## Git-dir и локаль
+
+- Все state-файлы (`MERGE_HEAD`, `rebase-merge/`, `index.lock`, журнал,
+  хуки) ищутся через `resolveGitDir()` / `resolveCommonGitDir()`
+  (`src/core/git/gitDir.ts`). В связанных worktree и подмодулях `.git` — файл
+  `gitdir: …`, и прежний `join(repo, '.git')` их не находил.
+- `GitErrorClassifier` распознаёт классы по английскому stderr, поэтому
+  `GitExecutor` всегда запускает git с `LC_MESSAGES=C`. Без этого при русской
+  локали конфликт merge считался «неизвестной ошибкой».
 
 ## Pre-flight checks
 

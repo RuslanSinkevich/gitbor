@@ -12,7 +12,7 @@ GitBor — четырёхслойное приложение на Electron. За
 Renderer (React) → Preload (contextBridge) → Main (Node.js) → Git binary
 ```
 
-- **Renderer** — React 18, Vite, CSS Modules. Папки фич: graph, sidebar, changes (с вынесенным `fileTreeModel.ts`), diff, merge, blame, file-history, rebase, repo-manager, repo-tabs, toolbar, titlebar, layout, ssh, settings, ai. Состояние ведёт `useAppState` (фасад над `useRepoSlices` + `useRunningOps` + `useStateSubscription`) плюс `useMenuActions`, `useKeyboardShortcuts`, `useOperationToasts`, `useDiffState`, `useTheme`, `useToasts`, `useContextMenu`, `useDialogs`, `useAutoFetch`.
+- **Renderer** — React 18, Vite, CSS Modules. По папке на фичу в `features/` (graph, sidebar, changes, diff, merge, stash, checkout, rebase, reflog, bisect, blame, file-history, repo-manager, repo-tabs, toolbar, titlebar, layout, settings, ssh, ai, safety, statistics, worktrees, lfs, hooks, gitignore, git-activity, support, app-shell). Состояние ведёт `useAppState` (фасад над `useRepoSlices` + `useRunningOps` + `useStateSubscription`), остальное — в хуках `hooks/` (таблица ниже).
 
 - **Preload** — `contextBridge.exposeInMainWorld('gitBorAPI', …)` отдаёт в изолированный renderer `invoke`, `onEvent` и `platform`.
 
@@ -43,7 +43,7 @@ User clicks button in React
 
 | Модуль | Назначение |
 |--------|------------|
-| **GitExecutor** | Запуск Git через `execFile`, таймаут ~30 с, поддержка env, лог в файл. Чувствительные аргументы (сообщения, пароли) редактируются через `sanitizeArgs`. `cwd` задаётся на конструкторе — переключение между репо происходит на уровне `RepoServicesRegistry`, а не `setCwd`. `killAll()` шлёт SIGTERM активным процессам только своего репо. `execBuffer(args)` — параллельный API, возвращает stdout/stderr как `Buffer` без декодирования в utf-8: используется `getFileDiff` / `getFileText`, где содержимое исходного файла может быть в legacy-кодировке (CP1251/CP866), и дефолтный utf-8 у `execFile` превратил бы кириллицу в кракозябры. |
+| **GitExecutor** | Запуск Git через `execFile`, таймаут ~30 с, поддержка env, лог в файл. `exec` не бросает на ненулевой код — вызывающий проверяет `exitCode`. Git всегда запускается с `LC_MESSAGES=C` (`GitExecutor.buildEnv`): сообщения git — на английском, иначе при русской локали `GitErrorClassifier` не распознаёт конфликты и прочие ошибки; `LC_CTYPE` (UTF-8 для путей и хуков) остаётся пользовательским. Чувствительные аргументы (сообщения, пароли) редактируются через `sanitizeArgs`. `cwd` задаётся на конструкторе — переключение между репо происходит на уровне `RepoServicesRegistry`, а не `setCwd`. `killAll()` шлёт SIGTERM активным процессам только своего репо. `execBuffer(args)` — параллельный API, возвращает stdout/stderr как `Buffer` без декодирования в utf-8: используется `getFileDiff` / `getFileText`, где содержимое исходного файла может быть в legacy-кодировке (CP1251/CP866), и дефолтный utf-8 у `execFile` превратил бы кириллицу в кракозябры. |
 | **RepoServicesRegistry** | Реестр per-repo сервисов: `Map<repoPath, { git, queue, safety }>` + bootstrap-набор для clone/init без открытого репо. `acquire(repoPath)` создаёт сервисы лениво, `release(repoPath)` убивает inflight процессы. Это разрывает глобальную сериализацию: длинный `git pull` на репо A не блокирует операции на репо B. |
 | **GitParser** | Чистые парсеры: `parseCommits`, `parseBranches`, `parseTags`, `parseStatus`, `parseFileChanges`. Большие выводы (статус > 256 KB, log > 512 KB) офлоадятся в `WorkerPool`. |
 | **GraphLayout** | Распределение дорожек для раскладки графа коммитов. Вычисляется в worker thread при `commits.length > 2000`. |
@@ -60,11 +60,13 @@ User clicks button in React
 | **MessageBridge** | Electron IPC: тонкая обёртка ~150 строк. Принимает `RendererCommand`, ищет хендлер в `ipcCommandHandlers` (агрегат из `bridge/ipc/handlersState.ts`, `handlersGitOps.ts`, `handlersRepoExtras.ts`, `handlersAi.ts`). Ловит `AppError` и шлёт `error`-event с `code`+`data` для локализации в renderer. Шлёт `graphData` с дедупом по ссылкам (`sentGraphByRepo`) — повторное переключение A→B→A не гонит мегабайты JSON через IPC. |
 | **bridge/ipc/** | Подмодули IPC-хендлеров: `helpers.ts` (`runTracked`/`op`/`opWithPostMerge`/`errOnFail`/`mergeStateAfter`), `ready.ts`, `handlersState.ts` (lifecycle, diff/blame/history), `handlersGitOps.ts` (push/pull/fetch/commit/stage/merge/rebase), `handlersRepoExtras.ts` (LFS, worktrees, hooks, stats, bisect, repo-tabs, settings, SSH), `handlersAi.ts`. `op`/`opWithPostMerge` снимают `repoPath` ДО старта операции и шлют его в `operationStart`/`operationEnd`, чтобы переключение вкладки между событиями не сломало per-repo running-флаг. |
 | **OperationQueue** | Per-repo: read-операции параллельно, write — сериализованы. Отдельная очередь на каждое репо означает, что блокировка одного репо не блокирует другое. |
-| **SafetyNet** | Per-repo. Авто-stash перед рискованными операциями; откат при сбое. |
-| **FileWatcher** | Per-repo `chokidar` watcher'ы (`.git` + worktree, создаются лениво через `setImmediate` с pre-scan). Worktree-watcher НЕ запускается при `isDangerousRepoRoot(path)` (домашка, корень диска, `C:\Windows`...) или при > 1000 top-level entries — иначе `EPERM`/`EACCES`-каскад на `AppData`/`OneDrive` рушит main. Чёткий race-guard: если репо закрыли пока async pre-scan ещё идёт — новые watcher'ы не создаются (или сразу закрываются). `chokidar.on('error')` глушит EPERM, depth=3, debounce: 50мс `.git`, 200мс worktree. |
+| **SafetyNet** | Per-repo. Авто-stash (`stash push -u`) перед рискованными операциями. Создан ли стэш, проверяет по сдвигу `refs/stash` (`readStashTip`), а не по коду выхода: при «нечего откладывать» git выходит с 0, и раньше чужой `stash@{0}` применялся и удалялся. Откат: сначала `checkout -f` на сохранённую ветку, потом `reset --hard` (иначе сдвинулась бы ветка, на которую успела переключиться операция); коды выхода проверяются. |
+| **gitDir** | `resolveGitDir(repo)` / `resolveCommonGitDir(repo)` — настоящий каталог git. В связанном worktree и подмодуле `.git` — файл `gitdir: …`, поэтому `join(repo, '.git')` там не работает. Используется везде, где читаются `MERGE_HEAD`, `rebase-merge`, `index.lock`, журнал и хуки. |
+| **stashRef** | `resolveStashDropRef` (hash → `stash@{n}` для `stash drop`) и `readStashTip` (вершина `refs/stash`). |
+| **FileWatcher** | Per-repo `chokidar` watcher'ы (git-dir + worktree, создаются лениво с pre-scan). Git-dir слушается без ограничения глубины — ветка `feature/user/task` лежит в `refs/heads/feature/user/task`, и при прежнем `depth: 3` коммит в неё из терминала не давал событий. Служебное (`index`, `objects/`, `logs/`, `hooks/`, `modules/`, `lfs/`, `worktrees/`, `*.lock`) отсекается функцией `isIgnoredGitPath` относительно git-dir — запись `index` иначе запускала бы петлю refresh ↔ `update-index`. Для worktree дополнительно слушаются общие `refs/` и `packed-refs`. Worktree-watcher не запускается для опасных корней (`isDangerousRepoRoot`) и при > 1000 записей в корне. Debounce: `.git` — 120 мс с адаптацией до 2 с по длительности прошлого refresh, worktree — 200 мс; во время write-операции refresh откладывается. |
 | **repoPathGuard** | `isDangerousRepoRoot(path)` — проверка «опасности» пути (drive root / home / Windows / `Program Files` / `node_modules` / т.п.). Используется в `FileWatcher` для отключения worktree-watcher. Сам факт открытия таких папок больше не блокируется — пользователь может намеренно посмотреть на любую директорию. |
 | **AppError** | Структурированная ошибка с локализационным кодом (`code`) и параметрами шаблона (`data`) + technical fallback. `MessageBridge` превращает в `error`-event с `code`/`data`; renderer переводит через `locale.repoErrors[code]` и интерполирует. Альтернатива «строкам на английском, которые не переведены». |
-| **gitActivityStore** | Журнал git-операций (start/append/finish) с `repoPath` per entry. `activityContext.ts` использует `AsyncLocalStorage`, чтобы `GitExecutor.exec` мог привязать выполненную команду к активной операции без явной передачи id. Renderer фильтрует журнал по `repoPath` активной вкладки; кэп = 100 entries; stdout/stderr обрезаются до `OUTPUT_CAP_BYTES = 16 KiB` с маркером `[truncated...]`. |
+| **GitActivityStore** | Журнал git-операций (start/append/finish) с `repoPath` per entry. `activityContext.ts` использует `AsyncLocalStorage`, чтобы `GitExecutor.exec` мог привязать выполненную команду к активной операции без явной передачи id. Renderer фильтрует журнал по `repoPath` активной вкладки; кэп = 100 entries; stdout/stderr обрезаются до `OUTPUT_CAP_BYTES = 16 KiB` с маркером `[truncated...]`. |
 | **Logger** | Уровневое логирование (`silent`/`error`/`warn`/`info`/`debug`) с разделением stdout/stderr и опциональным `WriteStream` в `<userData>/logs/YYYY-MM-DD.log`. Singleton `mainLogger` — один источник уровня для всех модулей. `configureMainLogger({ isProduction })` настраивается из `main.ts` после `app.whenReady`: prod → `silent` (тишина и в console, и в файл), dev → `debug`. ENV `GITBOR_LOG_LEVEL` перебивает дефолт — для дебага у юзера в собранной версии. Все случайные `console.warn/error` в core (FileWatcher, WorkerPool, AiService и т. п.) переведены на `mainLogger`. Прямой `console.error` остался только в `process.on('unhandledRejection'/'uncaughtException')` — это последний рубеж, который должен сработать ДО `configureMainLogger`. |
 | **SshKeyManager** | Список, генерация, удаление SSH-ключей в `~/.ssh/`. Двухшаговая генерация (пароль не в argv). |
 | **ReflogParser** | Парсит вывод `git reflog` в структурированные записи. |
@@ -87,8 +89,15 @@ User clicks button in React
 
 | Область | Содержимое |
 |---------|------------|
-| **graph/** | `CommitGraph` (virtualized), `CommitDetails`, `branchPaths`. |
-| **sidebar/** | Sidebar: `BranchTree` (current branch — зелёная точка вместо текстового бейджа), tags, stashes, remotes, submodules. |
+| **graph/** | `CommitGraph` (virtualized), `CommitDetails` (в режиме сравнения — плашка «что X принесёт в Y» над вкладками), `branchPaths`, `commitMenuItems` (меню коммита: заголовок «хеш · тема»; всё, что меняет текущую ветку, — в подменю «В «ветка»»), `webLinks` (адрес коммита / PR в Azure DevOps, GitHub, GitLab по URL remote; номер PR — из сообщения merge-коммита), `BranchesContainingDialog` («В каких ветках есть коммит», `for-each-ref --contains`). |
+| **sidebar/** | `Sidebar`, `BranchTree` (текущая ветка — зелёная точка), теги, stash, remotes, подмодули. `sidebarMenuItems` — меню ветки: имя один раз в заголовке, в пунктах только глаголы; сравнение веток в обе стороны (`compareBranches` от merge-base), вид в графе (только эта / скрыть / закрепить) — подменю. |
+| **stash/** | `StashCreateDialog` («Включить новые файлы» по умолчанию включено, выбор запоминается), `ApplyStashDialog`, `autoStash`. |
+| **checkout/** | `CheckoutDialog` — что делать с локальными изменениями при переключении (оставить / отложить / отбросить). |
+| **safety/** | `SafetyDialog` — модальный диалог ошибок git с предложенными действиями (см. [Безопасность и ошибки](safety-error-handling.md)). |
+| **statistics/** | Статистика репозитория: контрибьюторы, heatmap, детали автора. |
+| **git-activity/** | Журнал git-вызовов активной вкладки. |
+| **support/** | Окно поддержки проекта. |
+| **app-shell/** | `AppWorkspace` — каркас окна: сайдбар, тулбар, основная область. |
 | **changes/** | `LocalChanges` (tree, контекстное меню по папкам применяет действия ко всем файлам внутри), `CommitBar` (subject + description), `FileTree` + вынесенные pure-helpers в `fileTreeModel.ts` (`buildFileTree`, `collectFiles`). |
 | **diff/** | `DiffPanel`, `DiffView`, `DiffHunkView`, `DiffSideBySide` (каждый hunk = `.hunkBlock` с `HunkActionsOverlay` поверх блока при `:hover` / `:focus-within` — как в Fork; без постоянной шапки `@@` с кнопками; без префиксов `+`/`−` в тексте строк — только цвет), `HunkActionsOverlay` (общий компонент Stage / Discard / Unstage — одна точка правды для inline и split), `ImageDiff`, `MarkdownPreviewModal` (lazy-чанк — рендерит `.md`-файл через общий `Markdown`-парсер; backend — IPC `getFileText`), `useDiffCopyMenu` (ПКМ «Копировать»: текущее выделение из `window.getSelection()` либо содержимое строки через атрибут `data-diff-line`, проставленный во всех трёх режимах). |
 | **merge/** | `MergeDialog`, `MergeEditor`, `MergeBanner`, `ConflictPanel`. |
@@ -98,7 +107,7 @@ User clicks button in React
 | **rebase/** | `RebaseEditor`. |
 | **repo-manager/** | `RepoManager`, недавние репозитории. |
 | **repo-tabs/** | Вкладки для нескольких репозиториев. Вкладка «+» открывает `RepoManager`; повторный клик по активной вкладке — тоже открывает. Подсветка кнопки «+», когда менеджер активен. |
-| **toolbar/** | Fetch, Pull, Push, Stash (открывает `SgPromptDialog` с `allowEmpty` — пустое значение = `git stash` без `-m`). |
+| **toolbar/** | Fetch, Pull, Push, Отложить (открывает `StashCreateDialog`), Вернуть. |
 | **titlebar/** | `TitleBar` с кастомным компонентом `MenuBar`. |
 | **layout/** | `CommitsView`, `ChangesView`, `RightPanelContent`. |
 | **ssh/** | `SshKeysDialog` — UI управления SSH-ключами. |
@@ -129,6 +138,14 @@ User clicks button in React
 | **useDialogs** | Централизованное состояние видимости диалогов (about, ssh, reflog, bisect, hooks, worktrees, lfs, gitignore, ai). |
 | **useAutoFetch** | Периодический фоновый `fetch` для активного репо (настраиваемый интервал). |
 | **useAiConfig** | Загружает/сохраняет `AiProviderConfig`; отдаёт `testConnection` и `generateCommitMessage` со стримингом через `onChunk`. |
+| **useGraphFilter** | Фильтры графа в renderer без git-вызовов: Solo в режимах «Только свои» (цепочка первых родителей; раскладка — по копиям с одним родителем, чтобы не было висящих полос) и «Вся история» (все предки), Hide (скрытые ветки). |
+| **useBranchPrefs** | Закреплённые / скрытые / Solo-ветки и заметки по веткам, по репо в `localStorage`. |
+| **useSafetyDialog** | Показ `SafetyDialog` по `errorClass` и выполнение выбранного действия. |
+| **useAppUpdater** | Окна автообновления: «Перезапустить и установить» со списком изменений, результат ручной проверки. |
+| **useRestoreRepoTabs** | Восстановление открытых вкладок при старте. |
+| **useSyncActions** | Pull и Push: диалоги выбора remote и ветки, rebase / autostash для Pull, force для Push. |
+| **useFolderDropOpenRepos** | Открытие репозиториев перетаскиванием папок в окно. |
+| **useWindowVisible** | Пауза фоновой работы, когда окно свёрнуто. |
 
 ## AI-модуль
 
@@ -146,7 +163,7 @@ User clicks button in React
 
 ## Протокол IPC
 
-`RendererCommand` задаёт 45+ типов команд; `MainEvent` — 30+ типов событий. Канонические определения в `src/core/bridge/messages.ts`. Renderer импортирует типы из `src/renderer/src/types/index.ts`, который реэкспортирует из `@core/git/types` и `@core/bridge/messages`.
+`RendererCommand` задаёт около 140 типов команд, `MainEvent` — около 60 типов событий. Ответ приходит либо событием (`postCommand` → `onMainEvent`), либо результатом вызова (`invokeCommand`, например `getFileText`, `getBranchesContaining`). Канонические определения в `src/core/bridge/messages.ts`. Renderer импортирует типы из `src/renderer/src/types/index.ts`, который реэкспортирует из `@core/git/types` и `@core/bridge/messages`.
 
 ## Управление состоянием
 
@@ -187,6 +204,16 @@ User clicks button in React
 - `initServices()` — probe `git --version`, `RepoServicesRegistry`, `StateManager`, `MessageBridge`, `FileWatcher`, AI-сервисы.
 
 Оба идут одновременно. `messageBridge.attach(mainWindow)` дёргается после resolve `createWindow`, но ДО `loadWindow()` — так `ipcMain.handle('gitbor:command')` уже зарегистрирован к моменту, когда React монтируется и шлёт первый `postCommand`. `autoOpenRepo()` не awaited — стартует в фоне и пушит события через уже подключённый bridge. На холодном старте Windows — экономия ~0.5–1.5 с.
+
+## Автообновление
+
+`src/main/` — три модуля:
+
+- **`AppUpdater.ts`** — `electron-updater`: проверка через ~8 с после старта установленной версии, фоновая загрузка, окно «Перезапустить и установить».
+- **`updateFlavor.ts`** — откуда брать обновления и какие принимать. По умолчанию — GitHub Releases (`RuslanSinkevich/gitbor`); сборка No AI читает свой канал `noai*.yml`, обычная — `latest*.yml`, и установщик чужого варианта никогда не принимается. `GITBOR_UPDATE_BASE_URL` переключает на запасной generic-источник (бакет).
+- **`releaseNotes.ts`** — список «что нового» берётся из поля `releaseNotes` в `latest*.yml`. Источник — `build/release-notes.md` (блоки `<!-- ru -->` / `<!-- en -->`): electron-builder кладёт его в yml при сборке, поэтому список приходит вместе с обновлением.
+
+Подробно о релизном цикле — [BUILD.md](BUILD.md).
 
 ## Логирование
 

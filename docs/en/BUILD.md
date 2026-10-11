@@ -63,7 +63,10 @@ Code signing: not configured. Add `CSC_LINK` (path to a .pfx) and
 npm run dist:mac
 ```
 
-Output: `release/GitBor-X.Y.Z.dmg`.
+Output: `release/GitBor-X.Y.Z.dmg` (the build machine's architecture). CI builds
+both — `GitBor-X.Y.Z-x64.dmg` (Intel) and `GitBor-X.Y.Z-arm64.dmg` (Apple
+Silicon). Locally, both architectures: `npx electron-builder --mac --x64 --arm64`
+(the name is set the same way as in `release.yml`, via `--config.dmg.artifactName`).
 
 Code signing: ad-hoc (`mac.identity: null`). For Developer ID signing,
 unset `CSC_IDENTITY_AUTO_DISCOVERY: false` in CI and provide:
@@ -107,6 +110,9 @@ npm run dist:win:all      # both standard and no-ai Windows variants
 - `.github/workflows/ci.yml` — lint + tsc + test + build on
   Windows/macOS/Ubuntu (matrix). No packaging.
 - `.github/workflows/pr.yml` — Windows e2e via Playwright.
+- `.github/workflows/release.yml` — builds installers for all platforms and
+  variants; on a `vX.Y.Z` tag publishes them to a GitHub Release (see
+  "Releases and auto-update" below).
 - `.github/workflows/release-pack.yml` — manual `workflow_dispatch` for
   smoke packaging on all 3 platforms via `electron-builder --dir`.
   Artifacts are uploaded for inspection. Does NOT sign or notarize.
@@ -171,83 +177,71 @@ Renderer state lives in Chromium `localStorage` (per Electron session,
 physically under `<userData>/Local Storage/`). Key prefixes:
 
 - `sg-theme`, `sg-lang` — current UI theme / language.
-- `sg-layout:*` — split-pane sizes (e.g. `sg-layout:changes-file-list-width:<repo>`,
-  `sg-layout:commits-graph-height:<repo>`, `sg-layout:commits-detail-width:<repo>`).
+- `sg-layout:*` — panel sizes (`sidebar-width`, `changes-file-list-width:<repo>`,
+  `changes-staged-height:<repo>`, `commits-graph-height:<repo>`, `commits-detail-width:<repo>`).
 - `sg-sidebar-sections`, `sg-branch-folders:<repo>[:<remote>]` — sidebar
   section and branch-tree expansion state.
+- `sg-branch-pinned`, `sg-branch-hidden`, `sg-graph-solo`, `sg-branch-notes`
+  (with a `:<repo>` suffix) — pinned / hidden branches, the graph branch filter,
+  branch notes.
 - `sg-recent-repos`, `sg-open-repos`, `sg-last-active-repo` — recent /
   open / active repo lists (restored on the next launch).
+- `sg-clone-base-dir`, `sg-init-base-dir` — last folders for clone / init.
+- `sg-gitignore-banner-dismissed:<repo>` — dismissed `.gitignore` hint.
+- `gitbor.commitDraft:<repo>` — unsaved commit message draft (drafts under the
+  old `skycode.commitDraft` key are migrated automatically).
+- `gitbor.stash.includeUntracked` — last "Include new files" choice in the "Stash" dialog.
+- `gitbor.graph.soloMode` — branch filter mode: "Own commits" / "Full history".
 - `gitbor.log` — opt-in flag for renderer debug logs.
 
 **Clean uninstall** (the NSIS uninstaller does NOT clean this): delete the
 `GitBor` folder at the path above. On Windows — also `HKCU\Software\GitBor`
 if anything was written there via NSIS scripts (not used at the moment).
 
-## Distribution and auto-updates
+## Releases and auto-update
 
-### Where to publish releases
+### Shipping a version
 
-`electron-builder` produces `release/` with installers, blockmaps, and
-`latest.yml` / `latest-mac.yml` / `latest-linux.yml`. These metadata files
-are read by the auto-updater.
+Releases are built by GitHub Actions (`.github/workflows/release.yml`) — free for a public repository.
 
-Recommended targets:
+1. Bump `version` in `package.json` **and** `src/renderer/package.json` (they must match).
+2. Write the change list in `build/release-notes.md` — `<!-- ru -->` and `<!-- en -->` blocks, one short line per item. Both the GitHub Release text and the "what's new" list in the update dialog come from this file.
+3. Commit, tag `vX.Y.Z` and push the tag (`git tag v0.1.23 && git push origin v0.1.23`).
+4. The workflow builds 6 variants (Windows / Linux / macOS × regular / No AI; macOS for Intel and Apple Silicon) and attaches to the GitHub Release:
+   - installers (`*.exe`, `*.dmg`, `*.AppImage`, `*.deb`, `*.rpm`) and `*.blockmap` for differential updates;
+   - update channel files: `latest.yml` / `latest-mac.yml` / `latest-linux.yml` for the regular build and `noai.yml` / `noai-mac.yml` / `noai-linux.yml` for No AI.
 
-- **GitHub Releases** — simplest. Set `build.publish` in `package.json`:
-  `{"provider": "github", "owner": "...", "repo": "..."}` and run
-  `electron-builder --publish always` (needs `GH_TOKEN` in the env).
-  `latest.yml` is uploaded automatically with the binaries.
-- **Generic HTTP / S3 / CDN** — `{"provider": "generic", "url":
-  "https://your-cdn/gitbor/"}`. Upload the contents of `release/`
-  (installers + `latest*.yml` + `*.blockmap`) under that prefix manually
-  or via CI.
+A manual run (Actions → Release → Run workflow) only builds artifacts without publishing — handy to check that everything builds.
 
-### Auto-updates
+Builds are not signed: Windows shows SmartScreen, macOS shows a Gatekeeper warning.
 
-Wired via `electron-updater` (`src/main/AppUpdater.ts`):
+### How auto-update works
 
-- **URL:** `build.publish` → `https://storage.yandexcloud.net/gitbor/stable/win/`
-- **When:** ~8 s after start (packaged NSIS), background download
-- **Disabled in:** dev (`npm run dev`), portable `.exe`, `GITBOR_SKIP_UPDATE_CHECK=1`
-- **Manual check:** About → "Check for updates"
+`electron-updater` in `src/main/AppUpdater.ts`; source and policy in `src/main/updateFlavor.ts`:
 
-### Release cycle (Windows NSIS)
+- **Where from:** GitHub Releases of `RuslanSinkevich/gitbor`. The regular build reads the `latest*.yml` channel, No AI reads `noai*.yml`; an installer of the other variant is never accepted.
+- **When:** ~8 s after an installed build starts, background download, then a "Restart and install" dialog with the list of changes.
+- **"What's new" list:** the `releaseNotes` field of the yml, which electron-builder fills from `build/release-notes.md` (`src/main/releaseNotes.ts`). Without that field a fallback request to the website is used.
+- **Disabled:** in dev (`npm run dev`), in the portable build, with `GITBOR_SKIP_UPDATE_CHECK=1`.
+- **Manual check:** About → "Check for updates".
+- **Fallback source:** `GITBOR_UPDATE_BASE_URL=<url>` switches to a generic source (e.g. a bucket) laid out as `<url>/win/`, `<url>/win/no_ai/`, `<url>/mac/`, `<url>/linux/` and so on.
 
-1. Bump `version` in `package.json` AND in `src/renderer/package.json` (must match).
-2. `npm run dist:win` — builds `release/`:
-   - `GitBor-Setup-X.Y.Z.exe` (NSIS, required)
-   - `GitBor-Setup-X.Y.Z.exe.blockmap` (delta updates, required)
-   - `latest.yml` (auto-updater metadata, required)
-   - `GitBor-Portable-X.Y.Z.exe` (optional, not part of auto-update)
-3. Upload the **3 files** (`.exe`, `.exe.blockmap`, `latest.yml`) to the
-   bucket under the `gitbor/stable/win/` prefix — do NOT drop them in the
-   bucket root or rename `latest.yml`.
-4. Verify: `https://storage.yandexcloud.net/gitbor/stable/win/latest.yml`
-   opens without auth and parses as YAML with `version`, `path`, `sha512`.
-5. Launch the previously installed version → after ~8 s the log
-   (`%APPDATA%\GitBor\logs\YYYY-MM-DD.log` at `GITBOR_LOG_LEVEL=debug`)
-   shows `appUpdater: ... update available X.Y.Z`, the background download,
-   and a "Restart" prompt.
+**After a release:** run the previous installed version — after ~8 s the log (`<userData>/logs/YYYY-MM-DD.log` with `GITBOR_LOG_LEVEL=debug`) shows `appUpdater: … available X.Y.Z`, then the restart dialog.
 
-**Bucket degradation:** 404 / empty `latest.yml` / no network — the app
-keeps working, the log shows `appUpdater: ... check failed: ...`, and a
-manual check from About shows a localized "couldn't check".
+**Degradation:** no network, a release without the needed yml, or a GitHub error — the app keeps working, the log shows `appUpdater: … check failed`, a manual check shows "Could not check for updates".
 
-**First version with the updater → next one:** users on the old version
-(without the updater) won't pick it up automatically — a one-time direct
-installer update is needed. From the next version onward it's automatic.
+**Upgrading from old versions:** versions released before the move to GitHub Releases only check the old source — update them once with an installer by hand.
 
-- **Windows**: the NSIS target supports auto-updates (delta updates via
-  `.blockmap`); portable does NOT.
-- **macOS**: requires a Developer ID signature AND notarization — both are
-  currently disabled (`mac.identity: null`, `mac.notarize: false`).
-- **Linux**: AppImage supports updates; `.deb` / `.rpm` do not (distribute
-  via your own apt/yum repository).
+### Platform limits
+
+- **Windows:** only the NSIS installer auto-updates; the portable build does not.
+- **macOS:** without a Developer ID signature and notarization auto-update is unreliable (`mac.identity: null`, `mac.notarize: false`).
+- **Linux:** AppImage updates; `.deb` / `.rpm` do not (only via your own apt / yum repository).
 
 ## Known limitations
 
 - macOS notarization requires an Apple Developer ID — not configured.
-- Auto-updates: NSIS + Yandex bucket (see "Auto-updates" above). Unsigned
+- Auto-update: GitHub Releases (see "Releases and auto-update" above); unsigned
   macOS builds are not production-ready for auto-update.
 - Real product icons are not drawn yet; placeholder icons are
   geometric/auto-generated. See `scripts/build-icons.mjs`.

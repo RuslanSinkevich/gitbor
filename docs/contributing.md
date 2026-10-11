@@ -2,75 +2,57 @@
 
 # Участие в разработке GitBor
 
-GitBor — настольный Git-клиент на Electron.
+GitBor — настольный Git-клиент на Electron. Ошибки и предложения — в [GitHub Issues](https://github.com/RuslanSinkevich/gitbor/issues).
 
 ### Как добавить новую Git-команду
 
-Пять шагов от идеи до работающей команды:
+1. **Типы и контракт** — вариант в `RendererCommand` (и `MainEvent`, если ответ идёт событием) в `src/core/bridge/messages.ts`. Renderer получает типы через реэкспорт в `src/renderer/src/types/index.ts`.
+2. **Логика git** — функция в `src/core/commands/readCommands.ts` (чтение) или `writeCommands.ts` (запись) через `queue.enqueueRead()` / `enqueueWrite()`. Сервисы (`git` / `queue` / `safety`) — свои у каждого репо, не кэшируйте их в полях класса.
+3. **CommandHandler** — метод в `src/core/commands/CommandHandler.ts`.
+4. **IPC-хендлер** — запись в одной из таблиц `src/core/bridge/ipc/handlers*.ts`. Для операций — `op` / `opWithPostMerge` из `helpers.ts`, чтобы `repoPath` фиксировался до старта.
+5. **Renderer** — `postCommand()` или `invokeCommand()` из `src/renderer/src/api.ts`; события — через `onMainEvent()`, с маршрутизацией по `repoPath`.
 
-1. **Типы** — Добавьте тип команды в `RendererCommand` в `src/core/bridge/messages.ts`. Добавьте тип события ответа в `MainEvent`. Отразите оба в `src/renderer/src/types/ipc.ts`.
-
-2. **Логика Git** — Добавьте функцию в `src/core/commands/readCommands.ts` (read) или `writeCommands.ts` (write). Используйте `queue.enqueueRead()` или `queue.enqueueWrite()`. Берите сервисы per-call через `state.getActiveServices()` — реестр per-repo, никогда не кэшируйте `git`/`queue`/`safety` в полях класса.
-
-3. **CommandHandler** — Добавьте метод в `src/core/commands/CommandHandler.ts`, который вызывает функцию из шага 2.
-
-4. **IPC-хендлер** — Добавьте запись в одну из таблиц `src/core/bridge/ipc/handlers*.ts` (`handlersState.ts`, `handlersGitOps.ts`, `handlersRepoExtras.ts`, `handlersAi.ts`). Используйте `op` / `opWithPostMerge` из `helpers.ts`, чтобы `repoPath` снимался **до** старта операции — переключение вкладки между `operationStart` и `operationEnd` не должно ломать per-repo running-флаг.
-
-5. **Renderer** — Используйте `postCommand({ type: 'yourCommand', ... })` из `src/renderer/src/api.ts`. Слушайте ответ через `onMainEvent()` в React-компоненте или хуке. Маршрутизируйте по `repoPath`, если событие per-repo, чтобы оно попало в нужный slice.
+Подробнее с примерами — [Начало работы](getting-started.md).
 
 ### Как добавить новую возможность в UI
 
-1. Создайте каталог `src/renderer/src/features/your-feature/`
-2. Создайте компонент `.tsx` и CSS Module `.module.css`
-3. Создайте `index.ts` с экспортами
-4. Подключите в `src/renderer/src/App.tsx` (для диалогов — в `src/renderer/src/AppDialogs.tsx`)
-5. Если нужен IPC — следуйте шагам из раздела «Как добавить новую Git-команду»
+1. Каталог `src/renderer/src/features/<фича>/`.
+2. Компонент `.tsx` и при необходимости CSS Module.
+3. `index.ts` с экспортами.
+4. Подключение в `App.tsx` (диалоги — в `AppDialogs.tsx` через `useDialogs`).
+5. Тексты — в `src/renderer/src/i18n/ru.ts` и `en.ts` (полноту проверяет `tests/i18n/i18n.test.ts`).
 
 ### Стиль кода
 
-- TypeScript в strict mode
-- CSS Modules с кастомными свойствами `--sg-*` для темизации
-- Без комментариев к очевидному коду — комментарии только для неочевидного замысла
-- Имена файлов: PascalCase для компонентов (`CommitGraph.tsx`), camelCase для утилит (`branchPaths.ts`)
-- Один компонент в файле
+- TypeScript в strict mode.
+- CSS Modules и переменные `--sg-*` для тем.
+- Комментарии — только для неочевидного «почему», без пересказа кода.
+- Имена файлов: PascalCase для компонентов (`CommitGraph.tsx`), camelCase для утилит (`branchPaths.ts`).
 
 ### Соглашения проекта
 
-- **Imports**: сначала React hooks, затем локальные модули, типы, стили
-- **IPC types**: всегда синхронизируйте `src/core/bridge/messages.ts` и `src/renderer/src/types/ipc.ts`
-- **State**: глобальное состояние в `StateManager` (main, per-repo через `RepoSlicesStore`); только UI — в React `useState`. Per-repo running ops — в `useRunningOps`; `state.isOperationRunning` берётся только от активной вкладки.
-- **Error handling**: бросайте `AppError(code, data, fallback)` в main для переводимых ошибок — `MessageBridge` превратит в `error`-event с `code`/`data`, renderer переведёт через `locale.repoErrors[code]`. Обычный `throw new Error('...')` — только для технических ошибок без i18n.
-- **Логирование**: используйте `mainLogger` из `src/core/utils/Logger.ts` — никаких сырых `console.warn/error` в core (единственное исключение — `process.on('unhandledRejection'/'uncaughtException')`, который должен сработать ДО `configureMainLogger`).
-- **Безопасность путей**: все пользовательские пути через IPC валидируйте через `safePath()` из `src/core/utils/pathSecurity.ts`; имена файлов — через `isSafeFilename()`. Перед запуском рекурсивного watcher'а проверяйте `isDangerousRepoRoot()`.
-- **Чувствительные аргументы**: передавайте через `env` или stdin когда возможно; если попадают в argv — убедитесь, что `sanitizeArgs` редактирует их в логах.
-- **Clipboard**: используйте `copyToClipboard()` из `src/renderer/src/api.ts` вместо прямого `navigator.clipboard.writeText`
-- **Таймеры**: `setTimeout` в React-компонентах всегда чистите через `clearTimeout` в `useEffect` cleanup или `useRef`
-- **Диалоги**: новые диалоги добавляйте через хук `useDialogs` (`src/renderer/src/hooks/useDialogs.ts`) и рендерите из `AppDialogs.tsx`
-- **AI-секреты**: никогда не логируйте API-ключи / Qwen-токены. Сохраняйте через `AiConfigStore` (шифруется `safeStorage`); маскируйте в любом payload, уходящем в UI (`••••••••`).
+- **Состояние** — глобальное в `StateManager` (main, по репо через `RepoSlicesStore`); только UI — в `useState`. `state.isOperationRunning` берётся от активной вкладки.
+- **Ошибки** — переводимые бросайте как `AppError(code, data, fallback)`; renderer переведёт через `locale.repoErrors[code]`. Ошибки git классифицирует `GitErrorClassifier` по английскому stderr — `GitExecutor` всегда запускает git с `LC_MESSAGES=C`.
+- **Логи** — `mainLogger` из `src/core/utils/Logger.ts`, без сырых `console.*` в core.
+- **Пути** — пользовательские пути через `safePath()`, имена файлов через `isSafeFilename()`; каталог `.git` — только через `resolveGitDir()` / `resolveCommonGitDir()` (`src/core/git/gitDir.ts`): в worktree и подмодулях `.git` — файл, а не папка.
+- **`exec` не бросает на ненулевой код** — проверяйте `exitCode` сами, иначе сбой git выглядит как успех.
+- **Чувствительные аргументы** — через `env` или stdin; если попали в argv, их должен скрывать `sanitizeArgs`.
+- **Буфер обмена** — `copyToClipboard()` из `api.ts`.
+- **Таймеры** — чистите в cleanup `useEffect`.
+- **AI-секреты** — не логируйте; храните через `AiConfigStore`, в UI отдавайте замаскированными.
 
-### Именование веток
+### Ветки и коммиты
 
-- `feat/description` — новые возможности
-- `fix/description` — исправления
-- `refactor/description` — реструктуризация кода
-- `docs/description` — документация
+- Ветки: `feat/…`, `fix/…`, `refactor/…`, `docs/…`.
+- Коммиты — в формате conventional commits с областью, описание по-русски: `feat(graph): лаконичное меню коммита`, `fix(watcher): …`, `docs: …`, `chore(release): 0.1.23`. В теле — что и почему, если это не очевидно из заголовка.
 
-### Сообщения коммитов
+### Чек-лист PR
 
-- Короткий повелительный залог: «add merge editor», «fix diff for untracked files»
-- Без префиксов вроде «feat:», если команда не договорилась о conventional commits
-
-### Чеклист PR
-
-- [ ] TypeScript собирается без ошибок (`npx tsc -p tsconfig.main.json`)
-- [ ] ESLint проходит (`npm run lint`)
-- [ ] Форматирование корректно (`npm run format`)
-- [ ] Типы IPC синхронизированы между core и renderer
-- [ ] Новые возможности имеют соответствующие IPC-команды от начала до конца
-- [ ] Юнит-тесты проходят (`npm test` — Vitest, <!-- TESTS_COUNT -->962<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->81<!-- /TESTS_FILES --> файлах; авто-запуск в `.husky/pre-push`, bypass через `SKIP_TESTS=1`)
-- [ ] E2E-тесты проходят на Windows (`npm run e2e` — Playwright, 4 спека)
-- [ ] Пользовательские пути валидируются через `safePath()` / `isSafeFilename()`
-- [ ] Новые ключи i18n добавлены в оба языка (en + ru)
-- [ ] Проверено вручную в Electron (не только в браузере)
-- [ ] `pr.yml` workflow зелёный (lint / tsc / test / build / e2e на Windows + Node 22)
-- [ ] `ci.yml` workflow зелёный после merge (матрица 3 ОС на Node 20)
+- [ ] `npx tsc -p tsconfig.main.json` и `npx tsc --noEmit` в `src/renderer` без ошибок
+- [ ] `npm run lint` проходит
+- [ ] `npm test` проходит (сейчас <!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> файлах; после добавления тестов — `npm run docs:counts`)
+- [ ] `npm run e2e` проходит на Windows
+- [ ] Новые тексты есть в `ru.ts` и `en.ts`
+- [ ] Пользовательские пути проходят через `safePath()` / `isSafeFilename()`
+- [ ] Проверено вручную в Electron, а не только в тестах
+- [ ] `pr.yml` зелёный (lint / tsc / test / build / e2e на Windows)

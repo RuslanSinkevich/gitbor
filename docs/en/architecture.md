@@ -10,7 +10,7 @@ GitBor is a 4-layer Electron application. Dependencies flow downward only.
 Renderer (React) → Preload (contextBridge) → Main (Node.js) → Git binary
 ```
 
-- **Renderer** — React 18, Vite, CSS Modules. Feature folders: graph, sidebar, changes (with extracted `fileTreeModel.ts`), diff, merge, blame, file-history, rebase, repo-manager, repo-tabs, toolbar, titlebar, layout, ssh, settings, ai. State is driven by `useAppState` (a facade over `useRepoSlices` + `useRunningOps` + `useStateSubscription`) plus `useMenuActions`, `useKeyboardShortcuts`, `useOperationToasts`, `useDiffState`, `useTheme`, `useToasts`, `useContextMenu`, `useDialogs`, `useAutoFetch`.
+- **Renderer** — React 18, Vite, CSS Modules. One folder per feature in `features/` (graph, sidebar, changes, diff, merge, stash, checkout, rebase, reflog, bisect, blame, file-history, repo-manager, repo-tabs, toolbar, titlebar, layout, settings, ssh, ai, safety, statistics, worktrees, lfs, hooks, gitignore, git-activity, support, app-shell). State is driven by `useAppState` (a facade over `useRepoSlices` + `useRunningOps` + `useStateSubscription`); the rest lives in `hooks/` (table below).
 
 - **Preload** — `contextBridge.exposeInMainWorld('gitBorAPI', …)` exposes `invoke`, `onEvent`, and `platform` to the isolated renderer.
 
@@ -41,7 +41,7 @@ Modules under `src/core/`:
 
 | Module | Role |
 |--------|------|
-| **GitExecutor** | Runs Git via `execFile`, ~30s timeout, env support, logs to file. Sensitive args (messages, passphrases) redacted via `sanitizeArgs`. `cwd` is set in constructor — each repo gets its own executor; switching repos happens at the `RepoServicesRegistry` level, not via `setCwd`. `killAll()` SIGTERMs only this repo's inflight processes. `execBuffer(args)` is a parallel API that returns raw `Buffer`s instead of UTF-8 strings — used by `getFileDiff` / `getFileText`, where the source file may be in a legacy single-byte encoding (CP1251/CP866) and `execFile`'s default `utf8` decoding would corrupt Cyrillic into mojibake. |
+| **GitExecutor** | Runs Git via `execFile`, ~30s timeout, env support, logs to file. `exec` does not throw on a non-zero exit code — callers check `exitCode`. Git always runs with `LC_MESSAGES=C` (`GitExecutor.buildEnv`): git messages are in English, otherwise with a Russian locale `GitErrorClassifier` does not recognize conflicts and other errors; `LC_CTYPE` (UTF-8 for paths and hooks) stays the user's. Sensitive args (messages, passphrases) redacted via `sanitizeArgs`. `cwd` is set in constructor — each repo gets its own executor; switching repos happens at the `RepoServicesRegistry` level, not via `setCwd`. `killAll()` SIGTERMs only this repo's inflight processes. `execBuffer(args)` is a parallel API that returns raw `Buffer`s instead of UTF-8 strings — used by `getFileDiff` / `getFileText`, where the source file may be in a legacy single-byte encoding (CP1251/CP866) and `execFile`'s default `utf8` decoding would corrupt Cyrillic into mojibake. |
 | **RepoServicesRegistry** | Per-repo services registry: `Map<repoPath, { git, queue, safety }>` plus a bootstrap set for clone/init when no repo is open. `acquire(repoPath)` lazily creates services, `release(repoPath)` kills inflight processes. This breaks global serialization: a long `git pull` on repo A no longer blocks operations on repo B. |
 | **GitParser** | Pure parsers: `parseCommits`, `parseBranches`, `parseTags`, `parseStatus`, `parseFileChanges`. Big stdouts (status > 256 KB, log > 512 KB) are offloaded to `WorkerPool`. |
 | **GraphLayout** | Lane assignment for commit graph layout. Computed inside a worker thread when `commits.length > 2000`. |
@@ -58,11 +58,13 @@ Modules under `src/core/`:
 | **MessageBridge** | Electron IPC: a thin ~150-line wrapper. Accepts `RendererCommand`, looks up the handler in `ipcCommandHandlers` (aggregated from `bridge/ipc/handlersState.ts`, `handlersGitOps.ts`, `handlersRepoExtras.ts`, `handlersAi.ts`). Catches `AppError` and emits an `error`-event with `code`+`data` for renderer-side translation. Sends `graphData` with reference-based deduplication (`sentGraphByRepo`) — repeatedly toggling A→B→A doesn't push megabytes of JSON over IPC. |
 | **bridge/ipc/** | IPC handler submodules: `helpers.ts` (`runTracked`/`op`/`opWithPostMerge`/`errOnFail`/`mergeStateAfter`), `ready.ts`, `handlersState.ts` (lifecycle, diff/blame/history), `handlersGitOps.ts` (push/pull/fetch/commit/stage/merge/rebase), `handlersRepoExtras.ts` (LFS, worktrees, hooks, stats, bisect, repo-tabs, settings, SSH), `handlersAi.ts`. `op`/`opWithPostMerge` snapshot `repoPath` BEFORE starting and pass it into both `operationStart` and `operationEnd` so a tab switch between events doesn't break the per-repo running flag. |
 | **OperationQueue** | Per-repo: read ops parallel, writes serialized. A separate queue per repo means blocking one repo cannot block another. |
-| **SafetyNet** | Per-repo. Auto-stash before risky operations; rollback paths on failure. |
-| **FileWatcher** | Per-repo `chokidar` watchers (`.git` + worktree, created lazily via `setImmediate` after a pre-scan). The worktree watcher is NOT started when `isDangerousRepoRoot(path)` is true (home, drive root, `C:\Windows`...) or when there are > 1000 top-level entries — otherwise an `EPERM`/`EACCES` cascade on `AppData`/`OneDrive` would crash main. Strict race-guard: if the repo is closed while async pre-scan is still running, no new watchers are created (or they are closed immediately). `chokidar.on('error')` swallows EPERM, depth=3, debounce: 50ms `.git`, 200ms worktree. |
+| **SafetyNet** | Per-repo. Auto-stash (`stash push -u`) before risky operations. Whether a stash was created is checked by `refs/stash` moving (`readStashTip`), not by the exit code: on "nothing to save" git exits with 0, and previously someone else's `stash@{0}` was applied and dropped. Rollback: first `checkout -f` to the saved branch, then `reset --hard` (otherwise the branch the operation had switched to would be moved); exit codes are checked. |
+| **gitDir** | `resolveGitDir(repo)` / `resolveCommonGitDir(repo)` — the real git directory. In a linked worktree and a submodule `.git` is a `gitdir: …` file, so `join(repo, '.git')` does not work there. Used wherever `MERGE_HEAD`, `rebase-merge`, `index.lock`, the journal and hooks are read. |
+| **stashRef** | `resolveStashDropRef` (hash → `stash@{n}` for `stash drop`) and `readStashTip` (tip of `refs/stash`). |
+| **FileWatcher** | Per-repo `chokidar` watchers (git dir + worktree, created lazily after a pre-scan). The git dir is watched without a depth limit — branch `feature/user/task` lives in `refs/heads/feature/user/task`, and with the former `depth: 3` a commit to it from a terminal produced no events. Internals (`index`, `objects/`, `logs/`, `hooks/`, `modules/`, `lfs/`, `worktrees/`, `*.lock`) are filtered by `isIgnoredGitPath` relative to the git dir — otherwise writing `index` would start a refresh ↔ `update-index` loop. For a worktree the shared `refs/` and `packed-refs` are watched too. The worktree watcher is not started for dangerous roots (`isDangerousRepoRoot`) or with > 1000 top-level entries. Debounce: `.git` — 120 ms, adapting up to 2 s based on the previous refresh duration; worktree — 200 ms; refresh is postponed while a write operation runs. |
 | **repoPathGuard** | `isDangerousRepoRoot(path)` — checks whether a path is "dangerous" (drive root / home / Windows / `Program Files` / `node_modules` / etc.). Used by `FileWatcher` to skip the worktree watcher. Opening such folders is no longer hard-blocked — the user is allowed to look at any directory on purpose. |
 | **AppError** | Structured error with a localization code (`code`) and template params (`data`) plus a technical fallback. `MessageBridge` turns it into an `error`-event with `code`/`data`; the renderer translates via `locale.repoErrors[code]` and interpolates `data`. Replaces "English-only strings that nobody translates". |
-| **gitActivityStore** | Journal of git operations (start/append/finish) with `repoPath` per entry. `activityContext.ts` uses `AsyncLocalStorage` so `GitExecutor.exec` can attribute every command to its active operation without explicit id propagation. The renderer filters by the active tab's `repoPath`; cap = 100 entries; stdout/stderr truncated to `OUTPUT_CAP_BYTES = 16 KiB` with a `[truncated...]` marker. |
+| **GitActivityStore** | Journal of git operations (start/append/finish) with `repoPath` per entry. `activityContext.ts` uses `AsyncLocalStorage` so `GitExecutor.exec` can attribute every command to its active operation without explicit id propagation. The renderer filters by the active tab's `repoPath`; cap = 100 entries; stdout/stderr truncated to `OUTPUT_CAP_BYTES = 16 KiB` with a `[truncated...]` marker. |
 | **Logger** | Levelled logging (`silent`/`error`/`warn`/`info`/`debug`) with stdout/stderr split and an optional `WriteStream` to `<userData>/logs/YYYY-MM-DD.log`. Singleton `mainLogger` is the single source of level for all modules. `configureMainLogger({ isProduction })` is called from `main.ts` after `app.whenReady`: prod → `silent` (silent in both console and file), dev → `debug`. ENV `GITBOR_LOG_LEVEL` overrides the default — convenient for debugging on a packaged build at the user side. All ad-hoc `console.warn/error` in core (FileWatcher, WorkerPool, AiService, etc.) were migrated to `mainLogger`. Direct `console.error` remains only inside `process.on('unhandledRejection'/'uncaughtException')` — that is the last-resort handler that must run BEFORE `configureMainLogger`. |
 | **SshKeyManager** | Lists, generates, deletes SSH keys in `~/.ssh/`. Two-step passphrase generation (no passphrase in argv). |
 | **ReflogParser** | Parses `git reflog` output into structured entries. |
@@ -85,8 +87,15 @@ Feature folders under `src/renderer/src/features/`:
 
 | Area | Contents |
 |------|----------|
-| **graph/** | `CommitGraph` (virtualized), `CommitDetails`, `branchPaths`. |
-| **sidebar/** | Sidebar: `BranchTree` (current branch as a green dot, no text badge), tags, stashes, remotes, submodules. |
+| **graph/** | `CommitGraph` (virtualized), `CommitDetails` (in compare mode a banner "what X brings into Y" above the tabs), `branchPaths`, `commitMenuItems` (commit menu: header "hash · subject"; everything that changes the current branch is in the "On ‘branch’" submenu), `webLinks` (commit / PR URL in Azure DevOps, GitHub, GitLab from the remote URL; PR number from the merge commit message), `BranchesContainingDialog` ("Branches containing this commit", `for-each-ref --contains`). |
+| **sidebar/** | `Sidebar`, `BranchTree` (current branch as a green dot), tags, stashes, remotes, submodules. `sidebarMenuItems` — the branch menu: the name once in the header, only verbs in items; branch comparison both ways (`compareBranches` from the merge base), graph view (only this / hide / pin) as a submenu. |
+| **stash/** | `StashCreateDialog` ("Include new files" on by default, the choice is remembered), `ApplyStashDialog`, `autoStash`. |
+| **checkout/** | `CheckoutDialog` — what to do with local changes when switching (keep / stash / discard). |
+| **safety/** | `SafetyDialog` — modal dialog for git errors with suggested actions (see [Safety and errors](safety-error-handling.md)). |
+| **statistics/** | Repository statistics: contributors, heatmap, author details. |
+| **git-activity/** | Git call log for the active tab. |
+| **support/** | Project support dialog. |
+| **app-shell/** | `AppWorkspace` — the window frame: sidebar, toolbar, main area. |
 | **changes/** | `LocalChanges` (tree, folder context menu applies to all files inside), `CommitBar` (subject + description), `FileTree` + extracted pure helpers in `fileTreeModel.ts` (`buildFileTree`, `collectFiles`). |
 | **diff/** | `DiffPanel`, `DiffView`, `DiffHunkView`, `DiffSideBySide` (each hunk = `.hunkBlock` with `HunkActionsOverlay` shown on `:hover`/`:focus-within` — Fork-style; no persistent `@@` header bar; no `+`/`−` text prefix in line content — color-only), `HunkActionsOverlay` (shared Stage / Discard / Unstage panel — single source of truth for both inline and split), `ImageDiff`, `MarkdownPreviewModal` (lazy chunk — renders `.md` content via the shared `Markdown` parser; backed by the `getFileText` IPC), `useDiffCopyMenu` (right-click Copy: current `window.getSelection()` text, or row content via `data-diff-line` attribute set in all three view modes). |
 | **merge/** | `MergeDialog`, `MergeEditor`, `MergeBanner`, `ConflictPanel`. |
@@ -96,7 +105,7 @@ Feature folders under `src/renderer/src/features/`:
 | **rebase/** | `RebaseEditor`. |
 | **repo-manager/** | `RepoManager`, recent repositories. |
 | **repo-tabs/** | Multi-repo tabs. The `+` tab opens `RepoManager`; clicking the active tab again also opens it. Highlight on the `+` button when manager is active. |
-| **toolbar/** | Fetch, Pull, Push, Stash (opens `SgPromptDialog` with `allowEmpty` — empty value = `git stash` without `-m`). |
+| **toolbar/** | Fetch, Pull, Push, Stash (opens `StashCreateDialog`), Stash pop. |
 | **titlebar/** | `TitleBar` with custom `MenuBar` component. |
 | **layout/** | `CommitsView`, `ChangesView`, `RightPanelContent`. |
 | **ssh/** | `SshKeysDialog` — SSH key management UI. |
@@ -127,6 +136,14 @@ Custom hooks under `src/renderer/src/hooks/`:
 | **useDialogs** | Centralized dialog visibility states (about, ssh, reflog, bisect, hooks, worktrees, lfs, gitignore, ai). |
 | **useAutoFetch** | Periodic background `fetch` for the active repo (configurable interval). |
 | **useAiConfig** | Loads/saves `AiProviderConfig`; exposes `testConnection` and `generateCommitMessage` with streaming `onChunk`. |
+| **useGraphFilter** | Graph filters in the renderer, no git calls: Solo in "Own commits" mode (first-parent chain; laid out from single-parent copies so no lanes dangle) and "Full history" mode (all ancestors), Hide (hidden branches). |
+| **useBranchPrefs** | Pinned / hidden / Solo branches and branch notes, per repo in `localStorage`. |
+| **useSafetyDialog** | Shows `SafetyDialog` by `errorClass` and runs the chosen action (one dialog at a time, FIFO queue). |
+| **useAppUpdater** | Auto-update dialogs: "Restart and install" with the list of changes, manual check result. |
+| **useRestoreRepoTabs** | Restores open tabs on startup. |
+| **useSyncActions** | Pull and Push: remote and branch selection dialogs, rebase / autostash for Pull, force for Push. |
+| **useFolderDropOpenRepos** | Opens repositories by dropping folders onto the window. |
+| **useWindowVisible** | Pauses background work while the window is minimized. |
 
 ## AI Module
 
@@ -144,7 +161,7 @@ Custom hooks under `src/renderer/src/hooks/`:
 
 ## IPC Protocol
 
-`RendererCommand` defines 45+ command types; `MainEvent` defines 30+ event types. Canonical definitions live in `src/core/bridge/messages.ts`. The renderer imports types from `src/renderer/src/types/index.ts` which re-exports from `@core/git/types` and `@core/bridge/messages`.
+`RendererCommand` defines about 140 command types and `MainEvent` about 60 event types. A reply comes either as an event (`postCommand` → `onMainEvent`) or as a return value (`invokeCommand`, e.g. `getFileText`, `getBranchesContaining`). Canonical definitions live in `src/core/bridge/messages.ts`. The renderer imports types from `src/renderer/src/types/index.ts` which re-exports from `@core/git/types` and `@core/bridge/messages`.
 
 ## State Management
 
@@ -185,6 +202,16 @@ Open tabs survive restart. State lives in renderer's `localStorage` (`sg-open-re
 - `initServices()` — `git --version` probe, `RepoServicesRegistry`, `StateManager`, `MessageBridge`, `FileWatcher`, AI services.
 
 Both run concurrently. `messageBridge.attach(mainWindow)` is called after `createWindow` resolves but before `loadWindow()`, so `ipcMain.handle('gitbor:command')` is registered by the time React mounts and fires the first `postCommand`. `autoOpenRepo()` is not awaited — it kicks off in the background and pushes events through the already-attached bridge. Cuts ~0.5–1.5 s off cold-start on Windows.
+
+## Auto-update
+
+`src/main/` — three modules:
+
+- **`AppUpdater.ts`** — `electron-updater`: a check ~8 s after an installed build starts, background download, then a "Restart and install" dialog.
+- **`updateFlavor.ts`** — where updates come from and which ones are accepted. By default — GitHub Releases (`RuslanSinkevich/gitbor`); the No AI build reads its own `noai*.yml` channel, the regular build reads `latest*.yml`, and an installer of the other variant is never accepted. `GITBOR_UPDATE_BASE_URL` switches to a fallback generic source (a bucket).
+- **`releaseNotes.ts`** — the "what's new" list comes from the `releaseNotes` field of `latest*.yml`. Its source is `build/release-notes.md` (`<!-- ru -->` / `<!-- en -->` blocks): electron-builder puts it into the yml at build time, so the list travels with the update.
+
+Release cycle details — [BUILD.md](BUILD.md).
 
 ## Logging
 

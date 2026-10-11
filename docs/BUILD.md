@@ -64,7 +64,10 @@ Win10 LongPathsEnabled (требует прав администратора в�
 npm run dist:mac
 ```
 
-Вывод: `release/GitBor-X.Y.Z.dmg`.
+Вывод: `release/GitBor-X.Y.Z.dmg` (архитектура машины сборки). В CI собираются
+оба варианта — `GitBor-X.Y.Z-x64.dmg` (Intel) и `GitBor-X.Y.Z-arm64.dmg`
+(Apple Silicon). Локально обе архитектуры: `npx electron-builder --mac --x64 --arm64`
+(имя задаётся так же, как в `release.yml`, через `--config.dmg.artifactName`).
 
 Подпись кода: ad-hoc (`mac.identity: null`). Для подписи Developer ID
 сними `CSC_IDENTITY_AUTO_DISCOVERY: false` в CI и предоставь:
@@ -107,6 +110,9 @@ npm run dist:win:all      # обычный и no-ai варианты для Wind
 - `.github/workflows/ci.yml` — lint + tsc + test + build на
   Windows/macOS/Ubuntu (matrix). Без пакетинга.
 - `.github/workflows/pr.yml` — Windows e2e через Playwright.
+- `.github/workflows/release.yml` — сборка установщиков всех платформ и
+  вариантов; по тегу `vX.Y.Z` публикует их в GitHub Release (см. «Релизы и
+  автообновление» ниже).
 - `.github/workflows/release-pack.yml` — ручной `workflow_dispatch` для
   smoke-пакетинга на всех 3 платформах через `electron-builder --dir`.
   Артефакты загружаются для инспекции. НЕ подписывает и не нотаризует.
@@ -171,89 +177,72 @@ request — workflow сам подхватит её и запакует с HEAD'
 session, физически в `<userData>/Local Storage/`). Префиксы ключей:
 
 - `sg-theme`, `sg-lang` — текущая тема / язык UI.
-- `sg-layout:*` — размеры split-pane'ов (напр. `sg-layout:changes-file-list-width:<repo>`,
-  `sg-layout:commits-graph-height:<repo>`, `sg-layout:commits-detail-width:<repo>`).
+- `sg-layout:*` — размеры панелей (`sidebar-width`, `changes-file-list-width:<repo>`,
+  `changes-staged-height:<repo>`, `commits-graph-height:<repo>`, `commits-detail-width:<repo>`).
 - `sg-sidebar-sections`, `sg-branch-folders:<repo>[:<remote>]` —
   состояние раскрытия секций сайдбара и дерева веток.
+- `sg-branch-pinned`, `sg-branch-hidden`, `sg-graph-solo`, `sg-branch-notes`
+  (с суффиксом `:<repo>`) — закреплённые / скрытые ветки, фильтр графа по
+  ветке, заметки по веткам.
 - `sg-recent-repos`, `sg-open-repos`, `sg-last-active-repo` — списки
   недавних / открытых / активного репо (восстанавливаются при следующем
   запуске).
+- `sg-clone-base-dir`, `sg-init-base-dir` — последние папки для clone / init.
+- `sg-gitignore-banner-dismissed:<repo>` — скрытая подсказка про `.gitignore`.
+- `gitbor.commitDraft:<repo>` — несохранённый черновик сообщения коммита
+  (черновики со старым ключом `skycode.commitDraft` переносятся автоматически).
+- `gitbor.stash.includeUntracked` — последний выбор «Включить новые файлы» в окне «Отложить».
+- `gitbor.graph.soloMode` — режим фильтра по ветке: «Только свои» / «Вся история».
 - `gitbor.log` — opt-in флаг debug-логов в renderer.
 
 **Чистое удаление** (NSIS-uninstaller это НЕ чистит): удалить папку
 `GitBor` по пути выше. На Windows — также `HKCU\Software\GitBor`,
 если что-то писалось туда через NSIS-скрипты (сейчас не используется).
 
-## Дистрибуция и авто-обновления
+## Релизы и автообновление
 
-### Куда выкладывать релизы
+### Как выпустить версию
 
-`electron-builder` создаёт `release/` с инсталляторами, блокмапами и
-`latest.yml` / `latest-mac.yml` / `latest-linux.yml`. Эти metadata-файлы
-читает авто-апдейтер.
+Релизы собирает GitHub Actions (`.github/workflows/release.yml`) — для публичного репозитория бесплатно.
 
-Рекомендованные таргеты:
+1. Поднять `version` в `package.json` **и** `src/renderer/package.json` (должны совпадать).
+2. Написать список изменений в `build/release-notes.md` — блоки `<!-- ru -->` и `<!-- en -->`, по одной короткой строке на пункт. Из этого файла берутся и текст GitHub Release, и список «что нового» в окне обновления.
+3. Закоммитить, поставить тег `vX.Y.Z` и запушить его (`git tag v0.1.23 && git push origin v0.1.23`).
+4. Workflow собирает 6 вариантов (Windows / Linux / macOS × обычный / No AI; macOS — для Intel и Apple Silicon) и прикладывает к GitHub Release:
+   - установщики (`*.exe`, `*.dmg`, `*.AppImage`, `*.deb`, `*.rpm`) и `*.blockmap` для дифф-обновлений;
+   - файлы каналов обновления: `latest.yml` / `latest-mac.yml` / `latest-linux.yml` для обычной сборки и `noai.yml` / `noai-mac.yml` / `noai-linux.yml` для No AI.
 
-- **GitHub Releases** — самый простой. Прописать `build.publish` в
-  `package.json`: `{"provider": "github", "owner": "...", "repo":
-  "..."}` и запустить `electron-builder --publish always` (нужен
-  `GH_TOKEN` в env). `latest.yml` загрузится автоматически вместе с
-  бинарями.
-- **Generic HTTP / S3 / CDN** — `{"provider": "generic", "url":
-  "https://your-cdn/gitbor/"}`. Содержимое `release/` (инсталляторы +
-  `latest*.yml` + `*.blockmap`) залить по этому префиксу вручную или
-  через CI.
+Ручной запуск workflow (Actions → Release → Run workflow) только собирает артефакты без публикации — удобно проверить, что всё собирается.
 
-Пока `build.publish` не настроен, файлы `latest.yml` в `release/` ни на
-что не влияют — они становятся осмысленными только когда тот же URL
-доступен из работающего приложения с авто-апдейтером.
+Сборки не подписаны: Windows показывает SmartScreen, macOS — предупреждение Gatekeeper.
 
-### Авто-обновления
+### Как работает автообновление
 
-Подключены через `electron-updater` (`src/main/AppUpdater.ts`):
+`electron-updater` в `src/main/AppUpdater.ts`, источник и политика — в `src/main/updateFlavor.ts`:
 
-- **URL:** `build.publish` → `https://storage.yandexcloud.net/gitbor/stable/win/`
-- **Когда:** ~8 с после старта (packaged NSIS), фоновая загрузка
-- **Не работает:** dev (`npm run dev`), portable `.exe`, `GITBOR_SKIP_UPDATE_CHECK=1`
-- **Ручная проверка:** About → «Проверить обновления»
+- **Откуда:** GitHub Releases репозитория `RuslanSinkevich/gitbor`. Обычная сборка читает канал `latest*.yml`, No AI — `noai*.yml`; установщик чужого варианта не принимается.
+- **Когда:** через ~8 с после старта установленной версии, загрузка в фоне, затем окно «Перезапустить и установить» со списком изменений.
+- **Список «что нового»:** поле `releaseNotes` в yml, которое electron-builder заполняет из `build/release-notes.md` (`src/main/releaseNotes.ts`). Если поля нет, используется запасной запрос к сайту.
+- **Не работает:** в dev (`npm run dev`), в портативной версии, при `GITBOR_SKIP_UPDATE_CHECK=1`.
+- **Ручная проверка:** «О программе» → «Проверить обновления».
+- **Запасной источник:** `GITBOR_UPDATE_BASE_URL=<url>` переключает на generic-источник (например, бакет) с раскладкой `<url>/win/`, `<url>/win/no_ai/`, `<url>/mac/`, `<url>/linux/` и т. д.
 
-### Релизный цикл (Windows NSIS)
+**Проверка после релиза:** запустить предыдущую установленную версию — через ~8 с в логе (`<userData>/logs/YYYY-MM-DD.log` при `GITBOR_LOG_LEVEL=debug`) появится `appUpdater: … available X.Y.Z`, затем окно перезапуска.
 
-1. Поднять `version` в `package.json` И в `src/renderer/package.json` (должны совпадать).
-2. `npm run dist:win` — собирает `release/`:
-   - `GitBor-Setup-X.Y.Z.exe` (NSIS, нужен)
-   - `GitBor-Setup-X.Y.Z.exe.blockmap` (delta-обновления, нужен)
-   - `latest.yml` (metadata авто-апдейтера, нужен)
-   - `GitBor-Portable-X.Y.Z.exe` (опционально, в auto-update не участвует)
-3. Залить **3 файла** (`.exe`, `.exe.blockmap`, `latest.yml`) в бакет
-   по префиксу `gitbor/stable/win/` — НЕ кидать в корень бакета и не
-   переименовывать `latest.yml`.
-4. Проверка: `https://storage.yandexcloud.net/gitbor/stable/win/latest.yml`
-   открывается без авторизации; парсится как YAML с полями `version`, `path`, `sha512`.
-5. Запустить старую установленную версию → через ~8 с в логах
-   (`%APPDATA%\GitBor\logs\YYYY-MM-DD.log` при `GITBOR_LOG_LEVEL=debug`)
-   виден `appUpdater: ... update available X.Y.Z`, фоновая загрузка,
-   prompt «Перезапустить».
+**Деградация:** нет сети, релиз без нужного yml или ошибка GitHub — приложение работает дальше, в логе `appUpdater: … check failed`, ручная проверка показывает «Не удалось проверить обновления».
 
-**Деградация бакета:** 404 / пустой `latest.yml` / нет сети — приложение
-живёт, в логе `appUpdater: ... check failed: ...`, manual check из About
-показывает локализованный «не удалось проверить».
+**Переход со старых версий:** версии до перехода на GitHub Releases проверяют только старый источник — их нужно один раз обновить установщиком вручную.
 
-**Первая версия с updater'ом → следующая:** юзеры старой
-(без updater'а) сами не подхватят — нужен прямой апдейт инсталлятором
-один раз. Начиная со следующей версии — авто.
+### Ограничения по платформам
 
-- **Windows**: NSIS-таргет поддерживает авто-апдейты (delta-обновления
-  через `.blockmap`); portable — НЕ поддерживает.
-- **macOS**: требует подпись Developer ID И нотаризацию — оба сейчас
-  отключены (`mac.identity: null`, `mac.notarize: false`).
-- **Linux**: AppImage поддерживает обновления; `.deb` / `.rpm` — нет
-  (раздавать через свой apt/yum-репозиторий).
+- **Windows:** автообновление — только у NSIS-установщика; портативная версия не обновляется.
+- **macOS:** без подписи Developer ID и нотаризации автообновление ненадёжно (`mac.identity: null`, `mac.notarize: false`).
+- **Linux:** обновляется AppImage; `.deb` / `.rpm` — нет (только через свой apt / yum-репозиторий).
 
 ## Известные ограничения
 
 - Нотаризация macOS требует Apple Developer ID — не настроена.
-- Авто-обновления: NSIS + Yandex bucket (см. «Авто-обновления» выше). macOS без подписи — авто-update не для prod.
+- Автообновление: GitHub Releases (см. «Релизы и автообновление» выше); macOS без подписи — автообновление не для prod.
 - Реальные продуктовые иконки ещё не нарисованы; placeholder-иконки
   геометрические/авто-сгенерированные. См. `scripts/build-icons.mjs`.
 - Bundled Git для Windows: не включён; пользователям нужно установить
