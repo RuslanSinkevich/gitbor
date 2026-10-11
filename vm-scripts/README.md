@@ -1,7 +1,7 @@
 # vm-scripts — шпаргалка
 
 Скрипты для сборки/запуска GitBor под Linux в VirtualBox (Ubuntu).
-Лежат в общей папке: на Windows — `D:\Users\Admin\Desktop\Skycode\gitbor\vm-scripts\`,
+Лежат в общей папке VirtualBox: на хосте — `vm-scripts\` в корне проекта gitbor,
 в VM — `/media/sf_gitbor/vm-scripts/`.
 
 > Все скрипты в формате LF (Unix). Запуск: `bash <путь>`.

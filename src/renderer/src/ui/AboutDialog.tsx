@@ -78,7 +78,7 @@ export function AboutDialog({ onClose, loc, onSayThanks }: Props) {
         <p className={s.sectionText}>{loc.aboutDialog.authorBio}</p>
         <a
           className={s.link}
-          href="https://ruslansinkevich.ru/about"
+          href="https://ruslansinkevich.ru/"
           target="_blank"
           rel="noreferrer"
         >

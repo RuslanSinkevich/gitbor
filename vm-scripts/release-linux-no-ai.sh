@@ -110,7 +110,7 @@ fi
 echo ""
 echo "============================================================"
 echo " GOTOVO. Fayly na Windows tut:"
-echo "   D:\\Users\\Admin\\Desktop\\Skycode\\gitbor\\linux-release\\no_ai\\"
+echo "   <papka proekta gitbor>\\linux-release\\no_ai\\"
 echo ""
 echo " Zalit v bucket: gitbor/stable/linux/no_ai/  (perezapisat)"
 echo "   - GitBor-NoAI-X.Y.Z.AppImage"

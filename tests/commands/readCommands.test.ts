@@ -117,13 +117,13 @@ describe('parseRepoStats', () => {
 describe('parseAuthorCodeStats', () => {
   const head = 'abc123';
 
-  it('skips SKYFORK commit header lines and aggregates numstat', () => {
+  it('skips GITBOR commit header lines and aggregates numstat', () => {
     const raw = [
-      'SKYFORK1111111111111111111111111111111111',
+      'GITBOR1111111111111111111111111111111111',
       '',
       '10\t5\tfoo.ts',
       '1\t1\tbar.ts',
-      'SKYFORK2222222222222222222222222222222222',
+      'GITBOR2222222222222222222222222222222222',
       '',
       '3\t0\tbaz.ts',
     ].join('\n');
@@ -137,7 +137,7 @@ describe('parseAuthorCodeStats', () => {
   });
 
   it('counts binary numstat rows', () => {
-    const raw = ['SKYFORK' + 'a'.repeat(40), '', '-\t-\timg.png'].join('\n');
+    const raw = ['GITBOR' + 'a'.repeat(40), '', '-\t-\timg.png'].join('\n');
     const stats = parseAuthorCodeStats(raw, 'Dev', 'dev@test.com', head);
     expect(stats.binaryFiles).toBe(1);
     expect(stats.touchedFiles).toBe(1);

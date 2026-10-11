@@ -450,7 +450,7 @@ export async function getDayCommits(
   });
 }
 
-/** Parses `git log --numstat` output when each commit is prefixed with `SKYFORK%H` (see getAuthorCodeStats). */
+/** Parses `git log --numstat` output when each commit is prefixed with `GITBOR%H` (see getAuthorCodeStats). */
 export function parseAuthorCodeStats(
   raw: string,
   authorName: string,
@@ -463,7 +463,7 @@ export function parseAuthorCodeStats(
   let binaryFiles = 0;
 
   for (const line of raw.split('\n')) {
-    if (!line || line.startsWith('SKYFORK')) continue;
+    if (!line || line.startsWith('GITBOR')) continue;
     const parts = line.split('\t');
     if (parts.length < 3) continue;
     const [added, deleted, rawFilePath] = parts;
@@ -521,7 +521,7 @@ export async function getAuthorCodeStats(
       `--author=${authorName} <${authorEmail}>`,
       '--numstat',
       // Git requires at least one `%` placeholder in `--format`; plain text is rejected (fatal).
-      '--format=SKYFORK%H%n',
+      '--format=GITBOR%H%n',
     ], { maxBuffer: 200 * 1024 * 1024, timeout: 120_000 });
 
     const stats = parseAuthorCodeStats(result.stdout, authorName, authorEmail, headHash);

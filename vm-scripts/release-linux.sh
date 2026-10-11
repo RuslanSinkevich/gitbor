@@ -109,7 +109,7 @@ fi
 echo ""
 echo "============================================================"
 echo " GOTOVO. Fayly na Windows tut:"
-echo "   D:\\Users\\Admin\\Desktop\\Skycode\\gitbor\\linux-release\\"
+echo "   <papka proekta gitbor>\\linux-release\\"
 echo ""
 echo " Zalit v bucket: gitbor/stable/linux/  (perezapisat)"
 echo "   - GitBor-X.Y.Z.AppImage"
