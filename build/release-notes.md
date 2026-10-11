@@ -1,4 +1,6 @@
 <!-- ru -->
+- Обновления теперь приходят с GitHub Releases
+- Появились сборки для macOS — Intel и Apple Silicon
 - Граф сам обновляется после коммитов из терминала в ветки вида feature/имя/задача
 - Сравнение веток в обе стороны — «что принесёт в текущую» и «как в pull request»
 - Фильтр по ветке: «Только свои» коммиты или «Вся история»
@@ -6,6 +8,8 @@
 - Стэш забирает новые файлы и больше не сообщает об успехе, если откладывать нечего
 - Исправлены auto-stash, откат операций и работа в worktree
 <!-- en -->
+- Updates now come from GitHub Releases
+- macOS builds are now available — Intel and Apple Silicon
 - The graph refreshes after terminal commits to branches like feature/name/task
 - Compare branches both ways — "what it brings into current" and "like a pull request"
 - Branch filter: "Own commits" or "Full history"
