@@ -9,15 +9,15 @@ import {
   decideUpdateAcceptance,
   resolveUpdateFeedUrl,
 } from './updateFlavor';
+import { parseReleaseNotes, type ReleaseNotes } from './releaseNotes';
 
 const STARTUP_CHECK_DELAY_MS = 8_000;
 const NOTES_FETCH_TIMEOUT_MS = 4_000;
 
-type ReleaseNotes = { ru: string[]; en: string[] };
-
 /**
- * Краткие заметки «что нового» из changelog сайта. Источник истины — сайт
- * (`/api/v1/changelog?version=...`), оттуда же питается страница changelog.
+ * ЗАПАСНОЙ источник заметок — changelog сайта (`/api/v1/changelog?version=...`).
+ * Основной — `releaseNotes` в latest.yml (см. ./releaseNotes). Сайт стал
+ * лендингом и этот API сейчас отдаёт 404 — оставлено на случай его возврата.
  * Тянем в main, т.к. renderer заблокирован CSP. Best-effort: при любой ошибке
  * возвращаем undefined — модалка покажется без списка.
  */
@@ -152,7 +152,11 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
       }
       return;
     }
-    void fetchReleaseNotes(info.version).then((notes) => {
+    // Заметки — из latest.yml в бакете (build/release-notes.md при сборке).
+    // Сайт — только запасной вариант для старых релизов без releaseNotes.
+    const bundled = parseReleaseNotes(info.releaseNotes);
+    const notesPromise = bundled ? Promise.resolve(bundled) : fetchReleaseNotes(info.version);
+    void notesPromise.then((notes) => {
       notify({ type: 'appUpdateReady', version: info.version, ...(notes ? { notes } : {}) });
     });
   });
