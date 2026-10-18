@@ -27,6 +27,8 @@ import { resolveGitDir } from '../core/git/gitDir';
 let mainWindow: BrowserWindow | null = null;
 let messageBridge: MessageBridge | null = null;
 let fileWatcher: FileWatcher | null = null;
+/** Идёт выход из приложения (before-quit) — не путать с закрытием окна на macOS. */
+let appQuitting = false;
 let commandHandler: CommandHandler | null = null;
 let stateManager: StateManager | null = null;
 let repoRegistry: RepoServicesRegistry | null = null;
@@ -191,7 +193,15 @@ async function createWindow(): Promise<void> {
   mainWindow.on('show', onWindowVisible);
 
   mainWindow.on('closed', () => {
-    fileWatcher?.dispose();
+    // При выходе из приложения наблюдатели не закрываем: close() chokidar на большом
+    // worktree синхронно разбирает тысячи fs-наблюдателей и вешает main thread на секунды
+    // (macOS снимал отчёт «hang» при Cmd+Q). Процесс всё равно завершается — ОС освободит
+    // всё сама; достаточно паузы, чтобы события не запускали refresh.
+    if (appQuitting) {
+      fileWatcher?.pause();
+    } else {
+      fileWatcher?.dispose();
+    }
     repoRegistry?.disposeAll();
     mainWindow = null;
   });
@@ -495,6 +505,12 @@ app.whenReady().then(async () => {
       })();
     }
   });
+});
+
+// Выход из приложения (Cmd+Q, меню, автообновление) — в отличие от закрытия окна на macOS,
+// после которого программа остаётся в доке. Ставим флаг до graceful-ожидания.
+app.on('before-quit', () => {
+  appQuitting = true;
 });
 
 setupGracefulShutdown(app, () => repoRegistry, 1500);
