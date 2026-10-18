@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { t } from '../../i18n';
+import { t, tpl } from '../../i18n';
 import type { Branch, Tag, Stash, Remote } from '../../types';
 import type { RequestCheckout } from '../checkout';
 import type { RequestApplyStash } from '../stash';
@@ -232,6 +232,31 @@ export function Sidebar({
   const localBranches = useMemo(() => branches.filter(b => !b.isRemote), [branches]);
   const remoteBranches = useMemo(() => branches.filter(b => b.isRemote), [branches]);
 
+  // Локальные ветки, чью ветку на сервере удалили (обычно после слияния PR). Текущую не трогаем.
+  const goneBranches = useMemo(
+    () => localBranches.filter(b => b.upstreamGone && b.name !== currentBranch),
+    [localBranches, currentBranch],
+  );
+  const requestDeleteGone = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (goneBranches.length === 0) return;
+    const names = goneBranches.map(b => b.name);
+    showPrompt({
+      kind: 'confirm',
+      title: tpl(loc.sidebar.cleanGoneTitle, { n: names.length }),
+      message: loc.sidebar.cleanGoneMessage,
+      bullets: names,
+      confirmLabel: loc.dialog.delete,
+      danger: true,
+      onConfirm: () => {
+        for (const branch of names) {
+          // force: после squash-слияния PR ветка «не слита» с точки зрения git — -d её не удалит
+          postCommand({ type: 'deleteBranch', branch, force: true });
+        }
+      },
+    });
+  }, [goneBranches, loc, showPrompt]);
+
   const lf = filter.toLowerCase();
   const filteredLocal = useMemo(() => lf ? localBranches.filter(b => b.name.toLowerCase().includes(lf)) : localBranches, [localBranches, lf]);
   const filteredRemote = useMemo(() => lf ? remoteBranches.filter(b => b.name.toLowerCase().includes(lf)) : remoteBranches, [remoteBranches, lf]);
@@ -292,7 +317,28 @@ export function Sidebar({
         <input className={s.filterInput} type="text" placeholder={loc.sidebar.filter} value={filter} onChange={(e) => setFilter(e.target.value)} />
       </div>
 
-      <SidebarSection title={loc.sidebar.branches} count={filteredLocal.length} expanded={sections.branches} onToggle={() => toggleSection('branches')}>
+      <SidebarSection
+        title={loc.sidebar.branches}
+        count={filteredLocal.length}
+        expanded={sections.branches}
+        onToggle={() => toggleSection('branches')}
+        extra={goneBranches.length > 0 && (
+          <button
+            type="button"
+            className={s.sectionGoneButton}
+            onClick={requestDeleteGone}
+            title={tpl(loc.sidebar.cleanGoneButton, { n: goneBranches.length })}
+            aria-label={tpl(loc.sidebar.cleanGoneButton, { n: goneBranches.length })}
+          >
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M6 1.2 11 10.5H1Z" />
+              <line x1="6" y1="4.6" x2="6" y2="7.2" />
+              <circle cx="6" cy="8.8" r="0.01" fill="currentColor" />
+            </svg>
+            {goneBranches.length}
+          </button>
+        )}
+      >
         {filteredLocal.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noBranches}</div>}
         {localTree.map(node => (
           <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandLocal} onBranchMove={handleBranchMove} prefs={branchPrefs} selectedBranch={selectedBranch} onSelectBranch={setSelectedBranch} remoteNames={remotes.map(r => r.name)} onCompareBranch={onCompareBranch} />
@@ -479,14 +525,18 @@ function RemoteFolder({ repoPath, remote, tree, remoteBranchSig, currentBranch, 
   );
 }
 
-function SidebarSection({ title, count, expanded, onToggle, children }: {
-  title: string; count: number; expanded: boolean; onToggle: () => void; children: React.ReactNode;
+function SidebarSection({ title, count, expanded, onToggle, extra, children }: {
+  title: string; count: number; expanded: boolean; onToggle: () => void;
+  /** Доп. элемент в заголовке перед счётчиком (напр. очистка веток, удалённых на сервере). */
+  extra?: React.ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     <div className={s.section}>
       <div className={s.sectionHeader} onClick={onToggle}>
         <span className={`${s.arrow} ${expanded ? s.arrowExpanded : ''}`}>&#9656;</span>
         <span className={s.sectionTitle}>{title}</span>
+        {extra}
         <span className={s.sectionCount}>{count}</span>
       </div>
       {expanded && <div className={s.sectionBody}>{children}</div>}

@@ -135,9 +135,10 @@ describe('repoSlice', () => {
       expect(GIT_LOG_FORMAT.split('%x00').length).toBe(8);
     });
 
-    it('ref format produces 4 NUL-fields', () => {
+    it('ref format produces 5 NUL-fields (incl. upstream:track)', () => {
       expect(GIT_REF_FORMAT).toContain('refname:short');
-      expect(GIT_REF_FORMAT.split('%00').length).toBe(4);
+      expect(GIT_REF_FORMAT).toContain('upstream:track');
+      expect(GIT_REF_FORMAT.split('%00').length).toBe(5);
     });
 
     it('tag ref format produces 2 NUL-fields', () => {

@@ -155,9 +155,26 @@ export function parseBranches(stdout: string, isRemote = false): Branch[] {
       upstream: parts[2] || undefined,
       isCurrent: (parts[3] || '').trim() === '*',
       isRemote,
+      ...parseUpstreamTrack(parts[4]),
     });
   }
   return result;
+}
+
+/**
+ * `%(upstream:track)`: `[ahead 3, behind 5]`, `[ahead 3]`, `[behind 5]`, `[gone]` или пусто
+ * (в синхроне / нет upstream). Сообщения git — всегда на английском (GitExecutor.buildEnv).
+ */
+export function parseUpstreamTrack(track: string | undefined): Pick<Branch, 'ahead' | 'behind' | 'upstreamGone'> {
+  const t = (track || '').trim();
+  if (!t) return {};
+  if (t === '[gone]') return { upstreamGone: true };
+  const ahead = /ahead (\d+)/.exec(t);
+  const behind = /behind (\d+)/.exec(t);
+  return {
+    ...(ahead ? { ahead: Number(ahead[1]) } : {}),
+    ...(behind ? { behind: Number(behind[1]) } : {}),
+  };
 }
 
 // ─── Tags (from git for-each-ref --format=...%00...) ───

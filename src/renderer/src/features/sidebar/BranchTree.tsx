@@ -11,7 +11,7 @@ import {
   decodeBranchDnd,
   computeMovedBranchName,
 } from './branchDnd';
-import type { t } from '../../i18n';
+import { tpl, type t } from '../../i18n';
 import s from './Sidebar.module.css';
 
 /** Длина превью заметки в tooltip. Дальше — `…`. */
@@ -291,7 +291,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
               <span className={`${s.branchStateMarker} ${s.branchStateMarkerMuted}`} title={truncateNote(noteText)} aria-label={loc.sidebar.branchNote}><IconInfo /></span>
             )}
           </span>
-          {branch.upstream && <span className={s.itemUpstream} title={branch.upstream}>↔</span>}
+          {branch.upstream && <BranchSyncBadge branch={branch} loc={loc} />}
           {prefs && !branch.isRemote && (
             <span className={s.branchHotzone} aria-hidden="true" />
           )}
@@ -366,6 +366,48 @@ const IconEyeOff = () => (
     <path d="M1.5 1.5l9 9" />
     <path d="M3.2 4.8C2.2 5.4 1 6 1 6s2 3 5 3c.8 0 1.5-.2 2.1-.5" />
     <path d="M9.5 7.9C10.5 7 11 6 11 6s-2-3-5-3c-.4 0-.8.05-1.1.14" />
+  </svg>
+);
+
+/**
+ * Состояние ветки относительно upstream — на месте прежнего «↔», без лишней ширины:
+ * `↔` — в синхроне, `3↑ 35↓` — опережает/отстаёт, ⚠ — на сервере ветку удалили
+ * (обычно после слияния PR; осталась только локальная — кандидат на удаление).
+ */
+function BranchSyncBadge({ branch, loc }: { branch: Branch; loc: ReturnType<typeof t> }) {
+  const upstream = branch.upstream ?? '';
+  if (branch.upstreamGone) {
+    const title = tpl(loc.sidebar.upstreamGone, { upstream });
+    return (
+      <span className={`${s.itemUpstream} ${s.itemUpstreamGone}`} title={title} aria-label={title}>
+        <IconWarning />
+      </span>
+    );
+  }
+  const ahead = branch.ahead ?? 0;
+  const behind = branch.behind ?? 0;
+  if (!ahead && !behind) {
+    const title = tpl(loc.sidebar.upstreamInSync, { upstream });
+    return <span className={s.itemUpstream} title={title} aria-label={title}>↔</span>;
+  }
+  const lines: string[] = [];
+  if (ahead) lines.push(tpl(loc.sidebar.upstreamAhead, { n: String(ahead), upstream }));
+  if (behind) lines.push(tpl(loc.sidebar.upstreamBehind, { n: String(behind), upstream }));
+  const title = lines.join('\n');
+  return (
+    <span className={`${s.itemUpstream} ${s.itemUpstreamCounts}`} title={title} aria-label={title}>
+      {ahead > 0 && `${ahead}↑`}
+      {ahead > 0 && behind > 0 && ' '}
+      {behind > 0 && `${behind}↓`}
+    </span>
+  );
+}
+
+const IconWarning = () => (
+  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 1.2 11 10.5H1Z" />
+    <line x1="6" y1="4.6" x2="6" y2="7.2" />
+    <circle cx="6" cy="8.8" r="0.01" fill="currentColor" />
   </svg>
 );
 

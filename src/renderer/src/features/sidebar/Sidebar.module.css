@@ -140,6 +140,29 @@
   border-radius: 8px;
 }
 
+/* «⚠ N» в заголовке «Ветки»: есть локальные ветки, удалённые на сервере — клик чистит. */
+.sectionGoneButton {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sg-warning);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.sectionGoneButton:hover {
+  background: rgba(128, 128, 128, 0.16);
+}
+
+.sectionGoneButton + .sectionCount {
+  margin-left: 4px;
+}
+
 .sectionBody {
   padding: 2px 0;
   /* Глубина = только вложенные .treeChildren; смещение до колонки имени папки — одна константа (не × глубина) */
@@ -225,6 +248,19 @@
   font-size: 10px;
   color: var(--sg-ref-remote);
   flex-shrink: 0;
+}
+
+/* Расхождение с upstream: «3↑ 35↓» — цифры ровной колонкой. */
+.itemUpstreamCounts {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Ветку на сервере удалили — осталась только локальная. */
+.itemUpstreamGone {
+  display: inline-flex;
+  align-items: center;
+  color: var(--sg-warning);
 }
 
 /* Блок действий строки ветки. В покое сдвинут за правый край (translateX)

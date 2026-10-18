@@ -66,7 +66,7 @@ export function mirrorRepoSliceToAppState(state: AppState, slice: RepoSlice): vo
 export const GIT_LOG_FORMAT =
   '%H%x00%P%x00%an%x00%ae%x00%at%x00%D%x00%s%x00%G?';
 export const GIT_REF_FORMAT =
-  '%(refname:short)%00%(objectname)%00%(upstream:short)%00%(HEAD)';
+  '%(refname:short)%00%(objectname)%00%(upstream:short)%00%(HEAD)%00%(upstream:track)';
 export const GIT_TAG_REF_FORMAT =
   '%(refname:short)%00%(objectname)';
 export const GIT_STASH_FORMAT =

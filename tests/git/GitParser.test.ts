@@ -3,6 +3,7 @@ import {
   parseRefs,
   parseCommits,
   parseBranches,
+  parseUpstreamTrack,
   parseTags,
   parseStashes,
   parseRemotes,
@@ -163,6 +164,34 @@ describe('parseBranches', () => {
     const branches = parseBranches(input);
     expect(branches[0].upstream).toBeUndefined();
     expect(branches[0].isCurrent).toBe(false);
+  });
+
+  it('reads ahead/behind and a deleted upstream from %(upstream:track)', () => {
+    const input = [
+      ['develop', 'a1', 'origin/develop', '', '[behind 35]'].join(NUL),
+      ['feature', 'a2', 'origin/feature', '*', '[ahead 2, behind 5]'].join(NUL),
+      ['autofaq', 'a3', 'origin/autofaq', '', '[gone]'].join(NUL),
+      ['synced', 'a4', 'origin/synced', '', ''].join(NUL),
+    ].join('\n');
+    const [develop, feature, autofaq, synced] = parseBranches(input);
+    expect(develop).toMatchObject({ behind: 35 });
+    expect(develop.ahead).toBeUndefined();
+    expect(feature).toMatchObject({ ahead: 2, behind: 5, isCurrent: true });
+    expect(autofaq.upstreamGone).toBe(true);
+    expect(synced.ahead).toBeUndefined();
+    expect(synced.behind).toBeUndefined();
+    expect(synced.upstreamGone).toBeUndefined();
+  });
+});
+
+describe('parseUpstreamTrack', () => {
+  it('parses each git form', () => {
+    expect(parseUpstreamTrack('[ahead 3]')).toEqual({ ahead: 3 });
+    expect(parseUpstreamTrack('[behind 7]')).toEqual({ behind: 7 });
+    expect(parseUpstreamTrack('[ahead 1, behind 2]')).toEqual({ ahead: 1, behind: 2 });
+    expect(parseUpstreamTrack('[gone]')).toEqual({ upstreamGone: true });
+    expect(parseUpstreamTrack('')).toEqual({});
+    expect(parseUpstreamTrack(undefined)).toEqual({});
   });
 });
 

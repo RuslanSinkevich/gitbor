@@ -27,6 +27,12 @@ export interface Branch {
   upstream?: string;
   isCurrent: boolean;
   isRemote: boolean;
+  /** Коммитов в локальной ветке, которых нет в upstream (`%(upstream:track)`). */
+  ahead?: number;
+  /** Коммитов в upstream, которых нет в локальной ветке. */
+  behind?: number;
+  /** Upstream настроен, но ветки на сервере больше нет (после fetch --prune) — `[gone]`. */
+  upstreamGone?: boolean;
 }
 
 export interface Tag {
