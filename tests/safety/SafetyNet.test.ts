@@ -523,7 +523,8 @@ describe('SafetyNet auto-stash: чужой стэш не трогаем', () => 
 
     await sn.wrapDestructive('checkout', {}, async () => 'ok');
 
-    expect(git.exec).toHaveBeenCalledWith(['stash', 'apply', 'autostash']);
+    // --index: подготовленное возвращается подготовленным.
+    expect(git.exec).toHaveBeenCalledWith(['stash', 'apply', '--index', 'autostash']);
   });
 });
 

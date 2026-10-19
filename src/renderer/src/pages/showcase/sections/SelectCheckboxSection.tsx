@@ -16,7 +16,7 @@ export function SelectCheckboxSection() {
       />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <SgCheckbox label={loc.merge.noCommit} />
-        <SgCheckbox label={loc.dialog.deleteOnRemote} defaultChecked />
+        <SgCheckbox label={loc.dialog.deleteOnRemote.replace('{upstream}', 'origin/feature/old')} defaultChecked />
         <SgCheckbox label="Disabled" disabled />
       </div>
     </div>

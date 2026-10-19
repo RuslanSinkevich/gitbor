@@ -84,7 +84,7 @@ export class CommandHandler {
     return Write.trackRemoteBranch(this.queue, this.git, this.safety, this.state, remote, remoteBranch, localName);
   }
   renameBranch(oldName: string, newName: string): Promise<OperationResult> { return Write.renameBranch(this.queue, this.git, this.state, oldName, newName); }
-  deleteBranch(branch: string, force?: boolean): Promise<OperationResult> { return Write.deleteBranch(this.queue, this.git, this.state, branch, force); }
+  deleteBranch(branch: string, force?: boolean, deleteRemote?: boolean): Promise<OperationResult> { return Write.deleteBranch(this.queue, this.git, this.state, branch, force, deleteRemote); }
   createTag(name: string, ref: string, message?: string): Promise<OperationResult> { return Write.createTag(this.queue, this.git, this.state, name, ref, message); }
   deleteTag(name: string, remote?: boolean): Promise<OperationResult> { return Write.deleteTag(this.queue, this.git, this.state, name, remote); }
   cherryPick(hash: string, mainline?: number): Promise<OperationResult> { return Write.cherryPick(this.queue, this.git, this.safety, this.state, hash, mainline); }
@@ -538,7 +538,9 @@ export class CommandHandler {
             throw new GitError(`Restore failed: ${r.stderr}`, 'reset', r.exitCode, r.stderr);
           }
         },
-        { allowedErrorClasses: [] },
+        // Hard reset выбрасывает незакоммиченное: копия остаётся в auto-stash
+        // («Безопасность»), обратно не применяем — иначе правки молча возвращались.
+        { allowedErrorClasses: [], restoreAutoStash: false },
       );
       await this.state.refreshAll();
       return result;

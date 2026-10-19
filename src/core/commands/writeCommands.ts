@@ -3,7 +3,7 @@ import { parseDiff } from '../git/DiffParser';
 
 import { GitErrorClass, OperationResult, DiffHunk, DiffLine, SuggestedAction } from '../git/types';
 import { OperationQueue } from '../safety/OperationQueue';
-import { SafetyNet } from '../safety/SafetyNet';
+import { SafetyNet, type WrapOptions } from '../safety/SafetyNet';
 import { PreflightChecks } from '../safety/PreflightChecks';
 import { StateManager } from '../state/StateManager';
 import { GitErrorClassifier } from '../git/GitErrorClassifier';
@@ -181,6 +181,7 @@ async function gitExecSimple(
 async function safeWrite(
   queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager,
   opName: string, meta: Record<string, string>, gitArgs: string[], errorPrefix: string,
+  wrap: Pick<WrapOptions, 'autoStash' | 'restoreAutoStash'> = {},
 ): Promise<OperationResult> {
   return gitWrite(queue, state, opName, async (timing) => {
     // Pre-flight: lock, state-files, UU. Не пускаем операцию в SafetyNet
@@ -199,7 +200,7 @@ async function safeWrite(
         const r = await git.exec(gitArgs);
         if (r.exitCode !== 0) throw new GitError(`${errorPrefix}: ${r.stderr}`, opName, r.exitCode, r.stderr);
       },
-      { allowedErrorClasses: allowedClassesFor(opName) },
+      { allowedErrorClasses: allowedClassesFor(opName), ...wrap },
     );
     timing.execMs = Date.now() - execStart;
     return result;
@@ -476,8 +477,33 @@ export async function renameBranch(queue: OperationQueue, git: GitExecutor, stat
   return gitExecSimple(queue, git, state, 'renameBranch', ['branch', '-m', oldName, newName]);
 }
 
-export async function deleteBranch(queue: OperationQueue, git: GitExecutor, state: StateManager, branch: string, force?: boolean): Promise<OperationResult> {
-  return gitExecSimple(queue, git, state, 'deleteBranch', ['branch', force ? '-D' : '-d', branch]);
+/**
+ * Удалить локальную ветку; с `deleteRemote` — сначала её upstream на сервере
+ * (`git push <remote> --delete <branch>`), как в Fork. Сервер первым: если он
+ * откажет, локальная ветка останется и удаление можно повторить из UI.
+ * Upstream берём из branch.<name>.remote/merge — после `branch -D` его уже нет.
+ */
+export async function deleteBranch(
+  queue: OperationQueue, git: GitExecutor, state: StateManager, branch: string, force?: boolean, deleteRemote?: boolean,
+): Promise<OperationResult> {
+  if (!deleteRemote) {
+    return gitExecSimple(queue, git, state, 'deleteBranch', ['branch', force ? '-D' : '-d', branch]);
+  }
+  return gitWrite(queue, state, 'deleteBranch', async () => {
+    const remote = (await git.exec(['config', '--get', `branch.${branch}.remote`])).stdout.trim();
+    const merge = (await git.exec(['config', '--get', `branch.${branch}.merge`])).stdout.trim();
+    const remoteBranch = merge.replace(/^refs\/heads\//, '');
+    if (!remote || remote === '.' || !remoteBranch) {
+      return { success: false, error: `Branch "${branch}" has no upstream on a remote — nothing to delete there.`, rollbackAvailable: false };
+    }
+    const rr = await git.exec(['push', remote, '--delete', remoteBranch]);
+    if (rr.exitCode !== 0) return simpleResult(rr.exitCode, rr.stderr);
+    const r = await git.exec(['branch', force ? '-D' : '-d', branch]);
+    if (r.exitCode !== 0) {
+      return { success: false, error: `Deleted ${remote}/${remoteBranch} on the remote, but the local branch was not deleted: ${r.stderr}`, rollbackAvailable: false };
+    }
+    return simpleResult(0, '');
+  });
 }
 
 export async function createTag(queue: OperationQueue, git: GitExecutor, state: StateManager, name: string, ref: string, message?: string): Promise<OperationResult> {
@@ -594,8 +620,15 @@ export async function revert(queue: OperationQueue, git: GitExecutor, safety: Sa
   return safeWrite(queue, git, safety, state, 'revert', meta, args, 'Revert failed');
 }
 
+/**
+ * Soft/mixed рабочую копию не трогают — auto-stash им не нужен (а его
+ * возврат ещё и терял staging). Hard выбрасывает незакоммиченное: копию
+ * откладываем в auto-stash («Безопасность»), но обратно НЕ применяем —
+ * иначе «сброс» молча возвращал правки, да ещё с конфликтом.
+ */
 export async function resetTo(queue: OperationQueue, git: GitExecutor, safety: SafetyNet, state: StateManager, hash: string, mode: 'soft' | 'mixed' | 'hard'): Promise<OperationResult> {
-  return safeWrite(queue, git, safety, state, 'reset', { hash, mode }, ['reset', `--${mode}`, hash], 'Reset failed');
+  return safeWrite(queue, git, safety, state, 'reset', { hash, mode }, ['reset', `--${mode}`, hash], 'Reset failed',
+    { autoStash: mode === 'hard', restoreAutoStash: false });
 }
 
 export async function stashApply(queue: OperationQueue, git: GitExecutor, state: StateManager, index: string): Promise<OperationResult> {

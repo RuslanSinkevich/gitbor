@@ -21,7 +21,7 @@ export function DialogSection() {
       >
         <p>{loc.dialog.deleteBranchMessage}</p>
         <div style={{ marginTop: 12 }}>
-          <SgCheckbox label={loc.dialog.deleteOnRemote} />
+          <SgCheckbox label={loc.dialog.deleteOnRemote.replace('{upstream}', 'origin/feature/old')} />
         </div>
       </SgDialog>
     </div>

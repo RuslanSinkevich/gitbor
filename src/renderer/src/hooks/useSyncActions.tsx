@@ -9,7 +9,6 @@ import { canPushDirectly, upstreamBranchShort } from './pushDestination';
 
 interface PullDialogState {
   rebase: boolean;
-  autostash: boolean;
   remote: string;
   branch: string;
 }
@@ -163,7 +162,7 @@ export function useSyncActions(state: AppState, loc: ReturnType<typeof t>): UseS
 
     const defaultRemote = pickDefaultRemote();
     const defaultBranch = pickDefaultBranchForRemote(defaultRemote) || state.currentBranch || '';
-    setPullDialog({ rebase: !!rebase, autostash: false, remote: defaultRemote, branch: defaultBranch });
+    setPullDialog({ rebase: !!rebase, remote: defaultRemote, branch: defaultBranch });
   }, [state.branches, state.currentBranch, pickDefaultRemote, pickDefaultBranchForRemote]);
 
   const openPushDialog = useCallback((force?: boolean) => {
@@ -202,7 +201,6 @@ export function useSyncActions(state: AppState, loc: ReturnType<typeof t>): UseS
                     remote: pullDialog.remote,
                     branch: pullDialog.branch,
                     rebase: pullDialog.rebase || undefined,
-                    autostash: pullDialog.autostash || undefined,
                   });
                   setPullDialog(null);
                 }}
@@ -233,11 +231,6 @@ export function useSyncActions(state: AppState, loc: ReturnType<typeof t>): UseS
               label={loc.toolbar.pullRebaseInsteadOfMerge}
               checked={pullDialog.rebase}
               onChange={(e) => setPullDialog((prev) => prev ? { ...prev, rebase: e.target.checked } : prev)}
-            />
-            <SgCheckbox
-              label={loc.toolbar.pullAutostash}
-              checked={pullDialog.autostash}
-              onChange={(e) => setPullDialog((prev) => prev ? { ...prev, autostash: e.target.checked } : prev)}
             />
           </div>
         </SgDialog>

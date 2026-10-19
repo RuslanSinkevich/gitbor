@@ -121,7 +121,7 @@ export function LocalChanges({
           ? showPrompt({
               kind: 'confirm',
               title: loc.dialog.discardTitle,
-              message: tpl(loc.dialog.discardMessage, { file: file.path }),
+              message: tpl(loc.dialog.deleteUntrackedMessage, { file: file.path }),
               confirmLabel: loc.dialog.delete,
               danger: true,
               onConfirm: () => postCommand({ type: 'deleteUntrackedFile', file: file.path }),
@@ -251,7 +251,7 @@ export function LocalChanges({
       showPrompt({
         kind: 'confirm',
         title: loc.dialog.discardTitle,
-        message: loc.dialog.resetHardMessage,
+        message: loc.dialog.discardAllMessage,
         confirmLabel: loc.changes.discardAll,
         danger: true,
         checkbox: untracked.length > 0 ? {

@@ -18,6 +18,13 @@ import { resolveGitDir } from '../git/gitDir';
 export interface WrapOptions {
   autoStash?: boolean;
   /**
+   * Вернуть auto-stash после успешной операции. `false` — для операций,
+   * цель которых выбросить локальные изменения (reset --hard): stash
+   * остаётся резервной копией в «Безопасность», а не применяется обратно
+   * (иначе «сброс» молча возвращал правки, ещё и с конфликтом).
+   */
+  restoreAutoStash?: boolean;
+  /**
    * Классы ошибок, которые ОБЁРТКА считает "normal exit": возвращает
    * `success: false` БЕЗ rollback. Дефолт: `['conflict']` — merge с
    * конфликтами не катит назад, открывает редактор.
@@ -138,7 +145,7 @@ export class SafetyNet {
       // Не возвращаем auto-stash пока merge/cherry-pick/rebase/UU ещё активны:
       // stash apply во время MERGE_HEAD — типичный источник index.lock и
       // «потерянного» состояния после merge с конфликтами.
-      if (autoStashHash && !(await this.shouldDeferAutoStashRestore(operationName, result))) {
+      if (autoStashHash && (options?.restoreAutoStash ?? true) && !(await this.shouldDeferAutoStashRestore(operationName, result))) {
         await this.tryRestoreAutoStash(autoStashHash);
       }
 
@@ -315,7 +322,15 @@ export class SafetyNet {
    * скрывал ошибки.
    */
   private async tryRestoreAutoStash(stashHash: string): Promise<void> {
-    const applyResult = await this.git.exec(['stash', 'apply', stashHash]);
+    // `--index` — подготовленное возвращается подготовленным. Без него после
+    // переключения ветки весь staging молча превращался в неподготовленное.
+    // Если индекс не ложится (конфликт в нём) — как раньше, без `--index`.
+    let applyResult = await this.git.exec(['stash', 'apply', '--index', stashHash]);
+    if (applyResult.exitCode !== 0) {
+      await this.git.exec(['reset', '-q']);
+      await this.git.exec(['checkout', '-q', '--', '.']);
+      applyResult = await this.git.exec(['stash', 'apply', stashHash]);
+    }
     if (applyResult.exitCode !== 0) {
       mainLogger.warn(`safety: auto-stash apply failed (${stashHash.slice(0, 7)}), keeping stash. stderr: ${applyResult.stderr.split('\n')[0]}`);
       return;

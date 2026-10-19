@@ -71,7 +71,7 @@ export const ipcHandlersGitOps: HandlerTable = {
   commit: opWithPostMerge('commit', (cmd, ctx) => ctx.ch.commit(cmd.message, cmd.amend)),
 
   renameBranch: op('renameBranch', (cmd, ctx) => ctx.ch.renameBranch(cmd.oldName, cmd.newName)),
-  deleteBranch: errOnFail((cmd, ctx) => ctx.ch.deleteBranch(cmd.branch, cmd.force), 'Delete failed'),
+  deleteBranch: errOnFail((cmd, ctx) => ctx.ch.deleteBranch(cmd.branch, cmd.force, cmd.deleteRemote), 'Delete failed'),
   createTag: errOnFail((cmd, ctx) => ctx.ch.createTag(cmd.name, cmd.ref, cmd.message), 'Create tag failed'),
   deleteTag: errOnFail((cmd, ctx) => ctx.ch.deleteTag(cmd.name, cmd.remote), 'Delete tag failed'),
   stashApply: errOnFail((cmd, ctx) => ctx.ch.stashApply(cmd.index), 'Stash apply failed'),
@@ -109,24 +109,13 @@ export const ipcHandlersGitOps: HandlerTable = {
     if (!result.success) ctx.send({ type: 'error', message: result.error || 'Save patch failed' });
   },
 
-  stageFile: async (cmd, ctx) => {
-    await ctx.ch.stageFile(cmd.file);
-  },
-  stageAll: async (cmd, ctx) => {
-    await ctx.ch.stageAll(cmd.files);
-  },
-  unstageFile: async (cmd, ctx) => {
-    await ctx.ch.unstageFile(cmd.file);
-  },
-  unstageAll: async (cmd, ctx) => {
-    await ctx.ch.unstageAll(cmd.files);
-  },
-  discardFileChanges: async (cmd, ctx) => {
-    await ctx.ch.discardFileChanges(cmd.file);
-  },
-  discardFiles: async (cmd, ctx) => {
-    await ctx.ch.discardFiles(cmd.files);
-  },
+  // Раньше результат игнорировался: git отказал — а в UI просто «ничего не произошло».
+  stageFile: errOnFail((cmd, ctx) => ctx.ch.stageFile(cmd.file), 'Stage failed'),
+  stageAll: errOnFail((cmd, ctx) => ctx.ch.stageAll(cmd.files), 'Stage failed'),
+  unstageFile: errOnFail((cmd, ctx) => ctx.ch.unstageFile(cmd.file), 'Unstage failed'),
+  unstageAll: errOnFail((cmd, ctx) => ctx.ch.unstageAll(cmd.files), 'Unstage failed'),
+  discardFileChanges: errOnFail((cmd, ctx) => ctx.ch.discardFileChanges(cmd.file), 'Discard failed'),
+  discardFiles: errOnFail((cmd, ctx) => ctx.ch.discardFiles(cmd.files), 'Discard failed'),
   deleteUntrackedFile: async (cmd, ctx) => {
     await ctx.ch.deleteUntrackedFile(cmd.file);
   },

@@ -268,9 +268,17 @@ export function getBranchMenuItems(
           message: loc.dialog.deleteBranchMessage,
           confirmLabel: loc.dialog.delete,
           danger: true,
-          onConfirm: () => {
+          // Как в Fork: ветку на сервере удаляем только по явной галочке
+          // (выключена). Нет upstream или его удалили на сервере — галочки нет.
+          ...(branch.upstream && !branch.upstreamGone ? {
+            checkbox: {
+              label: tpl(loc.dialog.deleteOnRemote, { upstream: branch.upstream }),
+              warning: loc.dialog.deleteOnRemoteWarning,
+            },
+          } : {}),
+          onConfirm: (deleteRemote?: boolean) => {
             extras.onDelete?.();
-            postCommand({ type: 'deleteBranch', branch: branch.name, force: true });
+            postCommand({ type: 'deleteBranch', branch: branch.name, force: true, ...(deleteRemote ? { deleteRemote: true } : {}) });
           },
         }),
       });
