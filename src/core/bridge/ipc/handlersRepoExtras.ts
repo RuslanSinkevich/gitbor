@@ -45,7 +45,11 @@ export const ipcHandlersRepoExtras: HandlerTable = {
     ctx.send({ type: 'worktrees', data });
   },
   addWorktree: async (cmd, ctx) => {
-    await ctx.ch.addWorktree(cmd.path, cmd.branch, cmd.createBranch);
+    try {
+      await ctx.ch.addWorktree(cmd.path, cmd.branch, cmd.createBranch);
+    } catch (e: unknown) {
+      ctx.send({ type: 'error', message: e instanceof Error ? e.message : 'Add worktree failed' });
+    }
     const data = await ctx.ch.getWorktrees();
     ctx.send({ type: 'worktrees', data });
   },
@@ -155,7 +159,7 @@ export const ipcHandlersRepoExtras: HandlerTable = {
     await ctx.ch.bisectReset();
     ctx.send({
       type: 'bisectStatus',
-      data: { active: false, current: '', stepsLeft: 0, goodCount: 0, badCount: 0, log: [] },
+      data: { active: false, current: '', stepsLeft: 0, goodCount: 0, badCount: 0, log: [], found: false },
     });
   },
   getBisectStatus: async (_cmd, ctx) => {

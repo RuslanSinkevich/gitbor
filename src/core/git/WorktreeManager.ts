@@ -1,4 +1,4 @@
-import { GitExecutor } from './GitExecutor';
+import { GitExecutor, GitError } from './GitExecutor';
 
 /** Info about a single worktree. */
 export interface WorktreeInfo {
@@ -25,6 +25,8 @@ export class WorktreeManager {
     if (createBranch) args.push('-b', branch, path);
     else args.push(path, branch);
     const r = await this.git.exec(args);
+    // Раньше отказ git молча проглатывался — в UI «ничего не произошло».
+    if (r.exitCode !== 0) throw new GitError(`Add worktree failed: ${r.stderr}`, 'worktree', r.exitCode, r.stderr);
     return r.stdout + r.stderr;
   }
 
@@ -33,7 +35,8 @@ export class WorktreeManager {
     const args = ['worktree', 'remove'];
     if (force) args.push('--force');
     args.push(path);
-    await this.git.exec(args);
+    const r = await this.git.exec(args);
+    if (r.exitCode !== 0) throw new GitError(`Remove worktree failed: ${r.stderr}`, 'worktree', r.exitCode, r.stderr);
   }
 }
 

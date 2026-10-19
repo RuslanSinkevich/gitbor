@@ -6,6 +6,7 @@ interface BisectStatus {
   stepsLeft: number;
   goodCount: number;
   badCount: number;
+  found?: boolean;
 }
 
 interface Props {
@@ -23,7 +24,7 @@ interface Props {
 
 /** UI for an active bisect session — shows status, action buttons, and output log. */
 export function BisectActiveSession({ status, output, labels, onGood, onBad, onSkip, onReset }: Props) {
-  const isFinished = status.stepsLeft === 0 && status.goodCount > 0 && status.badCount > 0;
+  const isFinished = !!status.found;
 
   return (
     <>

@@ -1,4 +1,4 @@
-import { GitExecutor } from './GitExecutor';
+import { GitExecutor, GitError } from './GitExecutor';
 
 /** Git LFS tracked file info. */
 export interface LfsFile {
@@ -38,12 +38,14 @@ export class LfsManager {
 
   /** Adds a track pattern (e.g. "*.psd"). */
   async track(pattern: string): Promise<void> {
-    await this.git.exec(['lfs', 'track', pattern]);
+    const r = await this.git.exec(['lfs', 'track', pattern]);
+    if (r.exitCode !== 0) throw new GitError(`LFS track failed: ${r.stderr}`, 'lfs', r.exitCode, r.stderr);
   }
 
   /** Removes a track pattern. */
   async untrack(pattern: string): Promise<void> {
-    await this.git.exec(['lfs', 'untrack', pattern]);
+    const r = await this.git.exec(['lfs', 'untrack', pattern]);
+    if (r.exitCode !== 0) throw new GitError(`LFS untrack failed: ${r.stderr}`, 'lfs', r.exitCode, r.stderr);
   }
 
   /** Checks if git-lfs is available. */
