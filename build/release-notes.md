@@ -1,8 +1,8 @@
 <!-- ru -->
-- У веток видно, насколько они разошлись с сервером: «35↓» — новые коммиты на сервере, «3↑» — не отправлено, «↔» — в синхроне
-- Ветки, удалённые на сервере (например, после слияния PR), отмечены ⚠; их локальные копии можно удалить разом кнопкой в заголовке «Ветки»
-- macOS: исправлено зависание при выходе из программы на больших репозиториях
+- Сравнение веток стало понятнее: правый клик по ветке → «Сравнить» → «Что принесёт в «develop»» — что появится в текущей ветке после слияния
+- Сравнение любых двух веток: «Сравнить» → «Выбрать для сравнения» на первой ветке, затем «Сравнить» → «первая → вторая» на второй. Быстрее — Ctrl+клик по двум веткам: они получат номера 1 и 2
+- В шапке сравнения направление показано стрелкой «что → куда», а кнопка ⇄ показывает то же сравнение в обратную сторону, как pull request
 <!-- en -->
-- Branches show how far they are from the remote: "35↓" — new commits on the remote, "3↑" — not pushed, "↔" — in sync
-- Branches deleted on the remote (e.g. after a PR merge) are marked with ⚠; their local copies can be removed at once from the "Branches" header
-- macOS: fixed a hang when quitting on large repositories
+- Clearer branch compare: right-click a branch → "Compare" → "What it brings into 'develop'" — what the current branch gets after a merge
+- Compare any two branches: "Compare" → "Select for Compare" on the first branch, then "Compare" → "first → second" on the second one. Faster: Ctrl+click two branches to number them 1 and 2
+- The compare header shows the direction as "what → where", and the ⇄ button flips it, like a pull request the other way
