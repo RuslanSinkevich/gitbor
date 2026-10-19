@@ -9,7 +9,7 @@ import { isNewerVersion } from '../core/utils/semver';
 export type UpdateArtifactInfo = {
   path?: string;
   downloadedFile?: string;
-  files?: Array<{ url?: string }>;
+  files?: Array<{ url?: string; sha512?: string }>;
 };
 
 export type UpdateAcceptDecision =
@@ -125,4 +125,31 @@ export function decideUpdateAcceptance(opts: {
     return { ok: false, reason: 'flavor-mismatch' };
   }
   return { ok: true };
+}
+
+/**
+ * macOS: установщик `.dmg` для ручной установки. Самообновление на Mac
+ * (Squirrel.Mac) требует подписи Apple Developer ID и zip-артефакта — у нас
+ * ни того ни другого, поэтому GitBor скачивает dmg и открывает его.
+ * Берём dmg под архитектуру (`-arm64.dmg` / `-x64.dmg`), иначе любой dmg.
+ */
+export function pickMacDmg(info: UpdateArtifactInfo, arch: string): string | undefined {
+  const dmgs = collectUpdateArtifactNames(info)
+    .map((n) => n.replace(/\\/g, '/').split('/').pop() ?? n)
+    .filter((n) => n.toLowerCase().endsWith('.dmg'));
+  return dmgs.find((n) => n.toLowerCase().endsWith(`-${arch.toLowerCase()}.dmg`)) ?? dmgs[0];
+}
+
+/** Прямая ссылка на файл релиза: GitHub Releases или generic feed (бакет). */
+export function resolveUpdateAssetUrl(opts: {
+  version: string;
+  fileName: string;
+  platform: string;
+  flavor: string;
+  baseUrl?: string;
+}): string {
+  const file = encodeURIComponent(opts.fileName);
+  if (opts.baseUrl) return `${resolveUpdateFeedUrl(opts)}${file}`;
+  const { owner, repo } = GITHUB_UPDATE_REPO;
+  return `https://github.com/${owner}/${repo}/releases/download/v${opts.version}/${file}`;
 }

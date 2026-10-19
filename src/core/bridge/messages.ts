@@ -246,7 +246,9 @@ type RendererCommandCore =
   | { type: 'removeIndexLock' }
   | { type: 'rollbackOperation'; journalEntryId: string }
   | { type: 'checkForUpdates' }
-  | { type: 'appUpdateInstall' };
+  | { type: 'appUpdateInstall' }
+  /** macOS: закрыть GitBor, чтобы заменить его из открытого установщика. */
+  | { type: 'appUpdateQuit' };
 
 /** Источник операции (user/background). Не путать с `source` в merge-командах (имя ветки). */
 export type RendererCommand = RendererCommandCore & { opSource?: OperationSource };
@@ -346,6 +348,8 @@ export type MainEvent =
        * если сайт недоступен или релиза нет — модалка просто без списка.
        */
       notes?: { ru: string[]; en: string[] };
+      /** macOS: обновление не скачано — предлагаем скачать и открыть .dmg. */
+      macInstaller?: boolean;
     }
   | {
       type: 'appUpdateManualResult';
@@ -353,6 +357,16 @@ export type MainEvent =
       version?: string;
       current?: string;
       error?: string;
+      /** macOS: диалог «скачать установщик» придёт отдельным appUpdateReady. */
+      macInstaller?: boolean;
+    }
+  /** macOS: ход ручной установки — скачиваем .dmg и открываем его. */
+  | {
+      type: 'appUpdateMacInstaller';
+      state: 'downloading' | 'opened' | 'error';
+      file?: string;
+      error?: string;
+      releaseUrl?: string;
     }
   /**
    * Сменилась видимость окна. Renderer использует это, чтобы остановить

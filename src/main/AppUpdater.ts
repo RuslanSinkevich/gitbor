@@ -1,5 +1,11 @@
-import { app } from 'electron';
+import { app, net, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import { createHash } from 'node:crypto';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { rename, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { mainLogger } from '../core/utils/Logger';
 import { isNewerVersion } from '../core/utils/semver';
 import type { MainEvent } from '../core/bridge/messages';
@@ -7,7 +13,11 @@ import { BUILD_FLAVOR } from '../core/buildFlags';
 import {
   collectUpdateArtifactNames,
   decideUpdateAcceptance,
+  pickMacDmg,
+  resolveUpdateAssetUrl,
   resolveUpdateFeed,
+  GITHUB_UPDATE_REPO,
+  type UpdateArtifactInfo,
 } from './updateFlavor';
 import { parseReleaseNotes, type ReleaseNotes } from './releaseNotes';
 
@@ -56,6 +66,64 @@ export type AppUpdateManualResult = Extract<
   { type: 'appUpdateManualResult' }
 >['result'];
 
+/**
+ * macOS не даёт программе заменить саму себя без подписи Apple Developer ID
+ * (Squirrel.Mac проверяет подпись), а у нас ad-hoc подпись и только dmg.
+ * Поэтому на Mac не качаем через electron-updater, а предлагаем скачать
+ * установщик: GitBor кладёт dmg в «Загрузки» и открывает его.
+ */
+const IS_MAC = process.platform === 'darwin';
+
+type MacInstaller = { version: string; fileName: string; url: string; sha512?: string };
+let macPending: MacInstaller | null = null;
+
+function rememberMacInstaller(version: string, info: UpdateArtifactInfo): boolean {
+  const fileName = pickMacDmg(info, process.arch);
+  if (!fileName) {
+    mainLogger.warn(`appUpdater: no dmg for ${process.arch} in ${version} (${collectUpdateArtifactNames(info).join(', ')})`);
+    return false;
+  }
+  const url = resolveUpdateAssetUrl({
+    version, fileName, platform: process.platform, flavor: BUILD_FLAVOR, baseUrl: process.env.GITBOR_UPDATE_BASE_URL,
+  });
+  const sha512 = info.files?.find((f) => f.url?.endsWith(fileName))?.sha512;
+  macPending = { version, fileName, url, ...(sha512 ? { sha512 } : {}) };
+  return true;
+}
+
+async function sha512Base64(file: string): Promise<string> {
+  const hash = createHash('sha512');
+  await pipeline(createReadStream(file), hash);
+  return hash.digest('base64');
+}
+
+/** Скачать dmg в «Загрузки», сверить sha512 из latest-mac.yml и открыть. */
+async function installMacDmg(notify: (event: MainEvent) => void): Promise<void> {
+  const p = macPending;
+  if (!p) return;
+  const releaseUrl = process.env.GITBOR_UPDATE_BASE_URL
+    ? p.url
+    : `https://github.com/${GITHUB_UPDATE_REPO.owner}/${GITHUB_UPDATE_REPO.repo}/releases/tag/v${p.version}`;
+  const dest = join(app.getPath('downloads'), p.fileName);
+  const part = `${dest}.part`;
+  notify({ type: 'appUpdateMacInstaller', state: 'downloading', file: p.fileName });
+  try {
+    const res = await net.fetch(p.url);
+    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+    await pipeline(Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]), createWriteStream(part));
+    if (p.sha512 && (await sha512Base64(part)) !== p.sha512) throw new Error('sha512 mismatch');
+    await rename(part, dest);
+    const openError = await shell.openPath(dest);
+    if (openError) throw new Error(openError);
+    notify({ type: 'appUpdateMacInstaller', state: 'opened', file: dest });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    mainLogger.warn(`appUpdater: mac installer failed: ${msg}`);
+    await rm(part, { force: true }).catch(() => {});
+    notify({ type: 'appUpdateMacInstaller', state: 'error', error: msg, releaseUrl });
+  }
+}
+
 function isPortableBuild(): boolean {
   return Boolean(process.env.PORTABLE_EXECUTABLE_DIR || process.env.PORTABLE_EXECUTABLE_FILE);
 }
@@ -78,7 +146,8 @@ function configurePlatformFeedUrl(): void {
 
 /**
  * Auto-update через GitHub Releases (запасной путь — бакет, см. configurePlatformFeedUrl).
- * Поддержка: packaged Windows NSIS и Linux AppImage. Пропускаем dev,
+ * Поддержка: packaged Windows NSIS и Linux AppImage; на macOS — скачать и
+ * открыть dmg (см. installMacDmg). Пропускаем dev,
  * Windows-portable и deb (apt). Feed-URL — по платформе
  * (см. configurePlatformFeedUrl). UI — в renderer (i18n).
  */
@@ -128,6 +197,12 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
       }
       return;
     }
+    if (IS_MAC) {
+      if (!rememberMacInstaller(info.version, info)) return;
+      const notes = parseReleaseNotes(info.releaseNotes);
+      notify({ type: 'appUpdateReady', version: info.version, macInstaller: true, ...(notes ? { notes } : {}) });
+      return;
+    }
     void autoUpdater.downloadUpdate().catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
       mainLogger.warn(`appUpdater: download failed: ${msg}`);
@@ -170,9 +245,18 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
   }, STARTUP_CHECK_DELAY_MS);
 }
 
-export function installDownloadedUpdate(): void {
+export function installDownloadedUpdate(notify: (event: MainEvent) => void): void {
   if (!app.isPackaged || isPortableBuild()) return;
+  if (IS_MAC) {
+    void installMacDmg(notify);
+    return;
+  }
   autoUpdater.quitAndInstall(true, true);
+}
+
+/** macOS: закрыть GitBor, чтобы Finder смог заменить его из установщика. */
+export function quitForMacInstall(): void {
+  if (IS_MAC) app.quit();
 }
 
 /** Ручная проверка — результат в renderer через `appUpdateManualResult`. */
@@ -213,7 +297,7 @@ export async function runManualUpdateCheck(notify: (event: MainEvent) => void): 
         });
         return;
       }
-      notify({ type: 'appUpdateManualResult', result: 'available', version: remote, current });
+      notify({ type: 'appUpdateManualResult', result: 'available', version: remote, current, ...(IS_MAC ? { macInstaller: true } : {}) });
       return;
     }
     notify({ type: 'appUpdateManualResult', result: 'up-to-date', current });

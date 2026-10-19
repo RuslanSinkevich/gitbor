@@ -635,6 +635,13 @@ export const en = {
     availableDetail: 'Download started. You will be prompted to restart when it is ready.',
     upToDate: 'You have the latest version ({version}).',
     checkFailed: 'Could not check for updates.',
+    macReadyMessage: 'Version {version} is available. On a Mac an app can’t update itself without a paid Apple signature, so GitBor will download the installer and open it — then drag GitBor into Applications.',
+    macDownload: 'Download installer',
+    macDownloading: 'Downloading {file}… The installer window will open by itself.',
+    macOpened: 'The installer is open. Quit GitBor, then drag GitBor into the Applications folder and confirm replacing it.',
+    macQuit: 'Quit GitBor',
+    macFailed: 'Could not download the installer: {error}. Download it from the release page.',
+    macOpenRelease: 'Open release page',
   },
   aboutDialog: {
     product: 'Open-source Git client built with Electron and React.',

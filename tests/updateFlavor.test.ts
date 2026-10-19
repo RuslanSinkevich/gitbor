@@ -11,6 +11,8 @@ import {
   resolveUpdateFeedDir,
   resolveUpdateFeedUrl,
   GITHUB_UPDATE_REPO,
+  pickMacDmg,
+  resolveUpdateAssetUrl,
 } from '../src/main/updateFlavor';
 
 /** Реальные имена из бакета / electron-builder artifactName. */
@@ -298,5 +300,32 @@ describe('dist:*:no-ai contract (package.json) — страховка от от�
     expect(pkg.build.publish?.url).toBe('https://storage.yandexcloud.net/gitbor/stable/win/');
     expect(pkg.build.nsis?.artifactName).toContain('${productName}-Setup-');
     expect(pkg.build.nsis?.artifactName).not.toContain('NoAI');
+  });
+});
+
+describe('pickMacDmg / resolveUpdateAssetUrl', () => {
+  const info = {
+    path: 'GitBor-0.1.27-x64.dmg',
+    files: [{ url: 'GitBor-0.1.27-x64.dmg' }, { url: 'GitBor-0.1.27-arm64.dmg' }],
+  };
+
+  it('берёт dmg под архитектуру Mac', () => {
+    expect(pickMacDmg(info, 'arm64')).toBe('GitBor-0.1.27-arm64.dmg');
+    expect(pickMacDmg(info, 'x64')).toBe('GitBor-0.1.27-x64.dmg');
+  });
+
+  it('без dmg под архитектуру — любой dmg, без dmg — ничего', () => {
+    expect(pickMacDmg({ files: [{ url: 'GitBor-0.1.19.dmg' }] }, 'arm64')).toBe('GitBor-0.1.19.dmg');
+    expect(pickMacDmg({ files: [{ url: 'GitBor-Setup-0.1.19.exe' }] }, 'arm64')).toBeUndefined();
+  });
+
+  it('ссылка на GitHub Releases по тегу версии', () => {
+    expect(resolveUpdateAssetUrl({ version: '0.1.27', fileName: 'GitBor-0.1.27-arm64.dmg', platform: 'darwin', flavor: 'standard' }))
+      .toBe('https://github.com/RuslanSinkevich/gitbor/releases/download/v0.1.27/GitBor-0.1.27-arm64.dmg');
+  });
+
+  it('с бакетом — файл рядом с feed', () => {
+    expect(resolveUpdateAssetUrl({ version: '0.1.27', fileName: 'GitBor-NoAI-0.1.27-arm64.dmg', platform: 'darwin', flavor: 'no-ai', baseUrl: 'https://b.example/stable/' }))
+      .toBe('https://b.example/stable/mac/no_ai/GitBor-NoAI-0.1.27-arm64.dmg');
   });
 });

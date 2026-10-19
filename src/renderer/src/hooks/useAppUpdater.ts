@@ -17,6 +17,8 @@ function handleManualResult(msg: Extract<MainEvent, { type: 'appUpdateManualResu
       });
       break;
     case 'available':
+      // macOS: «скачать установщик» покажет appUpdateReady — второй диалог не нужен.
+      if (msg.macInstaller) break;
       showPrompt({
         kind: 'confirm',
         title: loc.appUpdater.title,
@@ -46,6 +48,25 @@ function handleManualResult(msg: Extract<MainEvent, { type: 'appUpdateManualResu
   }
 }
 
+/** macOS: ход ручной установки — скачивание, открытый установщик, ошибка. */
+function handleMacInstaller(msg: Extract<MainEvent, { type: 'appUpdateMacInstaller' }>, showPrompt: ShowPromptFn): void {
+  const loc = t();
+  const base = { kind: 'confirm' as const, title: loc.appUpdater.title };
+  if (msg.state === 'downloading') {
+    showPrompt({ ...base, message: tpl(loc.appUpdater.macDownloading, { file: msg.file ?? '' }), confirmLabel: loc.dialog.close, onConfirm: () => {} });
+  } else if (msg.state === 'opened') {
+    showPrompt({ ...base, message: loc.appUpdater.macOpened, confirmLabel: loc.appUpdater.macQuit, onConfirm: () => { void postCommand({ type: 'appUpdateQuit' }); } });
+  } else {
+    showPrompt({
+      ...base,
+      message: tpl(loc.appUpdater.macFailed, { error: msg.error ?? '' }),
+      confirmLabel: loc.appUpdater.macOpenRelease,
+      // Внешние ссылки main открывает системным браузером (setWindowOpenHandler).
+      onConfirm: () => { if (msg.releaseUrl) window.open(msg.releaseUrl, '_blank'); },
+    });
+  }
+}
+
 /** Диалоги автообновления — только renderer + i18n. */
 export function useAppUpdater(showPrompt: ShowPromptFn): void {
   useEffect(() => {
@@ -56,13 +77,17 @@ export function useAppUpdater(showPrompt: ShowPromptFn): void {
         showPrompt({
           kind: 'confirm',
           title: loc.appUpdater.title,
-          message: tpl(loc.appUpdater.restartMessage, { version: msg.version }),
+          message: tpl(msg.macInstaller ? loc.appUpdater.macReadyMessage : loc.appUpdater.restartMessage, { version: msg.version }),
           bullets,
-          confirmLabel: loc.appUpdater.restartConfirm,
+          confirmLabel: msg.macInstaller ? loc.appUpdater.macDownload : loc.appUpdater.restartConfirm,
           onConfirm: () => {
             void postCommand({ type: 'appUpdateInstall' });
           },
         });
+        return;
+      }
+      if (msg.type === 'appUpdateMacInstaller') {
+        handleMacInstaller(msg, showPrompt);
         return;
       }
       if (msg.type === 'appUpdateManualResult') {
