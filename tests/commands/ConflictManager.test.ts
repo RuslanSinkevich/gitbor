@@ -93,6 +93,8 @@ describe('ConflictManager', () => {
       const git = makeMockGit();
       const dir = mkdtempSync(join(tmpdir(), 'gitbor-conflict-'));
       git.getCwd.mockReturnValue(dir);
+      // У «нашей» стороны файла нет: git так и отвечает на checkout --ours.
+      git.exec.mockResolvedValueOnce({ stdout: '', stderr: "error: path 'src/deleted.ts' does not have our version", exitCode: 1 });
       const cm = new ConflictManager(asGit(git));
       try {
         await cm.resolveWithOurs('src/deleted.ts');
@@ -101,7 +103,7 @@ describe('ConflictManager', () => {
       }
 
       expect(git.exec.mock.calls[0][0]).toEqual(['checkout', '--ours', '--', 'src/deleted.ts']);
-      expect(git.exec.mock.calls[1][0]).toEqual(['rm', '-f', '--', 'src/deleted.ts']);
+      expect(git.exec.mock.calls[1][0]).toEqual(['rm', '-q', '-f', '--', 'src/deleted.ts']);
     });
   });
 

@@ -107,7 +107,7 @@ export function MergeBanner({ mergeState, showPrompt }: Props) {
           <>
             {' '}
             <span className={s.bannerBranch}>{mergeState.sourceBranch}</span>{' '}
-            {loc.mergeBanner.into}{' '}
+            {mergeState.kind === 'rebase' ? loc.mergeBanner.onto : loc.mergeBanner.into}{' '}
             <span className={s.bannerBranch}>{mergeState.targetBranch}</span>.
           </>
         )}

@@ -81,6 +81,17 @@
   white-space: nowrap;
 }
 
+.subjectInput {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  font: inherit;
+  color: var(--sg-foreground);
+  background: var(--sg-surface);
+  border: 1px solid var(--sg-primary);
+  border-radius: 4px;
+}
+
 .moveButtons {
   display: flex;
   flex-direction: column;

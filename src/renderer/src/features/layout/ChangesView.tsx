@@ -69,6 +69,7 @@ export function ChangesView({
               unstagedFiles={state.unstagedFiles}
               stagedFiles={state.stagedFiles}
               mergeInProgress={mergeState?.inProgress}
+              conflictSides={mergeState?.inProgress ? { ours: mergeState.targetBranch, theirs: mergeState.sourceBranch } : undefined}
               onContextMenu={showContextMenu}
               onOpenDiff={(f, h) => {
                 setSelectedFolder(null);

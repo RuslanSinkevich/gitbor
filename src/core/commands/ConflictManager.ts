@@ -12,6 +12,11 @@ import {
 } from '../git/types';
 import { resolveGitDir } from '../git/gitDir';
 
+/** Маркеры конфликта git: строки, начинающиеся с 7 символов `<`/`>` (и `|` для diff3). */
+export function hasConflictMarkers(content: string): boolean {
+  return /^(<{7}|>{7}|\|{7})( |$)/m.test(content);
+}
+
 export class ConflictManager {
   constructor(
     private readonly git: GitExecutor,
@@ -110,18 +115,22 @@ export class ConflictManager {
     const conflicted = conflictFiles.filter(f => f.status === 'conflicted').length;
     const total = conflictFiles.length;
 
-    const targetBranch = (await this.git.exec(['rev-parse', '--abbrev-ref', 'HEAD'])).stdout.trim();
-
+    // targetBranch — сторона «ours», sourceBranch — «theirs»: UI подписывает
+    // ими «Принять версию …». При rebase git меняет стороны местами: ours —
+    // ветка, НА которую переносим, theirs — ваш переносимый коммит. Раньше
+    // тут было «HEAD» и пусто, и «нашей» выглядела чужая версия.
+    let targetBranch = (await this.git.exec(['rev-parse', '--abbrev-ref', 'HEAD'])).stdout.trim();
     let sourceBranch = '';
     if (detected.kind === 'merge') {
-      try {
-        const mergeHeadHash = (await this.git.exec(['rev-parse', 'MERGE_HEAD'])).stdout.trim();
-        const branchResult = await this.git.exec(['branch', '--points-at', mergeHeadHash, '--format=%(refname:short)']);
-        const branches = branchResult.stdout.trim().split('\n').filter(Boolean);
-        sourceBranch = branches[0] || mergeHeadHash.substring(0, 7);
-      } catch {
-        sourceBranch = 'unknown';
-      }
+      sourceBranch = await this.nameOf('MERGE_HEAD');
+    } else if (detected.kind === 'cherry-pick') {
+      sourceBranch = await this.shortHash('CHERRY_PICK_HEAD');
+    } else if (detected.kind === 'revert') {
+      sourceBranch = await this.shortHash('REVERT_HEAD');
+    } else if (detected.kind === 'rebase') {
+      const names = await this.rebaseSides();
+      targetBranch = names.onto;
+      sourceBranch = names.branch;
     }
 
     const state: MergeState = {
@@ -145,6 +154,33 @@ export class ConflictManager {
     return state;
   }
 
+  /** Имя ветки, указывающей на ref, иначе короткий хеш. */
+  private async nameOf(ref: string): Promise<string> {
+    const hash = (await this.git.exec(['rev-parse', '--verify', '-q', ref])).stdout.trim();
+    if (!hash) return '';
+    const r = await this.git.exec(['branch', '--points-at', hash, '--format=%(refname:short)']);
+    // «(no branch, rebasing …)» — отсоединённый HEAD, а не ветка.
+    const branches = r.stdout.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('('));
+    return branches[0] || hash.substring(0, 7);
+  }
+
+  private async shortHash(ref: string): Promise<string> {
+    return (await this.git.exec(['rev-parse', '--verify', '-q', '--short', ref])).stdout.trim();
+  }
+
+  /** rebase-merge/ (или rebase-apply/): head-name — ваша ветка, onto — куда переносим. */
+  private async rebaseSides(): Promise<{ onto: string; branch: string }> {
+    const gitDir = resolveGitDir(this.git.getCwd());
+    const dir = existsSync(join(gitDir, 'rebase-merge')) ? join(gitDir, 'rebase-merge') : join(gitDir, 'rebase-apply');
+    const read = async (f: string) => {
+      try { return (await readFile(join(dir, f), 'utf-8')).trim(); } catch { return ''; }
+    };
+    const branch = (await read('head-name')).replace(/^refs\/heads\//, '');
+    const ontoHash = await read('onto');
+    const onto = ontoHash ? await this.nameOf(ontoHash) : '';
+    return { onto: onto || 'HEAD', branch };
+  }
+
   /**
    * Прогресс git-секвенсера cherry-pick-серии. Путь берём через
    * `git rev-parse --git-path sequencer` (учитывает worktree и `.git`-файл).
@@ -160,13 +196,29 @@ export class ConflictManager {
       const seqDir = isAbsolute(rel) ? rel : join(this.git.getCwd(), rel);
       if (!existsSync(seqDir)) return null;
 
-      const done = await this.countPickLines(join(seqDir, 'done'));
+      // У cherry-pick-серии файла `done` нет: в todo — текущий (конфликтный)
+      // и оставшиеся коммиты, в `head` — HEAD до начала серии. Применённые =
+      // коммиты от него до текущего HEAD. Раньше баннер показывал «0 из 2»
+      // вместо «1 из 3».
+      let done = await this.countPickLines(join(seqDir, 'done'));
+      if (done === 0) done = await this.countSinceSequencerHead(join(seqDir, 'head'));
       const todo = await this.countPickLines(join(seqDir, 'todo'));
       const total = done + todo;
       if (total === 0) return null;
       return { done, total };
     } catch {
       return null;
+    }
+  }
+
+  private async countSinceSequencerHead(headFile: string): Promise<number> {
+    try {
+      const head = (await readFile(headFile, 'utf-8')).trim();
+      if (!head) return 0;
+      const r = await this.git.exec(['rev-list', '--count', `${head}..HEAD`]);
+      return r.exitCode === 0 ? Number(r.stdout.trim()) || 0 : 0;
+    } catch {
+      return 0;
     }
   }
 
@@ -214,8 +266,20 @@ export class ConflictManager {
     await this.checkoutSideAndStage('theirs', file);
   }
 
+  /**
+   * «Пометить как разрешённый». Если в файле остались маркеры конфликта,
+   * не помечаем — иначе `<<<<<<<`/`>>>>>>>` молча уезжают в коммит.
+   */
   async stageResolved(file: string): Promise<void> {
-    await this.git.exec(['add', '--', file]);
+    const full = join(this.git.getCwd(), file);
+    if (existsSync(full) && hasConflictMarkers(await readFile(full, 'utf-8'))) {
+      throw new GitError(
+        `"${file}" still has conflict markers (<<<<<<< / >>>>>>>). Resolve them or pick a version first.`,
+        'resolve', 1, '',
+      );
+    }
+    const add = await this.git.exec(['add', '--', file]);
+    if (add.exitCode !== 0) throw new GitError(`Resolve failed: ${add.stderr}`, 'resolve', add.exitCode, add.stderr);
   }
 
   async completeMerge(message?: string): Promise<OperationResult> {
@@ -318,18 +382,32 @@ export class ConflictManager {
     return result;
   }
 
-  private sideHasFile(side: string, other: string): boolean {
-    if (side === 'D') return false;
-    if (side === 'U') return other === 'U';
-    return true;
+  /**
+   * Есть ли файл у стороны: в XY-коде porcelain `D` — сторона его удалила,
+   * любая другая буква (U/A) — файл у неё есть. Раньше для `DU` (мы удалили,
+   * они изменили) обе стороны выходили «удалён».
+   */
+  private sideHasFile(side: string, _other: string): boolean {
+    return side !== 'D';
   }
 
+  /**
+   * Взять версию стороны. Если сторона файл удалила, `checkout --ours/--theirs`
+   * падает («does not have our version»), и раньше в индекс уходило то, что
+   * лежит на диске, — версия ДРУГОЙ стороны, ровно наоборот выбору. Теперь
+   * удалённое стороной — удаляем; любая другая ошибка — наружу.
+   */
   private async checkoutSideAndStage(side: 'ours' | 'theirs', file: string): Promise<void> {
-    await this.git.exec(['checkout', `--${side}`, '--', file]);
-    if (existsSync(join(this.git.getCwd(), file))) {
-      await this.git.exec(['add', '--', file]);
-    } else {
-      await this.git.exec(['rm', '-f', '--', file]);
+    const co = await this.git.exec(['checkout', `--${side}`, '--', file]);
+    if (co.exitCode !== 0) {
+      if (!/does not have (our|their) version/i.test(co.stderr)) {
+        throw new GitError(`Resolve failed: ${co.stderr}`, 'resolve', co.exitCode, co.stderr);
+      }
+      const rm = await this.git.exec(['rm', '-q', '-f', '--', file]);
+      if (rm.exitCode !== 0) throw new GitError(`Resolve failed: ${rm.stderr}`, 'resolve', rm.exitCode, rm.stderr);
+      return;
     }
+    const add = await this.git.exec(['add', '--', file]);
+    if (add.exitCode !== 0) throw new GitError(`Resolve failed: ${add.stderr}`, 'resolve', add.exitCode, add.stderr);
   }
 }

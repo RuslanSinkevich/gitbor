@@ -39,6 +39,8 @@ interface Props {
   unstagedFiles: FileStatus[];
   /** Раньше определял, показывать ли блок Conflicts. Теперь UU всегда видны (см. блок 18) — пропс оставлен для backward-compat и игнорируется. */
   mergeInProgress?: boolean;
+  /** Имена сторон конфликта (ours/theirs) — подписи «Принять версию «…»». При rebase стороны у git перевёрнуты, имена это учитывают. */
+  conflictSides?: { ours: string; theirs: string };
   onContextMenu: (e: React.MouseEvent, items: SgContextMenuItem[]) => void;
   onOpenDiff?: (file: string, hash: string) => void;
   onOpenMergeEditor?: (file: string) => void;
@@ -51,7 +53,7 @@ interface Props {
 export function LocalChanges({
   repoPath,
   stagedFiles, unstagedFiles, onContextMenu, onOpenDiff,
-  onOpenMergeEditor, onSelectFolder, showPrompt, activePath, activeSection,
+  onOpenMergeEditor, onSelectFolder, showPrompt, activePath, activeSection, conflictSides,
 }: Props) {
   const loc = t();
   const stagedSplitStorageKey = buildStorageKey('sg-layout:changes-staged-height', repoPath);
@@ -140,13 +142,19 @@ export function LocalChanges({
   const getConflictMenuItems = useCallback((file: FileStatus): SgContextMenuItem[] => [
     { label: loc.contextMenu.openMergeEditor, action: () => onOpenMergeEditor?.(file.path) },
     { divider: true },
-    { label: loc.contextMenu.resolveOurs, action: () => postCommand({ type: 'resolveWithOurs', file: file.path }) },
-    { label: loc.contextMenu.resolveTheirs, action: () => postCommand({ type: 'resolveWithTheirs', file: file.path }) },
+    {
+      label: conflictSides?.ours ? tpl(loc.contextMenu.resolveSide, { name: conflictSides.ours }) : loc.contextMenu.resolveOurs,
+      action: () => postCommand({ type: 'resolveWithOurs', file: file.path }),
+    },
+    {
+      label: conflictSides?.theirs ? tpl(loc.contextMenu.resolveSide, { name: conflictSides.theirs }) : loc.contextMenu.resolveTheirs,
+      action: () => postCommand({ type: 'resolveWithTheirs', file: file.path }),
+    },
     { label: loc.contextMenu.markResolved, action: () => postCommand({ type: 'stageResolvedConflict', file: file.path }) },
     { divider: true },
     { label: loc.contextMenu.copyPath, action: () => copyToClipboard(file.path) },
     { label: loc.contextMenu.copyFileName, action: () => copyToClipboard(fileName(file.path)) },
-  ], [loc, onOpenMergeEditor]);
+  ], [loc, onOpenMergeEditor, conflictSides]);
 
   const getUnstagedFolderMenuItems = useCallback((node: FileTreeNode): SgContextMenuItem[] => {
     const files = collectFiles(node);

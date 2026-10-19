@@ -54,6 +54,11 @@ export function ConflictPanel({ file, mergeState, onOpenEditor, onResolved }: Pr
     }
   }, [file, oursSelected, resolving]);
 
+  // При rebase git меняет стороны: ours — ветка, на которую переносим, theirs —
+  // ваш коммит. «Текущая/входящая» тогда вводят в заблуждение.
+  const rebase = mergeState.kind === 'rebase';
+  const oursTag = rebase ? cp.rebaseOnto : cp.current;
+  const theirsTag = rebase ? cp.rebaseYours : cp.incoming;
   const oursLabel = mergeState.targetBranch || loc.mergeEditor.ours;
   const theirsLabel = mergeState.sourceBranch || loc.mergeEditor.theirs;
   const actionLabel = oursSelected && oursDeleted
@@ -85,7 +90,7 @@ export function ConflictPanel({ file, mergeState, onOpenEditor, onResolved }: Pr
             <span className={`${s.cpChangeTag} ${oursDeleted ? s.cpChangeDeleted : s.cpChangeModified}`}>
               {oursDeleted ? cp.deleted : cp.modified}
             </span>
-            <span className={s.cpCardTag}>{cp.current}</span>
+            <span className={s.cpCardTag}>{oursTag}</span>
           </div>
         </div>
 
@@ -101,7 +106,7 @@ export function ConflictPanel({ file, mergeState, onOpenEditor, onResolved }: Pr
             <span className={`${s.cpChangeTag} ${theirsDeleted ? s.cpChangeDeleted : s.cpChangeModified}`}>
               {theirsDeleted ? cp.deleted : cp.modified}
             </span>
-            <span className={s.cpCardTag}>{cp.incoming}</span>
+            <span className={s.cpCardTag}>{theirsTag}</span>
           </div>
         </div>
       </div>

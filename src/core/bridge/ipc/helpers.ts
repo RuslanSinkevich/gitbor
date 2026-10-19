@@ -140,10 +140,15 @@ export function mergeStateAfter<K extends RendererCommand['type']>(
 ): (cmd: CmdOf<K>, ctx: HandlerContext) => Promise<void> {
   return async (cmd, ctx) => {
     const repoPath = ctx.sm.getState().repoPath || null;
-    await fn(cmd, ctx);
-    if (repoPath) {
-      const ms = await ctx.ch.getMergeStateForRepo(repoPath);
-      ctx.send({ type: 'mergeState', data: ms, repoPath });
+    // finally: и при ошибке (её покажет общий обработчик) баннер/список
+    // конфликтов должны увидеть реальное состояние.
+    try {
+      await fn(cmd, ctx);
+    } finally {
+      if (repoPath) {
+        const ms = await ctx.ch.getMergeStateForRepo(repoPath);
+        ctx.send({ type: 'mergeState', data: ms, repoPath });
+      }
     }
   };
 }

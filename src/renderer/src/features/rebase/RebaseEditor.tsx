@@ -32,6 +32,10 @@ export function RebaseEditor({ onto, onClose }: Props) {
     setEntries(prev => prev.map((e, i) => i === idx ? { ...e, action } : e));
   }, []);
 
+  const setSubject = useCallback((idx: number, newSubject: string) => {
+    setEntries(prev => prev.map((e, i) => i === idx ? { ...e, newSubject } : e));
+  }, []);
+
   const moveEntry = useCallback((idx: number, dir: -1 | 1) => {
     setEntries(prev => {
       const next = [...prev];
@@ -105,7 +109,18 @@ export function RebaseEditor({ onto, onClose }: Props) {
               {ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
             <span className={s.hash}>{entry.shortHash}</span>
-            <span className={s.subject}>{entry.subject}</span>
+            {entry.action === 'reword' ? (
+              // reword = новое сообщение: без поля git открыл бы редактор, которого у GUI нет.
+              <input
+                className={s.subjectInput}
+                value={entry.newSubject ?? entry.subject}
+                aria-label={loc.rebaseEditor.newSubject}
+                title={loc.rebaseEditor.newSubject}
+                onChange={e => setSubject(i, e.target.value)}
+              />
+            ) : (
+              <span className={s.subject}>{entry.subject}</span>
+            )}
           </div>
         ))}
       </div>

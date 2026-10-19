@@ -1,9 +1,43 @@
-import { writeFile, readFile, access } from 'fs/promises';
+import { existsSync } from 'fs';
+import { writeFile, readFile, access, mkdir, rm } from 'fs/promises';
 import { join } from 'path';
-import { tmpdir } from 'os';
 import { GitExecutor } from './GitExecutor';
 import type { RebaseTodoEntry, RebaseTodoList, RebaseProgress, OperationResult } from './types';
 import { resolveGitDir } from './gitDir';
+
+/**
+ * GIT_EDITOR для `rebase -i` без терминала. Раньше git открывал vim, которого
+ * у GUI нет, — reword/squash падали или вешали rebase.
+ *  - reword: git зовёт редактор по разу на каждый reword, по порядку todo —
+ *    берём следующий заголовок из очереди и заменяем первую строку (тело
+ *    сообщения и комментарии остаются);
+ *  - squash: «# This is a combination of …» — оставляем объединённое
+ *    сообщение, которое git собрал сам.
+ */
+async function writeMessageEditor(workDir: string, entries: RebaseTodoEntry[]): Promise<string> {
+  const queue = join(workDir, 'reword');
+  await mkdir(queue);
+  const rewords = entries.filter(e => e.action === 'reword');
+  for (const [i, e] of rewords.entries()) {
+    const subject = (e.newSubject ?? e.subject).replace(/\r?\n/g, ' ').trim() || e.subject;
+    await writeFile(join(queue, String(i).padStart(4, '0')), `${subject}\n`, 'utf-8');
+  }
+  const q = queue.replace(/\\/g, '/');
+  const script = [
+    '#!/bin/sh',
+    'f="$1"',
+    "if grep -q '^# This is a combination of' \"$f\"; then exit 0; fi",
+    `next=$(ls "${q}" 2>/dev/null | sort | head -n 1)`,
+    '[ -z "$next" ] && exit 0',
+    `{ cat "${q}/$next"; tail -n +2 "$f"; } > "$f.gitbor" && mv "$f.gitbor" "$f"`,
+    `rm -f "${q}/$next"`,
+    'exit 0',
+    '',
+  ].join('\n');
+  const scriptPath = join(workDir, 'editor.sh');
+  await writeFile(scriptPath, script, 'utf-8');
+  return `sh "${scriptPath.replace(/\\/g, '/')}"`;
+}
 
 export class RebaseManager {
   constructor(private readonly git: GitExecutor) {}
@@ -44,8 +78,14 @@ export class RebaseManager {
       .map(e => `${e.action} ${e.hash} ${e.subject}`)
       .join('\n') + '\n';
 
-    const todoPath = join(tmpdir(), `gitbor-rebase-todo-${Date.now()}.txt`);
+    // Очередь reword-заголовков живёт в .git до конца rebase: после «edit» или
+    // конфликта следующие reword идут уже из «Продолжить».
+    const workDir = this.editorDir();
+    await rm(workDir, { recursive: true, force: true });
+    await mkdir(workDir, { recursive: true });
+    const todoPath = join(workDir, 'todo.txt');
     await writeFile(todoPath, todoContent, 'utf-8');
+    const editor = await writeMessageEditor(workDir, entries);
 
     // Git invokes $GIT_SEQUENCE_EDITOR <file> through a POSIX shell
     // (even on Windows via Git-for-Windows MSYS2), so `cp` works everywhere.
@@ -56,25 +96,38 @@ export class RebaseManager {
       const result = await this.git.exec(
         ['rebase', '-i', onto],
         {
-          env: { GIT_SEQUENCE_EDITOR: editorCmd },
+          env: { GIT_SEQUENCE_EDITOR: editorCmd, GIT_EDITOR: editor },
         },
       );
-
-      try { const { unlink } = await import('fs/promises'); await unlink(todoPath); } catch { /* cleanup */ }
-
       return {
         success: result.exitCode === 0,
         error: result.exitCode !== 0 ? result.stderr : undefined,
         rollbackAvailable: false,
       };
     } catch (err) {
-      try { const { unlink } = await import('fs/promises'); await unlink(todoPath); } catch { /* cleanup */ }
       return {
         success: false,
         error: err instanceof Error ? err.message : String(err),
         rollbackAvailable: false,
       };
+    } finally {
+      await this.cleanupEditorIfDone();
     }
+  }
+
+  private editorDir(): string {
+    return join(resolveGitDir(this.git.getCwd()), 'gitbor-rebase');
+  }
+
+  /** Редактор сообщений текущего rebase (см. writeMessageEditor) или «оставить как есть». */
+  private messageEditor(): string {
+    const script = join(this.editorDir(), 'editor.sh');
+    return existsSync(script) ? `sh "${script.replace(/\\/g, '/')}"` : 'true';
+  }
+
+  private async cleanupEditorIfDone(): Promise<void> {
+    if ((await this.getProgress()).inProgress) return;
+    await rm(this.editorDir(), { recursive: true, force: true }).catch(() => { /* cleanup */ });
   }
 
   /**
@@ -129,17 +182,22 @@ export class RebaseManager {
   }
 
   async continueRebase(): Promise<OperationResult> {
-    const result = await this.git.exec(['rebase', '--continue']);
+    // GIT_EDITOR=true — сообщение коммита оставляем как есть. Без этого git
+    // открывал vim, которого у GUI нет: «Продолжить» падало или зависало.
+    const result = await this.git.exec(['rebase', '--continue'], { env: { GIT_EDITOR: this.messageEditor() } });
+    await this.cleanupEditorIfDone();
     return { success: result.exitCode === 0, error: result.exitCode !== 0 ? result.stderr : undefined, rollbackAvailable: false };
   }
 
   async abortRebase(): Promise<OperationResult> {
     const result = await this.git.exec(['rebase', '--abort']);
+    await this.cleanupEditorIfDone();
     return { success: result.exitCode === 0, error: result.exitCode !== 0 ? result.stderr : undefined, rollbackAvailable: false };
   }
 
   async skipRebase(): Promise<OperationResult> {
-    const result = await this.git.exec(['rebase', '--skip']);
+    const result = await this.git.exec(['rebase', '--skip'], { env: { GIT_EDITOR: this.messageEditor() } });
+    await this.cleanupEditorIfDone();
     return { success: result.exitCode === 0, error: result.exitCode !== 0 ? result.stderr : undefined, rollbackAvailable: false };
   }
 }

@@ -110,7 +110,8 @@ describe('RebaseManager', () => {
       const git = createMockGit();
       const rm = new RebaseManager(asGit(git));
       const result = await rm.continueRebase();
-      expect(git.exec).toHaveBeenCalledWith(['rebase', '--continue']);
+      // Без редактора: у GUI нет терминала для vim.
+      expect(git.exec).toHaveBeenCalledWith(['rebase', '--continue'], { env: { GIT_EDITOR: 'true' } });
       expect(result.success).toBe(true);
     });
   });

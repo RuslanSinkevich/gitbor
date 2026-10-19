@@ -5,6 +5,8 @@ export interface RebaseTodoEntry {
   hash: string;
   shortHash: string;
   subject: string;
+  /** reword: новый заголовок сообщения (остальное сообщение сохраняется). */
+  newSubject?: string;
 }
 
 export interface RebaseTodoList {
