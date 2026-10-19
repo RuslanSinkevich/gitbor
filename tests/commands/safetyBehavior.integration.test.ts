@@ -7,7 +7,7 @@ import { GitExecutor } from '@core/git/GitExecutor';
 import { SafetyNet } from '@core/safety/SafetyNet';
 import type { OperationQueue } from '@core/safety/OperationQueue';
 import type { StateManager } from '@core/state/StateManager';
-import { checkout, deleteBranch, resetTo } from '@core/commands/writeCommands';
+import { checkout, deleteBranch, resetTo, stashPop } from '@core/commands/writeCommands';
 import { makeMockQueue, makeMockState } from '../_mocks';
 
 vi.mock('@core/utils/Logger', () => ({
@@ -103,5 +103,16 @@ describe('deleteBranch', () => {
     const r = await deleteBranch(q(), new GitExecutor(repo), st(), 'local-only', true, true);
     expect(r.success).toBe(false);
     expect(git('branch', '--list', 'local-only')).not.toBe('');
+  });
+});
+
+describe('stash apply / pop', () => {
+  it('подготовленное возвращается подготовленным', async () => {
+    const ex = new GitExecutor(repo);
+    write('a.txt', 'staged\n'); git('add', 'a.txt'); write('b.txt', 'b\n');
+    git('stash', 'push', '-u');
+    const r = await stashPop(q(), ex, st());
+    expect(r.success).toBe(true);
+    expect(git('status', '--porcelain')).toBe('M  a.txt\n?? b.txt\n');
   });
 });

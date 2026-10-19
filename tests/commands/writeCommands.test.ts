@@ -301,22 +301,22 @@ describe('writeCommands', () => {
   });
 
   describe('stashPop', () => {
-    it('runs git stash pop without args', async () => {
+    it('runs git stash pop --index (staged stays staged)', async () => {
       const git = makeMockGit();
       const queue = makeMockQueue();
       const state = makeMockState();
       await Write.stashPop(asQueue(queue), asGit(git), asState(state));
-      expect(git.exec).toHaveBeenCalledWith(['stash', 'pop']);
+      expect(git.exec).toHaveBeenCalledWith(['stash', 'pop', '--index']);
     });
   });
 
   describe('stashApply', () => {
-    it('runs git stash apply <index>', async () => {
+    it('runs git stash apply --index <index>', async () => {
       const git = makeMockGit();
       const queue = makeMockQueue();
       const state = makeMockState();
       await Write.stashApply(asQueue(queue), asGit(git), asState(state), 'stash@{0}');
-      expect(git.exec).toHaveBeenCalledWith(['stash', 'apply', 'stash@{0}']);
+      expect(git.exec).toHaveBeenCalledWith(['stash', 'apply', '--index', 'stash@{0}']);
     });
   });
 

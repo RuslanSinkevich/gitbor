@@ -416,8 +416,21 @@ export async function fetchBranchFastForward(
   }, 'refreshAll');
 }
 
+/**
+ * apply/pop с `--index`: подготовленное возвращается подготовленным (как его
+ * откладывали). Если индекс не ложится и git ничего не тронул — без `--index`.
+ */
+async function stashRestore(git: GitExecutor, verb: 'apply' | 'pop', ref?: string): Promise<OperationResult> {
+  const tail = ref ? [ref] : [];
+  let r = await git.exec(['stash', verb, '--index', ...tail]);
+  if (r.exitCode !== 0 && !(await git.exec(['status', '--porcelain'])).stdout.trim()) {
+    r = await git.exec(['stash', verb, ...tail]);
+  }
+  return simpleResult(r.exitCode, r.stderr);
+}
+
 export async function stashPop(queue: OperationQueue, git: GitExecutor, state: StateManager): Promise<OperationResult> {
-  return gitExecSimple(queue, git, state, 'stashPop', ['stash', 'pop']);
+  return gitWrite(queue, state, 'stashPop', () => stashRestore(git, 'pop'));
 }
 
 export async function createBranch(queue: OperationQueue, git: GitExecutor, state: StateManager, name: string, from: string): Promise<OperationResult> {
@@ -632,7 +645,7 @@ export async function resetTo(queue: OperationQueue, git: GitExecutor, safety: S
 }
 
 export async function stashApply(queue: OperationQueue, git: GitExecutor, state: StateManager, index: string): Promise<OperationResult> {
-  return gitExecSimple(queue, git, state, 'stashApply', ['stash', 'apply', index]);
+  return gitWrite(queue, state, 'stashApply', () => stashRestore(git, 'apply', index));
 }
 
 export async function stashDrop(queue: OperationQueue, git: GitExecutor, state: StateManager, index: string): Promise<OperationResult> {
