@@ -1,22 +1,8 @@
 <!-- ru -->
-- Проверили все команды git: что написано на кнопках и в окнах, теперь совпадает с тем, что происходит на самом деле
-- Сброс Hard и «Восстановить» в Reflog действительно очищают рабочую копию; незакоммиченное откладывается в stash «авто» (Отложенные → Безопасность) — его можно вернуть. Раньше правки молча возвращались, иногда с конфликтом
-- После переключения ветки, pull и «Применить»/«Вернуть» stash подготовленные файлы остаются подготовленными
-- Конфликты: «Принять нашу/их» на файле, который одна сторона удалила, больше не берёт версию другой стороны; «Пометить как разрешённый» не пропускает маркеры <<<<<<< в коммит
-- Rebase: стороны конфликта подписаны именами веток («основа» и «ваш коммит»); «Продолжить», reword и squash больше не падают и не зависают; у reword — поле для нового заголовка
-- «Применить» кусок нового файла больше не выдаёт «Hunk not found»
-- Удаление ветки: как в Fork, можно сразу удалить её и на сервере (галочка выключена по умолчанию)
-- Bisect: верный счётчик шагов и надпись «Найден!» в конце; серия cherry-pick: верный прогресс «применено N из M»
-- Ошибки подготовки, отмены, рабочих копий и LFS теперь видны; уведомления исчезают сами (ошибка — 10 с, с кнопкой — 20 с), под мышью не пропадают
-- Подписи: «Отправить с перезаписью (--force-with-lease)», тексты «Откатить» и «Stash и восстановить» описывают то, что происходит
+- Справа у ветки теперь видно, есть ли она на сервере: перечёркнутое облако — ветка только на этом компьютере; облако пунктиром — на сервере есть ветка с тем же именем, но эта с ней не связана
+- Для такой ветки в меню появился пункт «Связать с «origin/…»» — после него работают стрелки ↑↓, Pull и Push
+- Значок ↔ («в синхроне») больше не стоит у каждой ветки: пустое место значит «всё в порядке», а ↔ видна при наведении на строку
 <!-- en -->
-- Audited every git command: what buttons and dialogs say now matches what actually happens
-- Hard reset and Reflog “Restore” really clean the working copy; uncommitted changes are stashed as “auto” (Stashes → Safety) so they can be restored. Previously edits silently came back, sometimes with a conflict
-- Staged files stay staged after switching branches, pull and stash Apply/Pop
-- Conflicts: “Accept ours/theirs” on a file deleted by one side no longer takes the other side’s version; “Mark as resolved” no longer lets <<<<<<< markers into a commit
-- Rebase: conflict sides are labeled with branch names (“base” and “your commit”); Continue, reword and squash no longer fail or hang; reword gets a field for the new subject
-- Staging a hunk of a new file no longer fails with “Hunk not found”
-- Deleting a branch can also delete it on the remote, like in Fork (checkbox, off by default)
-- Bisect: correct step counter and “Found!” at the end; cherry-pick series: correct “applied N of M” progress
-- Errors from staging, discarding, worktrees and LFS are now shown; notifications dismiss themselves (errors 10 s, with a button 20 s) and stay while hovered
-- Labels: “Push with overwrite (--force-with-lease)”, “Discard” and “Stash and restore” texts describe what really happens
+- The branch list now shows whether a branch exists on the remote: a crossed-out cloud — only on this computer; a dashed cloud — the remote has a branch with the same name, but this one isn't linked to it
+- Such a branch gets a “Link to ‘origin/…’” menu item — after it ↑↓ arrows, Pull and Push work
+- The ↔ (“in sync”) mark no longer sits next to every branch: an empty slot means all is well, and ↔ shows on row hover
