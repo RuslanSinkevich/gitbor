@@ -90,6 +90,8 @@ export interface CommitDetail {
   subject: string;
   body: string;
   files: FileChange[];
+  /** Псевдо-коммит сравнения веток: что `branch` принесёт в `base`. */
+  branchCompare?: { base: string; branch: string };
 }
 
 export interface RepoInfo {

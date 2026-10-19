@@ -192,6 +192,7 @@ export function useStateSubscription(deps: StateSubscriptionDeps): void {
             subject,
             body,
             files,
+            ...(bc ? { branchCompare: { base: bc.base, branch: bc.branch } } : {}),
           }));
           break;
         }

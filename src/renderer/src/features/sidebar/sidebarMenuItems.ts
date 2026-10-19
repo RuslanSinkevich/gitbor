@@ -7,11 +7,22 @@ import type { RequestCheckout } from '../checkout';
 import type { RequestApplyStash } from '../stash';
 
 /**
- * Сравнение ветки с текущей:
- *  - `into-current` — что ветка принесёт в текущую (merge-base..branch);
- *  - `from-current` — что текущая принесёт в ветку, как pull request (merge-base..current).
+ * Сравнение веток. Направление всегда явное, без угадывания «главной»:
+ *  - быстрое — что ветка принесёт в текущую;
+ *  - пара — две ветки, отмеченные Ctrl+кликом: 1 — что, 2 — куда.
+ * Обратное направление — кнопкой ⇄ в окне сравнения.
  */
-export type CompareBranchFn = (branch: string, direction: 'into-current' | 'from-current') => void;
+export interface BranchCompare {
+  /** Что `branch` принесёт в `base` (дифф от merge-base). */
+  run: (branch: string, base: string) => void;
+  /** Ветки, отмеченные Ctrl+кликом, по порядку: [1, 2]. */
+  marks: string[];
+  /** Ctrl+клик: отметить ветку следующим номером или снять отметку. */
+  toggleMark: (name: string) => void;
+  /** «Выбрать для сравнения»: ветка становится единственной, под номером 1. */
+  markFirst: (name: string) => void;
+  clearMarks: () => void;
+}
 
 type Loc = ReturnType<typeof import('../../i18n').t>;
 
@@ -107,6 +118,47 @@ export interface BranchExtrasMenu {
 }
 
 /**
+ * Подменю «Сравнить»: быстрое — с текущей веткой, и пара веток, как в Fork.
+ * Пара: «Выбрать для сравнения» даёт ветке номер 1, на второй ветке
+ * появляется «1 → эта». То же быстрее — Ctrl+клик по двум веткам.
+ */
+function compareSubmenu(branch: Branch, currentBranch: string, loc: Loc, compare: BranchCompare): SgContextMenuItem[] {
+  const m = loc.contextMenu.branchMenu;
+  const help = loc.contextMenu.help;
+  const short = leaf(branch.name);
+  const cur = leaf(currentBranch) || 'HEAD';
+  const { marks } = compare;
+  const items: SgContextMenuItem[] = [];
+
+  if (!branch.isCurrent) {
+    items.push({
+      label: tpl(m.compareInto, { target: cur }),
+      title: tpl(help.compareIntoCurrent, { branch: short, target: cur }),
+      action: () => compare.run(branch.name, currentBranch || 'HEAD'),
+    });
+  }
+
+  const pairItem = (from: string, to: string): SgContextMenuItem => ({
+    label: tpl(m.comparePair, { from: leaf(from), to: leaf(to) }),
+    title: tpl(help.comparePair, { from, to }),
+    action: () => compare.run(from, to),
+  });
+  const own = marks.indexOf(branch.name);
+  if (marks.length === 2 && own >= 0) {
+    items.push(pairItem(marks[0], marks[1]));
+  } else if (marks.length >= 1 && own < 0) {
+    // Ветка 1 уже выбрана — эта становится второй («куда»).
+    items.push(pairItem(marks[0], branch.name));
+  }
+  if (own >= 0) {
+    items.push({ label: m.compareUnmark, action: () => compare.clearMarks() });
+  } else {
+    items.push({ label: m.compareMark, title: help.compareMark, action: () => compare.markFirst(branch.name) });
+  }
+  return items;
+}
+
+/**
  * Меню ветки в сайдбаре. Имя ветки — один раз, в заголовке (полное — в
  * подсказке); в пунктах только глаголы, поэтому ширина меню не зависит от
  * длины имени. Группы по смыслу: перейти/обновить → слить/сравнить →
@@ -117,7 +169,7 @@ export function getBranchMenuItems(
   requestCheckout: RequestCheckout, onMerge?: (source: string) => void,
   extras: BranchExtrasMenu = {},
   remoteNames: string[] = [],
-  onCompare?: CompareBranchFn,
+  compare?: BranchCompare,
 ): SgContextMenuItem[] {
   const m = loc.contextMenu.branchMenu;
   const short = leaf(branch.name);
@@ -144,16 +196,8 @@ export function getBranchMenuItems(
       title: tpl(loc.contextMenu.mergeInto, { source: branch.name, target: currentBranch }),
       action: () => onMerge ? onMerge(branch.name) : postCommand({ type: 'merge', branch: branch.name }),
     });
-    if (onCompare) {
-      integrate.push({
-        label: m.compare,
-        submenu: [
-          { label: tpl(m.compareInto, { target: cur }), title: tpl(loc.contextMenu.help.compareIntoCurrent, { branch: short, target: cur }), action: () => onCompare(branch.name, 'into-current') },
-          { label: tpl(m.compareFrom, { target: cur }), title: tpl(loc.contextMenu.help.compareFromCurrent, { branch: short, target: cur }), action: () => onCompare(branch.name, 'from-current') },
-        ],
-      });
-    }
   }
+  if (compare) integrate.push({ label: m.compare, submenu: compareSubmenu(branch, currentBranch, loc, compare) });
   groups.push(integrate);
 
   // 3. Создать

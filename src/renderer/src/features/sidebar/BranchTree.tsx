@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import type { Branch } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
 import { SgTooltip } from '../../ui/SgTooltip';
-import { getBranchMenuItems, promptTrackRemote, type CompareBranchFn } from './sidebarMenuItems';
+import { getBranchMenuItems, promptTrackRemote, type BranchCompare } from './sidebarMenuItems';
 import type { ShowPrompt } from '../graph/commitMenuItems';
 import type { RequestCheckout } from '../checkout';
 import {
@@ -148,10 +148,10 @@ interface BranchTreeItemProps {
   /** Имена remote'ов — для модалки «Обновить ветку» без upstream. */
   remoteNames?: string[];
   /** «Сравнить с текущей»: дифф между этой веткой и текущей. */
-  onCompareBranch?: CompareBranchFn;
+  branchCompare?: BranchCompare;
 }
 
-export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout, folderExpand, onBranchMove, prefs, selectedBranch, onSelectBranch, remoteNames = [], onCompareBranch }: BranchTreeItemProps) {
+export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onContextMenu, onSelectRef, onMerge, showPrompt, requestCheckout, folderExpand, onBranchMove, prefs, selectedBranch, onSelectBranch, remoteNames = [], branchCompare }: BranchTreeItemProps) {
   const [expandedInternal, setExpandedInternal] = useState(() => node.branch?.isCurrent ? true : depth < 1);
   const expanded = folderExpand ? folderExpand.isExpanded(node.fullPath) : expandedInternal;
   const toggleExpanded = folderExpand
@@ -217,7 +217,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
             {node.children.map(child => (
               <BranchTreeItem key={child.fullPath} node={child} depth={depth + 1} nested
                 currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu}
-                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} prefs={prefs} selectedBranch={selectedBranch} onSelectBranch={onSelectBranch} remoteNames={remoteNames} onCompareBranch={onCompareBranch} />
+                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} prefs={prefs} selectedBranch={selectedBranch} onSelectBranch={onSelectBranch} remoteNames={remoteNames} branchCompare={branchCompare} />
             ))}
           </div>
         )}
@@ -233,7 +233,8 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
     const isPinned = prefs?.pinned.has(branch.name) ?? false;
     const isHidden = prefs?.hidden.has(branch.name) ?? false;
     const isSolo = prefs?.soloBranch === branch.name;
-    const isSelected = selectedBranch != null && selectedBranch === branch.name;
+    const markIndex = branchCompare?.marks.indexOf(branch.name) ?? -1;
+    const isSelected = markIndex >= 0 || (selectedBranch != null && selectedBranch === branch.name);
     const noteText = prefs?.notes[branch.name] ?? '';
     const hasNote = noteText.trim().length > 0;
 
@@ -243,7 +244,11 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
           data-branch={branch.name}
           draggable={!branch.isRemote}
           onDragStart={handleDragStart}
-          onClick={() => { onSelectBranch?.(branch.name); onSelectRef?.(branch.hash); }}
+          onClick={(e) => {
+            // Ctrl/Cmd+клик — отметить ветку для сравнения (номера 1 и 2).
+            if ((e.ctrlKey || e.metaKey) && branchCompare) { branchCompare.toggleMark(branch.name); return; }
+            onSelectBranch?.(branch.name); onSelectRef?.(branch.hash);
+          }}
           onDoubleClick={() => {
             // Гибрид «ветка + папка» (есть и `release`, и `release/1.0`):
             // сначала раскрыть детей, Track/checkout — со второго жеста.
@@ -267,7 +272,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
               onClearSolo: () => prefs.clearSolo(),
               onShowInfo: () => prefs.showInfo(branch),
               onDelete: () => prefs.dropBranch(branch.name),
-            } : {}, remoteNames, onCompareBranch));
+            } : {}, remoteNames, branchCompare));
           }}
 >
           {node.children.length > 0 && (
@@ -279,6 +284,9 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
           <span className={s.itemLabel}>
             {branch.isCurrent && (
               <span className={s.itemBadge} title={loc.sidebar.current} aria-label={loc.sidebar.current} />
+            )}
+            {markIndex >= 0 && (
+              <span className={s.compareMark} title={markIndex === 0 ? loc.sidebar.compareMarkFrom : loc.sidebar.compareMarkTo}>{markIndex + 1}</span>
             )}
             <span className={s.itemName}>{node.segment}</span>
             {isPinned && (
@@ -318,7 +326,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
             {node.children.map(child => (
               <BranchTreeItem key={child.fullPath} node={child} depth={depth + 1} nested
                 currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu}
-                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} prefs={prefs} selectedBranch={selectedBranch} onSelectBranch={onSelectBranch} remoteNames={remoteNames} onCompareBranch={onCompareBranch} />
+                onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpand} onBranchMove={onBranchMove} prefs={prefs} selectedBranch={selectedBranch} onSelectBranch={onSelectBranch} remoteNames={remoteNames} branchCompare={branchCompare} />
             ))}
           </div>
         )}

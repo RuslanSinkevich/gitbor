@@ -316,6 +316,46 @@
   font-weight: 600;
 }
 
+.compareBranches {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.compareBranch {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--sg-font-mono, monospace);
+}
+
+.compareArrow {
+  flex-shrink: 0;
+  color: var(--sg-primary);
+  font-size: 15px;
+}
+
+.compareSwap {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 1px 8px;
+  font-size: 14px;
+  line-height: 1.3;
+  color: var(--sg-foreground);
+  background: var(--sg-surface);
+  border: 1px solid var(--sg-border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.compareSwap:hover {
+  border-color: var(--sg-primary);
+  color: var(--sg-primary);
+}
+
 .compareBannerHint {
   color: var(--sg-foreground-muted);
   white-space: pre-line;

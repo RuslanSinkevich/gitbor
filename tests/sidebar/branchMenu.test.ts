@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { getBranchMenuItems } from '../../src/renderer/src/features/sidebar/sidebarMenuItems';
+import { getBranchMenuItems, type BranchCompare } from '../../src/renderer/src/features/sidebar/sidebarMenuItems';
 import type { SgContextMenuItem } from '../../src/renderer/src/ui/SgContextMenu';
 import type { Branch } from '../../src/renderer/src/types';
-import { t } from '../../src/renderer/src/i18n';
+import { t, tpl } from '../../src/renderer/src/i18n';
 
 vi.mock('../../src/renderer/src/api', () => ({
   postCommand: vi.fn(),
@@ -24,11 +24,16 @@ describe('getBranchMenuItems', () => {
   const m = loc.contextMenu.branchMenu;
   const noop = vi.fn();
 
-  const build = (b: Branch) => getBranchMenuItems(
+  const build = (b: Branch, marks: string[] = [], over: Partial<BranchCompare> = {}) => getBranchMenuItems(
     b, 'feature/SinkevichRN/MISP-298', loc, noop, noop, noop,
     { onToggleSolo: noop, onToggleHide: noop, onTogglePin: noop, onShowInfo: noop },
-    ['origin'], noop,
+    ['origin'], { run: noop, marks, toggleMark: noop, markFirst: noop, clearMarks: noop, ...over },
   );
+  const compareInto = tpl(m.compareInto, { target: 'MISP-298' });
+  const sub = (items: SgContextMenuItem[]) => {
+    const c = items.find(i => i.label === m.compare);
+    return c && 'submenu' in c ? c.submenu ?? [] : [];
+  };
 
   it('заголовок — короткое имя, полное — в подсказке', () => {
     const items = build(branch({ name: LONG }));
@@ -41,10 +46,32 @@ describe('getBranchMenuItems', () => {
     expect(rest.some(l => l.includes('CL_Departments_n_Positions'))).toBe(false);
   });
 
-  it('сравнение — подменю с двумя направлениями к текущей ветке', () => {
-    const items = build(branch({ name: LONG }));
-    const compare = items.find(i => i.label === m.compare);
-    expect(compare && 'submenu' in compare ? compare.submenu?.length : 0).toBe(2);
+  it('«Сравнить ▸»: что принесёт в текущую и «Выбрать для сравнения»', () => {
+    const run = vi.fn();
+    const markFirst = vi.fn();
+    const s = sub(build(branch({ name: LONG }), [], { run, markFirst }));
+    expect(labels(s)).toEqual([compareInto, m.compareMark]);
+    s[0]?.action?.();
+    expect(run).toHaveBeenCalledWith(LONG, 'feature/SinkevichRN/MISP-298');
+    s[1]?.action?.();
+    expect(markFirst).toHaveBeenCalledWith(LONG);
+  });
+
+  it('ветка 1 выбрана: на другой ветке «1 → эта», на самой — «Снять выбор»', () => {
+    const run = vi.fn();
+    const s = sub(build(branch({ name: 'release/2.4' }), ['feature/a'], { run }));
+    const pair = tpl(m.comparePair, { from: 'a', to: '2.4' });
+    expect(labels(s)).toContain(pair);
+    s.find(i => i.label === pair)?.action?.();
+    expect(run).toHaveBeenCalledWith('feature/a', 'release/2.4');
+    expect(labels(sub(build(branch({ name: 'feature/a' }), ['feature/a'])))).toContain(m.compareUnmark);
+  });
+
+  it('пара Ctrl+кликом: «1 → 2» в подменю любой из двух веток', () => {
+    const run = vi.fn();
+    const s = sub(build(branch({ name: 'feature/a' }), ['feature/a', 'release/2.4'], { run }));
+    s.find(i => i.label === tpl(m.comparePair, { from: 'a', to: '2.4' }))?.action?.();
+    expect(run).toHaveBeenCalledWith('feature/a', 'release/2.4');
   });
 
   it('«Удалить» — последний пункт, «Переименовать» — перед ним', () => {
@@ -55,7 +82,8 @@ describe('getBranchMenuItems', () => {
 
   it('текущая ветка: нет переключения, слияния, сравнения и удаления', () => {
     const l = labels(build(branch({ name: 'feature/SinkevichRN/MISP-298', isCurrent: true })));
-    for (const x of [m.checkout, m.compare, m.delete, m.fetch]) expect(l).not.toContain(x);
+    for (const x of [m.checkout, m.delete, m.fetch]) expect(l).not.toContain(x);
+    expect(labels(sub(build(branch({ name: 'feature/SinkevichRN/MISP-298', isCurrent: true }))))).not.toContain(compareInto);
     expect(l.some(x => x.startsWith(m.mergeInto.split('«')[0]))).toBe(false);
     expect(l).toContain(m.rename);
   });

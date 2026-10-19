@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { t } from '../../i18n';
+import { t, tpl } from '../../i18n';
 import { postCommand, copyToClipboard, invokeCommand } from '../../api';
 import type { CommitDetail, FileChange, FileStatus } from '../../types';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
@@ -38,6 +38,25 @@ function formatDate(ts: number): string {
   return new Date(ts).toLocaleString(undefined, {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
+}
+
+/** Шапка сравнения веток: «что → куда» крупно и ⇄ — то же в обратную сторону. */
+function BranchCompareTitle({ base, branch }: { base: string; branch: string }) {
+  const loc = t();
+  return (
+    <div className={s.compareBannerTitle + ' ' + s.compareBranches}>
+      <span className={s.compareBranch} title={branch}>{branch}</span>
+      <span className={s.compareArrow} aria-hidden="true">→</span>
+      <span className={s.compareBranch} title={base}>{base}</span>
+      <button
+        type="button"
+        className={s.compareSwap}
+        title={tpl(loc.compare.swap, { base, branch })}
+        aria-label={tpl(loc.compare.swap, { base, branch })}
+        onClick={() => postCommand({ type: 'compareBranches', base: branch, branch: base })}
+      >⇄</button>
+    </div>
+  );
 }
 
 interface Props {
@@ -167,7 +186,11 @@ export function CommitDetails({ detail, onSelectCommit, onOpenDiff, onContextMen
     <div className={s.root}>
       {isCompareRange && (
         <div className={s.compareBanner}>
-          <div className={s.compareBannerTitle}>{detail.subject}</div>
+          {detail.branchCompare ? (
+            <BranchCompareTitle base={detail.branchCompare.base} branch={detail.branchCompare.branch} />
+          ) : (
+            <div className={s.compareBannerTitle}>{detail.subject}</div>
+          )}
           {detail.body && <div className={s.compareBannerHint}>{detail.body}</div>}
         </div>
       )}
