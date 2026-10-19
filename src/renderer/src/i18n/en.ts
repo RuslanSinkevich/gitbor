@@ -115,6 +115,8 @@ export const en = {
     upstreamAhead: 'Not pushed to {upstream}: {n} commit(s)',
     upstreamBehind: 'New in {upstream}: {n} commit(s) — pull to update',
     upstreamGone: '{upstream} no longer exists on the remote — only the local branch is left. It can be deleted.',
+    localOnly: 'Only on this computer — the remote has no such branch. Push it to publish it.',
+    remoteTwinUnlinked: 'The remote has {remote} with the same name, but this branch is not linked to it: ↑↓ arrows and Pull/Push do not work. Right-click → “Link to {remote}”.',
     compareMarkBase: '1 — the branch to compare against. Right-click another branch → “Compare” → “What it brings into …” shows what that branch brings into this one.',
     compareMarkBranch: '2 — what to compare: what this branch brings into branch 1. Right-click → “Compare”.',
     cleanGoneButton: 'Branches deleted on the remote: {n}. Click to delete the local copies',
@@ -480,6 +482,7 @@ export const en = {
     branchMenu: {
       checkout: 'Switch to',
       fetch: 'Update branch (fetch)',
+      linkUpstream: "Link to '{remote}'",
       track: 'Create local and track…',
       mergeInto: 'Merge into ‘{target}’…',
       compare: 'Compare',

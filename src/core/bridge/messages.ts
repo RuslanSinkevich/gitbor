@@ -84,6 +84,8 @@ type RendererCommandCore =
   | { type: 'trackRemoteBranch'; remote: string; remoteBranch: string; localName: string }
   | { type: 'renameBranch'; oldName: string; newName: string }
   /** deleteRemote — удалить и ветку на сервере (upstream из branch.<name>.remote/merge). */
+  /** Связать локальную ветку с веткой на сервере (git branch --set-upstream-to). */
+  | { type: 'setUpstream'; branch: string; upstream: string }
   | { type: 'deleteBranch'; branch: string; force?: boolean; deleteRemote?: boolean }
   /** Стянуть неактивную локальную ветку по fast-forward (`git fetch <remote> <branch>:<branch>`). */
   | { type: 'fetchBranch'; branch: string; remote?: string; setUpstream?: boolean }

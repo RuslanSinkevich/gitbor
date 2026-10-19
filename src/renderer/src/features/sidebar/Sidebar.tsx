@@ -5,6 +5,7 @@ import type { RequestCheckout } from '../checkout';
 import type { RequestApplyStash } from '../stash';
 import { isAutoStash } from '../stash';
 import type { SgContextMenuItem } from '../../ui/SgContextMenu';
+import { withRemoteTwins } from './remoteTwin';
 import { getTagMenuItems, getStashMenuItems, getRemoteMenuItems, type BranchCompare } from './sidebarMenuItems';
 import {
   buildBranchTree, countLeaves, BranchTreeItem,
@@ -244,8 +245,9 @@ export function Sidebar({
     };
   }, [reveal]);
 
-  const localBranches = useMemo(() => branches.filter(b => !b.isRemote), [branches]);
   const remoteBranches = useMemo(() => branches.filter(b => b.isRemote), [branches]);
+  // Двойник на сервере для веток без upstream — значок и «Связать с …» (remoteTwin.ts).
+  const localBranches = useMemo(() => withRemoteTwins(branches, remotes.map(r => r.name)), [branches, remotes]);
 
   // Локальные ветки, чью ветку на сервере удалили (обычно после слияния PR). Текущую не трогаем.
   const goneBranches = useMemo(

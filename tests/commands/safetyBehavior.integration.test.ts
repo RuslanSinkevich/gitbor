@@ -7,7 +7,7 @@ import { GitExecutor } from '@core/git/GitExecutor';
 import { SafetyNet } from '@core/safety/SafetyNet';
 import type { OperationQueue } from '@core/safety/OperationQueue';
 import type { StateManager } from '@core/state/StateManager';
-import { checkout, deleteBranch, resetTo, stashPop } from '@core/commands/writeCommands';
+import { checkout, deleteBranch, resetTo, setUpstream, stashPop } from '@core/commands/writeCommands';
 import { makeMockQueue, makeMockState } from '../_mocks';
 
 vi.mock('@core/utils/Logger', () => ({
@@ -96,6 +96,13 @@ describe('deleteBranch', () => {
     expect(r.success).toBe(true);
     expect(git('branch', '--list', 'TASK-1')).toBe('');
     expect(remoteHas('TASK-1')).toBe(false);
+  });
+
+  it('«Связать с origin/…»: ветка без upstream получает связь с одноимённой на сервере', async () => {
+    git('branch', 'TASK-2'); git('push', '-q', 'origin', 'TASK-2');
+    const r = await setUpstream(q(), new GitExecutor(repo), st(), 'TASK-2', 'origin/TASK-2');
+    expect(r.success).toBe(true);
+    expect(git('rev-parse', '--abbrev-ref', 'TASK-2@{u}').trim()).toBe('origin/TASK-2');
   });
 
   it('без upstream — понятная ошибка, локальная ветка цела', async () => {

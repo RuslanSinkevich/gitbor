@@ -33,6 +33,11 @@ export interface Branch {
   behind?: number;
   /** Upstream настроен, но ветки на сервере больше нет (после fetch --prune) — `[gone]`. */
   upstreamGone?: boolean;
+  /**
+   * Только у локальной ветки без upstream: одноимённая ветка на сервере
+   * ('origin/<имя>'), если есть. Считается в renderer (Sidebar).
+   */
+  remoteTwin?: string;
 }
 
 export interface Tag {

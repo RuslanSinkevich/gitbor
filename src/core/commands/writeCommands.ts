@@ -486,6 +486,10 @@ export async function trackRemoteBranch(
   });
 }
 
+export async function setUpstream(queue: OperationQueue, git: GitExecutor, state: StateManager, branch: string, upstream: string): Promise<OperationResult> {
+  return gitExecSimple(queue, git, state, 'setUpstream', ['branch', `--set-upstream-to=${upstream}`, branch]);
+}
+
 export async function renameBranch(queue: OperationQueue, git: GitExecutor, state: StateManager, oldName: string, newName: string): Promise<OperationResult> {
   return gitExecSimple(queue, git, state, 'renameBranch', ['branch', '-m', oldName, newName]);
 }

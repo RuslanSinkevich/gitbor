@@ -191,6 +191,15 @@ export function getBranchMenuItems(
   if (branch.isRemote) nav.push({ label: m.track, title: tpl(loc.contextMenu.trackRemoteTitle, { branch: branch.name }), action: () => promptTrackRemote(branch, loc, showPrompt) });
   // `git fetch <remote> <b>:<b>` — только для неактивной локальной: активную тянут Pull'ом.
   if (other && isLocal) nav.push({ label: m.fetch, title: tpl(loc.contextMenu.fetchBranchTitle, { branch: branch.name }), action: () => promptFetchBranch(branch, loc, showPrompt, remoteNames) });
+  // На сервере есть одноимённая ветка, а связи нет — привязать (↑↓, Pull/Push заработают).
+  if (isLocal && branch.remoteTwin) {
+    const remote = branch.remoteTwin;
+    nav.push({
+      label: tpl(m.linkUpstream, { remote }),
+      title: tpl(loc.sidebar.remoteTwinUnlinked, { remote }),
+      action: () => postCommand({ type: 'setUpstream', branch: branch.name, upstream: remote }),
+    });
+  }
   groups.push(nav);
 
   // 2. Слить / сравнить (с текущей веткой; сравнение — от merge-base)

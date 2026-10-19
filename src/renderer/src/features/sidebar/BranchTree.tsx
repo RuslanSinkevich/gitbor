@@ -299,7 +299,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
               <span className={`${s.branchStateMarker} ${s.branchStateMarkerMuted}`} title={truncateNote(noteText)} aria-label={loc.sidebar.branchNote}><IconInfo /></span>
             )}
           </span>
-          {branch.upstream && <BranchSyncBadge branch={branch} loc={loc} />}
+          {(branch.upstream || !branch.isRemote) && <BranchSyncBadge branch={branch} loc={loc} />}
           {prefs && !branch.isRemote && (
             <span className={s.branchHotzone} aria-hidden="true" />
           )}
@@ -384,6 +384,17 @@ const IconEyeOff = () => (
  */
 function BranchSyncBadge({ branch, loc }: { branch: Branch; loc: ReturnType<typeof t> }) {
   const upstream = branch.upstream ?? '';
+  // Без upstream: на сервере есть одноимённая, но не связанная — или ветка только у вас.
+  if (!upstream) {
+    const title = branch.remoteTwin
+      ? tpl(loc.sidebar.remoteTwinUnlinked, { remote: branch.remoteTwin })
+      : loc.sidebar.localOnly;
+    return (
+      <span className={`${s.itemUpstream} ${s.itemUpstreamMuted}`} title={title} aria-label={title}>
+        {branch.remoteTwin ? <IconCloudUnlinked /> : <IconLocalOnly />}
+      </span>
+    );
+  }
   if (branch.upstreamGone) {
     const title = tpl(loc.sidebar.upstreamGone, { upstream });
     return (
@@ -396,7 +407,9 @@ function BranchSyncBadge({ branch, loc }: { branch: Branch; loc: ReturnType<type
   const behind = branch.behind ?? 0;
   if (!ahead && !behind) {
     const title = tpl(loc.sidebar.upstreamInSync, { upstream });
-    return <span className={s.itemUpstream} title={title} aria-label={title}>↔</span>;
+    // В синхроне — делать нечего, поэтому ↔ не шумит в списке: видна только
+    // при наведении на строку. Пустое место = «связана и в синхроне».
+    return <span className={`${s.itemUpstream} ${s.itemUpstreamInSync}`} title={title} aria-label={title}>↔</span>;
   }
   const lines: string[] = [];
   if (ahead) lines.push(tpl(loc.sidebar.upstreamAhead, { n: String(ahead), upstream }));
@@ -410,6 +423,21 @@ function BranchSyncBadge({ branch, loc }: { branch: Branch; loc: ReturnType<type
     </span>
   );
 }
+
+/** Ветка только на этом компьютере: облако перечёркнуто. */
+const IconLocalOnly = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3.4 9.5H9a2 2 0 0 0 .4-3.96A3.2 3.2 0 0 0 3.3 5.2 2.2 2.2 0 0 0 3.4 9.5Z" />
+    <line x1="1.5" y1="1.5" x2="10.5" y2="10.5" />
+  </svg>
+);
+
+/** На сервере есть одноимённая ветка, но связи (upstream) нет: облако пунктиром. */
+const IconCloudUnlinked = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1.6 1.2">
+    <path d="M3.4 9.5H9a2 2 0 0 0 .4-3.96A3.2 3.2 0 0 0 3.3 5.2 2.2 2.2 0 0 0 3.4 9.5Z" />
+  </svg>
+);
 
 const IconWarning = () => (
   <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">

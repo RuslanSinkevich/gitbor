@@ -71,6 +71,7 @@ export const ipcHandlersGitOps: HandlerTable = {
   commit: opWithPostMerge('commit', (cmd, ctx) => ctx.ch.commit(cmd.message, cmd.amend)),
 
   renameBranch: op('renameBranch', (cmd, ctx) => ctx.ch.renameBranch(cmd.oldName, cmd.newName)),
+  setUpstream: errOnFail((cmd, ctx) => ctx.ch.setUpstream(cmd.branch, cmd.upstream), 'Set upstream failed'),
   deleteBranch: errOnFail((cmd, ctx) => ctx.ch.deleteBranch(cmd.branch, cmd.force, cmd.deleteRemote), 'Delete failed'),
   createTag: errOnFail((cmd, ctx) => ctx.ch.createTag(cmd.name, cmd.ref, cmd.message), 'Create tag failed'),
   deleteTag: errOnFail((cmd, ctx) => ctx.ch.deleteTag(cmd.name, cmd.remote), 'Delete tag failed'),

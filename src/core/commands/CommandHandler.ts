@@ -84,6 +84,7 @@ export class CommandHandler {
     return Write.trackRemoteBranch(this.queue, this.git, this.safety, this.state, remote, remoteBranch, localName);
   }
   renameBranch(oldName: string, newName: string): Promise<OperationResult> { return Write.renameBranch(this.queue, this.git, this.state, oldName, newName); }
+  setUpstream(branch: string, upstream: string): Promise<OperationResult> { return Write.setUpstream(this.queue, this.git, this.state, branch, upstream); }
   deleteBranch(branch: string, force?: boolean, deleteRemote?: boolean): Promise<OperationResult> { return Write.deleteBranch(this.queue, this.git, this.state, branch, force, deleteRemote); }
   createTag(name: string, ref: string, message?: string): Promise<OperationResult> { return Write.createTag(this.queue, this.git, this.state, name, ref, message); }
   deleteTag(name: string, remote?: boolean): Promise<OperationResult> { return Write.deleteTag(this.queue, this.git, this.state, name, remote); }
