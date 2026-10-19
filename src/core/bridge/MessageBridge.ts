@@ -155,8 +155,14 @@ export class MessageBridge {
     }
   }
 
+  /**
+   * HEAD входит в подпись: merge-коммит вне Gitbor (терминал, IDE) убирает
+   * MERGE_HEAD, не меняя список UU (конфликты уже разрешены), и без HEAD
+   * подпись не сдвигается — renderer так и держит кнопку «Отменить».
+   */
   private buildConflictSignature(state: ReturnType<StateManager['getState']>): string {
-    return [...state.conflicts].sort().join('\x00');
+    const head = state.branches.find(b => b.isCurrent && !b.isRemote)?.hash ?? state.currentBranch;
+    return [head, ...[...state.conflicts].sort()].join('\x00');
   }
 
   /**
