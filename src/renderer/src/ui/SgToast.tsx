@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export interface SgToastAction {
   label: string;
@@ -12,7 +12,7 @@ export interface SgToastData {
   duration?: number;
   /**
    * Опциональная кнопка-действие в тосте (например, Retry для network).
-   * Если задана — таймер не запускается, тост висит пока юзер не нажмёт.
+   * С кнопкой тост живёт дольше (см. toastDuration), но не вечно.
    */
   action?: SgToastAction;
 }
@@ -29,19 +29,42 @@ function decodeHtmlEntities(input: string): string {
   return textarea.value;
 }
 
+/**
+ * Сколько тост живёт, если `duration` не задан: по тому, сколько нужно
+ * человеку. «Готово» читать нечего; ошибку нужно прочитать; с кнопкой
+ * («Повторить», «Подробнее») — ещё и решить, нажимать ли. Раньше тост с
+ * кнопкой висел вечно, а остальные, включая ошибки, жили 4 с.
+ */
+export function toastDuration(toast: Pick<SgToastData, 'type' | 'duration' | 'action'>): number {
+  if (toast.duration) return toast.duration;
+  if (toast.type === 'error') return toast.action ? 20_000 : 10_000;
+  if (toast.type === 'warning') return toast.action ? 15_000 : 8_000;
+  return toast.action ? 10_000 : 4_000;
+}
+
 function SgToast({ toast, onDismiss }: SgToastProps) {
+  // Пока мышь над тостом — отсчёт стоит (не исчезает посреди чтения),
+  // после — досчитывает остаток.
+  const [hovered, setHovered] = useState(false);
+  const remainingRef = useRef(toastDuration(toast));
   useEffect(() => {
-    // Action-toast висит, пока юзер не дёрнет — иначе кнопка пропадает
-    // во время чтения.
-    if (toast.action) return;
-    const timer = setTimeout(() => onDismiss(toast.id), toast.duration || 4000);
-    return () => clearTimeout(timer);
-  }, [toast, onDismiss]);
+    if (hovered) return;
+    const startedAt = Date.now();
+    const timer = setTimeout(() => onDismiss(toast.id), remainingRef.current);
+    return () => {
+      clearTimeout(timer);
+      remainingRef.current = Math.max(1_000, remainingRef.current - (Date.now() - startedAt));
+    };
+  }, [hovered, toast.id, onDismiss]);
 
   const message = decodeHtmlEntities(toast.message);
 
   return (
-    <div className={`sg-toast sg-toast--${toast.type || 'info'}`}>
+    <div
+      className={`sg-toast sg-toast--${toast.type || 'info'}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <span className="sg-toast-message">{message}</span>
       {toast.action && (
         <button

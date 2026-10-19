@@ -1,12 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { SgToastAction, SgToastData } from '../ui/SgToast';
 
+// Date.now() совпадал у двух тостов в одну миллисекунду: одинаковый key,
+// и закрытие одного ломало другой.
+let seq = 0;
+const nextId = () => `${Date.now()}-${++seq}`;
+
 export function useToasts(error: string | null, clearError: () => void) {
   const [toasts, setToasts] = useState<SgToastData[]>([]);
 
   useEffect(() => {
     if (!error) return;
-    const id = Date.now().toString();
+    const id = nextId();
     setToasts(prev => {
       if (prev.some(t => t.message === error)) return prev;
       return [...prev, { id, message: error, type: 'error' as const }];
@@ -19,7 +24,7 @@ export function useToasts(error: string | null, clearError: () => void) {
     type: SgToastData['type'] = 'info',
     action?: SgToastAction,
   ) => {
-    setToasts(prev => [...prev, { id: Date.now().toString(), message, type, action }]);
+    setToasts(prev => [...prev, { id: nextId(), message, type, action }]);
   }, []);
 
   const dismissToast = useCallback((id: string) => {
