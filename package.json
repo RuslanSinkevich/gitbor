@@ -1,7 +1,7 @@
 {
   "name": "gitbor",
   "productName": "GitBor",
-  "version": "0.1.28",
+  "version": "0.1.29",
   "description": "Cross-platform desktop Git client",
   "author": "Ruslan Sinkevich <ruslan-sink@mail.ru>",
   "license": "MIT",
