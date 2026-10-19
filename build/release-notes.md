@@ -1,8 +1,10 @@
 <!-- ru -->
-- Сравнение веток стало понятнее: правый клик по ветке → «Сравнить» → «Что принесёт в «develop»» — что появится в текущей ветке после слияния
-- Сравнение любых двух веток: «Сравнить» → «Выбрать для сравнения» на первой ветке, затем «Сравнить» → «первая → вторая» на второй. Быстрее — Ctrl+клик по двум веткам: они получат номера 1 и 2
-- В шапке сравнения направление показано стрелкой «что → куда», а кнопка ⇄ показывает то же сравнение в обратную сторону, как pull request
+- Сравнение веток по одному правилу: ветка под правым кликом — что сравниваем. «Сравнить» → «Что принесёт в «develop»» — в текущую ветку
+- Сравнение не с текущей веткой: «Сравнить» → «Выбрать для сравнения» на нужной ветке (у неё появится номер 1), затем у любой ветки «Сравнить» → «Что принесёт в «stage» (1)»
+- Выбор для сравнения больше не сбрасывается обычным кликом по веткам — только сравнением или «Снять выбор»
+- Ctrl+клик по двум веткам: 1 — куда, 2 — что
 <!-- en -->
-- Clearer branch compare: right-click a branch → "Compare" → "What it brings into 'develop'" — what the current branch gets after a merge
-- Compare any two branches: "Compare" → "Select for Compare" on the first branch, then "Compare" → "first → second" on the second one. Faster: Ctrl+click two branches to number them 1 and 2
-- The compare header shows the direction as "what → where", and the ⇄ button flips it, like a pull request the other way
+- Branch compare follows one rule: the right-clicked branch is what you compare. "Compare" → "What it brings into 'develop'" — into the current branch
+- Compare against another branch: "Compare" → "Select for Compare" on it (it gets number 1), then on any branch "Compare" → "What it brings into 'stage' (1)"
+- The selection is no longer cleared by a regular click on branches — only by running the compare or "Clear Selection"
+- Ctrl+click two branches: 1 — where, 2 — what
