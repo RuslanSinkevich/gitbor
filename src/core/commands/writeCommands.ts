@@ -753,26 +753,50 @@ async function applyPatchWorktree(git: GitExecutor, state: StateManager, patch: 
   return simpleResult(r.exitCode, r.stderr);
 }
 
+/**
+ * Новый (untracked) файл: `git diff` его не видит, и ханк «не найден».
+ * `git add -N` (intent-to-add) кладёт в индекс пустую запись — diff
+ * показывает файл целиком одним ханком, и патч применяется как обычно.
+ * Возвращает true, если пометили: при неудаче пометку нужно снять.
+ */
+async function markUntrackedForStaging(git: GitExecutor, file: string): Promise<boolean> {
+  const r = await git.exec(['ls-files', '--others', '--exclude-standard', '--', file]);
+  if (r.exitCode !== 0 || !r.stdout.trim()) return false;
+  const add = await git.exec(['add', '--intent-to-add', '--', file]);
+  return add.exitCode === 0;
+}
+
+async function stagePatchFor(
+  git: GitExecutor, state: StateManager, file: string, hunkIndex: number, reverse: boolean,
+  build: (hunk: DiffHunk) => string,
+): Promise<OperationResult> {
+  const marked = !reverse && await markUntrackedForStaging(git, file);
+  const hunk = await getDiffHunk(git, file, hunkIndex, reverse);
+  const result: OperationResult = hunk
+    ? await applyPatch(git, state, build(hunk), reverse)
+    : { success: false, error: 'Hunk not found', rollbackAvailable: false };
+  // Не получилось — вернуть файл в untracked, а не оставлять пустую пометку.
+  if (marked && !result.success) {
+    await git.exec(['reset', '-q', '--', file]);
+    await state.refreshStatusAndNotify();
+  }
+  return result;
+}
+
 export async function stageHunk(
   queue: OperationQueue, git: GitExecutor, state: StateManager,
   file: string, hunkIndex: number, reverse: boolean,
 ): Promise<OperationResult> {
-  return queue.enqueueWrite('stageHunk', async () => {
-    const hunk = await getDiffHunk(git, file, hunkIndex, reverse);
-    if (!hunk) return { success: false, error: 'Hunk not found', rollbackAvailable: false };
-    return applyPatch(git, state, buildHunkPatch(file, hunk), reverse);
-  });
+  return queue.enqueueWrite('stageHunk', () =>
+    stagePatchFor(git, state, file, hunkIndex, reverse, (hunk) => buildHunkPatch(file, hunk)));
 }
 
 export async function stageLines(
   queue: OperationQueue, git: GitExecutor, state: StateManager,
   file: string, hunkIndex: number, lineIndices: number[], reverse: boolean,
 ): Promise<OperationResult> {
-  return queue.enqueueWrite('stageLines', async () => {
-    const hunk = await getDiffHunk(git, file, hunkIndex, reverse);
-    if (!hunk) return { success: false, error: 'Hunk not found', rollbackAvailable: false };
-    return applyPatch(git, state, buildLinesPatch(file, hunk, new Set(lineIndices), reverse), reverse);
-  });
+  return queue.enqueueWrite('stageLines', () =>
+    stagePatchFor(git, state, file, hunkIndex, reverse, (hunk) => buildLinesPatch(file, hunk, new Set(lineIndices), reverse)));
 }
 
 /**

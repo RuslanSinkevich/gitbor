@@ -68,6 +68,32 @@ describe('stageLines (real git)', () => {
     expect(r.success).toBe(true);
     expect(git('show', ':g.txt')).toBe('one\nTWO');
   });
+
+  it('stageHunk: новый (untracked) файл целиком попадает в индекс', async () => {
+    writeFileSync(join(repo, 'new.ts'), 'export interface A {\n  id: number;\n}\n');
+    const ex = new GitExecutor(repo);
+    const r = await stageHunk(queue(), ex, state(), 'new.ts', 0, false);
+    expect(r.success).toBe(true);
+    expect(git('status', '--short', '--', 'new.ts')).toBe('A  new.ts\n');
+  });
+
+  it('stageLines: новый файл — только выбранные строки, остальное остаётся в рабочей копии', async () => {
+    writeFileSync(join(repo, 'new.ts'), 'one\ntwo\nthree\n');
+    const ex = new GitExecutor(repo);
+    // Ханк нового файла: +one, +two, +three — берём первые две строки.
+    const r = await stageLines(queue(), ex, state(), 'new.ts', 0, [0, 1], false);
+    expect(r.success).toBe(true);
+    expect(git('show', ':new.ts')).toBe('one\ntwo\n');
+    expect(git('status', '--short', '--', 'new.ts')).toBe('AM new.ts\n');
+  });
+
+  it('новый файл: при ошибке пометка снимается и файл остаётся untracked', async () => {
+    writeFileSync(join(repo, 'new.ts'), 'one\n');
+    const ex = new GitExecutor(repo);
+    const r = await stageHunk(queue(), ex, state(), 'new.ts', 5, false);
+    expect(r.success).toBe(false);
+    expect(git('status', '--short', '--', 'new.ts')).toBe('?? new.ts\n');
+  });
 });
 
 /** Индекс строки в первом ханке diff'а (без заголовков), как его видит UI. */
