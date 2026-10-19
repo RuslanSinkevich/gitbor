@@ -57,21 +57,24 @@ describe('getBranchMenuItems', () => {
     expect(markFirst).toHaveBeenCalledWith(LONG);
   });
 
-  it('ветка 1 выбрана: на другой ветке «1 → эта», на самой — «Снять выбор»', () => {
+  it('ветка 1 выбрана: у других — «Что принесёт в «1»», у самой — «Снять выбор»', () => {
     const run = vi.fn();
     const s = sub(build(branch({ name: 'release/2.4' }), ['feature/a'], { run }));
-    const pair = tpl(m.comparePair, { from: 'a', to: '2.4' });
-    expect(labels(s)).toContain(pair);
-    s.find(i => i.label === pair)?.action?.();
-    expect(run).toHaveBeenCalledWith('feature/a', 'release/2.4');
+    const intoMarked = tpl(m.compareIntoMarked, { target: 'a' });
+    expect(labels(s)).toEqual([compareInto, intoMarked]);
+    s.find(i => i.label === intoMarked)?.action?.();
+    expect(run).toHaveBeenCalledWith('release/2.4', 'feature/a');
     expect(labels(sub(build(branch({ name: 'feature/a' }), ['feature/a'])))).toContain(m.compareUnmark);
   });
 
-  it('пара Ctrl+кликом: «1 → 2» в подменю любой из двух веток', () => {
-    const run = vi.fn();
-    const s = sub(build(branch({ name: 'feature/a' }), ['feature/a', 'release/2.4'], { run }));
-    s.find(i => i.label === tpl(m.comparePair, { from: 'a', to: '2.4' }))?.action?.();
-    expect(run).toHaveBeenCalledWith('feature/a', 'release/2.4');
+  it('пара Ctrl+кликом: 1 — куда, 2 — что, «2 → 1» у обеих веток', () => {
+    const marks = ['feature/a', 'release/2.4'];
+    const pair = tpl(m.comparePair, { from: '2.4', to: 'a' });
+    for (const name of marks) {
+      const run = vi.fn();
+      sub(build(branch({ name }), marks, { run })).find(i => i.label === pair)?.action?.();
+      expect(run).toHaveBeenCalledWith('release/2.4', 'feature/a');
+    }
   });
 
   it('«Удалить» — последний пункт, «Переименовать» — перед ним', () => {

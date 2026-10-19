@@ -286,7 +286,7 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
               <span className={s.itemBadge} title={loc.sidebar.current} aria-label={loc.sidebar.current} />
             )}
             {markIndex >= 0 && (
-              <span className={s.compareMark} title={markIndex === 0 ? loc.sidebar.compareMarkFrom : loc.sidebar.compareMarkTo}>{markIndex + 1}</span>
+              <span className={s.compareMark} title={markIndex === 0 ? loc.sidebar.compareMarkBase : loc.sidebar.compareMarkBranch}>{markIndex + 1}</span>
             )}
             <span className={s.itemName}>{node.segment}</span>
             {isPinned && (

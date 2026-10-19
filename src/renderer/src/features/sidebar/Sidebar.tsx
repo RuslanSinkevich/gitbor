@@ -81,17 +81,15 @@ export function Sidebar({
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
 
   // Пара для сравнения, как в Fork: Ctrl+клик отмечает ветки номерами 1 и 2
-  // (1 — что, 2 — куда). Обычный клик снимает отметки.
+  // (1 — что, 2 — куда). Обычный клик их не трогает: выбор из меню переживает
+  // клик по второй ветке. Снимаются сравнением или «Снять выбор».
   const [compareMarks, setCompareMarks] = useState<string[]>([]);
   useEffect(() => { setCompareMarks([]); }, [repoPath]);
-  const selectBranch = useCallback((name: string) => {
-    setCompareMarks([]);
-    setSelectedBranch(name);
-  }, []);
   const branchCompare = useMemo<BranchCompare>(() => ({
     marks: compareMarks,
     // `compareBranches` показывает, что `branch` принесёт в `base` (от merge-base).
     run: (branch, base) => {
+      setCompareMarks([]);
       onSwitchView('commits');
       postCommand({ type: 'compareBranches', base, branch });
     },
@@ -358,7 +356,7 @@ export function Sidebar({
       >
         {filteredLocal.length === 0 && <div className={s.emptySection}>{filter ? loc.sidebar.noMatches : loc.sidebar.noBranches}</div>}
         {localTree.map(node => (
-          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandLocal} onBranchMove={handleBranchMove} prefs={branchPrefs} selectedBranch={selectedBranch} onSelectBranch={selectBranch} remoteNames={remotes.map(r => r.name)} branchCompare={branchCompare} />
+          <BranchTreeItem key={node.fullPath} node={node} depth={0} nested={false} currentBranch={currentBranch} loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} showPrompt={showPrompt} requestCheckout={requestCheckout} folderExpand={folderExpandLocal} onBranchMove={handleBranchMove} prefs={branchPrefs} selectedBranch={selectedBranch} onSelectBranch={setSelectedBranch} remoteNames={remotes.map(r => r.name)} branchCompare={branchCompare} />
         ))}
       </SidebarSection>
 
@@ -367,7 +365,7 @@ export function Sidebar({
         {remoteEntries.map(({ remote, remoteTree, remoteBranchSig }) => (
           <RemoteFolder key={remote.name} repoPath={repoPath} remote={remote} tree={remoteTree} remoteBranchSig={remoteBranchSig}
             currentBranch={currentBranch}
-            loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} branchCompare={branchCompare} showPrompt={showPrompt} requestCheckout={requestCheckout} selectedBranch={selectedBranch} onSelectBranch={selectBranch}
+            loc={loc} onContextMenu={onContextMenu} onSelectRef={onSelectRef} onMerge={onMerge} branchCompare={branchCompare} showPrompt={showPrompt} requestCheckout={requestCheckout} selectedBranch={selectedBranch} onSelectBranch={setSelectedBranch}
             reveal={remoteReveal && remoteReveal.remote === remote.name ? remoteReveal : null} />
         ))}
       </SidebarSection>

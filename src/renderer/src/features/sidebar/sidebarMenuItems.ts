@@ -7,15 +7,15 @@ import type { RequestCheckout } from '../checkout';
 import type { RequestApplyStash } from '../stash';
 
 /**
- * Сравнение веток. Направление всегда явное, без угадывания «главной»:
- *  - быстрое — что ветка принесёт в текущую;
- *  - пара — две ветки, отмеченные Ctrl+кликом: 1 — что, 2 — куда.
+ * Сравнение веток. Одно правило: ветка под правым кликом — «что», а «куда» —
+ * текущая ветка или отмеченная номером 1 («Выбрать для сравнения»).
+ * Ctrl+клик по двум веткам: 1 — куда, 2 — что.
  * Обратное направление — кнопкой ⇄ в окне сравнения.
  */
 export interface BranchCompare {
   /** Что `branch` принесёт в `base` (дифф от merge-base). */
   run: (branch: string, base: string) => void;
-  /** Ветки, отмеченные Ctrl+кликом, по порядку: [1, 2]. */
+  /** Отмеченные ветки по порядку: [1 — куда, 2 — что]. */
   marks: string[];
   /** Ctrl+клик: отметить ветку следующим номером или снять отметку. */
   toggleMark: (name: string) => void;
@@ -118,9 +118,9 @@ export interface BranchExtrasMenu {
 }
 
 /**
- * Подменю «Сравнить»: быстрое — с текущей веткой, и пара веток, как в Fork.
- * Пара: «Выбрать для сравнения» даёт ветке номер 1, на второй ветке
- * появляется «1 → эта». То же быстрее — Ctrl+клик по двум веткам.
+ * Подменю «Сравнить»: что эта ветка принесёт в текущую — или в отмеченную.
+ * «Выбрать для сравнения» даёт ветке номер 1, и у остальных веток второй
+ * пункт становится «Что принесёт в «1»». Ctrl+клик по двум веткам: «2 → 1».
  */
 function compareSubmenu(branch: Branch, currentBranch: string, loc: Loc, compare: BranchCompare): SgContextMenuItem[] {
   const m = loc.contextMenu.branchMenu;
@@ -138,19 +138,24 @@ function compareSubmenu(branch: Branch, currentBranch: string, loc: Loc, compare
     });
   }
 
-  const pairItem = (from: string, to: string): SgContextMenuItem => ({
-    label: tpl(m.comparePair, { from: leaf(from), to: leaf(to) }),
-    title: tpl(help.comparePair, { from, to }),
-    action: () => compare.run(from, to),
-  });
+  // Второй пункт один, по ситуации: выбрать → «в отмеченную» → снять выбор.
   const own = marks.indexOf(branch.name);
   if (marks.length === 2 && own >= 0) {
-    items.push(pairItem(marks[0], marks[1]));
+    // Пара Ctrl+кликом: 1 — куда, 2 — что; одинаково на обеих ветках.
+    const [base, from] = marks;
+    items.push({
+      label: tpl(m.comparePair, { from: leaf(from), to: leaf(base) }),
+      title: tpl(help.compareIntoMarked, { branch: from, target: base }),
+      action: () => compare.run(from, base),
+    });
   } else if (marks.length >= 1 && own < 0) {
-    // Ветка 1 уже выбрана — эта становится второй («куда»).
-    items.push(pairItem(marks[0], branch.name));
-  }
-  if (own >= 0) {
+    const base = marks[0];
+    items.push({
+      label: tpl(m.compareIntoMarked, { target: leaf(base) }),
+      title: tpl(help.compareIntoMarked, { branch: branch.name, target: base }),
+      action: () => compare.run(branch.name, base),
+    });
+  } else if (own >= 0) {
     items.push({ label: m.compareUnmark, action: () => compare.clearMarks() });
   } else {
     items.push({ label: m.compareMark, title: help.compareMark, action: () => compare.markFirst(branch.name) });
