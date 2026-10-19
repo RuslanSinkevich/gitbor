@@ -1,10 +1,6 @@
 <!-- ru -->
-- Сравнение веток по одному правилу: ветка под правым кликом — что сравниваем. «Сравнить» → «Что принесёт в «develop»» — в текущую ветку
-- Сравнение не с текущей веткой: «Сравнить» → «Выбрать для сравнения» на нужной ветке (у неё появится номер 1), затем у любой ветки «Сравнить» → «Что принесёт в «stage» (1)»
-- Выбор для сравнения больше не сбрасывается обычным кликом по веткам — только сравнением или «Снять выбор»
-- Ctrl+клик по двум веткам: 1 — куда, 2 — что
+- macOS: обновление теперь работает. На Mac программа не может заменить сама себя без платной подписи Apple, поэтому по кнопке «Скачать установщик» GitBor скачивает установщик под ваш Mac (M1–M3 или Intel), проверяет его и открывает — останется перетащить GitBor в «Программы»
+- macOS: если скачать установщик не удалось, GitBor предложит открыть страницу релиза
 <!-- en -->
-- Branch compare follows one rule: the right-clicked branch is what you compare. "Compare" → "What it brings into 'develop'" — into the current branch
-- Compare against another branch: "Compare" → "Select for Compare" on it (it gets number 1), then on any branch "Compare" → "What it brings into 'stage' (1)"
-- The selection is no longer cleared by a regular click on branches — only by running the compare or "Clear Selection"
-- Ctrl+click two branches: 1 — where, 2 — what
+- macOS: updates now work. A Mac app can't replace itself without a paid Apple signature, so the "Download installer" button downloads the installer for your Mac (Apple Silicon or Intel), verifies it and opens it — then drag GitBor into Applications
+- macOS: if the installer can't be downloaded, GitBor offers to open the release page
