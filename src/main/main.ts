@@ -509,8 +509,27 @@ app.whenReady().then(async () => {
 
 // Выход из приложения (Cmd+Q, меню, автообновление) — в отличие от закрытия окна на macOS,
 // после которого программа остаётся в доке. Ставим флаг до graceful-ожидания.
+let quitStartedAt = 0;
 app.on('before-quit', () => {
+  if (!appQuitting) {
+    quitStartedAt = Date.now();
+    mainLogger.info('quit: started');
+  }
   appQuitting = true;
+});
+
+// macOS: после закрытия окон выходим сразу. chokidar 4 на Mac держит по fs.watch
+// на каждую папку worktree; штатное завершение Node снимает их по одному — на
+// большом репо десятки секунд, а GitBor всё это время «висит» в доке с белым окном
+// и не открывается (жалоба Вадима после Cmd+Q). Всё нужное к этому моменту уже
+// сделано (git-операции дождались, процессы убиты), наблюдения ОС освободит сама.
+// Только macOS: на Windows/Linux через штатный выход ставится обновление
+// (electron-updater слушает событие quit).
+app.on('will-quit', (event) => {
+  if (process.platform !== 'darwin') return;
+  // Не даём Electron начать штатный разбор; 100 мс — дописать журнал на диск.
+  event.preventDefault();
+  setTimeout(() => process.exit(0), 100);
 });
 
 setupGracefulShutdown(app, () => repoRegistry, 1500);
@@ -523,6 +542,7 @@ app.on('window-all-closed', () => {
   // Worker_threads пула: иначе на Windows процесс electron живёт ещё пару
   // секунд после закрытия окна, пока worker'ы не доиграют свой event loop.
   void import('../core/workers/WorkerPool').then(({ workerPool }) => workerPool.dispose());
+  if (appQuitting) mainLogger.info(`quit: windows closed in ${Date.now() - quitStartedAt}ms`);
   mainLogger.dispose();
   if (process.platform !== 'darwin') {
     app.quit();
