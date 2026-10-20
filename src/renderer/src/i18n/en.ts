@@ -387,7 +387,7 @@ export const en = {
     intro: 'GitBor is built by one person and given away for free. If it helped you, consider supporting the project.',
     donateTitle: 'Support the project',
     donateSubtitle: 'GitBor is free — your support is much appreciated!',
-    cloudtips: 'Another amount or payment method',
+    cloudtips: 'Another amount',
     cloudtipsHint: 'SBP, T-Pay or card — via CloudTips (T-Bank)',
     shareNote: 'And, of course, tell your developer friends about GitBor — that is the best support.',
     dontShow: "Don't show again",

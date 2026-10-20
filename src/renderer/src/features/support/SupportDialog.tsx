@@ -9,19 +9,15 @@ interface Props {
 }
 
 const DONATE_SUMS = [300, 500, 1000, 5000] as const;
-const YOOMONEY_RECEIVER = '4100117726681107';
-const DONATE_TARGET = 'Поддержка GitBor';
-/** Запасной способ (Т-Банк CloudTips): любая сумма, СБП, T-Pay, карта — если ЮMoney откажет. */
+/**
+ * Донаты через CloudTips (Т-Банк): СБП, T-Pay или карта на одной странице.
+ * Раньше был ЮMoney — платёж у Вадима падал «технической ошибкой».
+ * `?amount=` CloudTips подставляет в поле суммы.
+ */
 const CLOUDTIPS_URL = 'https://pay.cloudtips.ru/p/cd782939';
 
-function yoomoneyUrl(sum: number): string {
-  const params = new URLSearchParams({
-    receiver: YOOMONEY_RECEIVER,
-    sum: String(sum),
-    'quickpay-form': 'donate',
-    targets: DONATE_TARGET,
-  });
-  return `https://yoomoney.ru/quickpay/confirm?${params.toString()}`;
+function donateUrl(sum?: number): string {
+  return sum ? `${CLOUDTIPS_URL}?amount=${sum}` : CLOUDTIPS_URL;
 }
 
 const IconHeart = () => (
@@ -62,7 +58,7 @@ export function SupportDialog({ open, onClose, onDismiss }: Props) {
             <a
               key={sum}
               className={s.sumBtn}
-              href={yoomoneyUrl(sum)}
+              href={donateUrl(sum)}
               target="_blank"
               rel="noreferrer noopener"
             >
@@ -70,7 +66,7 @@ export function SupportDialog({ open, onClose, onDismiss }: Props) {
             </a>
           ))}
         </div>
-        <a className={s.altBtn} href={CLOUDTIPS_URL} target="_blank" rel="noreferrer noopener">
+        <a className={s.altBtn} href={donateUrl()} target="_blank" rel="noreferrer noopener">
           <span>{loc.cloudtips}</span>
           <span className={s.altHint}>{loc.cloudtipsHint}</span>
         </a>
