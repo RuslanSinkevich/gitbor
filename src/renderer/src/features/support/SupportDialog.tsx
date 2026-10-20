@@ -11,6 +11,8 @@ interface Props {
 const DONATE_SUMS = [300, 500, 1000, 5000] as const;
 const YOOMONEY_RECEIVER = '4100117726681107';
 const DONATE_TARGET = 'Поддержка GitBor';
+/** Запасной способ (Т-Банк CloudTips): любая сумма, СБП, T-Pay, карта — если ЮMoney откажет. */
+const CLOUDTIPS_URL = 'https://pay.cloudtips.ru/p/cd782939';
 
 function yoomoneyUrl(sum: number): string {
   const params = new URLSearchParams({
@@ -68,6 +70,10 @@ export function SupportDialog({ open, onClose, onDismiss }: Props) {
             </a>
           ))}
         </div>
+        <a className={s.altBtn} href={CLOUDTIPS_URL} target="_blank" rel="noreferrer noopener">
+          <span>{loc.cloudtips}</span>
+          <span className={s.altHint}>{loc.cloudtipsHint}</span>
+        </a>
       </div>
 
       <p className={s.shareNote}>{loc.shareNote}</p>
