@@ -382,6 +382,14 @@
 
 /* Постоянный маркер состояния справа от имени (не интерактивный): виден
    всегда, отражает pinned/solo/заметку с одного взгляда. */
+.itemMarkers {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
 .branchStateMarker {
   display: inline-flex;
   align-items: center;

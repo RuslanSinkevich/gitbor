@@ -289,17 +289,24 @@ export function BranchTreeItem({ node, depth, nested, currentBranch, loc, onCont
               <span className={s.compareMark} title={markIndex === 0 ? loc.sidebar.compareMarkBase : loc.sidebar.compareMarkBranch}>{markIndex + 1}</span>
             )}
             <span className={s.itemName}>{node.segment}</span>
-            {isPinned && (
-              <span className={s.branchStateMarker} title={loc.sidebar.pinBranch} aria-label={loc.sidebar.pinBranch}><IconPin /></span>
-            )}
-            {isSolo && (
-              <span className={s.branchStateMarker} title={loc.sidebar.soloGraph} aria-label={loc.sidebar.soloGraph}><IconFilter /></span>
-            )}
-            {hasNote && (
-              <span className={`${s.branchStateMarker} ${s.branchStateMarkerMuted}`} title={truncateNote(noteText)} aria-label={loc.sidebar.branchNote}><IconInfo /></span>
-            )}
           </span>
           {(branch.upstream || !branch.isRemote) && <BranchSyncBadge branch={branch} loc={loc} />}
+          {/* Закрепление, фильтр и заметка — у правого края, после значка сервера:
+              у веток в синхроне место под скрытую ↔ остаётся слева от них,
+              а не пустой полосой справа. */}
+          {(isPinned || isSolo || hasNote) && (
+            <span className={s.itemMarkers}>
+              {isPinned && (
+                <span className={s.branchStateMarker} title={loc.sidebar.pinBranch} aria-label={loc.sidebar.pinBranch}><IconPin /></span>
+              )}
+              {isSolo && (
+                <span className={s.branchStateMarker} title={loc.sidebar.soloGraph} aria-label={loc.sidebar.soloGraph}><IconFilter /></span>
+              )}
+              {hasNote && (
+                <span className={`${s.branchStateMarker} ${s.branchStateMarkerMuted}`} title={truncateNote(noteText)} aria-label={loc.sidebar.branchNote}><IconInfo /></span>
+              )}
+            </span>
+          )}
           {prefs && !branch.isRemote && (
             <span className={s.branchHotzone} aria-hidden="true" />
           )}
