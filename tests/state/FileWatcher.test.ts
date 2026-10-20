@@ -5,7 +5,7 @@ import { join } from 'path';
 import { EventEmitter } from 'events';
 
 /**
- * Unit-тесты FileWatcher. chokidar полностью мокаем — настоящие watch'ы не
+ * Unit-тесты FileWatcher. Наблюдение (treeWatcher) полностью мокаем — настоящие watch'ы не
  * запускаем. Реальная fs-папка нужна только чтобы pre-scan (fs.readdir) не
  * падал, а isDangerousRepoRoot честно возвращал false для tmp-папки.
  *
@@ -41,8 +41,9 @@ function makeFakeWatcher(target: string, options: unknown): FakeWatcher {
   return w;
 }
 
-vi.mock('chokidar', () => ({
-  watch: (target: string, options: unknown) => {
+// Мокаем обёртку наблюдения (treeWatcher): у неё интерфейс как у chokidar.
+vi.mock('../../src/core/state/treeWatcher', () => ({
+  watchTree: (target: string, options: unknown) => {
     watchCalls.push({ target, options });
     return makeFakeWatcher(target, options);
   },
@@ -119,7 +120,7 @@ describe('FileWatcher', () => {
       fw.dispose();
     });
 
-    it('git-watcher запускается с ignoreInitial и без ограничения depth', async () => {
+    it('git-watcher без ограничения depth, служебку отсекает ignored', async () => {
       const { FileWatcher } = await import('../../src/core/state/FileWatcher');
       const sm = makeFakeStateManager();
       const fw = new FileWatcher(sm as never);
@@ -127,7 +128,7 @@ describe('FileWatcher', () => {
       await waitForWatcher(calls => calls.some(c => c.target.endsWith('.git')));
       const gitCall = watchCalls.find(c => c.target.endsWith('.git'));
       const opts = gitCall!.options as Record<string, unknown>;
-      expect(opts.ignoreInitial).toBe(true);
+      expect(typeof opts.ignored).toBe('function');
       // depth=3 не видел refs/heads/feature/<user>/<task> — коммит из CLI
       // в такую ветку не обновлял граф.
       expect(opts.depth).toBeUndefined();

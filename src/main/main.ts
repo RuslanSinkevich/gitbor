@@ -193,10 +193,10 @@ async function createWindow(): Promise<void> {
   mainWindow.on('show', onWindowVisible);
 
   mainWindow.on('closed', () => {
-    // При выходе из приложения наблюдатели не закрываем: close() chokidar на большом
-    // worktree синхронно разбирает тысячи fs-наблюдателей и вешает main thread на секунды
-    // (macOS снимал отчёт «hang» при Cmd+Q). Процесс всё равно завершается — ОС освободит
-    // всё сама; достаточно паузы, чтобы события не запускали refresh.
+    // При выходе наблюдатели не закрываем — процесс всё равно завершается, ОС
+    // освободит всё сама; достаточно паузы, чтобы события не будили refresh.
+    // На macOS/Windows наблюдение — одна подписка на дерево (treeWatcher), и её
+    // закрытие дешёвое; на Linux chokidar держит наблюдатель на каждую папку.
     if (appQuitting) {
       fileWatcher?.pause();
     } else {
@@ -516,20 +516,6 @@ app.on('before-quit', () => {
     mainLogger.info('quit: started');
   }
   appQuitting = true;
-});
-
-// macOS: после закрытия окон выходим сразу. chokidar 4 на Mac держит по fs.watch
-// на каждую папку worktree; штатное завершение Node снимает их по одному — на
-// большом репо десятки секунд, а GitBor всё это время «висит» в доке с белым окном
-// и не открывается (жалоба Вадима после Cmd+Q). Всё нужное к этому моменту уже
-// сделано (git-операции дождались, процессы убиты), наблюдения ОС освободит сама.
-// Только macOS: на Windows/Linux через штатный выход ставится обновление
-// (electron-updater слушает событие quit).
-app.on('will-quit', (event) => {
-  if (process.platform !== 'darwin') return;
-  // Не даём Electron начать штатный разбор; 100 мс — дописать журнал на диск.
-  event.preventDefault();
-  setTimeout(() => process.exit(0), 100);
 });
 
 setupGracefulShutdown(app, () => repoRegistry, 1500);

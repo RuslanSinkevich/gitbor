@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { watch as chokidarWatch, type FSWatcher } from 'chokidar';
+import { watchTree, type TreeWatcher } from './treeWatcher';
 import { StateManager } from './StateManager';
 import { isDangerousRepoRoot } from '../utils/repoPathGuard';
 import { mainLogger } from '../utils/Logger';
@@ -66,8 +66,40 @@ export function isIgnoredGitPath(gitDir: string, p: string): boolean {
 const WORKTREE_TOPLEVEL_LIMIT = 1000;
 
 interface WatcherPair {
-  gitWatcher: FSWatcher;
-  worktreeWatcher: FSWatcher | null;
+  gitWatcher: TreeWatcher;
+  worktreeWatcher: TreeWatcher | null;
+}
+
+/**
+ * Что в рабочей копии не слушаем: .git (свой наблюдатель), сборка и зависимости,
+ * служебные файлы ОС и системные папки Windows (на них EPERM/EACCES, если
+ * открыли корень профиля). Матчим по абсолютному пути.
+ */
+const WORKTREE_IGNORED: RegExp[] = [
+  /(^|[/\\])\.git([/\\]|$)/,
+  /(^|[/\\])node_modules([/\\]|$)/,
+  /(^|[/\\])\.DS_Store$/,
+  /(^|[/\\])Thumbs\.db$/,
+  /(^|[/\\])dist([/\\]|$)/,
+  /(^|[/\\])build([/\\]|$)/,
+  /(^|[/\\])out([/\\]|$)/,
+  /(^|[/\\])target([/\\]|$)/,
+  /(^|[/\\])\.next([/\\]|$)/,
+  /(^|[/\\])\.cache([/\\]|$)/,
+  /[\\/]AppData[\\/]/,
+  /[\\/]Application Data[\\/]/i,
+  /[\\/]Local Settings[\\/]/i,
+  /[\\/]NTUSER\.DAT/i,
+  /[\\/]Cookies[\\/]/i,
+  /[\\/]Temporary Internet Files[\\/]/i,
+  /[\\/]WindowsApps[\\/]/i,
+  /[\\/]\$Recycle\.Bin[\\/]/i,
+  /[\\/]System Volume Information[\\/]/i,
+  /[\\/]OneDrive[\\/]/i,
+];
+
+export function isIgnoredWorktreePath(p: string): boolean {
+  return WORKTREE_IGNORED.some(re => re.test(p));
 }
 
 /**
@@ -169,8 +201,7 @@ export class FileWatcher {
         const watchTargets: string | string[] = commonDir === gitDir
           ? gitDir
           : [gitDir, path.join(commonDir, 'refs'), path.join(commonDir, 'packed-refs')];
-        const gitWatcher = chokidarWatch(watchTargets, {
-          ignoreInitial: true,
+        const gitWatcher = watchTree(watchTargets, {
           // Без `depth`: ветка `feature/SinkevichRN/MISP-298` — это файл
           // `refs/heads/feature/SinkevichRN/MISP-298` (4 уровня). При depth=3
           // коммит в неё из CLI не давал ни одного события и граф не обновлялся.
@@ -178,40 +209,10 @@ export class FileWatcher {
           ignored: (p: string) => isIgnoredGitPath(gitDir, p),
           awaitWriteFinish: { stabilityThreshold: 50, pollInterval: 20 },
         });
-        const worktreeWatcher: FSWatcher | null = isHugeWorktree ? null : chokidarWatch(repoPath, {
-          ignoreInitial: true,
-          ignored: [
-            /(^|[/\\])\.git([/\\]|$)/,
-            /(^|[/\\])node_modules([/\\]|$)/,
-            /(^|[/\\])\.DS_Store$/,
-            /(^|[/\\])Thumbs\.db$/,
-            /(^|[/\\])dist([/\\]|$)/,
-            /(^|[/\\])build([/\\]|$)/,
-            /(^|[/\\])out([/\\]|$)/,
-            /(^|[/\\])target([/\\]|$)/,
-            /(^|[/\\])\.next([/\\]|$)/,
-            /(^|[/\\])\.cache([/\\]|$)/,
-            // Системные/запрещённые директории Windows — chokidar при попытке
-            // watch'ить их кидает EPERM/EACCES → unhandledRejection. Возникает
-            // когда юзер случайно открывает корень профиля (C:\Users\Admin),
-            // OneDrive, AppData. Эти регексы матчатся по абсолютному пути.
-            /[\\/]AppData[\\/]/,
-            /[\\/]Application Data[\\/]/i,
-            /[\\/]Local Settings[\\/]/i,
-            /[\\/]NTUSER\.DAT/i,
-            /[\\/]Cookies[\\/]/i,
-            /[\\/]Temporary Internet Files[\\/]/i,
-            /[\\/]WindowsApps[\\/]/i,
-            /[\\/]\$Recycle\.Bin[\\/]/i,
-            /[\\/]System Volume Information[\\/]/i,
-            /[\\/]OneDrive[\\/]/i,
-          ],
-          // Без `depth`: при лимите (раньше было 3) chokidar не вешал
-          // watcher на файлы глубже N уровней — правки в рабочей копии не
-          // давали fs-событий, «Не подготовлено» замирало до внешнего refresh
-          // (switchRepo → refreshAll и т.п.). EPERM по мусорным путям режем
-          // `ignored`; гигантские корни уже отсекаются отключением worktreeWatcher.
-          awaitWriteFinish: false,
+        // Без ограничения глубины: правки на любой глубине должны будить refresh
+        // «Не подготовлено». Гигантские корни уже отсечены отключением worktreeWatcher.
+        const worktreeWatcher: TreeWatcher | null = isHugeWorktree ? null : watchTree(repoPath, {
+          ignored: isIgnoredWorktreePath,
         });
 
         const onGit = () => {
@@ -234,7 +235,7 @@ export class FileWatcher {
         // и валит main. Свой listener — глотаем.
         const onWatcherError = (err: unknown) => {
           const msg = err instanceof Error ? err.message : String(err);
-          mainLogger.warn(`FileWatcher: chokidar error: ${msg}`);
+          mainLogger.warn(`FileWatcher: watcher error: ${msg}`);
         };
         gitWatcher.on('error', onWatcherError);
         worktreeWatcher?.on('error', onWatcherError);
