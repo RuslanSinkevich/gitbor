@@ -382,11 +382,12 @@
 
 /* Постоянный маркер состояния справа от имени (не интерактивный): виден
    всегда, отражает pinned/solo/заметку с одного взгляда. */
+/* Строка даёт gap 6px; -2px — между значком сервера и группой 4px, как внутри неё. */
 .itemMarkers {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-left: 6px;
+  gap: 4px;
+  margin-left: -2px;
   flex-shrink: 0;
 }
 
