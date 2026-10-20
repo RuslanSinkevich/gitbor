@@ -10,6 +10,8 @@ interface Props {
   file?: string;
   isWorkingCopy?: boolean;
   isStaged?: boolean;
+  /** Новый файл в рабочей копии: «Отбросить» убирает его в Корзину. */
+  isNewFile?: boolean;
 }
 
 interface SideLine {
@@ -98,7 +100,7 @@ function SidePaneTable({ lines, highlightClass }: SidePaneTableProps) {
   );
 }
 
-export function DiffSideBySide({ hunks, file, isWorkingCopy, isStaged }: Props) {
+export function DiffSideBySide({ hunks, file, isWorkingCopy, isStaged, isNewFile }: Props) {
   const loc = t();
   const canStage = !!file && (isWorkingCopy === true || isStaged === true);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -168,6 +170,7 @@ export function DiffSideBySide({ hunks, file, isWorkingCopy, isStaged }: Props) 
                 hunkIndex={hi}
                 isWorkingCopy={isWorkingCopy === true}
                 isStaged={isStaged === true}
+                isNewFile={isNewFile === true}
               />
             )}
             <div className={s.hunkBlockSplit}>

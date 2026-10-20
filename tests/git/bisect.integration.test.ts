@@ -37,7 +37,8 @@ describe('bisect на настоящем git', () => {
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }
-  });
+    // 16 коммитов и bisect на настоящем git: в общем прогоне под нагрузкой дольше 10 с.
+  }, 60_000);
 
   it('bisectStepsLeft', () => {
     expect([1, 2, 4, 8, 15].map(bisectStepsLeft)).toEqual([0, 1, 2, 3, 4]);

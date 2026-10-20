@@ -1,5 +1,5 @@
 import { postCommand } from '../../api';
-import { t } from '../../i18n';
+import { t, tpl } from '../../i18n';
 import s from './DiffView.module.css';
 
 /**
@@ -21,9 +21,11 @@ interface Props {
   hunkIndex: number;
   isWorkingCopy: boolean;
   isStaged: boolean;
+  /** Новый (неотслеживаемый) файл: кусок = весь файл, «Отбросить» = в Корзину. */
+  isNewFile?: boolean;
 }
 
-export function HunkActionsOverlay({ file, hunkIndex, isWorkingCopy, isStaged }: Props) {
+export function HunkActionsOverlay({ file, hunkIndex, isWorkingCopy, isStaged, isNewFile }: Props) {
   const loc = t();
 
   if (!isWorkingCopy && !isStaged) return null;
@@ -34,7 +36,8 @@ export function HunkActionsOverlay({ file, hunkIndex, isWorkingCopy, isStaged }:
     // Нативный confirm — без проброса showPrompt через DiffPanel →
     // RightPanelContent. Текст из i18n, чтобы Discard на всех экранах
     // звучал одинаково.
-    if (!window.confirm(`${loc.diff.discardHunkTitle}\n\n${loc.diff.discardHunkMessage}`)) return;
+    const message = isNewFile ? tpl(loc.dialog.deleteUntrackedMessage, { file }) : loc.diff.discardHunkMessage;
+    if (!window.confirm(`${loc.diff.discardHunkTitle}\n\n${message}`)) return;
     postCommand({ type: 'discardHunk', file, hunkIndex });
   };
 

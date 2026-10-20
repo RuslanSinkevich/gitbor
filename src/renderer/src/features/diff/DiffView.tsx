@@ -74,6 +74,8 @@ export function DiffView({
 }: Props) {
   const loc = t();
   const isWorkingCopy = hash === 'WORKING';
+  // Новый файл в рабочей копии — «Отбросить» кусок убирает его в Корзину.
+  const isNewFile = isWorkingCopy && diff.status === 'added';
   const isStaged = hash === 'STAGED';
   // Новый/удалённый файл: одна сторона пустая → две колонки не нужны ни в
   // split, ни в «весь файл». Выбор пользователя не трогаем, просто не применяем.
@@ -190,13 +192,13 @@ export function DiffView({
           )}
           {split ? (
             <MinimapScroll version={`${diff.path}|${ignoreWs}|split`}>
-              <DiffSideBySide hunks={diff.hunks} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
+              <DiffSideBySide hunks={diff.hunks} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} isNewFile={isNewFile} />
             </MinimapScroll>
           ) : (
             <MinimapScroll version={`${diff.path}|${ignoreWs}|inline`}>
               <div className={s.hunks}>
                 {diff.hunks.map((hunk, i) => (
-                  <DiffHunkView key={i} hunk={hunk} hunkIndex={i} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} />
+                  <DiffHunkView key={i} hunk={hunk} hunkIndex={i} file={file} isWorkingCopy={isWorkingCopy} isStaged={isStaged} isNewFile={isNewFile} />
                 ))}
               </div>
             </MinimapScroll>

@@ -8,6 +8,8 @@ interface Props {
   file: string;
   isWorkingCopy: boolean;
   isStaged?: boolean;
+  /** Новый файл в рабочей копии: «Отбросить» убирает его в Корзину. */
+  isNewFile?: boolean;
 }
 
 /**
@@ -20,7 +22,7 @@ interface Props {
  * (lineAdd/lineRemove) достаточно, а вторая подсветка поверх него в этом
  * режиме читается как «двойная». Word-level остаётся только в split/whole.
  */
-export function DiffHunkView({ hunk, hunkIndex, file, isWorkingCopy, isStaged }: Props) {
+export function DiffHunkView({ hunk, hunkIndex, file, isWorkingCopy, isStaged, isNewFile }: Props) {
   return (
     <div className={s.hunkBlock} tabIndex={-1}>
       <div className={s.hunkHeaderCompact}>{hunk.header}</div>
@@ -29,6 +31,7 @@ export function DiffHunkView({ hunk, hunkIndex, file, isWorkingCopy, isStaged }:
         hunkIndex={hunkIndex}
         isWorkingCopy={isWorkingCopy}
         isStaged={isStaged === true}
+        isNewFile={isNewFile === true}
       />
       <table className={s.diffTable}>
         <tbody>

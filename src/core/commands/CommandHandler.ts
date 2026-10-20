@@ -1,4 +1,4 @@
-import { dialog, BrowserWindow } from 'electron';
+import { dialog, BrowserWindow, shell } from 'electron';
 import { GitExecutor } from '../git/GitExecutor';
 import { CommitDetail, CommitGraphData, FileDiff, BlameResult, FileHistoryResult, Submodule, RebaseTodoEntry, RebaseTodoList, RebaseProgress, MergeOptions, MergeResult, MergeState, OperationResult, ReflogEntry, FileChange } from '../git/types';
 import type { RepoStats, DayCommitEntry, AuthorCodeStatsResult } from '../bridge/messages';
@@ -111,33 +111,30 @@ export class CommandHandler {
   unstageAll(files: string[]): Promise<OperationResult> { return Write.unstageAll(this.queue, this.git, this.state, files); }
   discardFileChanges(file: string): Promise<OperationResult> { return Write.discardFileChanges(this.queue, this.git, this.state, file); }
   discardFiles(files: string[]): Promise<OperationResult> { return Write.discardFiles(this.queue, this.git, this.state, files); }
+  /**
+   * Новые (неотслеживаемые) файлы удаляем в Корзину, а не насовсем: git о них
+   * ничего не знает, в истории их нет — без Корзины ошибку не исправить.
+   * Если Корзина недоступна (сетевой диск и т.п.) — ошибка, а не тихое
+   * безвозвратное удаление.
+   */
   async deleteUntrackedFile(file: string): Promise<void> {
     await this.queue.enqueueWrite('deleteUntrackedFile', async () => {
-      const { rm, stat } = await import('fs/promises');
       const { safePath } = await import('../utils/pathSecurity');
       const repoPath = this.state.getState().repoPath;
-      const fullPath = safePath(repoPath, file);
-      const fileStat = await stat(fullPath);
-      await rm(fullPath, { recursive: fileStat.isDirectory(), force: false });
+      await shell.trashItem(safePath(repoPath, file));
       await this.state.refreshStatusAndNotify();
     });
   }
   async deleteUntrackedFiles(files: string[]): Promise<void> {
     if (files.length === 0) return;
     await this.queue.enqueueWrite('deleteUntrackedFiles', async () => {
-      const { rm, stat } = await import('fs/promises');
       const { safePath } = await import('../utils/pathSecurity');
       const repoPath = this.state.getState().repoPath;
       // Сначала валидируем все пути через safePath, только потом удаляем — иначе
       // можем удалить часть и потом упасть на запретном пути с грязным состоянием.
-      const targets: { fullPath: string; isDir: boolean }[] = [];
-      for (const f of files) {
-        const fullPath = safePath(repoPath, f);
-        const fileStat = await stat(fullPath);
-        targets.push({ fullPath, isDir: fileStat.isDirectory() });
-      }
+      const targets = files.map(f => safePath(repoPath, f));
       for (const t of targets) {
-        await rm(t.fullPath, { recursive: t.isDir, force: false });
+        await shell.trashItem(t);
       }
       await this.state.refreshStatusAndNotify();
     });
@@ -190,7 +187,22 @@ export class CommandHandler {
   // ─── Stage Hunk/Lines ───
   stageHunk(file: string, hunkIndex: number, reverse: boolean): Promise<OperationResult> { return Write.stageHunk(this.queue, this.git, this.state, file, hunkIndex, reverse); }
   stageLines(file: string, hunkIndex: number, lineIndices: number[], reverse: boolean): Promise<OperationResult> { return Write.stageLines(this.queue, this.git, this.state, file, hunkIndex, lineIndices, reverse); }
-  discardHunk(file: string, hunkIndex: number): Promise<OperationResult> { return Write.discardHunk(this.queue, this.git, this.state, file, hunkIndex); }
+  /**
+   * «Отбросить» кусок. У нового (неотслеживаемого) файла кусок один — весь файл,
+   * и git его в diff не видит («Hunk not found»): отбросить = убрать файл в Корзину.
+   */
+  async discardHunk(file: string, hunkIndex: number): Promise<OperationResult> {
+    const untracked = await this.git.exec(['ls-files', '--others', '--exclude-standard', '--', file]);
+    if (untracked.exitCode === 0 && untracked.stdout.trim()) {
+      try {
+        await this.deleteUntrackedFile(file);
+        return { success: true, rollbackAvailable: false };
+      } catch (err) {
+        return { success: false, error: err instanceof Error ? err.message : String(err), rollbackAvailable: false };
+      }
+    }
+    return Write.discardHunk(this.queue, this.git, this.state, file, hunkIndex);
+  }
 
   // ─── Submodules ───
   async submoduleUpdate(path: string): Promise<OperationResult> {
