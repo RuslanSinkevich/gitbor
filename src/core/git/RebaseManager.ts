@@ -1,4 +1,6 @@
 import { existsSync } from 'fs';
+import { createHash } from 'crypto';
+import { tmpdir } from 'os';
 import { writeFile, readFile, access, mkdir, rm } from 'fs/promises';
 import { join } from 'path';
 import { GitExecutor } from './GitExecutor';
@@ -116,7 +118,14 @@ export class RebaseManager {
   }
 
   private editorDir(): string {
-    return join(resolveGitDir(this.git.getCwd()), 'gitbor-rebase');
+    const cwd = this.git.getCwd();
+    const gitDir = resolveGitDir(cwd);
+    // Нет git-dir (битый путь, заглушка в тестах) — не создаём его сами, а берём
+    // временную папку, привязанную к репо, чтобы «Продолжить» её нашёл.
+    if (!existsSync(gitDir)) {
+      return join(tmpdir(), `gitbor-rebase-${createHash('sha1').update(cwd).digest('hex').slice(0, 12)}`);
+    }
+    return join(gitDir, 'gitbor-rebase');
   }
 
   /** Редактор сообщений текущего rebase (см. writeMessageEditor) или «оставить как есть». */

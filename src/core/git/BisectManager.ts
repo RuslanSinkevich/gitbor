@@ -70,7 +70,9 @@ export class BisectManager {
 
     const logR = await this.git.exec(['bisect', 'log']);
     const rawLog = logR.stdout.trim().split('\n');
-    const found = rawLog.some(l => l.startsWith('# first bad commit'));
+    // Формат bisect log отличается между версиями git, поэтому «найден»
+    // проверяем и по сути: от плохого коммита до хороших остался он один.
+    const found = rawLog.some(l => l.startsWith('# first bad commit')) || (await this.onlyBadLeft());
     const logLines = rawLog.filter(l => l && !l.startsWith('#'));
 
     const goodCount = logLines.filter(l => l.startsWith('git bisect good') || l.includes('# good:')).length;
@@ -84,6 +86,15 @@ export class BisectManager {
     const stepsLeft = found ? 0 : bisectStepsLeft(candidates);
 
     return { active: true, current, stepsLeft, goodCount, badCount, log: logLines, found };
+  }
+
+  /** Кандидат остался один — сам refs/bisect/bad: это и есть первый плохой коммит. */
+  private async onlyBadLeft(): Promise<boolean> {
+    const goods = (await this.git.exec(['for-each-ref', '--format=%(objectname)', 'refs/bisect/good-*'])).stdout
+      .split('\n').map(l => l.trim()).filter(Boolean);
+    if (goods.length === 0) return false;
+    const r = await this.git.exec(['rev-list', '--count', 'refs/bisect/bad', '--not', ...goods]);
+    return r.exitCode === 0 && r.stdout.trim() === '1';
   }
 
   /** Checks if a bisect session is active. */

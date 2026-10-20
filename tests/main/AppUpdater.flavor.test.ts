@@ -70,6 +70,13 @@ const NOAI_SETUP = {
   sha512: 'x',
 };
 
+// Ветки Windows/Linux (скачать и перезапустить). На macOS — установщик dmg,
+// поэтому платформу фиксируем: CI гоняет тесты и на macOS-машине.
+const realPlatform = process.platform;
+const setPlatform = (p: NodeJS.Platform) => Object.defineProperty(process, 'platform', { value: p, configurable: true });
+beforeEach(() => setPlatform('win32'));
+afterEach(() => setPlatform(realPlatform));
+
 describe('AppUpdater flavor gates (no-ai build)', () => {
   beforeEach(() => {
     handlers.clear();
@@ -139,6 +146,20 @@ describe('AppUpdater flavor gates (no-ai build)', () => {
     setupAppUpdater(() => {});
     handlers.get('update-available')?.(NOAI_SETUP);
     expect(autoUpdaterMock.downloadUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('macOS: update-available → не качаем, предлагаем установщик dmg', () => {
+    setPlatform('darwin');
+    vi.useFakeTimers();
+    const notify = vi.fn();
+    setupAppUpdater(notify);
+    handlers.get('update-available')?.({
+      ...NOAI_SETUP,
+      path: 'GitBor-NoAI-0.1.19-arm64.dmg',
+      files: [{ url: 'GitBor-NoAI-0.1.19-x64.dmg' }, { url: 'GitBor-NoAI-0.1.19-arm64.dmg' }],
+    });
+    expect(autoUpdaterMock.downloadUpdate).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ type: 'appUpdateReady', version: '0.1.19', macInstaller: true }));
   });
 
   it('REGRESSION: update-downloaded с AI Setup → НЕ appUpdateReady', async () => {

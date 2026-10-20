@@ -72,7 +72,7 @@ export type AppUpdateManualResult = Extract<
  * Поэтому на Mac не качаем через electron-updater, а предлагаем скачать
  * установщик: GitBor кладёт dmg в «Загрузки» и открывает его.
  */
-const IS_MAC = process.platform === 'darwin';
+const isMac = (): boolean => process.platform === 'darwin';
 
 type MacInstaller = { version: string; fileName: string; url: string; sha512?: string };
 let macPending: MacInstaller | null = null;
@@ -197,7 +197,7 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
       }
       return;
     }
-    if (IS_MAC) {
+    if (isMac()) {
       if (!rememberMacInstaller(info.version, info)) return;
       const notes = parseReleaseNotes(info.releaseNotes);
       notify({ type: 'appUpdateReady', version: info.version, macInstaller: true, ...(notes ? { notes } : {}) });
@@ -247,7 +247,7 @@ export function setupAppUpdater(notify: (event: MainEvent) => void): void {
 
 export function installDownloadedUpdate(notify: (event: MainEvent) => void): void {
   if (!app.isPackaged || isPortableBuild()) return;
-  if (IS_MAC) {
+  if (isMac()) {
     void installMacDmg(notify);
     return;
   }
@@ -256,7 +256,7 @@ export function installDownloadedUpdate(notify: (event: MainEvent) => void): voi
 
 /** macOS: закрыть GitBor, чтобы Finder смог заменить его из установщика. */
 export function quitForMacInstall(): void {
-  if (IS_MAC) app.quit();
+  if (isMac()) app.quit();
 }
 
 /** Ручная проверка — результат в renderer через `appUpdateManualResult`. */
@@ -297,7 +297,7 @@ export async function runManualUpdateCheck(notify: (event: MainEvent) => void): 
         });
         return;
       }
-      notify({ type: 'appUpdateManualResult', result: 'available', version: remote, current, ...(IS_MAC ? { macInstaller: true } : {}) });
+      notify({ type: 'appUpdateManualResult', result: 'available', version: remote, current, ...(isMac() ? { macInstaller: true } : {}) });
       return;
     }
     notify({ type: 'appUpdateManualResult', result: 'up-to-date', current });
