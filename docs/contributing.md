@@ -50,7 +50,7 @@ GitBor — настольный Git-клиент на Electron. Ошибки и 
 
 - [ ] `npx tsc -p tsconfig.main.json` и `npx tsc --noEmit` в `src/renderer` без ошибок
 - [ ] `npm run lint` проходит
-- [ ] `npm test` проходит (сейчас <!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> файлах; после добавления тестов — `npm run docs:counts`)
+- [ ] `npm test` проходит (сейчас <!-- TESTS_COUNT -->1177<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->105<!-- /TESTS_FILES --> файлах; после добавления тестов — `npm run docs:counts`)
 - [ ] `npm run e2e` проходит на Windows
 - [ ] Новые тексты есть в `ru.ts` и `en.ts`
 - [ ] Пользовательские пути проходят через `safePath()` / `isSafeFilename()`

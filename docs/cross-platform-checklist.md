@@ -31,6 +31,6 @@
 4. Открыть репо с symlink'ами наружу — проверить поведение `safePath`.
 5. `electron-builder --mac --dir` после первого запуска `npm run build:icons` (`icon.icns` генерируется placeholder'ом).
 6. `electron-builder --linux --dir` — то же для `icon.png` + проверить наличие `.deb`-метаданных.
-7. `FileWatcher` на репо с >1000 файлов в верхнем уровне на macOS (FSEvents → `fs.watch` fallback в chokidar 4).
+7. `FileWatcher` на большом репо: на macOS одна подписка FSEvents (`fs.watch` recursive) — события приходят из вложенных папок, `node_modules` отсекается; на Linux (chokidar) — не упирается в лимит inotify.
 8. На macOS — поведение `mkdirSync({ mode: 0o700 })` для `~/.ssh/` (ACL применяется как ожидается).
 9. На Linux — `safeStorage` через `secret-service`: проверить, что AI-секреты пишутся (а не фолбэк на `plain:`) при наличии KWallet / gnome-keyring.

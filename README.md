@@ -43,9 +43,9 @@ npm run docs:counts    # обновить счётчики тестов в до�
 | Desktop runtime | Electron 40 |
 | UI | React 18, TypeScript 5.9, Vite 6 |
 | Стили | CSS Modules, CSS-переменные `--sg-*` |
-| Наблюдение за файлами | chokidar 4 |
+| Наблюдение за файлами | `fs.watch` (recursive) на macOS / Windows, chokidar 4 на Linux |
 | Обновления | electron-updater 6 (GitHub Releases), electron-builder 26 |
-| Тесты | Vitest 4 (<!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> файлах), Playwright 1.59 (E2E, Windows) |
+| Тесты | Vitest 4 (<!-- TESTS_COUNT -->1177<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->105<!-- /TESTS_FILES --> файлах), Playwright 1.59 (E2E, Windows) |
 | Качество | ESLint 10 (flat config), Prettier, husky 9 + lint-staged 17 |
 | CI | GitHub Actions: `ci.yml`, `pr.yml`, `release.yml`, `release-pack.yml` |
 | Git | Системный git из `PATH` (`execFile('git', …)` в `GitExecutor`) |
@@ -106,9 +106,9 @@ gitbor/
 
 - **Граф коммитов** — виртуализированный, цвета веток, поиск (Ctrl+F), аватары авторов, приглушённые remote-only коммиты; сам обновляется после коммитов из терминала, в том числе в ветки вида `feature/имя/задача`
 - **Фильтр по ветке** — «Только свои» коммиты (первый родитель) или «Вся история»; скрытие и закрепление веток
-- **Сравнение** — двух коммитов, коммита с рабочей копией и двух веток в обе стороны («что принесёт в текущую» и «как в pull request»)
+- **Сравнение** — коммита с рабочей копией, двух версий файла и двух веток: с текущей в обе стороны («что принесёт в текущую» и «как в pull request») или любой пары
 - **Короткие контекстные меню** ветки и коммита; «В каких ветках есть коммит», «Открыть в Azure DevOps / GitHub / GitLab», ссылка на pull request из merge-коммита
-- **Локальные изменения** — дерево файлов, stage / unstage / discard по файлу, папке, блоку и строке
+- **Локальные изменения** — дерево файлов, stage / unstage / discard по файлу, папке, блоку и строке; новые файлы удаляются в Корзину
 - **Diff** — inline / split, без пробелов, Markdown-просмотр, правильная кириллица в файлах CP1251 / CP866
 - **Stash** — с новыми файлами, понятное сообщение, если откладывать нечего
 - **Merge-конфликты** — двухколоночный редактор, предсказание конфликтов
@@ -119,6 +119,7 @@ gitbor/
 - **Защита данных** — auto-stash, журнал операций, восстановление после сбоя, понятные действия при ошибках git
 - **Автообновление** с GitHub Releases, список «что нового» прямо в окне обновления
 - **Интерфейс** — русский и английский, тёмная и светлая темы
+- **Поддержать проект** — окно «Поддержать» с донатом через CloudTips (СБП, T-Pay или карта)
 
 Полный список — [Возможности](docs/features.md).
 
@@ -141,7 +142,7 @@ gitbor/
 
 ## Статус
 
-Версия 0.1.23. <!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> юнит-тестов в <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> файлах плюс Playwright E2E на Windows. Установщики не подписаны: Windows покажет SmartScreen, macOS — предупреждение Gatekeeper.
+Версия 0.1.32. <!-- TESTS_COUNT -->1177<!-- /TESTS_COUNT --> юнит-тестов в <!-- TESTS_FILES -->105<!-- /TESTS_FILES --> файлах плюс Playwright E2E на Windows. Установщики не подписаны: Windows покажет SmartScreen, macOS — предупреждение Gatekeeper.
 
 ## Лицензия
 

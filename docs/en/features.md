@@ -1,8 +1,8 @@
 > Русская версия: [docs/features.md](../features.md)
 
-## Features
+# GitBor Features
 
-### Commit Graph
+## Commit Graph
 
 - Virtualized scroll — renders only visible rows, handles 15000+ commits smoothly
 - Branch coloring — each branch lane gets a unique color
@@ -14,7 +14,7 @@
 - **Remote-only commits dimmed** — commits reachable from `refs/remotes/*` but not from any local branch render at ~0.45 node / ~0.35 line opacity; hover boosts to 0.9 to make them readable
 - **Refreshes by itself** — commits, checkouts and fetches made in a terminal or another app show up without F5, including branches with folders (`feature/name/task`) and linked worktrees
 
-### Commit Menu
+## Commit Menu
 
 Right-click a commit. The header shows the short hash and subject; explanations for non-obvious items are in tooltips.
 
@@ -27,7 +27,7 @@ Right-click a commit. The header shows the short hash and subject; explanations 
 - **Open pull request N** — on merge commits whose message has a PR number ("Merged PR …", "Merge pull request #…", "See merge request …!N", and the Russian Azure wording)
 - **More ▸** — annotated tag, compare with the working copy, save as patch, copy commit info
 
-### Ahead/Behind Indicators
+## Ahead/Behind Indicators
 
 - Pull button shows a `behind` badge — how many commits the current branch's upstream has that you have not pulled yet
 - Push button shows an `ahead` badge — how many local commits are not on the upstream yet
@@ -35,7 +35,7 @@ Right-click a commit. The header shows the short hash and subject; explanations 
 - Fetch button stays badge-free (it is not branch-scoped)
 - Tooltip on Pull/Push expands the number into a localized phrase
 
-### Branch / Tag / Stash Sidebar
+## Branch / Tag / Stash Sidebar
 
 - Tree view with collapsible folders (feature/user/branch)
 - Single click — scrolls graph to branch head commit, loads details + diff
@@ -56,26 +56,27 @@ Right-click a commit. The header shows the short hash and subject; explanations 
 - **Hide branch from graph** — eye-off icon completely removes the branch's commits from the graph (BFS-subtraction: a commit stays visible if any non-hidden local branch can reach it). Same banner with "Unhide all" to clear; if every branch is hidden the graph shows an empty-state with "Show all branches"
 - **Branch notes** — info icon opens a textarea modal for free-form per-branch notes (links, ticket numbers, intent). Hover the icon — a tooltip shows the first 200 characters. Notes are stored locally per repo (`sg-branch-notes:<repo>`), never written to git config
 
-### Local Changes
+## Local Changes
 
 - Tree view grouped by folders (like Fork)
 - Unstaged section on top, Staged on bottom
 - Per-file actions: stage (+), unstage (-), discard; in the diff — per hunk and per line (including unstaging selected lines and files without a trailing newline)
 - **Folder context menu** — stage / unstage / discard / delete applied to all files inside (works in both Staged and Unstaged sections); folder-level actions go through batch IPC commands (`discardFiles` / `deleteUntrackedFiles`) — one round-trip and one `git checkout -- a b c …` instead of N invokes
+- New files (not yet in git) are moved to the Trash on Discard / Delete instead of being deleted permanently; Discard also works on a hunk of a new file
 - Stage All / Unstage All buttons
 - Discard All with confirmation dialog
 - Conflict files marked with (!) icon
 - Auto-closes diff panel when file disappears after commit
 - Pure tree helpers (`buildFileTree`, `collectFiles`) extracted to `fileTreeModel.ts` for direct unit testing
 
-### Commit Bar
+## Commit Bar
 
 - Separate Subject and Description fields (like Fork, GitKraken)
 - Enter in subject moves focus to description
 - Ctrl+Enter commits from either field
 - Amend checkbox
 
-### Diff Viewer
+## Diff Viewer
 
 - Two layouts: Inline and Split (side-by-side) + an independent **Whole File** toggle (the full file in the chosen layout — one or two columns)
 - New and fully deleted files are always shown in a single column (Split is disabled for them — nothing to compare against); same in the fullscreen compare modal
@@ -86,11 +87,11 @@ Right-click a commit. The header shows the short hash and subject; explanations 
 - Ignore Whitespace toggle
 - Theme-aware diff colors — translucent line backgrounds tuned per theme (light text in dark mode, dark text in light mode); no harsh bright blocks in dark mode
 - Supports: working copy diff, staged diff, commit diff, untracked files, root commits
-- **Right-click → Copy**: ПКМ on diff content opens a context menu with **Copy** — either current text selection (`window.getSelection()`) or the hovered line (rows tagged with `data-diff-line`, works in inline/split/whole-file). Local to the diff feature, doesn't conflict with the global App-level context menu
+- **Right-click → Copy**: right-clicking diff content opens a context menu with **Copy** — either current text selection (`window.getSelection()`) or the hovered line (rows tagged with `data-diff-line`, works in inline/split/whole-file). Local to the diff feature, doesn't conflict with the global App-level context menu
 - **Markdown preview** for `.md` / `.markdown` files: a Markdown-icon button appears in the diff toolbar (and inside `CompareModal`); clicking opens a wide modal (up to 1280 px) with the file rendered as rich text (not a diff). Content is fetched via `getFileText` IPC — for `WORKING` reads the working copy via `fs.readFile`, for any commit / `STAGED` / `a..b` / `PREV:hash` ref uses `git show <hash>:<file>`. The modal is lazy-loaded (Markdown parser ships as a separate chunk)
-- **Legacy file encodings** — `git diff` output is captured as a `Buffer` (via `GitExecutor.execBuffer`) and decoded with `decodeGitText` heuristics: BOM (UTF-8 / UTF-16 LE / BE) → strict UTF-8 → CP1251 (Windows Cyrillic) → CP866 (DOS Cyrillic). Cyrillic comments in `.sql` / `.cs` / `.pas` files saved on legacy Windows render as readable text instead of mojibake (` ` and friends). Same heuristic applies to `getFileText` for the Markdown preview
+- **Legacy file encodings** — `git diff` output is captured as a `Buffer` (via `GitExecutor.execBuffer`) and decoded with `decodeGitText` heuristics: BOM (UTF-8 / UTF-16 LE / BE) → strict UTF-8 → CP1251 (Windows Cyrillic) → CP866 (DOS Cyrillic). Cyrillic comments in `.sql` / `.cs` / `.pas` files saved on legacy Windows render as readable text instead of mojibake (`Ïðèâåò` and friends). Same heuristic applies to `getFileText` for the Markdown preview
 
-### Merge Conflict Resolution
+## Merge Conflict Resolution
 
 - Merge Branch dialog with options: Default, No Fast-Forward, Squash, Don't Commit
 - Conflict prediction before merge
@@ -102,19 +103,19 @@ Right-click a commit. The header shows the short hash and subject; explanations 
   - Resolve button writes result and stages file
 - Use Ours / Use Theirs quick actions from context menu
 
-### File History
+## File History
 
 - Shows all commits that touched a specific file
 - Accessible via right-click context menu on any file
 - Click entry to view diff at that commit
 
-### Git Blame
+## Git Blame
 
 - Line-by-line annotation with author, date, commit hash
 - Click hash to navigate to commit
 - Accessible via right-click context menu
 
-### Multi-Repository Tabs
+## Multi-Repository Tabs
 
 - Open multiple repositories simultaneously
 - Tab bar with repo names
@@ -125,7 +126,7 @@ Right-click a commit. The header shows the short hash and subject; explanations 
 - Per-repo running ops: `state.isOperationRunning` is derived from the active tab only; fetch on A doesn't disable buttons on B
 - **Session persistence** — the full list of open tabs is restored on startup, with focus on the last active tab. Stored in `localStorage` (`sg-open-repos` + `sg-last-active-repo`); deleted/missing repos are silently dropped from the list on the next save
 
-### AI Commit Messages
+## AI Commit Messages
 
 - One-click generation from staged diff
 - **Two modes**:
@@ -138,7 +139,7 @@ Right-click a commit. The header shows the short hash and subject; explanations 
 - Diff truncated to 6000 chars (head 70% + tail 20%) to fit the model's context window
 - Accessible via the AI button next to the commit subject
 
-### AI Settings dialog
+## AI Settings dialog
 
 - **Six tabs on the left rail**: Connection / Prompts / Features / Behavior / Privacy / Debug. Each section is one file under `src/renderer/src/features/ai/sections/`
 - **Preset list**, in priority order for the import-substitution audience:
@@ -152,7 +153,7 @@ Right-click a commit. The header shows the short hash and subject; explanations 
 - **Privacy gate** — `allowCloudCodeShare` (default `false` for new installs) blocks calls to **foreign** providers (OpenAI / Anthropic / Groq). Local / corporate / no-VPN / Russian providers are always allowed and bypass the gate by design
 - **Config v3** — old `ai-config.json` (v2) is migrated on load: `commitLanguage` becomes `aiResponseLanguage`, `features.commitMessage=true`, `aiEnabled=true`, `allowCloudCodeShare=false` (no implicit cloud opt-in)
 
-### AI Helpers
+## AI Helpers
 
 Beyond commit messages, the same provider / privacy settings power five extra helpers. Each is a separate `AiFeatureId` (`explainCommit` / `stashName` / `explainReflog` / `analyzeConflict` / `semanticSearch`), can be toggled off in the **Features** tab, and can point at its own model override. All prompts live in `src/core/ai/prompts.ts` (English by default; response language appended via `resolvePrompt`).
 
@@ -160,30 +161,30 @@ Beyond commit messages, the same provider / privacy settings power five extra he
 - **Smart Stash Naming** — **Suggest** button next to the name field in the stash dialog; proposes a 3-7 word lowercase name from the uncommitted diff. The field stays editable; Suggest only seeds it. Re-click to regenerate.
 - **Reflog Explainer** — **Explain reflog** button in the Reflog dialog. Turns raw reflog lines into a plain `Timeline` / `Lost commits` / `Recovery` story, grouping low-level actions and flagging strandable commits with the exact recovery command.
 - **Conflict Helper** — **Explain conflict** button in the merge editor toolbar. Explains the selected hunk in four sections (`Ours` / `Theirs` / `Risk` / `What to check`) — it does **not** auto-resolve; the choice stays with the user.
-- **Semantic Search (MVP)** — the commit-graph search (Ctrl+F) understands an `ai:` prefix. The query + a recent slice of history (subject + body) is sent to the model, which reranks commits by meaning (`SEMANTIC_SEARCH_SYSTEM_PROMPT`). No embeddings yet — only the most recent N commits are considered; full-history indexed search is on the roadmap.
+- **Semantic Search (MVP)** — the AI button in the commit-graph search box (Ctrl+F) switches to search by meaning. The query + a recent slice of history (subject + body) is sent to the model, which reranks commits by meaning (`SEMANTIC_SEARCH_SYSTEM_PROMPT`). No embeddings yet — only the most recent N commits are considered; full-history indexed search is on the roadmap.
 
 Common behavior: streaming where it makes sense, a second click on the active button cancels the inflight request, provider errors surface inline without blocking the UI, and the **Debug** tab always shows the exact request/response. Foreign providers (OpenAI / Anthropic / Groq) stay blocked unless the Privacy switch is on.
 
-### Interactive Rebase
+## Interactive Rebase
 
 - Rebase editor with pick/reword/edit/squash/fixup/drop actions
 - Rebase progress banner with step counter and Continue/Skip/Abort buttons
 - Accessible from commit context menu
 - Empty / loading states render the full editor frame with a Cancel button — the modal is always closeable
 
-### Cherry-pick / Revert on Merge Commits
+## Cherry-pick / Revert on Merge Commits
 
 - For non-merge commits the context menu runs `git cherry-pick <hash>` / `git revert --no-edit <hash>` as usual
 - For merge commits (`commit.parents.length > 1`) the menu auto-passes `-m 1` (mainline = first parent) — no more `commit is a merge but no -m option was given` failure
 - IPC payload: `{ type: 'cherryPick' | 'revert', hash, mainline?: 1 }`
 
-### Toolbar
+## Toolbar
 
 - Quick actions: Fetch, Pull, Push, Stash, Stash pop
 - **"Stash changes" dialog** — the name is optional (empty = `git stash` without `-m`), AI name suggestion button; "Include new files" is on by default and remembered. When there is nothing to stash (e.g. only new files without the checkbox), a hint is shown instead of a false "Changes stashed"
 - Disabled during running operations on the active repo only (other tabs stay interactive)
 
-### Custom Menu Bar
+## Custom Menu Bar
 
 - HTML/CSS menu in the renderer (native Electron menu fully removed)
 - Menus: File, Edit, View, Repository, Branch, Help
@@ -191,30 +192,30 @@ Common behavior: streaming where it makes sense, a second click on the active bu
 - Keyboard shortcuts via `useKeyboardShortcuts` hook (Ctrl+O, Ctrl+Shift+F, F5, etc.)
 - Smooth hover behavior across all platforms
 
-### SSH Keys Manager
+## SSH Keys Manager
 
 - View all SSH keys from `~/.ssh/`
 - Generate new keys (Ed25519 or RSA) with passphrase
 - Copy public key to clipboard
 - Delete keys
-- Accessible via File → Configure SSH Keys...
+- Accessible via Repository → Repository Settings... → "SSH Keys…" button
 
-### Repository Settings
+## Repository Settings
 
 - View/edit `user.name` and `user.email` for current repository
 - Toggle between global and local git credentials
 - Accessible via Repository → Repository Settings...
 
-### Confirmation Dialogs
+## Confirmation Dialogs
 
 - Destructive actions require confirmation: delete branch, delete tag, drop stash, remove remote, hard reset, discard changes, abort merge
 
-### Toast Notifications
+## Toast Notifications
 
 - Success/error notifications for Git operations (fetch, pull, push, commit, etc.)
 - Dark text on colored backgrounds for both themes
 
-### Git Activity Log
+## Git Activity Log
 
 - Per-repo journal of git invocations (start / append / finish)
 - Shows raw `git ...` commands, stdout/stderr, exit code, duration
@@ -222,118 +223,124 @@ Common behavior: streaming where it makes sense, a second click on the active bu
 - `activityContext.ts` (`AsyncLocalStorage`) attributes every `GitExecutor.exec` call to its operation without manual id propagation
 - Indicator in the title bar shows how many ops are running on the active repo
 
-### Repository Statistics
+## Repository Statistics
 
 - Contributors with commit counts and lines added/removed per author
 - Activity heatmap per contributor
 - Per-author stats are cached on disk (`AuthorStatsCache`) — second open is instant
-- Accessible via Repository → Statistics
+- Accessible via Repository → More ▸ → Statistics...
 
-### Reflog Viewer
+## Reflog Viewer
 
 - Full `git reflog` history with action badges (checkout, commit, merge, etc.)
 - Copy commit SHA to clipboard
 - Restore (hard reset) to any reflog entry with confirmation
-- Accessible via Repository → Reflog...
+- Accessible via Repository → More ▸ → Reflog...
 
-### Git Bisect
+## Git Bisect
 
 - Start bisect with bad/good commit hashes
 - Interactive session: Mark Good, Mark Bad, Skip
 - Shows current commit hash, estimated steps remaining
 - Real-time git output log
 - Abort bisect at any time
-- Accessible via Repository → Bisect...
+- Accessible via Repository → More ▸ → Bisect...
 
-### Git Hooks Manager
+## Git Hooks Manager
 
 - Lists all hooks in `.git/hooks/` (excluding `.sample` files)
 - Enable/disable hooks via toggle (renames with `.disabled` suffix)
 - Expand to view hook contents
-- Accessible via Repository → Git Hooks...
+- Accessible via Repository → More ▸ → Git Hooks...
 
-### Signed Commits (GPG/SSH)
+## Signed Commits (GPG/SSH)
 
 - Shows ✓ Signed badge on verified commits in the graph
 - Supports: Good (G), Bad (B), Untrusted (U), Expired (X), Revoked (R)
 - Color-coded: green (verified), orange (untrusted/expired), red (bad/revoked)
 
-### Git Worktrees
+## Git Worktrees
 
 - List all worktrees with branch, path, and SHA
 - Add new worktree (existing or new branch)
 - Remove worktree with confirmation
 - Main worktree marked with badge
-- Accessible via Repository → Worktrees...
+- Accessible via Repository → More ▸ → Worktrees...
 
-### Git LFS
+## Git LFS
 
 - Shows LFS installation status
 - Lists tracked patterns from `.gitattributes`
 - Add/remove tracking patterns
 - Lists all LFS-managed files with OID
-- Accessible via Repository → Git LFS...
+- Accessible via Repository → More ▸ → Git LFS... (shown only when the repository uses LFS)
 
-### .gitignore Editor
+## .gitignore Editor
 
 - Create or edit `.gitignore` from the UI
 - Predefined templates: Node.js, Python, Java, C/C++, Rust, Go, IDE, OS
 - Click templates to add/remove patterns
 - Manual editing in built-in textarea
 - Warning if existing `.gitignore` will be overwritten
-- Accessible via Repository → .gitignore...
+- Accessible via Repository → More ▸ → .gitignore...
 
-### Compare
+## Compare
 
 - **Two branches** — branch menu → Compare ▸:
   - "What it brings into ‘current’" — this branch's changes since it diverged from the current one
   - "What ‘current’ brings here (like a PR)" — the same as a pull request from the current branch into this one
+  - **Any pair of branches** — "Select for Compare" on the first branch, then "What it brings into ‘first’ (1)" on the second; or Ctrl+click two branches — the menu shows "second → first"
   - Comparison starts at the merge base, not tip to tip, so new commits of the other branch never look "deleted"
 - **Commit vs working copy** — commit menu → More ▸ → Compare with local changes
 - **Two file versions** — in "File history": pick a base version and compare with another
 - The result is a file list in the "Changes" tab, diff on click; a banner above the tabs says "Comparing: what X brings into Y" with the number of commits unique to each branch
 
-### Arrow Key Navigation
+## Arrow Key Navigation
 
 - Use ↑/↓ arrows to navigate between commits in the graph
 - Auto-scrolls to keep the selected commit visible
 
-### Shell Integration
+## Shell Integration
 
 - Open in File Explorer (Ctrl+Alt+O)
 - Open in Terminal (Ctrl+Alt+T)
 - Refresh (F5)
 
-### Error Boundary
+## Error Boundary
 
 - React ErrorBoundary catches unhandled UI errors
 - Shows "Something went wrong" with a Reload button instead of a blank screen
 
-### i18n
+## i18n
 
 - English and Russian UI
 - Language toggle in title bar
 
-### Themes
+## Themes
 
 - Dark and Light mode
 - Theme toggle in title bar
 - CSS variables (`--sg-*`) for consistent theming
 
-### Windows long-path auto-suggest
+## Windows long-path auto-suggest
 
 - On Windows, when git fails with `Filename too long`, a single dialog offers to enable `git config --global core.longpaths true` (per-session single-shot, "Enable / Not now / Learn more")
 - `LongPathSuggester` hooks `GitExecutor.setStderrInspector` and skips when the option is already enabled globally
 - Bypassed entirely on macOS / Linux
 
-### Auto-update
+## Auto-update
 
 - The installed version checks GitHub Releases, downloads updates in the background and offers to restart
 - The update dialog lists "what's new" in the UI language (it travels with the update in `latest*.yml`)
 - The No AI build only updates to No AI, the regular build only to regular
 - Manual check: About → "Check for updates". The portable version does not auto-update
 
-### Distribution
+## Support the project
+
+- "Support the project" dialog: a donation via CloudTips (T-Bank) — SBP, T-Pay or card on one page; the 300 / 500 / 1000 / 5000 ₽ buttons prefill the amount
+- Opens from About; an unobtrusive reminder — never on the first launch, at most once a week, with a "don't show again" button
+
+## Distribution
 
 - Windows (NSIS installer + portable), macOS (DMG for Intel and Apple Silicon), Linux (AppImage + deb + rpm); every platform has a No AI variant
 - Releases are built by GitHub Actions on a `vX.Y.Z` tag; locally — `npm run dist:win` / `dist:mac` / `dist:linux`

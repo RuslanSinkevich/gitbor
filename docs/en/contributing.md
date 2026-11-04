@@ -50,7 +50,7 @@ More detail with examples — [Getting started](getting-started.md).
 
 - [ ] `npx tsc -p tsconfig.main.json` and `npx tsc --noEmit` in `src/renderer` have no errors
 - [ ] `npm run lint` passes
-- [ ] `npm test` passes (currently <!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> files; after adding tests run `npm run docs:counts`)
+- [ ] `npm test` passes (currently <!-- TESTS_COUNT -->1177<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->105<!-- /TESTS_FILES --> files; after adding tests run `npm run docs:counts`)
 - [ ] `npm run e2e` passes on Windows
 - [ ] New texts exist in both `ru.ts` and `en.ts`
 - [ ] User paths go through `safePath()` / `isSafeFilename()`

@@ -207,7 +207,7 @@ session, физически в `<userData>/Local Storage/`). Префиксы к
 
 1. Поднять `version` в `package.json` **и** `src/renderer/package.json` (должны совпадать).
 2. Написать список изменений в `build/release-notes.md` — блоки `<!-- ru -->` и `<!-- en -->`, по одной короткой строке на пункт. Из этого файла берутся и текст GitHub Release, и список «что нового» в окне обновления.
-3. Закоммитить, поставить тег `vX.Y.Z` и запушить его (`git tag v0.1.23 && git push origin v0.1.23`).
+3. Закоммитить, поставить тег `vX.Y.Z` и запушить его (`git tag vX.Y.Z && git push origin vX.Y.Z`).
 4. Workflow собирает 6 вариантов (Windows / Linux / macOS × обычный / No AI; macOS — для Intel и Apple Silicon) и прикладывает к GitHub Release:
    - установщики (`*.exe`, `*.dmg`, `*.AppImage`, `*.deb`, `*.rpm`) и `*.blockmap` для дифф-обновлений;
    - файлы каналов обновления: `latest.yml` / `latest-mac.yml` / `latest-linux.yml` для обычной сборки и `noai.yml` / `noai-mac.yml` / `noai-linux.yml` для No AI.

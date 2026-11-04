@@ -206,7 +206,7 @@ Releases are built by GitHub Actions (`.github/workflows/release.yml`) — free 
 
 1. Bump `version` in `package.json` **and** `src/renderer/package.json` (they must match).
 2. Write the change list in `build/release-notes.md` — `<!-- ru -->` and `<!-- en -->` blocks, one short line per item. Both the GitHub Release text and the "what's new" list in the update dialog come from this file.
-3. Commit, tag `vX.Y.Z` and push the tag (`git tag v0.1.23 && git push origin v0.1.23`).
+3. Commit, tag `vX.Y.Z` and push the tag (`git tag vX.Y.Z && git push origin vX.Y.Z`).
 4. The workflow builds 6 variants (Windows / Linux / macOS × regular / No AI; macOS for Intel and Apple Silicon) and attaches to the GitHub Release:
    - installers (`*.exe`, `*.dmg`, `*.AppImage`, `*.deb`, `*.rpm`) and `*.blockmap` for differential updates;
    - update channel files: `latest.yml` / `latest-mac.yml` / `latest-linux.yml` for the regular build and `noai.yml` / `noai-mac.yml` / `noai-linux.yml` for No AI.

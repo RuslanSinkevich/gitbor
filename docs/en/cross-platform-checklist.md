@@ -1,34 +1,36 @@
-# Cross-platform чек-лист (GitBor)
+# Cross-platform checklist (GitBor)
 
-> Live-документ актуального состояния. Здесь — только открытые задачи и то, что
-> нужно проверить руками после первого запуска на macOS / Linux.
+> Русская версия: [docs/cross-platform-checklist.md](../cross-platform-checklist.md)
 
-## Открытые пункты по платформам
+> A living document of the current state. Only open tasks and what has to be
+> checked by hand after the first run on macOS / Linux.
 
-| Платформа | Задача | Приоритет |
+## Open items per platform
+
+| Platform | Task | Priority |
 |---|---|---|
-| macOS | Реальная нотаризация (`mac.notarize: true` + Apple Developer ID + `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`) | низкий — требует учётки Apple Developer |
-| macOS | Реальный дизайн-логотип вместо placeholder из `scripts/build-icons.mjs` | средний — нужен ассет от дизайнера |
-| macOS | Light/dark variant иконки для menu bar tray | низкий |
-| Linux | Snap / Flatpak target в `package.json/build.linux.target` | средний |
-| Linux | Реальный дизайн-логотип `resources/icon.png` (см. выше) | средний |
-| Windows | Microsoft Store Tile icons | низкий — только для Store-публикации |
-| Cross | Bundled portable git для Windows (MinGit ~30 МБ + Settings UI выбора git + GPL-2 attribution в About) | низкий — продуктовое решение, не техническое |
+| macOS | Real notarization (`mac.notarize: true` + Apple Developer ID + `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`) | low — needs an Apple Developer account |
+| macOS | A real designed logo instead of the placeholder from `scripts/build-icons.mjs` | medium — needs an asset from a designer |
+| macOS | Light/dark icon variant for the menu bar tray | low |
+| Linux | Snap / Flatpak target in `package.json/build.linux.target` | medium |
+| Linux | A real designed logo `resources/icon.png` (see above) | medium |
+| Windows | Microsoft Store tile icons | low — only for a Store release |
+| Cross | Bundled portable git for Windows (MinGit ~30 MB + a Settings UI to pick git + GPL-2 attribution in About) | low — a product decision, not a technical one |
 
-## Что вне scope
+## Out of scope
 
-- **Apple Developer ID** — реальная подпись + нотаризация требует платной учётки, не настраиваем. `mac.identity: "-"` + `mac.notarize: false` явно.
-- **Bundled git** — GitBor использует системный git (`PATH`-lookup в `GitExecutor`). На Windows нужен Git for Windows, на macOS — Xcode CLT или brew, на Linux — пакет менеджера. `checkGitAvailable` + `showGitNotFoundMessage` ловят отсутствие git на старте.
-- **Cross-build из CI** — релизы macOS/Linux собираются на соответствующих runners. Подписанный macOS-билд с Windows-runner невозможен (нужен codesign из Xcode).
+- **Apple Developer ID** — real signing + notarization needs a paid account, not configured. `mac.identity: "-"` + `mac.notarize: false` explicitly.
+- **Bundled git** — GitBor uses the system git (`PATH` lookup in `GitExecutor`). Windows needs Git for Windows, macOS — Xcode CLT or brew, Linux — the distro package. `checkGitAvailable` + `showGitNotFoundMessage` catch a missing git at startup.
+- **Cross-build from CI** — macOS / Linux releases are built on their own runners. A signed macOS build from a Windows runner is impossible (needs `codesign` from Xcode).
 
-## Что проверить вручную (Mac/Linux runtime — следующий стрим)
+## What to check by hand (Mac / Linux runtime — next stream)
 
-1. Запуск `npm run build && npm start` на macOS Ventura+ / Sonoma+.
-2. Запуск на Ubuntu 22.04 / 24.04 (X11 и Wayland-сессии) и Fedora (Wayland по умолчанию).
-3. Открыть репо с non-ASCII путями (русские/японские/китайские).
-4. Открыть репо с symlink'ами наружу — проверить `safePath` поведение.
-5. `electron-builder --mac --dir` после первого запуска `npm run build:icons` (icon.icns генерируется placeholder'ом).
-6. `electron-builder --linux --dir` — то же для icon.png + проверить наличие `.deb` метаданных.
-7. `FileWatcher` на репо с >1000 файлов в верхнем уровне на macOS (FSEvents → fs.watch fallback в chokidar 4).
-8. На macOS — поведение `mkdirSync({ mode: 0o700 })` для `~/.ssh/` (ACL применяется как ожидается).
-9. На Linux — `safeStorage` через `secret-service`: проверить, что AI-секреты пишутся (а не фолбэк на `plain:`) при наличии KWallet / gnome-keyring.
+1. Run `npm run build && npm start` on macOS Ventura+ / Sonoma+.
+2. Run on Ubuntu 22.04 / 24.04 (X11 and Wayland sessions) and Fedora (Wayland by default).
+3. Open a repo with non-ASCII paths (Russian / Japanese / Chinese).
+4. Open a repo with symlinks pointing outside — check how `safePath` behaves.
+5. `electron-builder --mac --dir` after the first `npm run build:icons` run (`icon.icns` is generated as a placeholder).
+6. `electron-builder --linux --dir` — the same for `icon.png` + check the `.deb` metadata is there.
+7. `FileWatcher` on a large repo: on macOS a single FSEvents subscription (`fs.watch` recursive) — events arrive from nested folders, `node_modules` is filtered out; on Linux (chokidar) — it does not hit the inotify limit.
+8. On macOS — how `mkdirSync({ mode: 0o700 })` behaves for `~/.ssh/` (the ACL applies as expected).
+9. On Linux — `safeStorage` via `secret-service`: check that AI secrets are stored encrypted (no `plain:` fallback) when KWallet / gnome-keyring is present.

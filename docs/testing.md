@@ -48,20 +48,20 @@ npx vitest run --reporter=verbose GitParser
 
 | Папка | Файлов | Тестов |
 |---|---:|---:|
-| `tests/git/` | 19 | 210 |
+| `tests/git/` | 20 | 214 |
 | `tests/ai/` | 10 | 149 |
+| `tests/commands/` | 10 | 122 |
 | `tests/safety/` | 9 | 103 |
-| `tests/commands/` | 5 | 90 |
-| `tests/state/` | 7 | 84 |
+| `tests/state/` | 8 | 87 |
 | `tests/graph/` | 5 | 69 |
 | `tests/utils/` | 7 | 69 |
-| `tests/bridge/` | 4 | 50 |
-| `tests/` (корень) | 1 | 46 |
-| `tests/sidebar/` | 6 | 41 |
-| `tests/main/` | 4 | 31 |
-| `tests/diff/` | 3 | 24 |
+| `tests/bridge/` | 5 | 52 |
+| `tests/` (корень) | 1 | 50 |
+| `tests/sidebar/` | 7 | 47 |
+| `tests/main/` | 4 | 32 |
+| `tests/diff/` | 3 | 29 |
+| `tests/ui/` | 3 | 23 |
 | `tests/ssh/` | 1 | 22 |
-| `tests/ui/` | 2 | 19 |
 | `tests/changes/` | 1 | 17 |
 | `tests/hooks/` | 1 | 15 |
 | `tests/i18n/` | 2 | 14 |
@@ -73,7 +73,7 @@ npx vitest run --reporter=verbose GitParser
 | `tests/shared/` | 1 | 5 |
 | `tests/merge/` | 1 | 4 |
 | `tests/features/` | 1 | 3 |
-| **Итого** | **95** | **1116** |
+| **Итого** | **105** | **1177** |
 
 <!-- /TESTS_TABLE_RU -->
 
@@ -107,7 +107,7 @@ npx vitest run --reporter=verbose GitParser
 | `parseStatus` | Staged/unstaged модификации, `MM` (обе), untracked (`??`), staged add (`A`), delete (`D`), конфликты (`UU`, `AA`), несколько файлов |
 | `parseFileChanges` | Модификация, добавление, удаление, переименование (`R100`), копирование (`C100`) |
 
-**<!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> тестов / <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> файлов — всё зелёное.**
+**<!-- TESTS_COUNT -->1177<!-- /TESTS_COUNT --> тестов / <!-- TESTS_FILES -->105<!-- /TESTS_FILES --> файлов — всё зелёное.**
 
 ### 2. DiffParser (`tests/git/DiffParser.test.ts`)
 
@@ -415,8 +415,10 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/core/**/*.ts'],
-      exclude: ['src/core/**/types/**'],
+      exclude: ['src/core/git/types/**'],
       reporter: ['text', 'text-summary'],
+      // пороги покрытия: CI падает, если покрытие опустится ниже
+      thresholds: { statements: 56, branches: 55, lines: 58, functions: 46 },
     },
   },
   resolve: {
@@ -481,7 +483,7 @@ npx vitest run tests/git/MyNewParser.test.ts
 ## Покрытие
 
 Актуальные числа по папкам — в таблице раздела «Структура тестов» выше
-(<!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> файлах).
+(<!-- TESTS_COUNT -->1177<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->105<!-- /TESTS_FILES --> файлах).
 
 ---
 
@@ -550,7 +552,7 @@ steps:
   - npm run lint                        # ESLint проверка
   - npx tsc -p tsconfig.main.json       # TypeScript (main + core)
   - npx tsc -b (src/renderer)           # TypeScript (renderer)
-  - npm test                            # Vitest (<!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> файлах)
+  - npm test                            # Vitest (<!-- TESTS_COUNT -->1177<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->105<!-- /TESTS_FILES --> файлах)
   - npm run build:renderer              # Vite сборка
   - npm run build:main                  # tsc main process
 ```
@@ -595,7 +597,7 @@ e2e:
 
 `.husky/pre-push` (~5–7 сек):
 
-1. `npm test` (Vitest, <!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> файлах) — полный набор перед пушем в remote.
+1. `npm test` (Vitest, <!-- TESTS_COUNT -->1177<!-- /TESTS_COUNT --> тестов в <!-- TESTS_FILES -->105<!-- /TESTS_FILES --> файлах) — полный набор перед пушем в remote.
 2. Bypass: `SKIP_TESTS=1 git push` — для веток, где менялись только doc/config и тесты прогонять не из чего.
 
 Логика разделения: коммит держим дешёвым (lint-staged + tsc), полный тестовый прогон уезжает в pre-push, где задержка приемлема и страхует от пуша красного.

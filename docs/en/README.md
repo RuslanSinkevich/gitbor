@@ -5,7 +5,7 @@
 A free cross-platform desktop Git client built on Electron for Windows, macOS and Linux. An alternative to Fork, GitKraken and SourceTree. Open source under the MIT license.
 
 - Website: [gitbor.ru](https://gitbor.ru/en/)
-- Documentation: [gitbor.ru/docs](https://gitbor.ru/docs/) (the [`docs/`](../) folder of this repository)
+- Documentation: [gitbor.ru/en/docs](https://gitbor.ru/en/docs/) (the [`docs/`](../) folder of this repository)
 - Builds and updates: [GitHub Releases](https://github.com/RuslanSinkevich/gitbor/releases)
 - Bugs and ideas: [GitHub Issues](https://github.com/RuslanSinkevich/gitbor/issues)
 
@@ -43,9 +43,9 @@ Installers: `npm run dist:win` / `dist:mac` / `dist:linux` (plus `:no-ai` varian
 | Desktop runtime | Electron 40 |
 | UI | React 18, TypeScript 5.9, Vite 6 |
 | Styles | CSS Modules, `--sg-*` CSS variables |
-| File watching | chokidar 4 |
+| File watching | `fs.watch` (recursive) on macOS / Windows, chokidar 4 on Linux |
 | Updates | electron-updater 6 (GitHub Releases), electron-builder 26 |
-| Tests | Vitest 4 (<!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> files), Playwright 1.59 (E2E, Windows) |
+| Tests | Vitest 4 (<!-- TESTS_COUNT -->1177<!-- /TESTS_COUNT --> tests in <!-- TESTS_FILES -->105<!-- /TESTS_FILES --> files), Playwright 1.59 (E2E, Windows) |
 | Quality | ESLint 10 (flat config), Prettier, husky 9 + lint-staged 17 |
 | CI | GitHub Actions: `ci.yml`, `pr.yml`, `release.yml`, `release-pack.yml` |
 | Git | System git from `PATH` (`execFile('git', …)` in `GitExecutor`) |
@@ -106,9 +106,9 @@ gitbor/
 
 - **Commit graph** — virtualized, branch colors, search (Ctrl+F), author avatars, dimmed remote-only commits; refreshes by itself after commits made in a terminal, including branches like `feature/name/task`
 - **Branch filter** — "Own commits" (first parent) or "Full history"; hide and pin branches
-- **Compare** — commit with the working copy, two file versions, and two branches both ways ("what it brings into current" and "like a pull request")
+- **Compare** — commit with the working copy, two file versions, and two branches: against the current one both ways ("what it brings into current" and "like a pull request") or any pair
 - **Short context menus** for branches and commits; "Branches containing this commit", "Open in Azure DevOps / GitHub / GitLab", pull request link from a merge commit
-- **Local changes** — file tree, stage / unstage / discard by file, folder, hunk and line
+- **Local changes** — file tree, stage / unstage / discard by file, folder, hunk and line; new files are moved to the Trash
 - **Diff** — inline / split, ignore whitespace, Markdown preview, correct Cyrillic in CP1251 / CP866 files
 - **Stash** — includes new files, a clear message when there is nothing to stash
 - **Merge conflicts** — two-column editor, conflict prediction
@@ -119,6 +119,7 @@ gitbor/
 - **Data safety** — auto-stash, operation journal, crash recovery, clear actions on git errors
 - **Auto-update** from GitHub Releases, with "what's new" right in the update dialog
 - **Interface** — Russian and English, dark and light themes
+- **Support the project** — a "Support" dialog with donations via CloudTips (SBP, T-Pay or card)
 
 Full list — [Features](features.md).
 
@@ -141,7 +142,7 @@ Full list — [Features](features.md).
 
 ## Status
 
-Version 0.1.23. <!-- TESTS_COUNT -->1116<!-- /TESTS_COUNT --> unit tests in <!-- TESTS_FILES -->95<!-- /TESTS_FILES --> files plus Playwright E2E on Windows. Installers are not signed: Windows shows SmartScreen, macOS shows a Gatekeeper warning.
+Version 0.1.32. <!-- TESTS_COUNT -->1177<!-- /TESTS_COUNT --> unit tests in <!-- TESTS_FILES -->105<!-- /TESTS_FILES --> files plus Playwright E2E on Windows. Installers are not signed: Windows shows SmartScreen, macOS shows a Gatekeeper warning.
 
 ## License
 
