@@ -96,7 +96,10 @@ Fedora 38+, Debian 12+).
 ### Варианты сборки без AI
 
 Для сред, где AI-функции нужно вырезать, скрипты `dist:*:no-ai` собирают
-с `GITBOR_AI=0` и отдельными appId/productName/publish URL:
+с `GITBOR_AI=0`, отдельными appId/productName, в папку `release/no_ai/`.
+Они рассчитаны на запасной источник обновлений (бакет, `GITBOR_UPDATE_BASE_URL`):
+у No AI там свой каталог `…/no_ai/` с обычным `latest.yml`. Релизы на GitHub
+собирает `release.yml` — там No AI вместо каталога получает канал `noai*.yml`:
 
 ```bash
 npm run dist:win:no-ai

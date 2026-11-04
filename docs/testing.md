@@ -545,7 +545,7 @@ npx vitest run tests/git/MyNewParser.test.ts
 **`.github/workflows/ci.yml`** — запускается на `push` и `pull_request` в `main`/`develop`:
 
 ```yaml
-# Матрица: ubuntu-latest, windows-latest, macos-latest с Node 20
+# Матрица: ubuntu-latest, windows-latest, macos-latest с Node 22
 steps:
   - npm ci                              # Установка зависимостей корня
   - npm ci (src/renderer)               # Установка зависимостей renderer

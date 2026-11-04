@@ -6,7 +6,7 @@ A guide for developers of GitBor, a desktop Git client built on Electron.
 
 ## Requirements
 
-- Node.js 22+ (used by the PR gate and the release builds; the CI matrix also checks Node 20)
+- Node.js 22+ (used by CI, the PR gate and the release builds)
 - npm 10+
 - `git` in `PATH`
 

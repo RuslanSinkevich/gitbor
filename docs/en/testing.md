@@ -528,7 +528,7 @@ Two workflows run the tests; two more build installers (`release.yml` on a `vX.Y
 **`.github/workflows/ci.yml`** — runs on `push` and `pull_request` to `main`/`develop`:
 
 ```yaml
-# Matrix: ubuntu-latest, windows-latest, macos-latest with Node 20
+# Matrix: ubuntu-latest, windows-latest, macos-latest with Node 22
 steps:
   - npm ci                              # Install root deps
   - npm ci (src/renderer)               # Install renderer deps

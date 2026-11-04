@@ -96,7 +96,10 @@ Debian 12+).
 
 For environments where the AI features must be stripped out, the
 `dist:*:no-ai` scripts build with `GITBOR_AI=0` and a separate
-appId/productName/publish URL:
+appId/productName, into `release/no_ai/`. They target the fallback update
+source (the bucket, `GITBOR_UPDATE_BASE_URL`), where No AI has its own
+`…/no_ai/` folder with a regular `latest.yml`. GitHub releases are built by
+`release.yml`, where No AI gets the `noai*.yml` channel instead of a folder:
 
 ```bash
 npm run dist:win:no-ai
